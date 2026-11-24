@@ -31,6 +31,9 @@ REGISTRY = {
                           'owner': 'continuity_ledger', 'legacy': 'version'},
     'animatic_manifest': {'version': 1, 'required': ('kind', 'source'),
                           'owner': 'animatic_service', 'legacy': 'version'},
+    # 分镜预演时间线（REQ-S04-80…85／DES-S04-23）：来源、逐镜时长/图版本/批注。
+    'animatic_timeline': {'version': 1, 'required': ('kind', 'source', 'shots'),
+                          'owner': 'animatic_timeline', 'legacy': None},
     # 产物来源关系（U11 核实：artifact_lineage 写 {'version': 1, 'entries': [...]}）。
     'artifact_lineage': {'version': 1, 'required': ('entries',), 'owner': 'artifact_lineage', 'legacy': 'version'},
     # 对标情报卡：采风产出的「来源」文件，不是阶段完成凭据（缺卡不影响 01 完成）。

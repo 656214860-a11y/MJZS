@@ -204,6 +204,139 @@ class AnimaticTests(unittest.TestCase):
                 dict.fromkeys(service.CONFIRMATIONS, True)}), encoding='utf-8')
             self.assertFalse(service.evidence(root)[0])
 
+    # --- REQ-S04-90/91：锁定＝三项确认＋时长回写原子事务 -------------------
+    def _locked_setup(self, root, shot_durations):
+        """建已采用分镜＋版本化成果清单＋timeline.json，返回 (source, folder, board_durations)。"""
+        from stage_execution_service import load_or_sync_animatic_timeline
+        shots = [{'id': sid, 'duration': duration} for sid, duration in shot_durations]
+        board = {'episode_id': 'EP001', 'title': '集',
+                 'duration': sum(s['duration'] for s in shots),
+                 'shots': [dict(shot, title='镜', video_prompt='提示词' + shot['id'],
+                                characters=[], location='LOC_01',
+                                frame='frames/%s.png' % shot['id'], dialogue=[]) for shot in shots]}
+        source = root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+        source.parent.mkdir(parents=True)
+        source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+        (root / 'ui_settings.json').write_text(
+            json.dumps({'adopted_storyboards': [source.relative_to(root).as_posix()]}),
+            encoding='utf-8')
+        timeline = load_or_sync_animatic_timeline(root)
+        folder = write_dir(root, 'animatic')
+        files = {}
+        for row in timeline['shots']:
+            image = '镜头/%s/v1.png' % row['id']
+            target = folder / image
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'image-' + row['id'].encode())
+            files[image] = target.read_bytes()
+        (folder / '版本').mkdir(parents=True)
+        (folder / '版本' / 'animatic_v001.mp4').write_bytes(b'video')
+        (folder / 'assets').mkdir(parents=True, exist_ok=True)
+        (folder / 'assets' / 'temporary_audio.wav').write_bytes(b'audio')
+        files['版本/animatic_v001.mp4'] = b'video'
+        files['assets/temporary_audio.wav'] = b'audio'
+        self._write_manifest(root, folder, source, files, timeline)
+        return source, folder
+
+    def _write_manifest(self, root, folder, source, files, timeline):
+        manifest = {'version': 1, 'kind': 'animatic',
+                    'source': source.relative_to(root).as_posix(),
+                    'source_sha256': service.digest(source.read_bytes()),
+                    'shots': [{'id': row['id'], 'image': '镜头/%s/v1.png' % row['id'],
+                               'seconds': row['seconds'], 'image_version': 1}
+                              for row in timeline['shots']],
+                    'video': '版本/animatic_v001.mp4', 'audio': 'assets/temporary_audio.wav',
+                    'files': {name: service.digest(raw) for name, raw in files.items()},
+                    'confirmed': dict.fromkeys(service.CONFIRMATIONS, False)}
+        (folder / service.MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False),
+                                              encoding='utf-8')
+
+    def _recompose_manifest(self, root, folder, source, seconds):
+        """模拟「重新合成」：清单逐镜时长换成时间线新值、确认重置为全 False。"""
+        import infra.file_cache as file_cache
+        timeline = file_cache.read_json(folder / 'timeline.json')
+        manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+        manifest['shots'] = [dict(row, seconds=seconds[row['id']]) for row in manifest['shots']]
+        manifest['confirmed'] = dict.fromkeys(service.CONFIRMATIONS, False)
+        (folder / service.MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False),
+                                              encoding='utf-8')
+        file_cache.published(folder / service.MANIFEST)
+
+    def test_req_s04_90_lock_needs_three_confirmations_and_fresh_composition(self):
+        """REQ-S04-90：三项不全拒绝；时间线时长与最新合成清单不一致时拒绝锁定且不改 S03。"""
+        from stage_execution_service import lock_animatic, update_animatic_shot
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, folder = self._locked_setup(root, [('SH001', 3), ('SH002', 4)])
+            with self.assertRaisesRegex(ValueError, '全部确认'):
+                lock_animatic(root, rhythm=True, duration=False, dialogue_sync=True)
+            update_animatic_shot(root, 'SH001', seconds=10)
+            with self.assertRaisesRegex(ValueError, '时间线改过，请先重新合成'):
+                lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            board = json.loads(source.read_text(encoding='utf-8'))
+            self.assertEqual(board['shots'][0]['duration'], 3, '拒绝锁定不得回写 S03')
+            manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+            self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, False))
+
+    def test_req_s04_90_lock_writes_archive_durations_new_sha_and_confirmation(self):
+        """REQ-S04-90/91：历史版本存档→原文件只改时长→清单新摘要＋三项确认；S03 再改即失效。"""
+        from stage_execution_service import lock_animatic, update_animatic_shot
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, folder = self._locked_setup(root, [('SH001', 3), ('SH002', 4)])
+            update_animatic_shot(root, 'SH001', seconds=10)
+            self._recompose_manifest(root, folder, source, {'SH001': 10, 'SH002': 4})
+            lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            board = json.loads(source.read_text(encoding='utf-8'))
+            self.assertEqual(board['shots'][0]['duration'], 10)
+            self.assertEqual(board['shots'][0]['video_prompt'], '提示词SH001')
+            self.assertEqual(board['duration'], 14, '顶层时长等于各镜之和')
+            archives = list((source.parent / '历史版本').glob('ep1_*.json'))
+            self.assertEqual(len(archives), 1, '回写前 S03 原样进同目录历史版本')
+            manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+            self.assertEqual(manifest['source_sha256'], service.digest(source.read_bytes()))
+            self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, True))
+            self.assertTrue(service.evidence(root)[0])
+            board['shots'][0]['duration'] = 9
+            source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+            self.assertFalse(service.evidence(root)[0], 'REQ-S04-91：锁定后 S03 再改自动回未确认')
+
+    def test_req_s04_90_rollback_restores_source_and_unconfirmed_manifest(self):
+        """REQ-S04-90：任一步失败全回滚——S03 原字节恢复、无存档残留、清单仍全 False。"""
+        from stage_execution_service import lock_animatic, update_animatic_shot
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, folder = self._locked_setup(root, [('SH001', 3), ('SH002', 4)])
+            update_animatic_shot(root, 'SH001', seconds=10)
+            self._recompose_manifest(root, folder, source, {'SH001': 10, 'SH002': 4})
+            original = source.read_bytes()
+            manifest_before = (folder / service.MANIFEST).read_bytes()
+            with patch('orchestrator.storyboard_selection.adopt',
+                       side_effect=RuntimeError('adopt broke')):
+                with self.assertRaises(RuntimeError):
+                    lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            self.assertEqual(source.read_bytes(), original, '失败必须恢复 S03 原文件字节')
+            self.assertEqual((folder / service.MANIFEST).read_bytes(), manifest_before)
+            history = source.parent / '历史版本'
+            self.assertFalse(history.exists() and list(history.glob('*.json')),
+                             '失败不留存档垃圾')
+            manifest = json.loads(manifest_before)
+            self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, False))
+
+    def test_req_s04_90_identical_durations_confirm_without_writeback(self):
+        """REQ-S04-90：时间线时长与 S03 一致时不回写——无历史版本、原文件不动、只写确认。"""
+        from stage_execution_service import lock_animatic
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source, folder = self._locked_setup(root, [('SH001', 3), ('SH002', 4)])
+            original = source.read_bytes()
+            lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            self.assertEqual(source.read_bytes(), original)
+            self.assertFalse((source.parent / '历史版本').exists())
+            manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+            self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, True))
+            self.assertTrue(service.evidence(root)[0])
+
 
 if __name__ == '__main__':
     unittest.main()

@@ -354,5 +354,30 @@ class ReadStateCounterTests(unittest.TestCase):
         self.assertEqual(schema.read_state_counts(), {})
 
 
+class AnimaticTimelineSchemaTests(unittest.TestCase):
+    """REQ-S04-80／DES-S04-23：timeline.json 登记 animatic_timeline v1、属主与必备字段。"""
+
+    def test_timeline_kind_is_registered_with_required_fields(self):
+        spec = schema.spec('animatic_timeline')
+        self.assertEqual((spec['version'], spec['required'], spec['owner'], spec['legacy']),
+                         (1, ('kind', 'source', 'shots'), 'animatic_timeline', None))
+        self.assertIn('animatic_timeline', schema.registered())
+
+    def test_timeline_validate_stamp_and_classify(self):
+        payload = {'kind': 'animatic_timeline', 'source': '03初步分镜/分镜拆分/ep1.json',
+                   'shots': [{'id': 'SH001', 'seconds': 3}]}
+        self.assertEqual(schema.validate('animatic_timeline', schema.stamp('animatic_timeline', payload)),
+                         [])
+        problems = schema.validate('animatic_timeline',
+                                   {'schema_version': 1, 'kind': 'animatic_timeline'})
+        self.assertTrue(any('source' in p for p in problems))
+        self.assertTrue(any('shots' in p for p in problems))
+        self.assertEqual(schema.classify('animatic_timeline',
+                                         schema.stamp('animatic_timeline', payload)), 'current')
+        # legacy 登记为 None：旧键 version 不构成版本信息，按缺版本处理。
+        self.assertEqual(schema.classify('animatic_timeline',
+                                         dict(payload, version=1)), 'missing')
+
+
 if __name__ == '__main__':
     unittest.main()
