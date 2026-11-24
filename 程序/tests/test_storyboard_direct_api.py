@@ -146,5 +146,142 @@ class DirectApiTests(unittest.TestCase):
         self.assertFalse(job.results[0]['ok'])
 
 
+class StoryboardDirectProductionPathTests(unittest.TestCase):
+    """REQ-S03-53 真实路径（FIX-S03-DIRECT-ERROR）：不注入 adapter 也要能发出请求并发布；
+    失败结果带错误码与原因，状态栏总结直接写「哪一集、为什么」，整批未启动不误报集数。"""
+
+    API_RECORD = {'name': 'fixture-api', 'model': 'fixture-api', 'call_mode': 'API',
+                  'base_url': 'https://example.test/v1', 'wire_api': 'chat',
+                  'key_env': 'FIXTURE_API_KEY', 'context_length': 128000}
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.project = Path(temp.name).resolve() / '项目'
+        self.script = self.project / '02剧本结构' / 'EP001_雨夜.md'
+        self.script.parent.mkdir(parents=True)
+        self.script.write_text('第一场 街头\n' + '雨夜，行人匆匆。' * 800, encoding='utf-8')
+        self.config = {'engine': 'qwen', 'model': 'fixture-api', 'program': ''}
+        self.messages = []
+
+    def boards(self):
+        return sorted(self.project.rglob('*_分镜.json'))
+
+    def _real_path(self, replies):
+        """真实路径补丁：池里放一条 API 记录；PoolAdapter.stream 依次返回 replies。"""
+        import contextlib
+        import infra.model_router as model_router
+        stack = contextlib.ExitStack()
+        stack.enter_context(patch('infra.model_pool.pool',
+                                  return_value={'fixture-api': dict(self.API_RECORD)}))
+        stack.enter_context(patch('infra.model_pool.require_certified', return_value=False))
+        stack.enter_context(patch('infra.model_pool.health_is_blocked', return_value=False))
+        stack.enter_context(patch.object(model_router.PoolAdapter, 'stream',
+                                        Mock(side_effect=list(replies))))
+        return stack
+
+    def test_real_path_without_injected_adapter_publishes(self):
+        """不传 adapter／record 的真实路径：能发出请求并发布分镜（改前 ImportError）。"""
+        from orchestrator.storyboard_direct_api import run_batch
+        reply = {'ok': True, 'text': json.dumps(good_episode(), ensure_ascii=False), 'error': '',
+                 'model': 'fixture-api', 'response_meta': {'finish_reason': 'stop'}}
+        with self._real_path([reply]):
+            results = run_batch(self.project, self.config, 'SKILL正文', scripts=[self.script],
+                                report=self.messages.append)
+        self.assertTrue(results[0]['ok'], results)
+        self.assertEqual('', results[0]['code'])
+        self.assertEqual(1, len(self.boards()))
+
+    def test_request_failure_carries_code_and_reason(self):
+        """HTTP 401 → E-AUTH-REJECTED，error 以错误码开头且含原始状态码，不落盘。"""
+        from orchestrator.storyboard_direct_api import run_batch
+        reply = {'ok': False, 'status': 401, 'error': 'HTTP 401 unauthorized', 'error_class': 'auth'}
+        with self._real_path([reply]):
+            results = run_batch(self.project, self.config, 'SKILL正文', scripts=[self.script])
+        self.assertFalse(results[0]['ok'])
+        self.assertEqual('E-AUTH-REJECTED', results[0]['code'])
+        self.assertTrue(results[0]['error'].startswith('[E-AUTH-REJECTED]'), results[0]['error'])
+        self.assertIn('401', results[0]['error'])
+        self.assertEqual([], self.boards())
+
+    def test_validation_failure_is_contract_violation(self):
+        """两次回复都不合格 → E-CONTRACT-VIOLATION，error 里带校验问题原文。"""
+        from orchestrator.storyboard_direct_api import run_batch
+        bad = {'ok': True, 'text': '不是JSON', 'error': '', 'response_meta': {'finish_reason': 'stop'}}
+        with self._real_path([bad, bad]):
+            results = run_batch(self.project, self.config, 'SKILL正文', scripts=[self.script])
+        self.assertFalse(results[0]['ok'])
+        self.assertEqual('E-CONTRACT-VIOLATION', results[0]['code'])
+        self.assertIn('回复里没有找到 JSON 对象', results[0]['error'])
+        self.assertEqual([], self.boards())
+
+    def test_batch_level_failure_keeps_reason(self):
+        """整批开工前失败（模型准入）→ E-CONFIG-INVALID，error 保留中文原因。"""
+        import infra.model_pool
+        from orchestrator.storyboard_direct_api import Job
+        with patch('infra.model_pool.pool', return_value={'fixture-api': dict(self.API_RECORD)}), \
+                patch.object(infra.model_pool, 'model_admission_error',
+                             return_value='这条模型没有填写上下文窗口'):
+            job = Job(self.project, self.config, 'SKILL正文', scripts=[self.script])
+            job.run()
+        self.assertFalse(job.results[0]['ok'])
+        self.assertEqual('E-CONFIG-INVALID', job.results[0]['code'])
+        self.assertIn('这条模型没有填写上下文窗口', job.results[0]['error'])
+
+    def test_summary_text_shows_reasons(self):
+        """状态栏总结：整批未启动写「没有启动」＋原因；一成一败带文件名与原因；全成到句号。"""
+        from ui.desktop_storyboard_direct import summary_text
+        batch = summary_text([{'source': '', 'ok': False, 'stopped': False, 'path': '',
+                               'error': '[E-CONFIG-INVALID] 配置无效或缺失：这条模型没有填写上下文窗口'}])
+        self.assertIn('没有启动', batch)
+        self.assertIn('这条模型没有填写上下文窗口', batch)
+        self.assertNotIn('失败 1 集', batch)
+        mixed = summary_text([
+            {'source': str(self.project / 'EP001_雨夜.md'), 'ok': True, 'stopped': False,
+             'path': 'EP001_雨夜_分镜.json', 'error': ''},
+            {'source': str(self.project / 'EP002_雨夜.md'), 'ok': False, 'stopped': False,
+             'path': '', 'error': '[E-AUTH-REJECTED] 凭据被服务拒绝'}])
+        self.assertIn('成功 1 集，失败 1 集', mixed)
+        self.assertIn('EP002_雨夜.md', mixed)
+        self.assertIn('[E-AUTH-REJECTED]', mixed)
+        done = summary_text([{'source': str(self.project / 'EP001_雨夜.md'), 'ok': True,
+                              'stopped': False, 'path': 'EP001_雨夜_分镜.json', 'error': ''}])
+        self.assertEqual('初步分镜直连完成：成功 1 集，失败 0 集。', done)
+
+    def test_summary_text_and_log_leave_no_absolute_path(self):
+        """状态栏与通知只写文件名：总结文字不出现项目绝对路径。"""
+        from ui.desktop_storyboard_direct import summary_text
+        text = summary_text([
+            {'source': str(self.script), 'ok': False, 'stopped': False, 'path': '',
+             'error': '[E-IO-WRITE] 写入文件失败'},
+            {'source': str(self.script), 'ok': True, 'stopped': False,
+             'path': 'EP001_雨夜_分镜.json', 'error': ''}])
+        self.assertIn('EP001_雨夜.md', text)
+        self.assertNotIn(str(self.project), text)
+
+    def test_adapter_classes_come_from_model_router(self):
+        """守卫：PoolAdapter／ModelAdapter 只住 infra.model_router，不许从 model_pool 取。"""
+        import ast
+        from tests.architecture._scan import ROOT, module_scan_files, parse
+        bad = []
+        for path in module_scan_files():
+            relative = path.relative_to(ROOT).as_posix()
+            for node in ast.walk(parse(path)):
+                if isinstance(node, ast.ImportFrom) and node.module in ('infra.model_pool', 'model_pool'):
+                    bad += ['%s:%d from %s import %s' % (relative, node.lineno, node.module, alias.name)
+                            for alias in node.names if alias.name in ('PoolAdapter', 'ModelAdapter')]
+                elif isinstance(node, ast.Attribute) and node.attr in ('PoolAdapter', 'ModelAdapter'):
+                    parts, value = [], node.value
+                    while isinstance(value, ast.Attribute):
+                        parts.append(value.attr)
+                        value = value.value
+                    if isinstance(value, ast.Name):
+                        parts.append(value.id)
+                    if '.'.join(reversed(parts)) in ('infra.model_pool', 'model_pool'):
+                        bad.append('%s:%d %s.%s' % (relative, node.lineno,
+                                                    '.'.join(reversed(parts)), node.attr))
+        self.assertEqual([], bad)
+
+
 if __name__ == '__main__':
     unittest.main()
