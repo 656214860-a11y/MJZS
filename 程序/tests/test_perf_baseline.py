@@ -29,6 +29,7 @@ import ctypes
 import ctypes.wintypes
 import inspect
 import json
+import math
 import os
 import struct
 import sys
@@ -49,7 +50,9 @@ if str(HERE) not in sys.path:
 os.chdir(PROGRAM)
 
 from contract.project_stages import storyboard as storyboard_stage
-from performance_contract import (LONG_LIST_SCROLL_MEDIAN_MS, MEMORY_DELTA_MB,
+from performance_contract import (FIRST_EVENT_LOOP_SECONDS, LONG_LIST_3000_FILTER_MS,
+                                  LONG_LIST_3000_SCROLL_MEDIAN_MS, LONG_LIST_SCROLL_MEDIAN_MS,
+                                  MEMORY_DELTA_MB, P95_REGRESSION_FACTOR, P95_SAMPLE_COUNT,
                                   STARTUP_FIRST_FRAME_MS)
 
 FIRST_FRAME_LIMIT = STARTUP_FIRST_FRAME_MS  # 冷启动：Desktop 构造 ＋ 首帧（ms）
@@ -162,6 +165,103 @@ def machine_speed_ms():
         spent = (time.process_time() - start) * 1000.0 / 8
         best = spent if best is None else min(best, spent)
     return max(1.0, best)
+
+
+# ── REL-07 发布性能基线：三族用例共享的读／写／P95 口径 ─────────────────────
+BASELINE_PATH = PROGRAM / '维护记录' / '性能基线.json'
+
+
+def load_perf_baseline():
+    """读基线文件；缺失或不是合法 JSON 返回 None（由用例决定记还是判）。"""
+    try:
+        data = json.loads(BASELINE_PATH.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        return None
+    return data if isinstance(data, dict) else None
+
+
+def require_perf_baseline(case, section, values):
+    """本节已有记录就返回旧值不写盘；缺失则写入本次实测并红在「请先生成基线」。
+
+    首轮（或基线被删后重建）只记录不设门槛：用例先落盘再 fail，下一趟起本节
+    存在才进比较断言——卡面要求的「缺基线报请先生成基线而不是默默通过」。
+    """
+    document = load_perf_baseline()
+    recorded = document.get(section) if isinstance(document, dict) else None
+    if isinstance(recorded, dict):
+        return recorded
+    document = document if isinstance(document, dict) else {}
+    document.setdefault('schema_version', 1)
+    document.setdefault('generated_at', time.strftime('%Y-%m-%d %H:%M:%S'))
+    document[section] = dict(values)
+    from agent.core import save as atomic_save
+    atomic_save(BASELINE_PATH, document)
+    case.fail('请先生成基线：%s 节缺失，本次实测已写入 %s；复核数值后重跑门禁'
+              % (section, BASELINE_PATH.name))
+
+
+def p95_ms(samples):
+    """nearest-rank P95（毫秒）；采样数见 performance_contract.P95_SAMPLE_COUNT。"""
+    ordered = sorted(samples)
+    return ordered[max(0, math.ceil(len(ordered) * 0.95) - 1)]
+
+
+# ── REL-07 长列表用例：合成索引与泵（并入自旧草稿 test_perf_long_lists.py）────
+LONG_LIST_SHOTS = 3000          # 需求规模：约 3000 镜
+LONG_LIST_FILES = 21000         # 每镜 7 个阶段产物
+FILL_BUDGET_SECONDS = 240.0     # 填充等待上限（超时才报「没填完」，正常远小于此）
+
+
+def synthetic_file_index(project, shots):
+    """写一份 shots×7 行的合成索引——只写 index.json，不造真实文件。
+
+    磁盘上并不真摆 2.1 万个文件：``_refresh`` 只对每行 stat 一次，缺失行照常渲染
+    「[缺失]」标，正是索引缓存的既有语义（旧草稿 test_perf_long_lists.py 同口径）。
+    全部行放在「01剧本准备/输入/」下：``stage_of`` 归 ``script``，自动续开落在
+    剧本准备页（页 0）时面板的阶段跟随筛选正好全放行，省掉一次全量索引重载
+    （每次 ``rows()`` 都要逐行 stat 2.1 万条，约三十秒），否则整文件塞不进
+    安全串行单元的 180 秒上限。
+    """
+    from infra import file_index
+    from agent.core import save as atomic_save
+    from contract.file_index_contract import FileRow, INDEX_VERSION
+    stamp = 1750000000.0
+    files = []
+    for number in range(1, shots + 1):
+        shot = 'SH%04d' % number
+        for relative in ('01剧本准备/输入/帧图_%s.png' % shot,
+                         '01剧本准备/输入/白模_%s.mp4' % shot,
+                         '01剧本准备/输入/成片_%s.mp4' % shot,
+                         '01剧本准备/输入/配音_%s.wav' % shot,
+                         '01剧本准备/输入/粗剪_%s.mp4' % shot,
+                         '01剧本准备/输入/字幕_%s.srt' % shot,
+                         '01剧本准备/输入/质检_%s.md' % shot):
+            files.append(FileRow(path=relative,
+                                 stage=file_index.stage_of(relative),
+                                 kind=file_index.kind_of(relative),
+                                 status='草稿', size=1, mtime=stamp + number,
+                                 order=number, title=shot,
+                                 origin='系统生成', missing=True).to_dict())
+    payload = {'schema_version': INDEX_VERSION, 'project': Path(project).name,
+               'generated_at': time.strftime('%Y-%m-%d %H:%M:%S'), 'files': files}
+    atomic_save(file_index.index_path(project), payload)
+
+
+def index_render_done(panel, expected):
+    """索引加载收尾 ＋ 分批建行排空 ＋ 行数达到期望。"""
+    return (getattr(panel, '_index_loading', True) is False
+            and getattr(panel, '_index_render_job', None) is None
+            and len(getattr(panel, '_index_rows', {})) >= expected)
+
+
+def pump_until(window, predicate, deadline):
+    """持续泵 Tk 事件直到谓词成立或超时（与既有桌面用例同口径）。"""
+    while time.perf_counter() < deadline:
+        window.update()
+        if predicate():
+            return True
+        time.sleep(.005)
+    return predicate()
 
 
 class PerfBaseline(unittest.TestCase):
@@ -431,6 +531,157 @@ class PerfBaseline(unittest.TestCase):
             self.assertLess(delta, MEMORY_LIMIT,
                             '11 页 ＋ 300 项资产页之后工作集涨了 %.1f MB（限 %.0f MB）：%.1f → %.1f'
                             % (delta, MEMORY_LIMIT, before, after))
+
+    # ── ⑥ 本地操作 P95（REL-07 发布基线）─────────────────────────────────────
+    def test_p95_local_ops_stays_within_baseline(self):
+        """打开项目／切页／保存各采 %d 次取 P95；超基线 %.0f%% 判回归。"""
+        from agent.core import save as atomic_save
+        with tempfile.TemporaryDirectory(ignore_cleanup_errors=True) as td:
+            d, proj, win = self.desktop(td)
+            win.update()
+            samples = {'open_project': [], 'switch_page': [], 'save': []}
+            for _ in range(P95_SAMPLE_COUNT):
+                started = time.perf_counter()
+                d.load(proj)
+                win.update()
+                samples['open_project'].append((time.perf_counter() - started) * 1000.0)
+            for _ in range(P95_SAMPLE_COUNT // 2):
+                for index in (PAGE['assets'], 0):
+                    started = time.perf_counter()
+                    d.show(index)
+                    win.update()
+                    samples['switch_page'].append((time.perf_counter() - started) * 1000.0)
+            save_target = Path(td) / 'p95' / '本地保存.json'
+            # 保存按真实量级采样：3000 镜级项目的分镜 JSON 是 MB 级，量级以下的
+            # 毫秒抖动会让 P95 的 20% 规则误报（实测 2.8→4.5 ms 假回归）。
+            payload = {'shots': [{'id': 'SH%04d' % index,
+                                  'prompt': '性能基线采样镜头描述 ' * 80}
+                                 for index in range(2000)]}
+            for _ in range(P95_SAMPLE_COUNT):
+                started = time.perf_counter()
+                atomic_save(save_target, payload)
+                samples['save'].append((time.perf_counter() - started) * 1000.0)
+            measured = {op: round(p95_ms(values), 1) for op, values in samples.items()}
+            measured['samples'] = P95_SAMPLE_COUNT
+            recorded = require_perf_baseline(self, 'local_ops_p95_ms', measured)
+            for op in ('open_project', 'switch_page', 'save'):
+                self.assertLessEqual(
+                    measured[op], recorded[op] * P95_REGRESSION_FACTOR,
+                    '%s P95 %.1f ms 超基线 %.1f ms 的 20%%（限 %.1f ms）'
+                    % (op, measured[op], recorded[op],
+                       recorded[op] * P95_REGRESSION_FACTOR))
+
+    # ── ⑦ 干净机器冷启动（REL-07，并入自旧草稿 test_perf_cold_start.py）──────
+    def test_perf_cold_start_clean_machine_baseline(self):
+        """空数据目录冷启动一次：首帧与首次事件循环实测写入基线文件。
+
+        门槛沿用 performance_contract 既有三条（STARTUP_FIRST_FRAME_MS /
+        FIRST_EVENT_LOOP_SECONDS），不新增不放宽；只把实测量记进
+        性能基线.json 的 cold_start 节，缺节先落盘再红「请先生成基线」。
+        """
+        window = self.tk.Tk()
+        window.geometry('1180x760+40+40')
+        self.addCleanup(lambda: self.quiet(window.destroy))
+        from desktop import Desktop
+        with tempfile.TemporaryDirectory(prefix='perf-cold-start-') as temporary:
+            started = time.perf_counter()
+            desktop = Desktop(window, root=Path(temporary))
+            self.addCleanup(desktop.cancel_timers)
+            # 干净机器首日分支会排上「新建项目」流程；该交互不属于冷启动首帧，
+            # 与既有空项目用例同口径在进入事件循环前撤销。
+            desktop.startup_controller.cancel()
+            window.update()
+            first_frame_ms = (time.perf_counter() - started) * 1000.0
+            window.update_idletasks()
+            window.update()
+            event_loop_seconds = time.perf_counter() - started
+            recorded = require_perf_baseline(self, 'cold_start', {
+                'first_frame_ms': round(first_frame_ms, 1),
+                'first_event_loop_seconds': round(event_loop_seconds, 3)})
+            self.assertLess(first_frame_ms, STARTUP_FIRST_FRAME_MS,
+                            '干净机器冷启动到首帧 %.1f ms（限 %.0f ms，基线 %.1f ms）'
+                            % (first_frame_ms, STARTUP_FIRST_FRAME_MS,
+                               recorded['first_frame_ms']))
+            self.assertLessEqual(
+                event_loop_seconds, FIRST_EVENT_LOOP_SECONDS,
+                '干净机器冷启动首次事件循环 %.3f s（限 %.1f s，基线 %.3f s）'
+                % (event_loop_seconds, FIRST_EVENT_LOOP_SECONDS,
+                   recorded['first_event_loop_seconds']))
+
+    # ── ⑧ 3000 镜长列表（REL-07，并入自旧草稿 test_perf_long_lists.py）───────
+    def test_perf_long_lists_3000_shot_files_panel(self):
+        """3000 镜 × 7 阶段产物（2.1 万行）文件索引列表：填充、滚动、关键字筛选。
+
+        合成索引只写 index.json，不造真实文件；测量值写入基线文件
+        long_list 节，缺节先落盘再红「请先生成基线」。硬门槛只新增
+        performance_contract 的 LONG_LIST_3000_SCROLL_MEDIAN_MS／
+        LONG_LIST_3000_FILTER_MS（目标机器首轮实测上浮 20%）。
+        每次 ``_apply_filters`` 都整趟重载 2.1 万行索引（约三十秒），
+        类型筛选与关键字筛选同走这条路径，本文件受安全串行单元 180 秒
+        上限约束，只测关键字一趟代表「筛选」口径。
+        """
+        import test_desktop_startup_perf as startup_fixtures
+        from desktop import Desktop, PAGES
+        window = self.tk.Tk()
+        window.geometry('1180x760+40+40')
+        self.addCleanup(lambda: self.quiet(window.destroy))
+        with tempfile.TemporaryDirectory(prefix='perf-long-list-') as temporary:
+            app, project = startup_fixtures.DesktopStartupPerfTests._startup_app(
+                temporary, remembered=True)
+            synthetic_file_index(project, LONG_LIST_SHOTS)
+            desktop = Desktop(window, root=app)
+            self.addCleanup(desktop.cancel_timers)
+            self.assertTrue(
+                pump_until(window,
+                           lambda: (desktop.page_index == 0
+                                    and desktop.status_bar._segments['page'][1].full_text == PAGES[0]),
+                           time.perf_counter() + 10.0),
+                '自动续开须先落进剧本准备页，面板才有项目上下文')
+            panel = desktop.files_panel
+            fill_start = time.perf_counter()
+            panel.open_panel()
+            self.assertTrue(
+                pump_until(window, lambda: index_render_done(panel, LONG_LIST_FILES),
+                           fill_start + FILL_BUDGET_SECONDS),
+                '%d 行文件面板 %ds 内未填完（已填 %d 行）'
+                % (LONG_LIST_FILES, FILL_BUDGET_SECONDS,
+                   len(getattr(panel, '_index_rows', {}))))
+            fill_ms = (time.perf_counter() - fill_start) * 1000.0
+
+            frames = []
+            for _ in range(60):
+                started = time.perf_counter()
+                panel.script_tree.yview_scroll(3, 'units')
+                window.update()
+                frames.append((time.perf_counter() - started) * 1000.0)
+            frames.sort()
+            p10 = frames[max(0, int(len(frames) * 0.1) - 1)]
+            median = frames[len(frames) // 2]
+
+            panel.keyword_var.set('SH1234')
+            keyword_start = time.perf_counter()
+            panel._apply_filters()
+            self.assertTrue(
+                pump_until(window, lambda: index_render_done(panel, 7),
+                           keyword_start + LONG_LIST_3000_FILTER_MS / 500.0),
+                '关键字筛选 2.1 万行未在预算内返回')
+            keyword_ms = (time.perf_counter() - keyword_start) * 1000.0
+
+            recorded = require_perf_baseline(self, 'long_list', {
+                'shots': LONG_LIST_SHOTS, 'files': LONG_LIST_FILES,
+                'fill_ms': round(fill_ms, 1),
+                'scroll_p10_ms': round(p10, 1),
+                'scroll_median_ms': round(median, 1),
+                'filter_keyword_ms': round(keyword_ms, 1)})
+            self.assertLess(
+                median, LONG_LIST_3000_SCROLL_MEDIAN_MS,
+                '2.1 万行滚动中位 %.1f ms（灾难线 %.0f ms，基线 %.1f ms）；p10 %.1f、最慢 %.1f'
+                % (median, LONG_LIST_3000_SCROLL_MEDIAN_MS,
+                   recorded['scroll_median_ms'], p10, frames[-1]))
+            self.assertLess(
+                keyword_ms, LONG_LIST_3000_FILTER_MS,
+                '关键字筛选整趟 %.1f ms（灾难线 %.0f ms，基线 %.1f ms）'
+                % (keyword_ms, LONG_LIST_3000_FILTER_MS, recorded['filter_keyword_ms']))
 
 
 if __name__ == '__main__':

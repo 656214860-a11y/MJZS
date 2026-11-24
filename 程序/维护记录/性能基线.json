@@ -1,0 +1,22 @@
+{
+  "schema_version": 1,
+  "generated_at": "2026-11-24 11:20:00",
+  "cold_start": {
+    "first_frame_ms": 752.2,
+    "first_event_loop_seconds": 0.752
+  },
+  "long_list": {
+    "shots": 3000,
+    "files": 21000,
+    "fill_ms": 58415.9,
+    "scroll_p10_ms": 5.5,
+    "scroll_median_ms": 7.0,
+    "filter_keyword_ms": 34954.2
+  },
+  "local_ops_p95_ms": {
+    "open_project": 361.6,
+    "switch_page": 723.4,
+    "save": 30.7,
+    "samples": 20
+  }
+}
