@@ -7,6 +7,7 @@ from pathlib import Path
 from types import SimpleNamespace
 
 import desktop_shared_input as shared_input
+import desktop_shared_send as shared_send
 from ui_shortcuts import ShortcutRegistry
 
 
@@ -31,6 +32,7 @@ class SharedInputLayoutTests(unittest.TestCase):
 
     def _make(self, **kwargs):
         options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'on_upstream_error': shared_send.upstream_send_error,
                    'skills': [SimpleNamespace(name='mine-skill', stage='storyboard')],
                    'engines': ()}
         options.update(kwargs.pop('options', {}))
@@ -434,6 +436,7 @@ class SharedInputLayoutTests(unittest.TestCase):
     def _make_bottom(self, **kwargs):
         """输入框贴窗口底部（与 Desktop ``pack(before=status_label)`` 同构），供 winfo 实尺断言。"""
         options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'on_upstream_error': shared_send.upstream_send_error,
                    'skills': [SimpleNamespace(name='mine-skill', stage='storyboard')],
                    'engines': ()}
         options.update(kwargs.pop('options', {}))
@@ -507,16 +510,16 @@ class UpstreamGateTests(unittest.TestCase):
     """``upstream_send_error`` 的放行／拦截分支（门禁本体由 stage_parallel／completion_evidence 保证）。"""
 
     def test_script_and_unknown_stage_pass(self):
-        self.assertEqual(shared_input.upstream_send_error(None, 'script'), '')
-        self.assertEqual(shared_input.upstream_send_error(None, ''), '')
-        self.assertEqual(shared_input.upstream_send_error(None, 'not-a-stage'), '')
+        self.assertEqual(shared_send.upstream_send_error(None, 'script'), '')
+        self.assertEqual(shared_send.upstream_send_error(None, ''), '')
+        self.assertEqual(shared_send.upstream_send_error(None, 'not-a-stage'), '')
 
     def test_gated_stage_upstream_ready_passes(self):
         from unittest import mock
         import stage_parallel
         ready = {'verdict': stage_parallel.PASS, 'ok': True, 'from': 'animatic'}
         with mock.patch.object(stage_parallel, 'evaluate', return_value=ready):
-            self.assertEqual(shared_input.upstream_send_error(object(), 'assets'), '')
+            self.assertEqual(shared_send.upstream_send_error(object(), 'assets'), '')
 
     def test_gated_stage_blocked_reports_reason(self):
         from unittest import mock
@@ -524,21 +527,21 @@ class UpstreamGateTests(unittest.TestCase):
         blocked = {'verdict': stage_parallel.BLOCKED, 'ok': False, 'from': 'animatic',
                    'detail': '预演未确认', 'reject': '先确认预演'}
         with mock.patch.object(stage_parallel, 'evaluate', return_value=blocked):
-            error = shared_input.upstream_send_error(object(), 'assets')
+            error = shared_send.upstream_send_error(object(), 'assets')
         self.assertTrue(error)
 
     def test_ungated_stage_upstream_complete_passes(self):
         from unittest import mock
         with mock.patch('stage_completion_service.completion_evidence', return_value=(True, '')), \
                 mock.patch('stage_parallel.stage_state', return_value=''):
-            self.assertEqual(shared_input.upstream_send_error(object(), 'audio'), '')
+            self.assertEqual(shared_send.upstream_send_error(object(), 'audio'), '')
 
     def test_ungated_stage_upstream_blank_rejected(self):
         from unittest import mock
         with mock.patch('stage_completion_service.completion_evidence',
                         return_value=(False, '没有视频成果')), \
                 mock.patch('stage_parallel.stage_state', return_value=''):
-            error = shared_input.upstream_send_error(object(), 'audio')
+            error = shared_send.upstream_send_error(object(), 'audio')
         self.assertIn('视频生成', error)
 
     def test_s03_episode_script_does_not_block_send(self):
@@ -555,11 +558,11 @@ class UpstreamGateTests(unittest.TestCase):
             '### 场景 01：咖啡馆·内景·日\n\n'
             '- 出场角色：林夏、陈默\n\n'
             '陈默：你终于来了。\n', encoding='utf-8')
-        error = shared_input.upstream_send_error(root, 'storyboard')
+        error = shared_send.upstream_send_error(root, 'storyboard')
         self.assertEqual(error, '', '有可用结构稿时 S03 发送门禁必须放行')
         notes = []
         status = SimpleNamespace(set=notes.append)
-        error = shared_input.upstream_send_error(root, 'storyboard', status)
+        error = shared_send.upstream_send_error(root, 'storyboard', status)
         self.assertEqual(error, '')
         self.assertTrue(any('不影响分镜制作' in note for note in notes),
                         '清单补不了时应把说明写进状态栏：%r' % notes)
@@ -570,7 +573,7 @@ class UpstreamGateTests(unittest.TestCase):
         self.addCleanup(tmp.cleanup)
         root = Path(tmp.name) / 'project'
         root.mkdir()
-        error = shared_input.upstream_send_error(root, 'storyboard')
+        error = shared_send.upstream_send_error(root, 'storyboard')
         self.assertTrue(error)
         self.assertIn('结构剧本', error)
         self.assertIn('确认一份结构剧本', error)
@@ -688,6 +691,7 @@ class CandidateHintCardTests(unittest.TestCase):
 
     def _make(self, skills=None):
         options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'on_upstream_error': shared_send.upstream_send_error,
                    'skills': skills if skills is not None else [
                        SimpleNamespace(name='mine-skill', stage='storyboard', description='用途甲')],
                    'engines': ()}

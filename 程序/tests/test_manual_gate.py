@@ -276,23 +276,23 @@ class ManualButtonTests(PageHelpers):
             self.assertEqual(application.log.get("1.0", "end"), before, "闸拦下来时什么都没提交")
             self.assertFalse(application.busy)
 
-    def test_the_storyboard_button_does_not_start_the_agent_when_stopped(self):
-        from test_row_targets import fresh
+    def test_the_storyboard_page_has_no_legacy_manual_button(self):
+        """REQ-S03-54：初步分镜页不再有「手动制作分镜」按钮；发送入口在共享输入框。"""
         with tempfile.TemporaryDirectory() as td:
-            folder = None
-            d, win, proj = self.page(td)
-            folder = Path(proj) / "storyboard" / "分镜拆分"
-            second = folder / "episode_2.json"
-            second.write_text((folder / "episode.json").read_text(encoding="utf-8"), encoding="utf-8")
-            fresh(proj)                                 # 别让 normalize 把新文件改名
-            calls = []
-            d.open_storyboard_skill = lambda *a, **k: calls.append(a)
+            d, win, _proj = self.page(td)
             self.show(d, win, PAGE_OF['storyboard'])
-            tree = self.tables(d.content)[1]
-            tree.selection_set(str(second)); tree.focus(str(second)); win.update()
-            self.assertEqual(self.button_state(d, "手动制作分镜"), "normal",
-                             "高亮那份没采用过的分镜也算选中，按钮该亮")
-            self.buttons(d.content)["手动制作分镜"].invoke(); win.update()
+            self.assertNotIn("手动制作分镜", self.buttons(d.content),
+                             "初步分镜以共享输入框发送作为唯一制作入口")
+
+    def test_storyboard_send_does_not_start_the_agent_when_gated(self):
+        """REQ-S03-54：发送入口同样过 before_manual；闸拦下时不调用 open_storyboard_skill。"""
+        import desktop_shared_send as shared_send
+        with tempfile.TemporaryDirectory() as td:
+            d, win, _proj = self.page(td)
+            calls = []
+            d.open_storyboard_skill = lambda *a, **k: calls.append((a, k)) or 1
+            self.show(d, win, PAGE_OF['storyboard'])
+            self.assertFalse(shared_send.send_storyboard(d, ''))
             self.assertEqual(self.gated, ["storyboard"])
             self.assertEqual(calls, [], "闸拦下来时没启动 agent")
 

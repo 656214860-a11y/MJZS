@@ -96,11 +96,26 @@ class PetBridgeMixin:
 
         没有可做的输入（没勾剧本、或勾中的都做好了）返回空串，让宠物自己说「没有要做的事」；
         真的派了就返回一句人话。派发本身是异步的（work 在后台线程里算），失败那句会走
-        「操作未完成」的既有出口，不在这里另造一套。
+        「操作未完成」的既有出口，不在这里另造一套。S03 手动发送仍复用此入口。
         """
         return stage_handler_registry.start(
             self, 'storyboard', trigger=trigger, skip_action=skip_unchecked,
             run_action=stage_run_action)
+
+    def start_storyboard_send(self, project, request_text, named, model_snapshot):
+        """S03 手动发送的 L4 适配器：保留统一注册器门禁，只替换呈现动作。"""
+        context = {'project': project, 'request_text': request_text, 'named': named,
+                   'model_snapshot': model_snapshot, 'started': []}
+        previous = getattr(self, '_storyboard_send_context', None)
+        self._storyboard_send_context = context
+        try:
+            result = self.pet_storyboard_batch(trigger='manual')
+        finally:
+            self._storyboard_send_context = previous
+        if not context['started'] and isinstance(result, str) and result.strip():
+            self.status.set(result)
+        return bool(context['started'])
+
     def batch_blockers(self,source,pending):
         """用引擎自己的逐镜检查（batch_frames.shot_inputs）列出无法生成的镜头与原因。
 

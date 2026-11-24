@@ -79,63 +79,31 @@ def _say(status, text):
             app_logging.swallowed()
 
 
-def upstream_send_error(project, stage, status=None):
-    """发送门禁（任务书轮 3）：当前阶段上游空白 → 拒绝并提示；放行返回 ``''``。
+def _upstream_error(box):
+    """上游门禁由宿主注入，输入框不反向依赖发送分流模块。"""
+    gate = getattr(box, 'on_upstream_error', None)
+    if not callable(gate):
+        return ''
+    return gate(box.project, box.stage, box.status) or ''
 
-    有 ``stage_parallel`` 门禁的阶段走 ``evaluate``（UPSTREAM_BLANK／BLOCKED 都拦）；
-    没有门禁行的非 script 阶段看紧邻上游阶段的 ``completion_evidence``，上游被显式
-    跳过（skipped）时豁免；``script`` 与无项目一律放行（简报门禁由宿主发送路径负责）。
-    ``storyboard`` 例外走 ``storyboard_send_readiness``（REQ-S03-55），说明经 ``status`` 写状态栏。
-    """
-    stage = str(stage or '')
-    if not stage or stage == 'script' or stage not in pet_bus.STAGES:
-        return ''
-    if project in (None, ''):
-        # REQ-S13-54：completion_evidence(None) 已改判未完成；无项目放行是本门禁
-        # 自己的契约（简报门禁由宿主发送路径负责），不能靠证据缺省值顺带放行。
-        return ''
+
+def _send_empty_storyboard(box):
+    """S03 空发送：先过上游门禁，再冻结模型并受理当前阶段动作。"""
+    error = _upstream_error(box)
+    if error:
+        _say(box.status, error)
+        return False
+    if box.request_model is None:
+        box.request_model = box.request_snapshot()
+    box.in_flight = True
     try:
-        import orchestrator.stage_parallel as stage_parallel
-        row = stage_parallel.gate_for(stage)
-    except Exception:
-        return ''
-    if row is not None:
-        try:
-            result = stage_parallel.evaluate(project, stage)
-        except Exception:
-            return ''
-        if result.get('verdict') == stage_parallel.UPSTREAM_BLANK:
-            return '请先完成/确认「%s」阶段' % stage_parallel.label(result.get('from'))
-        if not result.get('ok'):
-            return stage_parallel.blocked_text(result) or '上游阶段未完成，请先处理'
-        return ''
-    index = pet_bus.STAGES.index(stage)
-    if index <= 0:
-        return ''
-    upstream = pet_bus.STAGES[index - 1]
-    try:
-        import orchestrator.stage_parallel as _sp
-        if _sp.stage_state(project, upstream) in _sp.EXEMPT_STATES:
-            return ''
-    except Exception:
-        app_logging.swallowed()
-    if stage == 'storyboard' and upstream == 'script_structure':
-        try:
-            from orchestrator.stage_completion_service import storyboard_send_readiness
-            sendable, note, _filled = storyboard_send_readiness(project)
-        except Exception:
-            return ''
-        if sendable and note:
-            _say(status, note)
-        return '' if sendable else (note or '请先到「剧本结构」页确认一份结构剧本，再回来发送')
-    try:
-        from orchestrator.stage_completion_service import completion_evidence
-        ok, detail = completion_evidence(project, upstream)
-    except Exception:
-        return ''
-    if ok:
-        return ''
-    return '请先完成/确认「%s」阶段（%s）' % (pet_bus.stage_name(upstream), detail or '上游成果未完成')
+        accepted = box.run_stage_action()
+    finally:
+        box.end_request()
+    if accepted is False:
+        return False
+    box.clear()
+    return True
 
 
 RING_INSET = SPACING['xs'] // 4  # 输入框外环露边宽度（1px）
@@ -395,8 +363,7 @@ class _StageActions:
         return self._stage_actions.get(str(stage or self.stage))
 
     def run_stage_action(self, stage=None):
-        """执行当前（或指定）阶段登记的发送动作，返回有没有执行：没登记、或这一阶段正在
-        执行（不重复开动，状态栏说明）都返回 False；动作抛错由登记方的 ``safe`` 处理。"""
+        """执行登记动作；传播 False，旧动作 None 仍视为已执行，运行中不重复开动。"""
         stage = str(stage or self.stage)
         action = self._stage_actions.get(stage)
         if action is None:
@@ -404,8 +371,8 @@ class _StageActions:
         if ui_plugin_registry.module('stage_flow').running(stage):
             _say(self.status, STAGE_ACTION_BUSY % pet_bus.stage_name(stage))
             return False
-        action()
-        return True
+        result = action()
+        return False if result is False else True
 
 
 class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
@@ -419,6 +386,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.status = options.get('status') or _status_of(desktop)
         self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry()
         self.on_send = options.get('on_send')
+        self.on_upstream_error = options.get('on_upstream_error')
         self.on_skill_config = options.get('on_skill_config')
         self.on_attachment = options.get('on_attachment')
         self.on_voice = options.get('on_voice')
@@ -523,7 +491,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         return project_root(self.desktop)
 
     def set_stage(self, stage):
-        """切页只换上下文：不重建实例，只刷新模型下拉框与补全候选。"""
+        """切页只换上下文：不重建实例，只刷新模型下拉框、补全候选与占位提示。"""
         self.stage = str(stage or 'script')
         picker = getattr(self, 'model_picker', None)
         if picker is not None:
@@ -537,6 +505,9 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self._skills_cache = None
         self._engines_cache = None
         self._sync_model_label()
+        sync = getattr(self.desktop, 'sync_stage_placeholder', None)
+        if callable(sync):
+            sync(self.input, self.stage)
 
     def skill_items(self):
         if self._skills:
@@ -963,9 +934,12 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         """发送门禁 → 命令解析 → 快照捕获 → 宿主 ``on_send``；返回是否受理。"""
         value = self.text()
         if not value:
-            # 空输入框＝执行当前阶段登记的发送动作（没登记照旧不动）：和点页面按钮一样，不过上游门禁、不清输入框。
-            return self.run_stage_action()
-        error = upstream_send_error(self.project, self.stage, self.status)
+            # 空输入框＝执行当前阶段登记的发送动作。S03 仍须过上游门禁并冻结模型，
+            # 其余阶段保留原 stage_action 契约：不过门禁、不动在途标记与快照。
+            if self.stage != 'storyboard':
+                return self.run_stage_action()
+            return _send_empty_storyboard(self)
+        error = _upstream_error(self)
         if error:
             _say(self.status, error)
             return False

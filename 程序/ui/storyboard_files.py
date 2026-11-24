@@ -767,22 +767,26 @@ class _StoryboardFilesPage:
                 # 第 67 期任务 2：这一行先占好自己的位置（表格再缩也不许把它挤掉，见下面 actions 那一处）。
                 note=ttk.Label(box,textvariable=self.labels[kind],style='Muted.TLabel',wraplength=WRAPLENGTH['2xl'])
                 note.pack(side='bottom',anchor='w',pady=(SPACING['xs'], SPACING['none']),before=tree.master)
-                # 第 31 期第 5 条：手动制作与下方内容框贴紧一些。
-                center=ttk.Frame(self.desktop.content);center.pack(
-                    fill='x',pady=(SPACING['xs'], SPACING['xs']))
-                # 第 32 期第 1／5／6 条：改名「手动制作分镜」，与别的阶段页一样左对齐（原来居中），
-                # 阶段配置紧挨在它右边。
-                row=ttk.Frame(center);row.pack(anchor='w')
-                # 第 47 期第 3 条：点「手动制作分镜」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
-                from orchestrator.stage_models import manual_command
-                self.manual_command = manual_command
-                self.controls['agent']=PrimaryButton(
-                    row,text='手动制作分镜',command=lambda:self.desktop.safe(
-                        self.manual_command(self.desktop,'storyboard',lambda:self.desktop.open_storyboard_skill(None),self.desktop.win)))
-                self.controls['agent'].pack(side='left',padx=(SPACING['none'], SPACING['xs']))
-                ui_plugin_registry.module('stage_flow').follow(self.controls['agent'],'storyboard')
-                # R2942：「阶段配置」按钮＋模型下拉框删除。
-                self.controls['agent'].bind('<Button-1>',lambda e: (notify(self.desktop.win, '请先在上方选择需要制作的剧本，或选择要采用的 JSON 分镜。', title='手动制作分镜', status=self.desktop.status) if self.controls['agent'].cget('state')=='disabled' else None),add='+')
+                # REQ-S03-54：移除旧按钮，制作入口改到共享输入框发送。
+                self._register_storyboard_send_action()
+    def _register_storyboard_send_action(self):
+        """底部发送键承载初步分镜制作；切页／销毁时撤销，避免过期入口。"""
+        shared = getattr(self.desktop, 'shared_input', None)
+        register = getattr(shared, 'set_stage_action', None)
+        if not callable(register):
+            return
+        def run_send():
+            return self.desktop.send_storyboard('')
+
+        register('storyboard', run_send)
+
+        def release(_event=None):
+            if shared.stage_action('storyboard') is run_send:
+                register('storyboard', None)
+
+        anchor = getattr(self, 'page_content', None) or getattr(self.desktop, 'content', None)
+        if anchor is not None:
+            anchor.bind('<Destroy>', release, add='+')
 
     def current_selection(self, kind):
         """这一栏「选中」的那些文件（第 46 期：内容框这份清单为准；第 47 期第 1 条：统一口径）。
