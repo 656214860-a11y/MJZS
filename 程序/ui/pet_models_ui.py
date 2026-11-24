@@ -3,7 +3,8 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 import infra.model_pool as model_pool
-from ui.pet_models_tabs import MODES, ModelManagerModeTabsMixin
+from ui.pet_models_tabs import (FORM_DEFAULT_PROVIDER, FORM_FIELDS, MODES,
+                                ModelManagerFormGuardMixin, ModelManagerModeTabsMixin)
 from responsive_ui import auto_height
 from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
@@ -44,8 +45,10 @@ def model_options(records, with_auto=True):
     return model_pool.options(records, with_auto=with_auto,
                               labeler=workflow_settings.desktop_model_label)
 # 第 51 期第 2 条：窗口长高 90px，多出来的高度全归上面的模型池（下面那张表单同时收紧，见 open_manager）。
-MANAGER_GEOMETRY = '1180x860'
-MANAGER_MIN = (820, 620)
+# UX-MODEL-PAGE：表单多了「最大输出／温度」与「超时／重试」两行、底行多了独立的 [取消][保存]，
+# 约 100px；窗口默认与最小高度同步加高，模型列表保住可见行数不被挤没。
+MANAGER_GEOMETRY = '1180x960'
+MANAGER_MIN = (820, 720)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
@@ -54,19 +57,17 @@ NOTE_MANAGER = '点左上角页签选择调用方式：Desktop 配置桌面应�
 COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode', '调用方式', 70),
            ('model', '模型 ID', 150), ('label', '显示名', 160), ('capabilities', '能力标签', 270),
            ('state', '状态', 200))
-FORM_FIELDS = (('label', '显示名'), ('model', '模型 ID'), ('base_url', 'API 根地址'),
-               ('key_env', '密钥名（.env 里的变量名）'))
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
 # 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
 MANAGER_FORM_LABELS = ('Provider', '模型 ID', '显示名', '功能', 'API 根地址',
                        '密钥名（.env 里的变量名）', '直接输入密钥', '协议', '能力标签',
                        '上下文长度（可选）', '每分钟请求上限（可选）', '模型组（可选）',
-                       '权重（可选）', '备注（可选）', '应用安装路径', '命令行程序路径')
+                       '权重（可选）', '备注（可选）', '最大输出', '温度', '超时（秒）', '重试次数',
+                       '应用安装路径', '命令行程序路径')
 # 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
 SECRET_FIELD_WIDTH = 30
 # 表单里的下拉框与输入框只给够用的宽度；成对的两项并在一行（左对左、右对右）。
 FORM_COMBO_WIDTH = 14
-FORM_DEFAULT_PROVIDER = model_pool.PROVIDER_LABELS['custom']  # 新建默认「自定义」
 FORM_RIGHT_LABEL_PAD = (SPACING['lg'], SPACING['xs'])
 
 
@@ -444,10 +445,12 @@ def open_manager(pet):
     return _ModelManager(pet).build()
 
 
-class _ModelManager(ModelManagerModeTabsMixin):
+class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
     """模型管理窗口（从 open_manager 的闭包原样改写成类，R1812）：共享的局部变量成了实例属性，嵌套函数成了方法。"""
     def __init__(self, pet):
         self.pet = pet
+        self._dirty = False            # 表单有未保存改动（真实键入/下拉/勾选才算）
+        self._selecting = False        # 选区回退期间再入 <<TreeviewSelect>> 不再处理
 
     def build(self):
         footer, body = self._build_window_and_table()
@@ -532,8 +535,9 @@ class _ModelManager(ModelManagerModeTabsMixin):
         index = self.text_row(2, 'base_url', 'API 根地址', span=3)
         self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
         ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
-        SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
-                  values=[label for _value, label in model_pool.WIRE_APIS]).grid(row=index, column=3, sticky='ew')
+        self.wire_box = SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
+                                  values=[label for _value, label in model_pool.WIRE_APIS])
+        self.wire_box.grid(row=index, column=3, sticky='ew')
         index += 1
         # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
         ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
@@ -554,14 +558,20 @@ class _ModelManager(ModelManagerModeTabsMixin):
             var = tk.BooleanVar(value=False)
             self.caps[tag] = var
             ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
-                            variable=var).pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+                            variable=var, command=self._mark_dirty).pack(
+                            side='left', padx=(SPACING['none'], SPACING['sm']))
         self.text_row(index + 1, 'context_length', '上下文长度（可选）')
         self.text_row(index + 1, 'note', '备注（可选）', column=2)
         self.text_row(index + 2, 'rpm', '每分钟请求上限（可选）')
         self.text_row(index + 2, 'group', '模型组（可选）', column=2)
         self.text_row(index + 3, 'weight', '权重（可选）')
+        # UX-MODEL-PAGE：DES《05》§15.3——请求参数随模型记录存，「新建一条」预填主流默认。
+        self.text_row(index + 4, 'max_output', '最大输出')
+        self.text_row(index + 4, 'temperature', '温度', column=2)
+        self.text_row(index + 5, 'timeout', '超时（秒）')
+        self.text_row(index + 5, 'retries', '重试次数', column=2)
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-        self.api_rows = {2, 3, 4, index + 2, index + 3}
+        self.api_rows = {2, 3, 4, index + 2, index + 3, index + 4, index + 5}
         self.api_controls = [widget for widget in self.form.winfo_children()
                         if int(widget.grid_info().get('row', -1)) in self.api_rows]
         self.program_label = ttk.Label(self.form, text='应用安装路径')
@@ -611,6 +621,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
 
         self.tree.bind('<<TreeviewSelect>>', self.on_select)
         self.load_rows()
+        self._bind_dirty_marks()
         bar = ttk.Frame(footer)
         bar.pack(fill='x')
         SecondaryButton(bar, text='新建一条', command=self.new_one).pack(side='left')
@@ -624,13 +635,20 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self.refresh_connection_fields()
         SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
-        # 「保存这条」并入左侧条目操作；「关闭」只关窗、不保存，贴最右。
         SecondaryButton(bar, text='保存这条', command=self.save_one).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
         SecondaryButton(bar, text='语音识别…', command=lambda: open_speech_settings(self.pet, self.win)).pack(
             side='left', padx=(BUTTON_GAP, SPACING['none']))
-        PrimaryButton(bar, text='关闭', command=self.win.destroy).pack(
-            side='right', padx=(BUTTON_GAP, SPACING['none']))
+        # DES《05》§15.2：底部固定一行右对齐 [取消] [保存]；保存＝写入并关闭，
+        # 不再有独立「关闭」与保存并列。Esc／窗口 X 与「取消」同一路径。
+        bottom = ttk.Frame(footer)
+        bottom.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+        PrimaryButton(bottom, text='保存', command=self.save_and_close).pack(side='right')
+        SecondaryButton(bottom, text='取消', command=self.cancel).pack(
+            side='right', padx=(SPACING['none'], BUTTON_GAP))
+        self.win.bind('<Escape>', lambda event: self.cancel())
+        self.win.protocol('WM_DELETE_WINDOW', self.cancel)
+        self.new_one()                # 打开即新建态：预填默认值并建立「未保存改动」基线
         self.win._pet_api_controls = self.api_controls
         self.win._pet_program_row = self.program_row
         self.win._pet_reload = self.load_rows
@@ -815,6 +833,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self_id = self.state['id']
         self.state['id'] = model_pool.model_id_of(item, self_id)
         self.pet.save_pool(item, self_id)
+        self._dirty = False
         self.load_rows()
         self.show_key_state(item)
         self.hint.set('密钥已加密保存到当前 Windows 用户的本机存储；界面只露前 4 位。')
@@ -855,7 +874,8 @@ class _ModelManager(ModelManagerModeTabsMixin):
             self.entries[key].delete(0, 'end')
             self.entries[key].insert(0, str(item.get(key) or ''))
         # 可选字段统一「先清空、有值才回填」；note 原本无值时也写空串，等价于保持清空。
-        for key in ('context_length', 'rpm', 'group', 'weight', 'note'):
+        for key in ('context_length', 'rpm', 'group', 'weight', 'note',
+                    'max_output', 'temperature', 'timeout', 'retries'):
             self.entries[key].delete(0, 'end')
             if item.get(key):
                 self.entries[key].insert(0, str(item[key]))
@@ -877,6 +897,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self.auto_label['text'] = self.entries['label'].get().strip()
         self.refresh_connection_fields()
         if saved_provider != 'desktop':self.show_key_state(item)
+        self._dirty = False
 
     def read_form(self):
         value = {key: self.entries[key].get().strip() for key, _label in FORM_FIELDS}
@@ -890,39 +911,14 @@ class _ModelManager(ModelManagerModeTabsMixin):
         value['rpm'] = self.entries['rpm'].get().strip()
         value['group'] = self.entries['group'].get().strip()
         value['weight'] = self.entries['weight'].get().strip()
+        value['max_output'] = self.entries['max_output'].get().strip()
+        value['temperature'] = self.entries['temperature'].get().strip()
+        value['timeout'] = self.entries['timeout'].get().strip()
+        value['retries'] = self.entries['retries'].get().strip()
         value['note'] = self.entries['note'].get().strip()
         value['program'] = self.program_entry.get().strip()
         value['modality'] = model_pool.id_of_label(self.modality.get(), model_pool.MODALITIES)
         return value
-
-    def on_select(self, event=None):
-        picked = self.tree.selection()
-        if not picked:
-            return None
-        item = self.pet.agent_model_records().get(picked[0]) or {}
-        self.fill(picked[0], item)
-        self.hint.set('正在改「%s」；改完点「保存这条」。' % (item.get('label') or picked[0]))
-        return item
-
-    def new_one(self):
-        self.pending['loading'] = True
-        self.state['id'] = ''
-        for key, _label in FORM_FIELDS:
-            self.entries[key].delete(0, 'end')
-        for key in ('context_length', 'rpm', 'group', 'weight', 'note', 'program'):
-            self.entries[key].delete(0, 'end')
-        for var in self.caps.values():
-            var.set(False)
-        self.key_entry.delete(0, 'end')
-        self.show_key_state()
-        self.provider.set(FORM_DEFAULT_PROVIDER)
-        self.wire.set(model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
-        self.modality.set(model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
-        self.pending['loading'] = False
-        self.auto_label['text'] = ''
-        self.changed_identity()
-        self.hint.set('新建 %s 模型：填写模型 ID；本地调用会自动搜寻对应程序。' % self.mode.get())
-        return self.state
 
     def save_one(self):
         try:
@@ -945,6 +941,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         except (ValueError, OSError) as exc:
             report_error(self.hint, exc)
             return None
+        self._dirty = False
         self.load_rows()
         self.hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (self.read_form().get('label') or ''))
         return self.read_form()
@@ -973,7 +970,7 @@ class _ModelManager(ModelManagerModeTabsMixin):
         self.state['id'] = ''
         self.load_rows()
         # 表单清成「新建」：还停在被删那条的话，紧接着点「保存这条」会把它原样存回去。
-        self.new_one()
+        self.new_one(_confirmed=True)
         self.hint.set('已删除「%s」。' % name)
         return model_id
 

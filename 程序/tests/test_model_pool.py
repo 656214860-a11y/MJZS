@@ -19,6 +19,7 @@ import workflow_settings
 import infra.model_pool as model_pool
 import infra.model_router as model_router
 import model_secrets
+import pet_models_tabs
 
 ABSENT_KEY = 'CODEX_TEST_KEY_ABSENT'          # 一定不在环境变量里的名字
 
@@ -206,6 +207,31 @@ class RecordFieldTests(unittest.TestCase):
         self.assertIn('fast', pool['deepseek-v4-flash']['capabilities'])
         self.assertIn('vision', pool['gpt-4o']['capabilities'])
         self.assertEqual(pool['qwen-max']['context_length'], 32000)
+
+
+class NewModelDefaultsTests(unittest.TestCase):
+    """UX-MODEL-PAGE：新建模型预填主流默认（DES《05》「模型管理页按键清单」标「可改」）。"""
+
+    def test_new_model_defaults_match_the_documented_table(self):
+        self.assertEqual(pet_models_tabs.NEW_MODEL_DEFAULTS['context_length'], 262144,
+                         '上下文窗口 256K＝256×1024')
+        self.assertEqual(pet_models_tabs.NEW_MODEL_DEFAULTS['max_output'], 8192)
+        self.assertEqual(pet_models_tabs.NEW_MODEL_DEFAULTS['temperature'], 0.7)
+        self.assertEqual(pet_models_tabs.NEW_MODEL_DEFAULTS['timeout'], 120)
+        self.assertEqual(pet_models_tabs.NEW_MODEL_DEFAULTS['retries'], 2)
+
+    def test_record_keeps_the_new_parameter_fields_and_ignores_unknown(self):
+        item = model_pool.record({'model': 'm', 'max_output': '8192', 'temperature': '0.7',
+                                  'timeout': '120', 'retries': '2'})
+        for key in ('max_output', 'temperature', 'timeout', 'retries'):
+            self.assertIn(key, item, key)
+        self.assertNotIn('没这个键', item)
+
+    def test_records_without_the_new_fields_stay_empty(self):
+        """存量记录没有这四个字段：不补默认、不覆盖——预填只发生在「新建一条」的表单里。"""
+        item = model_pool.record({'model': 'm'})
+        for key in ('max_output', 'temperature', 'timeout', 'retries'):
+            self.assertEqual(item[key], '', key)
 
 
 class LocalSecretTests(unittest.TestCase):

@@ -1,0 +1,15 @@
+{
+  "round": 4394,
+  "commit_base": "bd508bb19",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k model_pool batch7_settings_models desktop_compact_layout model_manager_actions",
+    "exit": 0,
+    "passed": 130,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T04:07:08"
+}

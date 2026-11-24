@@ -202,13 +202,15 @@ class ActionAreaTests(Batch7Case):
         self.assertEqual(str(save.cget('style')), 'Tokens.Primary.TButton')
         self.assertEqual(str(close.cget('style')), 'Tokens.Secondary.TButton')
 
-    def test_model_manager_close_is_rightmost_primary(self):
-        # 契约有意变更：「保存并关闭」改回「关闭」（不保存），仍作主操作贴最右；保存只走左侧「保存这条」。
+    def test_model_manager_save_is_rightmost_primary_with_cancel_beside_it(self):
+        # UX-MODEL-PAGE 契约变更：底行右对齐 [取消][保存]，保存＝写入并关闭；不再有独立「关闭」。
         win = self._manager_window()
-        save, close = _button(win, '保存这条'), _button(win, '关闭')
-        self.assertGreater(close.winfo_rootx(), save.winfo_rootx(),
-                           '关闭必须在保存这条右边')
-        self.assertEqual(str(close.cget('style')), 'Tokens.Primary.TButton')
+        cancel, save = _button(win, '取消'), _button(win, '保存')
+        self.assertGreater(save.winfo_rootx(), cancel.winfo_rootx(),
+                           '保存必须在取消右边')
+        self.assertEqual(str(save.cget('style')), 'Tokens.Primary.TButton')
+        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '关闭'],
+                         '不再有独立「关闭」按钮与保存并列')
 
     def test_settings_hub_action_bar_stays_visible_at_minimum_size(self):
         win = self._hub()
@@ -229,9 +231,9 @@ class ActionAreaTests(Batch7Case):
         win = self._manager_window()
         win.geometry('%dx%d' % pet_models_ui.MANAGER_MIN)
         win.update()
-        save, close = _button(win, '保存这条'), _button(win, '关闭')
+        cancel, save = _button(win, '取消'), _button(win, '保存')
         bottom = win.winfo_rooty() + win.winfo_height()
-        for button in (save, close):
+        for button in (cancel, save):
             self.assertTrue(button.winfo_ismapped(), button.cget('text'))
             self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), bottom,
                                  '动作区不得掉出窗口底边')
@@ -429,6 +431,119 @@ class ModelListAutoHeightTests(Batch7Case):
                              '高度不得超过实际条目数，避免底部空行')
         self.assertGreaterEqual(int(tree.cget('height')), 2,
                                 '至少保留 2 行可见')
+
+
+class ModelManagerUxTests(Batch7Case):
+    """UX-MODEL-PAGE（DES《05》§15 模型管理页按键清单）：默认值预填、底行 [取消][保存]、
+    未保存改动在切换行／新建／离开时先确认。"""
+
+    def _type(self, win, key, text):
+        """模拟真实改动：键入文本再把表单弄脏。隐藏桌面合成按键事件不可靠
+        （test_desktop_compact_layout「搜索框过滤」同此结论），改用「功能」下拉
+        <<ComboboxSelected>>——虚拟事件由 Tk 内部派发，与真实用户挑选等效。"""
+        win._pet_entries[key].insert('end', text)
+        self.assertTrue(win._pet_entries[key].bind('<KeyRelease>'),
+                        '%s 输入框缺少 <KeyRelease> 未保存改动绑定' % key)
+        win._pet_modality_box.event_generate('<<ComboboxSelected>>')
+
+    def test_new_entry_prefills_mainstream_defaults(self):
+        win = self._manager_window()
+        for key, value in (('context_length', '262144'), ('max_output', '8192'),
+                           ('temperature', '0.7'), ('timeout', '120'), ('retries', '2')):
+            self.assertEqual(win._pet_entries[key].get(), value, key)
+        _button(win, '新建一条').invoke()
+        self.assertEqual(win._pet_entries['context_length'].get(), '262144',
+                         '新建一条同样预填 256K')
+
+    def test_saved_record_values_are_not_overwritten_by_defaults(self):
+        record = model_pool.record({'model': 'mine', 'base_url': 'https://x.test/v1',
+                                    'call_mode': 'API', 'context_length': 64000,
+                                    'temperature': '0.9'}, 'mine')
+        self.pet.agent_model_records = lambda: {'mine': record}
+        win = self._manager_window()
+        win._pet_tree.selection_set('mine')
+        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertEqual(win._pet_entries['context_length'].get(), '64000', '已存值不被默认覆盖')
+        self.assertEqual(win._pet_entries['temperature'].get(), '0.9')
+        self.assertEqual(win._pet_entries['max_output'].get(), '', '没存过的字段不冒默认')
+
+    def test_save_writes_then_closes_and_failure_stays_with_reason(self):
+        win = self._manager_window()
+        win._pet_entries['model'].insert(0, 'm-1')
+        with mock.patch.object(self.pet, 'save_pool') as save_pool:
+            _button(win, '保存').invoke()
+        self.assertTrue(save_pool.called, '保存必须先写池')
+        self.assertFalse(win.winfo_exists(), '保存成功后关窗')
+        win = self._manager_window()
+        win._pet_entries['model'].insert(0, 'm-2')
+        with mock.patch.object(self.pet, 'save_pool', side_effect=ValueError('写入失败')), \
+                mock.patch.object(pet_models_ui, 'NotificationDispatcher') as dispatcher:
+            _button(win, '保存').invoke()
+        self.assertTrue(dispatcher.return_value.error.called, '失败要给原因')
+        self.assertTrue(win.winfo_exists(), '保存失败留在页内')
+
+    def test_cancel_confirms_only_when_there_are_unsaved_changes(self):
+        win = self._manager_window()
+        with mock.patch.object(self.pet, 'confirm_start') as confirm:
+            _button(win, '取消').invoke()
+        confirm.assert_not_called()
+        self.assertFalse(win.winfo_exists())
+        win = self._manager_window()
+        self._type(win, 'note', '手改的备注')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=False) as confirm:
+            _button(win, '取消').invoke()
+        confirm.assert_called_once()
+        self.assertTrue(win.winfo_exists(), '拒绝确认后留在页内')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=True):
+            _button(win, '取消').invoke()
+        self.assertFalse(win.winfo_exists())
+
+    def test_row_switch_confirms_unsaved_changes(self):
+        records = {key: model_pool.record({'model': key, 'base_url': 'https://x.test/v1',
+                                           'call_mode': 'API'}, key)
+                   for key in ('a-1', 'b-2')}
+        self.pet.agent_model_records = lambda: dict(records)
+        win = self._manager_window()
+        win._pet_tree.selection_set('a-1')
+        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        self.assertEqual(win._pet_entries['model'].get(), 'a-1')
+        self._type(win, 'note', '未保存改动')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=False) as confirm:
+            win._pet_tree.selection_set('b-2')
+            win._pet_tree.event_generate('<<TreeviewSelect>>')
+            win.update()
+        self.assertTrue(confirm.called)
+        self.assertEqual(tuple(win._pet_tree.selection()), ('a-1',), '拒绝后选区留在原条目')
+        self.assertEqual(win._pet_entries['model'].get(), 'a-1', '拒绝后表单不被覆盖')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=True):
+            win._pet_tree.selection_set('b-2')
+            win._pet_tree.event_generate('<<TreeviewSelect>>')
+            win.update()
+        self.assertEqual(win._pet_entries['model'].get(), 'b-2')
+
+    def test_secondary_actions_stay_off_the_save_row_at_three_widths(self):
+        win = self._manager_window()
+        for width in (pet_models_ui.MANAGER_MIN[0], 990, 1180):
+            win.geometry('%dx%d' % (width, pet_models_ui.MANAGER_MIN[1]))
+            win.update()
+            save = _button(win, '保存')
+            self.assertEqual(_button(win, '取消').winfo_rooty(), save.winfo_rooty(),
+                             '取消与保存同排')
+            for label in ('新建一条', '测试连接', '删除这条', '保存这条', '语音识别…'):
+                button = _button(win, label)
+                self.assertNotEqual(button.winfo_rooty(), save.winfo_rooty(),
+                                    '%s 不与保存同排' % label)
+            edge = win.winfo_rootx() + win.winfo_width()
+            bottom = win.winfo_rooty() + win.winfo_height()
+            for label in ('取消', '保存', '新建一条', '测试连接', '删除这条', '保存这条', '语音识别…'):
+                button = _button(win, label)
+                self.assertTrue(button.winfo_ismapped(), (width, label))
+                self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), edge,
+                                     (width, label))
+                self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), bottom,
+                                     (width, label))
 
 
 if __name__ == '__main__':

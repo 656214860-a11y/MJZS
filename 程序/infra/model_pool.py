@@ -29,7 +29,7 @@ PROGRAM = Path(__file__).resolve().parents[1]
 CONFIG_PATH = config_snapshot.MODEL_CONFIG_PATH
 AUTO = 'auto'                                    # 「自动」是特殊值，由 model_router 解析
 AUTO_LABEL = '自动'
-FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality', 'rpm', 'group', 'weight')
+FIELDS = ('label', 'model', 'base_url', 'path', 'wire_api', 'key_env', 'provider', 'note', 'program', 'call_mode', 'provider_label', 'modality', 'rpm', 'group', 'weight', 'max_output', 'temperature', 'timeout', 'retries')
 # 模型功能（模态）：列表按此分组。文本是三虎决策模型池主体；图片/语音/视频模型当前在各自窗口配置，分类先建好暂空。
 MODALITIES = (('text', '文本'), ('image', '图片'), ('audio', '语音'), ('video', '视频'))
 MODALITY_LABELS = dict(MODALITIES)
