@@ -11,8 +11,10 @@ from __future__ import annotations
 import atexit
 import contextlib
 import faulthandler
+import functools
 import json
 import logging
+import os
 import re
 import sys
 import threading
@@ -40,15 +42,38 @@ _SECRET = re.compile(
     r"[?&](?:api[_-]?key|access[_-]?token|refresh[_-]?token|token|secret|password|"
     r"signature|sig)=[^&\s,;}\"']+"
 )
+_EMAIL = re.compile(r"[A-Za-z0-9_.+-]+@[A-Za-z0-9-]+(?:\.[A-Za-z0-9-]+)+")
+_PRIVACY = None
 _swallow_counts: dict = {}
 _recent_swallowed: deque = deque(maxlen=20)
 _swallow_lock = threading.Lock()
 SWALLOW_LOG_EVERY = 100
 
 
+def _build_privacy() -> tuple:
+    """本机隐私项规则：邮箱→``[邮箱]``、用户目录前缀→``~``、当前用户名→``[用户]``。
+
+    只替换实际值（用户目录前缀与当前用户名），不做通配。
+    """
+    parts = [p for p in re.split(r"[\\/]+", os.path.expanduser("~")) if p]
+    user = os.environ.get("USERNAME") or os.environ.get("USER", "")
+    return tuple(
+        [(_EMAIL, "[邮箱]")]
+        + [(re.compile(r"[\\/]+".join(re.escape(p) for p in parts), re.IGNORECASE), "~")] * (len(parts) >= 2)
+        + [(re.compile(re.escape(user), re.IGNORECASE), "[用户]")] * (len(user) >= 3))
+
+
+def _privacy_rules() -> tuple:
+    """本机隐私脱敏规则（构建一次后缓存）。"""
+    global _PRIVACY
+    _PRIVACY = _PRIVACY if _PRIVACY is not None else _build_privacy()
+    return _PRIVACY
+
+
 def redact(value: object) -> str:
-    """凭据脱敏的唯一实现；``diagnostic_capture`` 复用它。"""
-    return _SECRET.sub("[已脱敏]", str(value))
+    """凭据与本机隐私脱敏的唯一实现；``diagnostic_capture`` 复用它。"""
+    text = _SECRET.sub("[已脱敏]", str(value))
+    return functools.reduce(lambda line, rule: rule[0].sub(rule[1], line), _privacy_rules(), text)
 
 
 _metrics: dict = {}

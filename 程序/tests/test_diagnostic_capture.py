@@ -56,7 +56,7 @@ class DiagnosticCaptureTests(unittest.TestCase):
         self.logs.mkdir(parents=True)
         with patch.object(Path, "rglob", side_effect=AssertionError("不得递归扫描")), \
              patch.object(Path, "iterdir", side_effect=AssertionError("不得枚举目录")):
-            self.assertEqual(subject.preview(), ())
+            self.assertEqual(subject.preview(), (subject.retention_note(),))
 
     def test_record_crash_keeps_only_recent_tail(self):
         self.logs.mkdir(parents=True)
@@ -80,3 +80,23 @@ class DiagnosticCaptureTests(unittest.TestCase):
             self.assertIn("logs/diagnostics/启动错误.log", archive.namelist())
             self.assertIn("launcher-side failure",
                           archive.read("logs/diagnostics/启动错误.log").decode("utf-8"))
+
+    def test_exported_log_scrubs_email_home_and_username(self):
+        import getpass
+        self.logs.mkdir(parents=True)
+        home, user = str(Path.home()), getpass.getuser() or ""
+        (self.logs / "sanhu_progress.log").write_text(
+            "mail a.b@example.com dir " + home + "\\cache user " + user, encoding="utf-8")
+        output = subject.export(Path(self.temp.name) / "bundle.zip")
+        with zipfile.ZipFile(output) as archive:
+            text = archive.read("logs/sanhu_progress.log").decode("utf-8")
+        self.assertNotIn("a.b@example.com", text)
+        self.assertIn("[邮箱]", text)
+        self.assertNotIn(home, text)
+        self.assertIn("~", text)
+        if len(user) >= 3:
+            self.assertNotIn(user, text)
+
+    def test_preview_note_states_path_and_username_replacement(self):
+        self.assertIn("已把本机路径和用户名替换", subject.retention_note())
+        self.assertIn("已把本机路径和用户名替换", "\n".join(subject.preview()))

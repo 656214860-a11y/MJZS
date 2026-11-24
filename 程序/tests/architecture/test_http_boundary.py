@@ -73,6 +73,49 @@ def _hardcoded_addresses() -> list:
     return found
 
 
+OUTBOUND_DOC = 'docs/process/外发内容清单.md'
+
+# 出站点口径：对这些传输入口名的 Load 引用（直接调用、注入绑定、基类继承都算
+# 外发点）；``webbrowser.open``（含 ``*.webbrowser.open``）单独按链尾匹配。
+_OUTBOUND_NAMES = frozenset({
+    'open_https', 'open_websocket', 'open_target',
+    'request_json', 'request_bytes',
+    'http_transport', '_http_transport', 'http_stream',
+    'tools_search', 'tools_fetch',
+    'urlopen', 'urlretrieve', 'build_opener',
+    'RequestsJsonOpener', 'LocalComfyClient', 'Comfy',
+    'create_connection', 'WebSocket', 'send_text',
+    'probe_http_endpoint', 'tcp_listener', 'snapshot_download',
+})
+
+
+def _dotted(node) -> str:
+    if isinstance(node, ast.Name):
+        return node.id
+    if isinstance(node, ast.Attribute):
+        owner = _dotted(node.value)
+        return owner + '.' + node.attr if owner else node.attr
+    if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+            and node.func.id == '__import__' and node.args
+            and isinstance(node.args[0], ast.Constant)):
+        return str(node.args[0].value)
+    return ''
+
+
+def _outbound_points(path) -> set:
+    """生产文件里的外发点行号集合。"""
+    hits = set()
+    for node in ast.walk(parse(path)):
+        if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
+            if node.attr in _OUTBOUND_NAMES:
+                hits.add(node.lineno)
+            elif node.attr == 'open' and _dotted(node.value).endswith('webbrowser'):
+                hits.add(node.lineno)
+        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in _OUTBOUND_NAMES:
+            hits.add(node.lineno)
+    return hits
+
+
 class HttpBoundaryTests(unittest.TestCase):
     def test_direct_http_calls_stay_inside_allowlist(self):
         offenders = []
@@ -100,6 +143,41 @@ class HttpBoundaryTests(unittest.TestCase):
         self.assertEqual([], [(f'{rel}:{line}', url) for rel, line, url in unregistered],
                          '未登记的外部地址（登记在 %s）：' % ENDPOINT_DOC
                          + '；'.join('%s %s' % (f'{rel}:{line}', url) for rel, line, url in unregistered))
+
+
+class OutboundRegistryTests(unittest.TestCase):
+    """REL-11：外发内容清单必须登记每一个出站点，且条目与代码一一对应。"""
+
+    def _registry(self) -> str:
+        path = ROOT / OUTBOUND_DOC
+        self.assertTrue(path.is_file(), '缺少外发内容清单：' + OUTBOUND_DOC)
+        return path.read_text(encoding='utf-8')
+
+    def test_outbound_registry_lists_required_flows(self):
+        text = self._registry()
+        for flow in ('联网采风', '模型请求', '更新检查', '账号服务'):
+            self.assertIn(flow, text, '外发内容清单未列出流程：' + flow)
+
+    def test_outbound_registry_covers_every_outbound_point(self):
+        registered = {(loc, int(line)) for loc, line in _LOC.findall(self._registry())}
+        unregistered = {}
+        for path in production_runtime_files():
+            rel = _rel(path)
+            missing = sorted(_outbound_points(path)
+                             - {line for loc, line in registered if loc == rel})
+            if missing:
+                unregistered[rel] = missing
+        self.assertEqual(unregistered, {},
+                         '未登记的外发点（写入 %s）：' % OUTBOUND_DOC + repr(unregistered))
+
+    def test_outbound_registry_has_no_stale_entries(self):
+        detected = set()
+        for path in production_runtime_files():
+            rel = _rel(path)
+            detected.update((rel, line) for line in _outbound_points(path))
+        stale = sorted({(loc, int(line)) for loc, line in _LOC.findall(self._registry())}
+                       - detected)
+        self.assertEqual(stale, [], '外发内容清单登记了已不存在的出站点：' + repr(stale))
 
 
 if __name__ == '__main__':
