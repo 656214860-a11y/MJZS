@@ -8,19 +8,121 @@
 FATAL → MessageBoxW 后 ``SystemExit``，DEGRADED 暂存到窗口属性由桌面状态栏播报。
 ``desktop.py`` 的 ``__main__`` 直接构造 ``Desktop``、``app.py`` 的 ``__main__``
 以 ``selfcheck=False`` 调本函数——两个调试入口都不跑自检（G4）。
+
+REL-14：``enable_dpi_awareness()`` 必须在任何 Tk 窗口创建前调用（仓库根
+``启动漫剧制作助手.pyw`` 与 ``launch()`` 都已接线）；``min_os_items()``
+供启动器自检组装最低系统版本诊断（Windows 10 1809／build 17763 起）。
 """
 from __future__ import annotations
 
+import os
+import sys
 from pathlib import Path
 
+import infra.app_logging as app_logging
 import infra.hash_backend as hash_backend
 hash_backend.install()
 import tkinter as tk
 from ui_widgets import notify
 
 
+# ── REL-14：DPI 感知与最低系统版本 ─────────────────────────────────
+# 进程级 DPI 感知声明必须早于任何 Tk 窗口创建；窗口级跨屏重排监听在
+# responsive_ui.watch_dpi_change，由 desktop.py 接到既有 _layout_all 重排。
+
+_DPI_CTX_PER_MONITOR_V2 = -4      # DPI_AWARENESS_CONTEXT_PER_MONITOR_AWARE_V2
+_SHCORE_PER_MONITOR = 2          # PROCESS_PER_MONITOR_DPI_AWARE
+_SHCORE_SYSTEM = 1               # PROCESS_SYSTEM_DPI_AWARE
+
+# 需求规格 §5.4 的最低系统版本：Windows 10 1809（build 17763）。
+_MIN_OS_MAJOR = 10
+_MIN_OS_BUILD = 17763
+
+_dpi_awareness = {'done': False, 'level': None}
+
+
+def enable_dpi_awareness():
+    """声明进程 DPI 感知：per-monitor v2 优先，失败逐级降级，任何一步失败都不抛错。
+
+    返回实际生效的级别名（``'per_monitor_v2'``／``'per_monitor'``／``'system'``）；
+    全部失败返回 ``None``——此时 Windows 按系统 DPI 位图拉伸，应用照常启动。
+    幂等：重复调用是空操作，直接返回首次结果；必须在任何 Tk 窗口创建前调用。
+    """
+    if _dpi_awareness['done']:
+        return _dpi_awareness['level']
+    _dpi_awareness['done'] = True
+    level = None
+    if os.name == 'nt':
+        try:
+            import ctypes
+            from ctypes import wintypes
+            # 第一级：SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)，Win10 1703+。
+            try:
+                context = ctypes.windll.user32.SetProcessDpiAwarenessContext
+                context.restype = wintypes.BOOL
+                if context(ctypes.c_void_p(_DPI_CTX_PER_MONITOR_V2)):
+                    level = 'per_monitor_v2'
+            except Exception:
+                app_logging.swallowed()
+            if level is None:
+                # 第二级：shcore.SetProcessDpiAwareness——2＝per-monitor，1＝system（Win8.1+）。
+                try:
+                    aware = ctypes.windll.shcore.SetProcessDpiAwareness
+                    aware.argtypes = [ctypes.c_int]
+                    aware.restype = ctypes.c_long
+                    if aware(_SHCORE_PER_MONITOR) == 0:
+                        level = 'per_monitor'
+                    if level is None and aware(_SHCORE_SYSTEM) == 0:
+                        level = 'system'
+                except Exception:
+                    app_logging.swallowed()
+            if level is None:
+                # 第三级兜底：user32.SetProcessDPIAware（Vista+，等价 system 级感知）。
+                try:
+                    legacy = ctypes.windll.user32.SetProcessDPIAware
+                    legacy.restype = wintypes.BOOL
+                    if legacy():
+                        level = 'system'
+                except Exception:
+                    app_logging.swallowed()
+        except Exception:
+            app_logging.swallowed()
+    _dpi_awareness['level'] = level
+    return level
+
+
+def min_os_items():
+    """最低系统版本自检：低于 Windows 10 1809（build 17763）返回一条 FATAL 诊断。
+
+    非 Windows、版本读不出来或达到下限都返回空列表——自检组装不单独挡启动；
+    返回的 FATAL 由启动器与其他 FATAL 同路走 ``notify_startup_fatal`` 后退出。
+    """
+    if os.name != 'nt':
+        return []
+    try:
+        version = sys.getwindowsversion()
+        major = int(getattr(version, 'major', 0) or 0)
+        build = int(getattr(version, 'build', 0) or 0)
+    except Exception:
+        return []
+    if (major, build) >= (_MIN_OS_MAJOR, _MIN_OS_BUILD):
+        return []
+    try:
+        from contract.diagnostics import Diagnostic, Severity, StartupPhase
+        return [Diagnostic(
+            severity=Severity.FATAL,
+            scope=StartupPhase.CONFIG.value,
+            code='os-below-minimum',
+            message='当前 Windows 版本（%d.%d build %d）低于最低要求 Windows 10 1809' % (
+                major, int(getattr(version, 'minor', 0) or 0), build),
+            remedy='请升级到 Windows 10 1809（build 17763）或更高版本（含 Windows 11）后再启动')]
+    except Exception:
+        return []
+
+
 def launch(selfcheck=True):
     """启动桌面主窗口；``selfcheck=False`` 供调试 ``__main__`` 入口跳过启动自检与崩溃预算。"""
+    enable_dpi_awareness()
     degraded_items = []
     safe_start = False
     if selfcheck:
@@ -28,6 +130,10 @@ def launch(selfcheck=True):
         from contract.diagnostics import Severity
         program = Path(__file__).resolve().parent
         items = diagnostic_capture.run_startup_selfcheck(program)
+        os_items = min_os_items()
+        if os_items:
+            items = list(items) + os_items
+            diagnostic_capture.record_selfcheck(items)
         fatal_items = [item for item in items if item.severity is Severity.FATAL]
         degraded_items = [item for item in items if item.severity is not Severity.FATAL]
         if fatal_items:

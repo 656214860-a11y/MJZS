@@ -11,9 +11,9 @@
 | 主窗口默认尺寸 | **1280×900**（`ui_tokens.DESKTOP_LAYOUT`） | 1280×720 起可用 | 已满足 |
 | 主窗口最小尺寸 | **800×600** | **1280×720** | **不满足**：800×600 下 13 阶段导航 + 内容区会挤压 |
 | 阶段配置窗最小 | 560×430 | 560×430 | 已满足 |
-| 高 DPI 感知 | **无任何 `SetProcessDpiAwareness` 调用**，只有被动换算 `tk scaling / (96/72)` | Per-Monitor DPI Aware V2 | **不满足，必修** |
-| 多显示器 | `ui/ui_popup.monitor_bounds()` 已实现浮层钳位；有测试 `test_multi_monitor_popups` | 主窗口同样处理 | 部分满足 |
-| 4K 支持 | DPI 未感知，系统位图拉伸 | 缩放后可用 | **不满足** |
+| 高 DPI 感知 | **已实现**：`启动漫剧制作助手.pyw` 在建任何 Tk 窗口前调 `desktop_launcher.enable_dpi_awareness()`，`SetProcessDpiAwarenessContext(PER_MONITOR_AWARE_V2)` 优先、逐级降级不抛错；`desktop.py` 经 `watch_dpi_change` 监听跨屏 DPI 变化走 `_layout_all` 重排 | Per-Monitor DPI Aware V2 | 已满足（锚定 `tests/test_desktop_launcher.py`；多屏实机验证待 REL-12 清单） |
+| 多显示器 | `ui/ui_popup.monitor_bounds()` 浮层钳位照旧；主窗口 DPI 变化响应已实现（`watch_dpi_change`→`_layout_all`，不重建窗口） | 主窗口同样处理 | 已实现（实机跨屏验证待 REL-12 清单） |
+| 4K 支持 | PMv2 感知消除位图拉伸；布局沿用 `responsive_ui` 既有体系（FlowBar 换行、行高自适应、ScrollForm），1366×768 级窄宽有回归守卫 | 缩放后可用 | 已满足（锚定 `tests/test_desktop_launcher.py`；实机验证待 REL-12 清单） |
 
 ### 1.1 高 DPI 的具体后果
 
@@ -170,7 +170,7 @@
 
 | # | 项 | 优先级 |
 |---|---|---|
-| U-1 | `SetProcessDpiAwarenessContext` + 跨屏 DPI 变化响应 | **P0**（PRD §5.4 声明 4K 支持，现状不满足） |
+| U-1 | `SetProcessDpiAwarenessContext` + 跨屏 DPI 变化响应 | **已实现**（REL-14：`desktop_launcher.enable_dpi_awareness`／`responsive_ui.watch_dpi_change`，锚定 `tests/test_desktop_launcher.py`；多屏实机验证待 REL-12 清单） |
 | U-2 | `min_width/min_height` 改 1280×720 | P1 |
 | U-3 | 分镜表分页 + 筛选 | **P0**（3000 镜主力形态） |
 | U-4 | 表格移除缩略图列，改文字标识 + 查看器 | P1 |

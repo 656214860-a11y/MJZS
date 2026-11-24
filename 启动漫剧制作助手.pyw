@@ -42,7 +42,16 @@ try:
     # FATAL → MessageBoxW 显示 message＋remedy＋关闭开关用法后退出（fail-closed，不算崩溃）；
     # 其余（DEGRADED 等）暂存到窗口属性，主窗口状态栏播报（H2）。
     import infra.diagnostic_capture as diagnostic_capture
+    import desktop_launcher
+    # REL-14：任何 Tk 窗口创建之前声明 DPI 感知（per-monitor v2 优先、逐级降级、不抛错）。
+    desktop_launcher.enable_dpi_awareness()
     selfcheck_items=diagnostic_capture.run_startup_selfcheck(program)
+    # REL-14：最低系统版本（Windows 10 1809／build 17763）在自检组装处补一条；
+    # 与其他 FATAL 同路——弹可操作诊断后退出，不算崩溃。
+    _os_items=desktop_launcher.min_os_items()
+    if _os_items:
+        selfcheck_items=list(selfcheck_items)+_os_items
+        diagnostic_capture.record_selfcheck(selfcheck_items)
     from contract.diagnostics import Diagnostic, Severity, StartupPhase
     fatal_items=[item for item in selfcheck_items if item.severity is Severity.FATAL]
     degraded_items=[item for item in selfcheck_items if item.severity is not Severity.FATAL]

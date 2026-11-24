@@ -8,6 +8,7 @@ from unittest.mock import patch
 
 import infra.file_cache as file_cache
 
+from contract import stage_path_service
 from projects import Projects
 from stage_execution_service import project_registry_gateway
 
@@ -140,3 +141,69 @@ class ProjectsGatewayTests(unittest.TestCase):
                 self.assertTrue(service.migrate().ok)
             self.assertGreaterEqual(digest.call_count,2,
                                     '迁移校验未经 file_cache.file_digest（源与目标各一次）')
+
+
+class ProjectPathCompatTests(unittest.TestCase):
+    """REL-14：中文／空格／含括号目录下的项目目录创建、日志写入与路径往返。"""
+
+    WEIRD_ROOT = '项目 库 (测试)'
+    WEIRD_PROJECT = '剧集 一 (测试)'
+
+    def _service(self, td):
+        app = Path(td) / '程序'
+        app.mkdir()
+        library = Path(td) / self.WEIRD_ROOT
+        (app / 'config.json').write_text(json.dumps({
+            'downloads_root': str(library),
+        }, ensure_ascii=False), encoding='utf-8')
+        (app / 'projects.json').write_text(json.dumps({
+            'active': None, 'projects': [],
+        }, ensure_ascii=False), encoding='utf-8')
+        return Projects(app, gateway=project_registry_gateway(), migrate_legacy=False), library
+
+    def test_create_project_under_unicode_space_paren_library(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, library = self._service(td)
+            result = service.create('路径兼容 ' + self.WEIRD_PROJECT)
+            self.assertTrue(result.ok, result.reason)
+            project_dir = Path(result.data)
+            self.assertTrue(project_dir.is_dir())
+            # 项目落在含中文／空格／括号的项目库下：<库>/项目/<名称_日期>/。
+            self.assertEqual(project_dir.parent, library / '项目')
+            self.assertIn(self.WEIRD_PROJECT, project_dir.name)
+            cfg = json.loads((project_dir / 'config.json').read_text(encoding='utf-8'))
+            self.assertTrue(Path(cfg['episode_file']).is_file())
+            # 路径往返：登记表 path 与落盘目录一致，重读服务后仍一致。
+            registered = service.info['projects'][-1]['path']
+            self.assertEqual(Path(registered), project_dir)
+            self.assertEqual(Path(registered).resolve(), project_dir.resolve())
+            reloaded = Projects(service.app, gateway=project_registry_gateway(), migrate_legacy=False)
+            self.assertIn(str(project_dir), [item['path'] for item in reloaded.info['projects']])
+
+    def test_stage_dirs_round_trip_under_weird_project(self):
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / self.WEIRD_ROOT / self.WEIRD_PROJECT
+            project.mkdir(parents=True)
+            write = stage_path_service.write_dir(project, 'script')
+            self.assertTrue(write.resolve().is_relative_to(project.resolve()))
+            self.assertIn(self.WEIRD_ROOT, str(write))
+            reads = stage_path_service.read_dirs(project, 'script')
+            self.assertTrue(reads)
+            for folder in reads:
+                self.assertTrue(folder.resolve().is_relative_to(project.resolve()),
+                                '%s 越出项目根' % folder)
+            target = stage_path_service.read_file(project, 'script', '剧本.json')
+            self.assertTrue(target.resolve().is_relative_to(project.resolve()))
+            self.assertTrue(str(target).endswith('剧本.json'))
+
+    def test_diagnostic_log_write_under_weird_dir(self):
+        import infra.diagnostic_state as diagnostic_state
+        with tempfile.TemporaryDirectory() as td:
+            state_file = Path(td) / '日志 目录 (测试)' / '诊断 状态.json'
+            diagnostic_state.record_degradation(
+                RuntimeError('unicode path probe'), state_file=state_file)
+            self.assertTrue(state_file.is_file())
+            data = json.loads(state_file.read_text(encoding='utf-8'))
+            rows = data.get('degradations') or []
+            self.assertEqual(len(rows), 1)
+            self.assertEqual(rows[0]['exception'], 'RuntimeError')

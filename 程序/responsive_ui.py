@@ -777,3 +777,39 @@ class ScrollForm:
 def scroll_form(parent, bg=None):
     """建一块可滚动的表单区（用法见 ScrollForm）。"""
     return ScrollForm(parent, bg=bg)
+
+
+# ── REL-14：跨屏 DPI 变化重排 ─────────────────────────────────────
+# 进程级 DPI 感知声明在 desktop_launcher.enable_dpi_awareness()（建窗前调用）；
+# 这里只提供窗口级的 DPI 变化监听。布局本身不新造体系——
+# 窄宽换行走 FlowBar，行高与滚动区走上面的 row_height／ScrollForm，
+# 跨屏重排复用 desktop 的 _layout_all 整页重排入口。
+
+
+def _widget_dpi_scale(widget):
+    """窗口当前 DPI（每英寸像素）；量不到返回 ``None``。"""
+    try:
+        return float(widget.winfo_fpixels('1i'))
+    except Exception:
+        return None
+
+
+def watch_dpi_change(widget, on_change):
+    """监听主窗口 DPI 变化：跨到不同缩放的显示器时回调 ``on_change`` 重排一次。
+
+    WM_DPICHANGED 由 Windows 在窗口跨屏时投递，Tk 随后给出 ``<Configure>``；
+    用 ``winfo_fpixels('1i')`` 的实测值判断缩放是否真变——同值事件直接返回，
+    不重复重排，也不重建窗口（输入态、滚动位置、页面缓存都保留）。
+    返回内部检查函数，便于测试直接驱动。
+    """
+    state = {'scale': _widget_dpi_scale(widget)}
+
+    def check(event=None):
+        scale = _widget_dpi_scale(widget)
+        if scale is None or scale == state['scale']:
+            return
+        state['scale'] = scale
+        on_change()
+
+    widget.bind('<Configure>', check, add='+')
+    return check
