@@ -530,7 +530,7 @@ def _resolve_stage_api_target(project, stage, *, only=None, model_snapshot=None)
                 if _is_direct_api_record(model_pool, cand, rec):
                     chosen, record = cand, rec
             except Exception:
-                pass
+                app_logging.swallowed()
             if not chosen:
                 for cand, rec in records.items():
                     if _is_direct_api_record(model_pool, cand, rec):

@@ -424,12 +424,12 @@ def launch(project, config, skill_text, *, done=None, job_class=None, **kwargs):
 
 # ── 通用阶段文件直连 API 执行器（S02 剧本结构及各制作阶段：只按 SKILL 输出阶段文件，不对话）──
 STAGE_FILE_ONLY_RULES = (
-    '【直连文件输出模式】你是漫剧制作阶段的文件生成与修订引擎，不需要对话。'
+    '【直连文件输出模式】当前角色为漫剧制作阶段的文件生成与修订引擎，不需要对话。'
     '请严格遵循上方 SKILL 规范和用户要求，只直接输出本阶段目标文件的完整正文内容：\n'
     '1. 严禁输出任何开场白、寒暄、修改说明、步骤解释或追问；\n'
     '2. 不要在整篇内容最外层包裹多余的 Markdown 代码围栏（如 ```markdown ... ```）；\n'
     '3. 若提供了本阶段已有文件，请在其基础上按用户要求修订并输出完整的新版正文；\n'
-    '4. 你的回复全文将直接保存为本阶段成果文件。'
+    '4. 回复全文将直接保存为本阶段成果文件。'
 )
 _STAGE_FILE_CONTEXT_CAP = 36000
 _STAGE_TEXT_SUFFIXES = frozenset({'.md', '.txt', '.json', '.srt', '.ass', '.csv', '.yaml', '.yml'})
