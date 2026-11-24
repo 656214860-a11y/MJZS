@@ -36,6 +36,12 @@ def _require_gateway(gateway):
     return gateway
 
 
+def _version_publish(gateway):
+    """版本记录 JSONL 的发布器：复用资产批处理网关的字节发布能力。"""
+    publish_bytes = gateway['publish_bytes']
+    return lambda path, text: publish_bytes(path, text.encode('utf-8'))
+
+
 def asset_prompt(asset, kind):
     from infra.asset_prompt_rules import positive
     from domain.asset_reference_prompts import display_prompt
@@ -65,11 +71,11 @@ def register_image(base, aid, asset, image, *, gateway=None):
         if not isinstance(registry, dict):
             registry = {}
         existing = registry.get(aid, {})
+        old_image = None
         if existing.get('image'):
-            old = (base / existing['image']).resolve()
-            if old.is_relative_to(base) and old.is_file():
-                outcome = 'skipped'
-                return '已有图片，跳过登记'
+            candidate = (base / existing['image']).resolve()
+            if candidate.is_relative_to(base) and candidate.is_file():
+                old_image = candidate
         planfile = base / 'assets/资产清单/assets.json'
         plan = gateway['read_json'](planfile)
         if not isinstance(plan, dict):
@@ -87,10 +93,29 @@ def register_image(base, aid, asset, image, *, gateway=None):
         dest = folder / (aid + '_' + name + '_' + uuid.uuid4().hex[:8] + '.png')
         # 成果先经原子替换落盘，随后才更新资产索引；UI 刷新或进程中断不会读到半张 PNG。
         gateway['publish_bytes'](dest, raw)
+        backup = None
+        if old_image is not None:
+            # 生成路与导入路统一：新图成为当前图，旧图进历史版本（09 册 §5/§6）。
+            history = folder / '历史版本'
+            history.mkdir(exist_ok=True)
+            backup = history / (old_image.stem + '_' + uuid.uuid4().hex[:8] + old_image.suffix)
+            gateway['copy_file'](old_image, backup)
         registry[aid] = {**{k: v for k, v in asset.items() if k not in ('status', 'image') and not k.startswith('_')},
                          **existing, 'name': asset.get('name', aid),
                          'image': dest.relative_to(base).as_posix()}
         gateway['publish_json'](registry_file, registry)
+        if old_image is not None:
+            try:
+                from infra.storage_maintenance import recycle_paths
+                recycle_paths(base, (old_image,), '生成新图替换旧图')
+            except Exception:
+                app_logging.swallowed('asset_batch_service.register_image.retire_image')
+        from domain.asset_versions import append_version, image_summary
+        append_version(base, aid,
+                       {'field': 'image', 'kind': 'image',
+                        'before': image_summary(backup, base) if backup is not None else None,
+                        'after': image_summary(dest, base)},
+                       source='generated', publish=_version_publish(gateway))
         outcome = 'ok'
         return '已生成并导入'
     finally:
@@ -137,6 +162,7 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
     temporary = dest.with_name(dest.stem + '_' + uuid.uuid4().hex + '.importing')
     # 跨文件事务：登记表与目标图片同进退；取消/中断也回滚（R3310 轮 6）。
     token = unit_of_work.begin((registry_file, dest))
+    backup = None
     try:
         if source != dest:
             folder.mkdir(parents=True, exist_ok=True)
@@ -144,9 +170,10 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
             if gateway['file_hash'](temporary) != original_hash:
                 raise ValueError('图片复制校验失败，原图已保留')
             if dest.exists():
-                backup = folder / '历史版本'
-                backup.mkdir(exist_ok=True)
-                gateway['copy_file'](dest, backup / (dest.stem + '_' + uuid.uuid4().hex[:8] + dest.suffix))
+                history = folder / '历史版本'
+                history.mkdir(exist_ok=True)
+                backup = history / (dest.stem + '_' + uuid.uuid4().hex[:8] + dest.suffix)
+                gateway['copy_file'](dest, backup)
             gateway['replace_file'](temporary, dest)
         updated = dict(registry)
         updated[aid] = {'name': name, 'image': dest.relative_to(base).as_posix(),
@@ -163,6 +190,12 @@ def import_asset_image(base, project_root, aid, source, requirements, *, gateway
         if temporary.exists():
             from infra.file_cache import remove_temporary_file
             remove_temporary_file(temporary)
+    from domain.asset_versions import append_version, image_summary
+    append_version(base, aid,
+                   {'field': 'image', 'kind': 'image',
+                    'before': image_summary(backup, base) if backup is not None else None,
+                    'after': image_summary(dest, base)},
+                   source='imported', publish=_version_publish(gateway))
     result = '已登记 ' + aid + ' · 图片已按资产编号命名'
     if source != renamed:
         try:
@@ -203,6 +236,7 @@ def rename_asset(base, aid, old_name, new_name, *, gateway=None):
     aliases = list(plan_entry.get('aliases', []))
     if old_name not in aliases:
         aliases.append(old_name)
+    previous_name = plan_entry.get('name')
     plan_entry.update(name=name, aliases=aliases)
     updated_plan = dict(plan)
     updated_plan[aid] = plan_entry
@@ -222,6 +256,11 @@ def rename_asset(base, aid, old_name, new_name, *, gateway=None):
         except Exception:
             app_logging.swallowed('asset_batch_service.rename_asset.rollback')
         raise
+    from domain.asset_versions import append_version
+    append_version(base, aid,
+                   {'field': 'name', 'kind': 'text',
+                    'before': {'name': previous_name}, 'after': {'name': name}},
+                   source='manual', publish=_version_publish(gateway))
     return plan_entry
 
 
