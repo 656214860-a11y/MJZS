@@ -7,7 +7,7 @@
 ``script_row_category``／``_open`` 等已有成员。
 """
 import tkinter as tk
-from pathlib import Path
+from pathlib import Path, PureWindowsPath
 from tkinter import ttk
 
 from ui_tokens import COLORS, SPACING
@@ -81,6 +81,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
         row_two = FlowBar(bar)
         row_two.pack(side='top', fill='x')
+        self._build_import_button()
         self.kind_box = SelectBox(row_two, values=tuple(self.kind_labels))
         self.kind_box.pack(side='left')
         self.kind_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
@@ -108,6 +109,22 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.sort_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
         Tooltip(self.sort_box, '组内按类型或修改时间排序（最新在前）')
         self._reset_filter_boxes()
+
+    def _build_import_button(self):
+        """REQ-S01-103：标题行导入钮，收起钮左侧；PNG 优先，缺图退回 📁 文本。"""
+        from ui_icons import IconLoader
+        image = IconLoader.nav_icon(self.page.win, 'project_new')
+        if image is not None:
+            button = SecondaryButton(self.script_header, text=STAGE_RAIL_ALL, image=image,
+                                     compound='image', width=0, style='Tokens.Composer.Icon.TButton',
+                                     command=lambda: self.page.safe(self.import_files))
+        else:
+            button = SecondaryButton(self.script_header, text=STAGE_RAIL_ALL, width=0,
+                                     style='Tokens.Composer.Icon.TButton',
+                                     command=lambda: self.page.safe(self.import_files))
+        button.pack(side='right', padx=(SPACING['none'], SPACING['xs']))
+        Tooltip(button, '导入文件到当前阶段目录')
+        self.import_button = button
 
     def _reset_filter_boxes(self):
         """下拉框显示回「全部」，不触发回调。"""
@@ -813,3 +830,147 @@ def _stage_view_index_render(panel, rows, categories, root, library, generation,
         panel._index_render_job = panel.page.win.after(1, batch)
 
     batch()
+
+
+# ── REQ-S01-103：面板「导入文件」（UX-FP-IMPORT）─────────────────────────────
+
+def import_suffixes(stage):
+    """该阶段面板允许导入的本机文件后缀，全部取自现有文件类型判定表。"""
+    from domain.delivery_import_service import ALLOWED_SUFFIXES
+    from domain.script_workspace_service import VISIBLE_SUFFIXES
+    from infra import file_index
+    docs = frozenset(VISIBLE_SUFFIXES)
+    # 文档类阶段收 VISIBLE_SUFFIXES；图像阶段收 IMAGE_SUFFIXES；音频阶段加收字幕后缀；
+    # 视频链路收 VIDEO_SUFFIXES（animatic 另加图与音、previs 另加图）；交付与
+    # delivery_import_service 同一份。功能 JSON 不进面板列表，仍走各阶段专用入口。
+    tables = {
+        'script': docs, 'script_structure': docs, 'storyboard': docs,
+        'continuity': docs, 'final': docs,
+        'animatic': file_index.IMAGE_SUFFIXES | file_index.AUDIO_SUFFIXES | file_index.VIDEO_SUFFIXES,
+        'assets': file_index.IMAGE_SUFFIXES,
+        'keyframe': file_index.IMAGE_SUFFIXES,
+        'previs': file_index.IMAGE_SUFFIXES | file_index.VIDEO_SUFFIXES,
+        'video': file_index.VIDEO_SUFFIXES,
+        'audio': file_index.AUDIO_SUFFIXES | frozenset({'.srt', '.ass'}),
+        'edit': file_index.VIDEO_SUFFIXES,
+        'delivery': frozenset(ALLOWED_SUFFIXES),
+    }
+    return frozenset(tables.get(str(stage or ''), ()))
+
+
+def _import_target(root, stage, name):
+    """导入落点：``write_dir`` 目录＋合法单段文件名；剥离目录段、越界即拒绝。"""
+    from contract import file_naming, stage_path_service
+    target_dir = stage_path_service.write_dir(root, stage)
+    safe = file_naming.validate(PureWindowsPath(str(name)).name)
+    target = target_dir / safe
+    if not target.resolve().is_relative_to(Path(root).resolve()):
+        raise ValueError('导入目标越出项目目录：' + safe)
+    return target_dir, target
+
+
+def _check_importable(source, stage, allowed):
+    """源必须是已存在的普通文件，且后缀落在本阶段允许表内。"""
+    from contract.pet_bus import stage_name
+    if not source.is_file():
+        raise ValueError('源文件不存在或不是普通文件')
+    if source.suffix.lower() not in allowed:
+        raise ValueError('「%s」阶段不支持该类型；可导入：%s' % (
+            stage_name(stage), ' '.join(sorted(allowed))))
+
+
+def _default_import_copier(target, source, overwrite):
+    """原子发布副本：覆盖＝临时文件原子替换；新建＝排他硬链接，绝不静默覆盖。"""
+    from agent.core import copy_file_new, save_file
+    if overwrite:
+        save_file(target, source)
+    else:
+        copy_file_new(target, source, lambda _temp: True)
+
+
+def _clean_import_temp(target):
+    """复制失败兜底：同前缀 ``*.tmp`` 残留经 ``file_cache`` 清理（L4 不直接删文件）。"""
+    from infra.file_cache import remove_temporary_file
+    prefix = target.name + '.'
+    try:
+        strays = [entry for entry in target.parent.iterdir()
+                  if entry.name.startswith(prefix) and entry.name.endswith('.tmp') and entry.is_file()]
+    except OSError:
+        strays = []
+    for stray in strays:
+        remove_temporary_file(stray)
+
+
+def _import_publish(candidate, source, copier, overwrite):
+    """发布一份副本；失败时清本轮残留，未存在过的目标不留半文件。"""
+    from infra.file_cache import remove_temporary_file
+    existed = candidate.exists()
+    try:
+        copier(candidate, source, overwrite)
+    except Exception:
+        _clean_import_temp(candidate)
+        if not existed:
+            remove_temporary_file(candidate)
+        raise
+    return candidate
+
+
+def _import_candidates(target):
+    """「保留两份」的改名序列：``stem(2).ext``、``stem(3).ext``……递增。"""
+    for number in range(2, 1000):
+        yield target.with_name('%s(%d)%s' % (target.stem, number, target.suffix))
+
+
+def _import_one(target, source, conflict, copier):
+    """单份导入：同名先经 ``conflict`` 决策（覆盖／保留两份／取消），缺省不覆盖。"""
+    if not target.exists():
+        _import_publish(target, source, copier, False)
+        return 'imported', target
+    decision = conflict(target.name) if callable(conflict) else 'cancel'
+    if decision == 'rename':
+        for candidate in _import_candidates(target):
+            try:
+                _import_publish(candidate, source, copier, False)
+                return 'imported', candidate
+            except FileExistsError:
+                continue
+        raise ValueError('无法生成不重名的导入文件名')
+    if decision != 'overwrite':
+        return 'skipped', target.name
+    _import_publish(target, source, copier, True)
+    return 'imported', target
+
+
+def import_into_stage(root, stage, sources, *, conflict=None, copier=None):
+    """把本机文件复制进 ``write_dir(root, stage)``，并写索引增量与来源登记。
+
+    ``conflict(文件名) -> 'overwrite'|'rename'|'cancel'``；缺省按取消——绝不静默覆盖。
+    ``copier(target, source, overwrite)`` 是复制器注入点，默认 ``agent.core`` 原子发布。
+    原文件只读不动；单份失败记 ``rejected`` 并继续，不留半个文件。
+    """
+    from infra import file_index
+    copier = copier or _default_import_copier
+    allowed = import_suffixes(stage)
+    result = {'imported': [], 'skipped': [], 'rejected': []}
+    for raw in sources:
+        name = PureWindowsPath(str(raw)).name or str(raw)
+        try:
+            _dir, target = _import_target(root, stage, raw)
+            _check_importable(Path(raw), stage, allowed)
+        except (OSError, ValueError) as exc:
+            result['rejected'].append((name, str(exc)))
+            continue
+        try:
+            outcome, path = _import_one(target, Path(raw), conflict, copier)
+        except (OSError, ValueError) as exc:
+            result['rejected'].append((target.name, '复制失败：' + str(exc)))
+            continue
+        if outcome == 'skipped':
+            result['skipped'].append(path)
+        else:
+            result['imported'].append(path)
+    if result['imported']:
+        from contract.file_index_contract import ORIGIN_USER
+        file_index.update(root, result['imported'])
+        file_index.record_origin(root, result['imported'], ORIGIN_USER)
+    return result
