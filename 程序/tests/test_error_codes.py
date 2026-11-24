@@ -1,14 +1,19 @@
+import ast
 import os
 import tempfile
 import unittest
 
-from contract import error_codes
+from contract import error_codes, selfcheck
 from contract.diagnostics import Severity
 from contract.error_codes import (CODES, SEVERITIES, ErrorCode, analyze, code_data,
                                   code_of, classify, describe, from_http_result, lookup,
                                   TEXT_RULES)
 from contract.infra_errors import StorageError
 from contract.service_contract import ServiceResult, SystemError, UserError, success
+import domain.account_client as account_client
+import domain.video_task_state as video_task_state
+import infra.model_router as model_router
+from tests.architecture._scan import entity_file, parse
 
 
 class ErrorCodesTests(unittest.TestCase):
@@ -192,6 +197,9 @@ class ClassifyTextTests(unittest.TestCase):
             'E-CONFIG-INVALID': (Severity.WARN, False),
             'E-START-FAILED': (Severity.FATAL, False),
             'E-START-SELFCHECK': (Severity.FATAL, False),
+            'E-RECEIPT-UNKNOWN': (Severity.ERROR, False),
+            'E-TASK-EXPIRED': (Severity.ERROR, False),
+            'E-CLIENT-TOO-OLD': (Severity.ERROR, False),
         }
         self.assertEqual(set(CODES), set(expected))
         for code, (severity, retryable) in expected.items():
@@ -280,6 +288,207 @@ class UserTextTests(unittest.TestCase):
                          describe('E-START-FAILED'))
         self.assertEqual(error_codes.user_text(RuntimeError('boom'), fallback='E-BOGUS'),
                          describe('E-UNKNOWN'))
+
+
+def _literal_strings(node):
+    """AST 子树里的字符串常量集合。"""
+    return {item.value for item in ast.walk(node)
+            if isinstance(item, ast.Constant) and isinstance(item.value, str)}
+
+
+def _module_constant(tree, name):
+    """模块级 ``NAME = <字面量>`` 赋值读值（AST，不 import 生产代码）。"""
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id == name
+                for target in node.targets):
+            return ast.literal_eval(node.value)
+    raise AssertionError('模块常量 %s 未登记' % name)
+
+
+def _branch_strings(node):
+    """IfExp 链各分支「产出值」里的字符串：只看 body／orelse，不看 test 判定式。"""
+    if isinstance(node, ast.IfExp):
+        return _literal_strings(node.body) | _branch_strings(node.orelse)
+    return _literal_strings(node)
+
+
+def _selfcheck_closed_set():
+    """A1 闭集：L0 ``contract/selfcheck.py`` 的 ``CODE_*`` 常量，加 L1
+    ``infra/diagnostic_capture.py`` 里 ``_degraded(scope, '<code>', …)`` 的码参数
+    （``selfcheck-skip-<族>`` 动态码按 ``_STARTUP_CHECK_FAMILIES`` 展开）。"""
+    codes = set()
+    tree = parse(entity_file('selfcheck'))
+    for node in tree.body:
+        if isinstance(node, ast.Assign) and any(
+                isinstance(target, ast.Name) and target.id.startswith('CODE_')
+                for target in node.targets):
+            codes.update(_literal_strings(node.value))
+    tree = parse(entity_file('diagnostic_capture'))
+    for node in ast.walk(tree):
+        if (isinstance(node, ast.Call) and isinstance(node.func, ast.Name)
+                and node.func.id == '_degraded'):
+            if len(node.args) >= 2 and isinstance(node.args[1], ast.Constant) \
+                    and isinstance(node.args[1].value, str):
+                codes.add(node.args[1].value)
+            for keyword in node.keywords:
+                if keyword.arg == 'code':
+                    codes.update(_literal_strings(keyword.value))
+    for family in _module_constant(tree, '_STARTUP_CHECK_FAMILIES'):
+        codes.add('selfcheck-skip-' + family.replace('_', '-'))
+    return codes
+
+
+def _reason_code_closed_set():
+    """A2 闭集：``infra/model_router.failure_policy`` 里 ``code = (...)``
+    三元链各分支的产出口径。"""
+    tree = parse(entity_file('model_router'))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == 'failure_policy':
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Assign) and any(
+                        isinstance(target, ast.Name) and target.id == 'code'
+                        for target in sub.targets):
+                    return _branch_strings(sub.value)
+    raise AssertionError('failure_policy 的 code 赋值未找到')
+
+
+def _video_failure_closed_set():
+    """A3 闭集：``domain/video_task_state.provider_failure_reason`` 的
+    ``provider_status`` 终态键＋ ``NO_ERROR_INFO`` 伪取值常量＋
+    ``ui/video_progress.ERROR_LABELS`` 键集（``error_kind`` 产出值的权威枚举）。"""
+    codes = set()
+    tree = parse(entity_file('video_task_state'))
+    for node in ast.walk(tree):
+        if isinstance(node, ast.FunctionDef) and node.name == 'provider_failure_reason':
+            for sub in ast.walk(node):
+                if isinstance(sub, ast.Dict):
+                    for key in sub.keys:
+                        codes.update(_literal_strings(key))
+    codes.add(_module_constant(tree, 'NO_ERROR_INFO'))
+    codes.update(_module_constant(parse(entity_file('video_progress')), 'ERROR_LABELS'))
+    return codes
+
+
+def _account_code_closed_set():
+    """A6 本地合成码闭集：``domain/account_client.py`` 与
+    ``orchestrator/account_controller.py`` 中错误结果 ``data={'code': …}`` 的值
+    （字面量、或本模块常量）；``account_client._failure`` 的 426／``http_<N>``
+    分支与 ``_unreachable`` 返回首项常量。服务端业务码经 ``body.get('code')``
+    透传、不是本地产出，不计入。
+
+    返回 ``(码集合, 未解局部名集合)``：``_failure``／``request`` 里 ``data['code']``
+    经局部变量 ``code`` 赋值，其取值由上面两条函数级抽取覆盖。"""
+    codes = set()
+    unresolved = set()
+    for module in ('account_client', 'account_controller'):
+        tree = parse(entity_file(module))
+        constants = {}
+        for node in tree.body:
+            if isinstance(node, ast.Assign):
+                for target in node.targets:
+                    if (isinstance(target, ast.Name)
+                            and isinstance(node.value, ast.Constant)
+                            and isinstance(node.value.value, str)):
+                        constants[target.id] = node.value.value
+        data_dicts = []
+        for node in ast.walk(tree):
+            if isinstance(node, ast.keyword) and node.arg == 'data' \
+                    and isinstance(node.value, ast.Dict):
+                data_dicts.append(node.value)
+            elif isinstance(node, ast.Assign) and isinstance(node.value, ast.Dict) \
+                    and any(isinstance(t, ast.Name) and t.id == 'data' for t in node.targets):
+                data_dicts.append(node.value)
+        for data in data_dicts:
+            for key, value in zip(data.keys, data.values):
+                if not (isinstance(key, ast.Constant) and key.value == 'code'):
+                    continue
+                if isinstance(value, ast.Constant) and isinstance(value.value, str):
+                    codes.add(value.value)
+                elif isinstance(value, ast.Name):
+                    if value.id in constants:
+                        codes.add(constants[value.id])
+                    else:
+                        unresolved.add('%s:%s' % (module, value.id))
+        if module != 'account_client':
+            continue
+        for node in ast.walk(tree):
+            if isinstance(node, ast.FunctionDef) and node.name == '_failure':
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.IfExp):
+                        codes.update(_literal_strings(sub.body)
+                                     | _literal_strings(sub.orelse))
+            if isinstance(node, ast.FunctionDef) and node.name == '_unreachable':
+                for sub in ast.walk(node):
+                    if isinstance(sub, ast.Return) and isinstance(sub.value, ast.Tuple):
+                        first = sub.value.elts[0]
+                        if isinstance(first, ast.Name):
+                            codes.add(constants[first.id])
+    return codes, unresolved
+
+
+class ErrorCodeMappingTests(unittest.TestCase):
+    """EC-5：四套编码体系「取值 → 登记表代码」映射表的完整性测试。
+
+    闭集独立于表本身：用 AST 从产生处源码抽取取值（先例见
+    tests/architecture/test_notification_boundary.py）。每张表断言三点——
+    闭集每个取值都在表里、表里每个值都已登记（``lookup`` 归一到自身）、
+    表里没有闭集之外的键；闭集中「不是错误」的成员走白名单（不进表也不许进表）。
+    """
+
+    def _assert_table(self, table, closed_set, *, whitelist=frozenset(), label=''):
+        missing = closed_set - set(table) - set(whitelist)
+        extra = set(table) - (closed_set - set(whitelist))
+        self.assertEqual(missing, set(), '%s 表缺闭集取值：%s' % (label, sorted(missing)))
+        self.assertEqual(extra, set(), '%s 表有闭集之外的键：%s' % (label, sorted(extra)))
+        for value, code in table.items():
+            with self.subTest(value=value):
+                self.assertEqual(lookup(code).code, code,
+                                 '%s 映射的 %s 未在登记表' % (value, code))
+
+    def test_error_code_mapping_a1_selfcheck_codes(self):
+        """A1（盘点 §B1）：contract.selfcheck.SELFCHECK_TO_CODE 收 L0 三码与
+        L1 十二码；``selfcheck-skip-<族>`` 是管理开关回执不是错误，白名单。"""
+        closed = _selfcheck_closed_set()
+        whitelist = {code for code in closed if code.startswith('selfcheck-skip-')}
+        self.assertTrue(whitelist, '自检跳过回执族仍在产生')
+        self._assert_table(selfcheck.SELFCHECK_TO_CODE, closed,
+                           whitelist=whitelist, label='A1')
+
+    def test_error_code_mapping_a2_reason_codes(self):
+        """A2（盘点 §B2）：infra.model_router.REASON_CODE_TO_CODE 收
+        ``failure_policy`` 的错误 ``reason_code``；``succeeded`` 非错误，白名单。"""
+        closed = _reason_code_closed_set()
+        self._assert_table(model_router.REASON_CODE_TO_CODE, closed,
+                           whitelist={'succeeded'}, label='A2')
+
+    def test_error_code_mapping_a3_video_failure(self):
+        """A3（盘点 §B3）：domain.video_task_state.VIDEO_FAILURE_TO_CODE 收
+        provider_status 终态、``NO_ERROR_INFO`` 伪取值与 error_kind 七类；
+        task_status 12 态是状态不是错误码，不进表。"""
+        self._assert_table(video_task_state.VIDEO_FAILURE_TO_CODE,
+                           _video_failure_closed_set(), label='A3')
+
+    def test_error_code_mapping_a6_account_codes(self):
+        """A6（盘点 §B6）：domain.account_client.ACCOUNT_TO_CODE 收本地合成码；
+        ``http_<N>``（非 426）一族由 ``http_status_to_code`` 按
+        ``http_client._classify`` 同口径归一。"""
+        closed, unresolved = _account_code_closed_set()
+        self.assertEqual(unresolved, {'account_client:code'},
+                         '出现新的局部变量码值，请扩展闭集抽取')
+        family = {'http_%d'}
+        self.assertTrue(family <= closed, 'http_<N> 一族仍在产生')
+        self._assert_table(account_client.ACCOUNT_TO_CODE, closed,
+                           whitelist=family, label='A6')
+        cases = {400: 'E-NET-CLIENT', 401: 'E-AUTH-REJECTED',
+                 403: 'E-AUTH-REJECTED', 404: 'E-NET-CLIENT',
+                 418: 'E-NET-CLIENT', 422: 'E-NET-CLIENT',
+                 429: 'E-NET-RATE-LIMIT', 500: 'E-NET-SERVER',
+                 502: 'E-NET-SERVER', 503: 'E-NET-SERVER'}
+        for status, code in cases.items():
+            with self.subTest(status=status):
+                self.assertEqual(account_client.http_status_to_code(status), code)
+                self.assertEqual(lookup(code).code, code)
 
 
 if __name__ == '__main__':

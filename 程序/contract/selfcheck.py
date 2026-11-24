@@ -25,6 +25,28 @@ CODE_STAGE_CONTRACT = 'stage-contract'
 CODE_ARTIFACT_REGISTRY = 'artifact-registry'
 CODE_CHECK_ERROR = 'check-error'
 
+# A1（EC-5，盘点报告 §B1）：启动自检条目代码 → 登记表错误码。
+# 收 L0 内建三码与 L1（infra/diagnostic_capture.py ``_degraded``）十二码；
+# ``selfcheck-skip-<族>`` 是管理开关回执、不是错误，不进表。
+SELFCHECK_TO_CODE: dict[str, str] = {
+    # L0 内建（语义近似：诊断是 FATAL 级而登记码是 DEGRADED，域差异不改码）
+    'stage-contract': 'E-CONTRACT-VIOLATION',
+    'artifact-registry': 'E-CONTRACT-VIOLATION',
+    'check-error': 'E-UNKNOWN',
+    # L1 注入项（infra/diagnostic_capture.py）
+    'data-logs-writable': 'E-IO-WRITE',
+    'disk-space-low': 'E-IO-WRITE',            # 近似：磁盘余量不足无专码
+    'model-pool-empty': 'E-CONFIG-INVALID',    # 近似：模型池为空无专码
+    'bundled-tools-missing': 'E-TOOL-MISSING',
+    'dependency-lock-invalid': 'E-CONFIG-INVALID',   # 近似
+    'dependency-lock-mismatch': 'E-CONFIG-INVALID',  # 近似
+    'settings-corrupt': 'E-IO-CORRUPT',
+    'ui-settings-corrupt': 'E-IO-CORRUPT',
+    'request-ledger-corrupt': 'E-IO-CORRUPT',
+    'request-ledger-unknown-stale': 'E-IO-CORRUPT',  # 近似：台账待对账语义无专码，余量保留
+    'temporary-files-leftover': 'E-IO-WRITE',        # 近似
+}
+
 _SCOPE_SELF = 'selfcheck'
 
 

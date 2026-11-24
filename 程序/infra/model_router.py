@@ -942,3 +942,17 @@ def missing_setup_hint(destination=''):
     return ('需要配置模型或引擎：' + (destination or
             '在「模型管理」里「+ 新增模型…」并保存 API Key；'
             '或安装命令行引擎后在「调用设置」选择其 .exe'))
+
+
+# A2（EC-5，盘点报告 §B2）：``failure_policy`` 的错误 ``reason_code`` → 登记表错误码。
+# ``succeeded`` 与 ``acceptance`` 三值（accepted／not_accepted／unknown）不是错误，不进表。
+# 挂文件尾部（同 ``missing_setup_hint`` 的考量）：``docs/process/外部依赖清单.md``
+# 按行号登记本文件的四个供应商默认地址，前置插入会让登记失锚。
+REASON_CODE_TO_CODE: dict[str, str] = {
+    'rate_limit': 'E-NET-RATE-LIMIT',
+    'authentication': 'E-AUTH-REJECTED',
+    'unsupported_request': 'E-NET-CLIENT',
+    'server_error': 'E-NET-SERVER',
+    'cancelled': 'E-CANCELLED',
+    'receipt_unknown': 'E-RECEIPT-UNKNOWN',
+}
