@@ -263,10 +263,15 @@ def verify(destination, root=ROOT, manifest=None) -> dict:
                        for item in component.get('licenses') or [] if isinstance(item, dict)]
         if 'NOASSERTION' in license_ids:
             blockers.append(component.get('bom-ref') or component.get('name'))
+    missing_notices = ['%s/NOTICE.txt' % home
+                       for home in sbom_builder.gpl_tool_homes(components or [])
+                       if not (dest / home / 'NOTICE.txt').is_file()]
     supply_chain = {
         'ok': bool(isinstance(sbom, dict) and sbom.get('bomFormat') == 'CycloneDX'
-                   and sbom.get('specVersion') == '1.5' and components and notices_path.is_file()),
+                   and sbom.get('specVersion') == '1.5' and components and notices_path.is_file()
+                   and not missing_notices),
         'components': len(components or []), 'release_blockers': blockers,
+        'missing_notices': missing_notices,
     }
     runtime = ({'ok': True, 'skipped': True}
                if not (dest / release_runtime.SITE).is_dir()
