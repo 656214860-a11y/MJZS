@@ -2395,6 +2395,12 @@
       "percent": 0.0
     },
     {
+      "module": "ui/desktop_expand_column.py",
+      "covered": 0,
+      "total": 72,
+      "percent": 0.0
+    },
+    {
       "module": "ui/desktop_file_card.py",
       "covered": 0,
       "total": 27,
@@ -2542,6 +2548,12 @@
       "module": "ui/desktop_shared_menus.py",
       "covered": 0,
       "total": 354,
+      "percent": 0.0
+    },
+    {
+      "module": "ui/desktop_sidebar_project.py",
+      "covered": 0,
+      "total": 227,
       "percent": 0.0
     },
     {
@@ -4082,6 +4094,6 @@
     }
   ],
   "modules_covered": 133,
-  "modules_total": 677,
+  "modules_total": 679,
   "integration_status": "historical_master_measurement_minus_retired_aigc_lint_pending_remeasurement"
 }
