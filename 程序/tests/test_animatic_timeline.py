@@ -48,3 +48,36 @@ class AnimaticTimelineTests(unittest.TestCase):
         with self.assertRaises(ValueError):
             assemble_image_timeline(['image.png'], [float('nan')], 'audio.wav', 'out.mp4',
                 ffmpeg='ffmpeg', ffprobe='ffprobe', write_temporary=forbidden, run=forbidden)
+
+
+class MixedAudioRenderTests(unittest.TestCase):
+    def test_req_s04_74_76_mixed_audio_runs_injected_command_in_scratch_area(self):
+        """REQ-S04-74/76：混音命令由 L3 注入后原样执行，edit_service 不 import animatic_audio。"""
+        from domain.edit_service import render_mixed_audio
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            output = root / 'mixed.wav'
+            commands = []
+            def execute(command, **options):
+                commands.append(command)
+                self.assertTrue(options['check'])
+                self.assertTrue(options['capture_output'])
+                return SimpleNamespace(stdout='')
+            built = []
+            def mix(path, total, **kwargs):
+                built.append((path, total, kwargs))
+                return ['ffmpeg', '-i', 'voice.wav', '-t', str(total), str(path)]
+            result = render_mixed_audio(output, 4.5, ffmpeg='ffmpeg', run=execute,
+                full_track='track.mp3', dialogue_clips=({'path': 'd1.mp3', 'start_ms': 500},),
+                music='bgm.mp3', mix_command=mix)
+            self.assertEqual(result, output)
+            self.assertEqual(built, [(output, 4.5, {'full_track': 'track.mp3',
+                'dialogue_clips': ({'path': 'd1.mp3', 'start_ms': 500},),
+                'music': 'bgm.mp3', 'ffmpeg': 'ffmpeg'})])
+            self.assertEqual(commands, [['ffmpeg', '-i', 'voice.wav', '-t', '4.5', str(output)]])
+
+    def test_req_s04_76_mixed_audio_requires_l3_injected_command(self):
+        """REQ-S04-76：未注入混音命令时拒绝编造 ffmpeg 参数。"""
+        from domain.edit_service import render_mixed_audio
+        with self.assertRaises(TypeError):
+            render_mixed_audio('out.wav', 1.0, ffmpeg='ffmpeg')

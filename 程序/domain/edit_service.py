@@ -112,3 +112,19 @@ def preview_fps(spec=None):
     """预演帧率：不给规格时是 24。"""
     from contract.script_contract import preview_spec
     return (preview_spec() if spec is None else spec)['fps']
+
+
+def render_mixed_audio(output_path, total_seconds, *, ffmpeg, run=None,
+                       mix_command=None, **tracks):
+    """仅在调用方暂存区混出整条临时音轨；混音命令由 L3 注入，本模块不感知三轨拼装。
+
+    ``tracks`` 透传注入命令的轨道参数（如 full_track／dialogue_clips／music）。
+    """
+    if not callable(mix_command):
+        raise TypeError('预演混音命令需要由 L3 注入。')
+    from contract.platform_tools import run_process
+    execute = run or run_process
+    output_path = Path(output_path)
+    command = mix_command(output_path, total_seconds, ffmpeg=ffmpeg, **tracks)
+    execute([str(part) for part in command], check=True, capture_output=True, timeout=600)
+    return output_path
