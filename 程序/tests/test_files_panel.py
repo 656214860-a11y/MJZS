@@ -400,6 +400,36 @@ class FilesPanelResizeTests(unittest.TestCase):
         self.assertTrue(panel._open)
         panel.collapse(); self.pump(.1)
 
+    def test_grouped_text_files_align_close_to_left_edge(self):
+        """无缩略图分组视图下，#0 仅留展开箭头宽度，目录名与文件名紧贴左侧边界。"""
+        from contract import stage_path_service
+        from infra import file_index
+        from ui.desktop_files_panel_index import TREE_DISCLOSURE_WIDTH
+        d = self.desktop
+        s2_dir = stage_path_service.write_dir(d.root, 'script_structure')
+        s2_dir.mkdir(parents=True, exist_ok=True)
+        extra = s2_dir / '左对齐验证结构稿.md'
+        extra.write_text('# 结构稿\n', encoding='utf-8')
+        try:
+            file_index.rebuild(d.root)
+            d.show(PAGE['script']); self.pump(.2)
+            self._open_panel()
+            panel = d.files_panel
+            panel.show_stage(None)
+            self.pump(.3)
+            tree = panel.script_tree
+            self.assertEqual(int(tree.column('#0', 'width')), TREE_DISCLOSURE_WIDTH)
+            groups = tree.get_children()
+            self.assertGreaterEqual(len(groups), 2)
+            box = tree.bbox(groups[0], 'name')
+            self.assertTrue(box, '分组行应已渲染可见')
+            self.assertLessEqual(box[0], TREE_DISCLOSURE_WIDTH + 4,
+                                 '分组目录名应紧贴左边界，不留过宽空白')
+            panel.collapse(); self.pump(.1)
+        finally:
+            extra.unlink(missing_ok=True)
+            file_index.rebuild(d.root)
+
 
 class FilesPanelImportTests(unittest.TestCase):
     """REQ-S01-103：面板「导入文件」入口——本机文件复制进当前阶段写入目录并列进索引。

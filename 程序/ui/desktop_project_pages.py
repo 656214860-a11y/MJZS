@@ -17,7 +17,7 @@ from domain.projects import (needs_cleanup_after_open_error, is_empty_shell_open
 from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui.ui_motion import EmptyState, bind_row_hover
-from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT
+from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT, NAV_PRIMARY_ICON_SIZE
 from ui.desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
 from ui.ui_icons import IconLoader
@@ -589,12 +589,12 @@ class ProjectPagesMixin(RecyclePanelMixin):
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def build_account_nav(self,side):
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
-        image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT))
+        image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT),size=NAV_PRIMARY_ICON_SIZE)
         self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
             compound='image' if image is not None else 'text',width=0,
             command=lambda:self.go_page(PAGE_ACCOUNT),style='RailIcon.TButton')
         Tooltip(self.account_button,ACCOUNT_TITLE)
-        self.account_button.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.account_button.pack(anchor='w',padx=(DESKTOP_LAYOUT['nav_primary_inset'],SPACING['none']),pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')

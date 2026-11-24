@@ -1,0 +1,15 @@
+{
+  "round": 4378,
+  "commit_base": "171c4cc61",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_ui_icons test_desktop_compact_layout test_ui_theme test_ui_style_engine",
+    "exit": 0,
+    "passed": 70,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T00:00:32"
+}

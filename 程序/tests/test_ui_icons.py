@@ -94,6 +94,25 @@ class NavIconTests(unittest.TestCase):
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, ''))
         self.assertIsNone(ui_icons.IconLoader.nav_icon(master, 'no_such_icon'))
 
+    def test_nav_icon_scales_and_caches_per_size(self):
+        import base64
+        import io
+        from PIL import Image
+        master = _Master()
+        with patch.object(ui_icons.tk, 'PhotoImage', side_effect=lambda **kw: _Image(**kw)) as made:
+            big = ui_icons.IconLoader.nav_icon(master, 'video', size=30)
+            big_again = ui_icons.IconLoader.nav_icon(master, 'video', size=30)
+            small = ui_icons.IconLoader.nav_icon(master, 'video', size=18)
+        self.assertIs(big, big_again)
+        self.assertIsNot(big, small)
+        self.assertEqual(made.call_count, 2)
+        big_img = Image.open(io.BytesIO(base64.b64decode(big.kwargs['data'])))
+        small_img = Image.open(io.BytesIO(base64.b64decode(small.kwargs['data'])))
+        self.assertEqual(big_img.size, (30, 30))
+        self.assertEqual(small_img.size, (18, 18))
+        # retint_nav_icons 对无 configure 方法的替身应安全跳过而不抛出 AttributeError。
+        ui_icons.retint_nav_icons()
+
     def test_files_panel_dock_action_icons_have_pngs(self):
         """UX-C1：停靠面板四个动作钮与侧栏同套 PNG（素材库／设置／回收站／清空）。"""
         names = ('library', 'library_settings', 'recycle', 'recycle_purge')

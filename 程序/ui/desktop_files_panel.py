@@ -311,10 +311,9 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         dock = getattr(page, 'panel_dock', None)
         area = dock or getattr(page, 'panel_area', None) or page.canvas.master
         self._dock = dock if dock is area else None
-        self.script_box = ttk.Frame(area, padding=(SPACING['xs'], SPACING['xs']))
+        self.script_box = ttk.Frame(area, padding=(SPACING['none'], SPACING['xs'], SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
-        # 拖动调宽手柄：放在分隔线与面板之间，宽度从 SPACING 推导。
-        self.resize_grip = ttk.Frame(area, width=SPACING['sm'], cursor='sb_h_double_arrow')
+        self.resize_grip = ttk.Frame(area, width=SPACING['xs'], cursor='sb_h_double_arrow')
         Tooltip(self.resize_grip, '拖动调整面板宽度，双击恢复自动宽度')
         self.resize_grip.bind('<Button-1>', self._start_resize, add='+')
         self.resize_grip.bind('<B1-Motion>', self._do_resize, add='+')
@@ -351,25 +350,18 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_tree = table.tree
         self.script_tree.heading('name', text='文件名', anchor='center')
         self.script_tree.column('name', width=SCRIPT_LIST_MIN_WIDTH,
-                                minwidth=SPACING['sm'] * 12, stretch=True)
+                                minwidth=SPACING['sm'] * 12, anchor='w', stretch=True)
         for column in ('kind', 'size', 'mtime'):
             self.script_tree.column(column, stretch=False)
         self._apply_columns(True)
         self.script_tree.heading('#0', text='分组／预览')
-        self.script_tree.column('#0', width=PANEL_PREVIEW_COL_WIDTH,
-                                minwidth=PANEL_PREVIEW_COL_WIDTH, stretch=False)
+        self.script_tree.column('#0', width=PANEL_PREVIEW_COL_WIDTH, minwidth=SPACING['none'], stretch=False)
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
-        # R2998：文件名列宽不再写死——0 高 sizer 驱动 script_box 请求宽，
-        # _fit_script_width 按最长文件名量宽后 configure；列 stretch 铺满。
-        # 必须关 grid 传播：Treeview 删行重填后会把 stretch 列的 reqwidth 锁成
-        # 当时分配宽（delete+insert 实测 reqw=alloc 且不再回落），不关掉面板
-        # 就永远缩不回来；关掉后面板宽只由 sizer 决定，列 stretch 仍管视觉铺满。
         self.script_list.grid_propagate(False)
         self.script_width_sizer = tk.Frame(self.script_box, width=SCRIPT_LIST_MIN_WIDTH, height=0)
         self.script_width_sizer.pack()
-        # 状态标记放在文件名前面：列窄时被截掉的是文件名尾巴，不是[已确认]/[待确认]。
-        ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT)
+        ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT, indent=SPACING['sm'])
         fit_row_height(self.script_tree, style='Script.Treeview')
         # 窗口缩放改变内容区宽度上限时重算面板宽（去抖到 idle，且只在面板开着时跑）。
         area.bind('<Configure>', self._on_files_area_resize, add='+')
@@ -417,6 +409,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
             # 预览列＋name 顶过控件实宽，表格被迫横向滚动。
             tree.column(key, width=width,
                         minwidth=SCRIPT_NAME_MIN_WIDTH if key == 'name' else width,
+                        anchor='w' if key == 'name' else 'w',
                         stretch=(key == 'name'))
 
     def _entry_allowed(self):

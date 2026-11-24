@@ -416,59 +416,87 @@ class SidebarExpandColumnTests(unittest.TestCase):
     def test_project_name_list_rows_filter_highlight_and_pick(self):
         d = self.desktop
         lst = getattr(d, 'project_name_list', None)
-        self.assertIsNotNone(lst, '缺少项目名称列表（REQ-UI-SIDEBAR-1）')
-        tree = lst.table.tree
+        self.assertIsNotNone(lst, '缺少项目切换胶囊（REQ-UI-SIDEBAR-1）')
         self.pump()
-        rows = tree.get_children()
-        expected = len(getattr(d, '_picker_items', []))
-        self.assertEqual(len(rows), expected)
-        # 每行：状态点前缀（● 在制作／○ 已完成）
-        for iid in rows:
-            self.assertRegex(str(tree.item(iid, 'text')), r'^[●○] ')
-        # 当前项目高亮
-        current = [i for i in rows if 'current' in tree.item(i, 'tags')]
-        if getattr(d, 'root', None) is not None:
-            self.assertTrue(current, '当前项目没有高亮行')
-            self.assertEqual(Path(current[0]), Path(d.root))
-        # 已移除搜索框与项目管理按钮，腾出空间放 4 个项目二级图标。
-        self.assertFalse(hasattr(lst, 'search'), '侧栏项目列表不再保留筛选输入框')
-        self.assertFalse(hasattr(lst, 'manage'), '侧栏项目列表不再保留项目管理按钮')
-        # 键盘：Enter 触发切换，走 request_project_switch（绑定须存在，处理器直调）
-        self.assertTrue(tree.bind('<Return>'), '项目行缺少 Enter 绑定')
-        # 夹具只有当前一个项目；补一条登记项让「切到别的项目」路径可判定。
-        fake = {'name': '键盘切换目标',
-                'path': str(d.root.parent / '键盘切换目标_x')}
-        d.projects.info['projects'].append(fake)
+        # 窄侧栏显示当前项目名胶囊与分组计数；不再保留搜索框与项目管理按钮。
+        self.assertFalse(hasattr(lst, 'search'), '侧栏项目区不再保留筛选输入框')
+        self.assertFalse(hasattr(lst, 'manage'), '侧栏项目区不再保留项目管理按钮')
+        self.assertIn('▸', str(lst.count_label.cget('text')))
+        body_x, body_w = d.body.winfo_rootx(), d.body.winfo_width()
+        card = lst.open_card()
+        self.pump()
         try:
-            d._sync_project_picker()
-            self.pump()
-            targets = [i for i in tree.get_children()
-                       if Path(i) != Path(getattr(d, 'root', '') or '')]
-            self.assertTrue(targets, '补登记后应有可切换的非当前项目行')
-            tree.selection_set(targets[0])
-            with mock.patch.object(d, 'request_project_switch') as m_switch:
-                lst._activate_selected()
+            self.assertIsNotNone(card, '悬停／点击胶囊应弹出宽项目卡片')
+            self.assertGreaterEqual(card.winfo_width(), 280, '项目卡片应够宽以完整展示中文项目名')
+            self.assertGreaterEqual(card.winfo_rootx(),
+                                    d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() - 1)
+            self.assertEqual((d.body.winfo_rootx(), d.body.winfo_width()),
+                             (body_x, body_w), '弹出项目卡片不得挤占右侧聊天框')
+            tree = lst.table.tree
+            rows = tree.get_children()
+            expected = len(getattr(d, '_picker_items', []))
+            self.assertEqual(len(rows), expected)
+            for iid in rows:
+                vals = tree.item(iid, 'values')
+                self.assertRegex(str(vals[0]), r'^[●○] ')
+            current = [i for i in rows if 'current' in tree.item(i, 'tags')]
+            if getattr(d, 'root', None) is not None:
+                self.assertTrue(current, '当前项目没有高亮行')
+                self.assertEqual(Path(current[0]), Path(d.root))
+            # 键盘：Enter 触发切换，走 request_project_switch
+            self.assertTrue(tree.bind('<Return>'), '项目行缺少 Enter 绑定')
+            fake = {'name': '键盘切换目标',
+                    'path': str(d.root.parent / '键盘切换目标_x')}
+            d.projects.info['projects'].append(fake)
+            try:
+                d._sync_project_picker()
                 self.pump()
-                m_switch.assert_called_once_with(targets[0])
+                targets = [i for i in tree.get_children()
+                           if Path(i) != Path(getattr(d, 'root', '') or '')]
+                self.assertTrue(targets, '补登记后应有可切换的非当前项目行')
+                tree.selection_set(targets[0])
+                with mock.patch.object(d, 'request_project_switch') as m_switch:
+                    lst._activate_selected()
+                    self.pump()
+                    m_switch.assert_called_once_with(targets[0])
+                self.assertIsNone(lst._card_win, '选择项目后宽项目卡片自动收起')
+            finally:
+                d.projects.info['projects'].remove(fake)
+                d._sync_project_picker()
+                self.pump()
         finally:
-            d.projects.info['projects'].remove(fake)
-            d._sync_project_picker()
+            lst.close_card()
             self.pump()
 
     def test_project_list_height_clamps_and_three_widths_fit(self):
         d = self.desktop
         lst = getattr(d, 'project_name_list', None)
         self.assertIsNotNone(lst)
-        tree = lst.table.tree
         for width, height in ((942, 1032), (800, 600), (990, 632)):
             self.win.geometry('%dx%d+100+100' % (width, height))
             self.pump()
             self.assertLessEqual(d.project_block.winfo_width(),
                                  d.sidebar_area.winfo_width() + 1)
-            self.assertLessEqual(tree.winfo_width(),
+            self.assertLessEqual(lst.trigger.winfo_width(),
                                  d.project_block.winfo_width() + 1)
-            self.assertGreaterEqual(int(tree.cget('height')), 3,
-                                    '项目列表最少显示 3 行')
+        # 一级主图标放大并相对侧栏居中，二级图标更小且靠右展开
+        sb_left = d.sidebar_area.winfo_rootx()
+        self.assertGreaterEqual(d.project_button.winfo_rootx() - sb_left, 16,
+                                '一级主图标应相对侧栏左缘居中')
+        d.project_button.invoke()
+        self.pump()
+        try:
+            self.assertGreater(d.project_button.winfo_width(),
+                               d.project_new_button.winfo_width(),
+                               '一级主图标应大于二级图标')
+            expand_frame = d._project_expand_column.frame
+            self.assertGreaterEqual(
+                expand_frame.winfo_rootx() + expand_frame.winfo_width(),
+                d.project_button.winfo_rootx() + d.project_button.winfo_width(),
+                '项目二级图标应相对主图标靠右')
+        finally:
+            d.project_button.invoke()
+            self.pump()
         self.win.geometry('942x1032+100+100')
         self.pump()
 

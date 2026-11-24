@@ -99,7 +99,7 @@ class Flyout(tk.Toplevel):
     弹出不抢输入焦点；生效与否记录在 ``self.noactivate``。
     """
 
-    def __init__(self, master, noactivate=False):
+    def __init__(self, master, noactivate=False, compact=False):
         super().__init__(master)
         self.overrideredirect(True)
         make_passive_popup(self)
@@ -108,8 +108,9 @@ class Flyout(tk.Toplevel):
         shell = tk.Frame(self, bg=COLORS['border_default'], bd=0)
         shell.pack(fill='both', expand=True)
         # 内容体四周让出 xs 刻度的四分之一（＝1px），border_default 壳显成一圈细描边。
+        pad = SPACING['xs'] // 4 if compact else SPACING['xs']
         self.body = tk.Frame(shell, bg=COLORS['background_primary'],
-                             padx=SPACING['xs'], pady=SPACING['xs'])
+                             padx=pad, pady=pad)
         self.body.pack(fill='both', expand=True,
                        padx=SPACING['xs'] // 4, pady=SPACING['xs'] // 4)
 
