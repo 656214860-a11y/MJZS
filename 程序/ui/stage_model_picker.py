@@ -23,7 +23,7 @@ from ui.skill_panel_support import (
                                  stage_for, unregister_live)
 from ui_popup import Flyout, monitor_bounds
 from ui_tokens import COLORS, FONTS, SPACING
-from ui_widgets import SecondaryButton, setup_styles
+from ui_widgets import HintLabel, SecondaryButton, setup_styles
 
 LEVEL_MENU = '推理等级'
 # 触发钮文案截断：模型名过长时不把输入行撑破（保守按字符数截，CJK 视觉更宽）。
@@ -326,10 +326,7 @@ class StageModelPicker(ttk.Frame):
 
     def _reasoning_block(self, parent, spec):
         block = tk.Frame(parent, bg=COLORS['background_primary'])
-        tk.Label(block, text=spec['label'], anchor='w',
-                 bg=COLORS['background_primary'], fg=COLORS['text_muted'],
-                 font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs']
-                 ).pack(side='left')
+        HintLabel(block, text=spec['label']).pack(side='left', padx=SPACING['sm'])
         chips = tk.Frame(block, bg=COLORS['background_primary'])
         chips.pack(side='right', padx=(SPACING['sm'], SPACING['xs']))
         for value, label, current in spec['levels']:

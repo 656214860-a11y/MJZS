@@ -388,8 +388,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
             except Exception as exc:
                 self.errors.append(('hint.bind', str(exc)))
         self.reply.bind('<FocusOut>', self._restore_hint_after_reply, add='+')
-        self.status = ttk.Label(canvas, text='', style='Muted.TLabel',
-                                  font=FONTS['caption'])
+        self.status = ttk.Label(canvas, text='',
+                                style='Muted.TLabel')
         try:
             self.status.configure(background=self.fill())
         except Exception:

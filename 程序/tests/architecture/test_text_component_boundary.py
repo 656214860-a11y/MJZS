@@ -15,6 +15,7 @@ TEXT_PAGE_COMPONENTS = {
     "tts_settings.py": ("DescriptionBlock", "ProgressLabel"),
     "asset_batch.py": ("DescriptionBlock", "ProgressLabel"),
     "keyframe_comfy.py": ("DescriptionBlock", "ProgressLabel"),
+    "ui_usage_detail.py": ("HintLabel",),
 }
 FORBIDDEN_OPTIONS = frozenset({"font", "foreground", "fg"})
 RAW_LABELS = frozenset({"tkinter.Label", "tkinter.ttk.Label"})
@@ -24,11 +25,10 @@ RAW_LABELS = frozenset({"tkinter.Label", "tkinter.ttk.Label"})
 # 提示、说明、进度文字用 HintLabel／DescriptionBlock／ProgressLabel，弱化的单行文字用样式 Muted.TLabel。
 STYLED_LABEL_CAPS = {
     'asset_detail.py': 11,
-    'desktop_shared_menus.py': 8,
-    'stage_model_picker.py': 6,
+    'desktop_shared_menus.py': 6,
+    'stage_model_picker.py': 5,
     'desktop_account_page.py': 4,
-    'pet_cloud.py': 4,
-    'ui_usage_detail.py': 4,
+    'pet_cloud.py': 3,
     'desktop_media_pages.py': 3,
     'desktop_page_nav.py': 3,
     'ui_status_bar.py': 3,
