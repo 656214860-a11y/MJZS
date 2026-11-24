@@ -1,0 +1,15 @@
+{
+  "round": 4345,
+  "commit_base": "e3eb4aab2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k app_logging diagnostic_capture http_boundary",
+    "exit": 0,
+    "passed": 34,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T19:41:46"
+}
