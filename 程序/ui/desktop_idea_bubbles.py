@@ -324,6 +324,18 @@ class IdeaBubblesMixin:
     def add_bubble(self,box,row,index):
         """把一条对话排成微信式左右气泡，并在顶部标出说话者／模型名。"""
         raw_text=str(row.get('text') or '')
+        if str(row.get('role'))=='notice':
+            # REQ-S01-118：说明行画成居中灰字小提示条；不署模型名、无悬停操作行、
+            # 不进 _bubble_full/_bubble_rows，不参与复制／删除／重发；tag 名不含
+            # ``bubble_<数字>`` 序号，_bubble_tag_index 解析不出、右键菜单拿不到目标。
+            name='bubble_notice_'+str(index)
+            box.tag_configure(name,justify='center',foreground=COLORS['text_muted'],
+                              lmargin1=BUBBLE_GAP,lmargin2=BUBBLE_GAP,rmargin=BUBBLE_GAP,
+                              spacing1=2,spacing3=2,font=BUBBLE_TIME_FONT,wrap='word')
+            box.insert('end',raw_text.strip()+'\n',name)
+            try:box.tag_raise('sel')
+            except tk.TclError:pass
+            return
         # 软件示例是只读、可复制的参考文本；不能为了普通聊天气泡的排版
         # ``strip`` 掉它首尾的换行或空格，否则展示内容已不再等于程序提供的示例。
         # 普通消息仍沿用既有的首尾空白清理，避免空白消息生成气泡。

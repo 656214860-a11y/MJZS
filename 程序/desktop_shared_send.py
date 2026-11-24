@@ -489,6 +489,116 @@ def _no_entry_hint(stage, home, name):
     return '「%s」阶段暂无 Agent 入口，/%s 请在页面操作中使用。' % (here, name)
 
 
+def _skill_send_notices(injection):
+    """REQ-S01-118：冻结降级信号 → 对话区/状态栏各一条说明（发送仍走已装下部分）。"""
+    injection = injection or {}
+    notices = []
+    if injection.get('skipped') or injection.get('degraded'):
+        notices.append('技能引用装不下本次请求，已省略部分引用')
+    if any(isinstance(row, dict) and str(row.get('status')) == 'resource'
+           for row in injection.get('references') or ()):
+        notices.append('技能含无法随请求发送的文件，已省略')
+    return notices
+
+
+def _skill_send_refusal_text(exc):
+    """REQ-S01-118：冻结拒绝按类别翻译说明；不认识的错误原样转述。"""
+    text = str(exc)
+    if 'context_window_unknown' in text or '未填写上下文窗口' in text:
+        return '模型没有填上下文长度，请在模型管理里补充'
+    if '超出预算' in text or '超过上限' in text or '预算不足' in text or '正文合计' in text:
+        return '技能正文超出模型上下文'
+    return text
+
+
+def _skill_send_notice(desktop, text, *, model=None):
+    """技能发送的应用内说明：状态栏一句＋对话区一条不署名的 notice（REQ-S01-118）。"""
+    text = str(text or '').strip()
+    if not text:
+        return
+    desktop.status.set(text)
+    try:
+        import domain.idea_chat as idea_chat
+        idea_chat.append(desktop.idea_chat_context(), 'notice', text,
+                         model=model, gateway=desktop.idea_chat_gateway())
+    except Exception:
+        app_logging.swallowed()
+    desktop.show_conversation()
+
+
+def send_skill_request(desktop, name, path, rest):
+    """REQ-S01-118：剧本页 /技能名 发送。
+
+    接口模型（直连 API）时复用 ``send_message`` 同一条应用内请求链：只把本条点名
+    技能（不夹带阶段默认勾选集）经 ``freeze_skills`` 冻结后装进请求，不再让 Agent
+    去读本地技能文件；引用被省略或含不可发送资源时降级并说明，正文装不下或模型
+    没填上下文长度时拒绝并说明，两处说明都以 ``notice`` 落对话区＋状态栏各一次。
+    非接口模型返回 ``False``，由 ``_send_skill`` 回落到原命令行链，行为逐字不变。
+    """
+    import domain.idea_chat as idea_chat
+    import writing_api
+    import orchestrator.workflow_settings as workflow_settings
+    request_model = writing_api.capture_request_model(desktop.root)
+    if not request_model['id']:
+        return False
+    controller = desktop.idea_chat_controller
+    if controller.requesting:
+        raise ValueError('模型正在回复，请不要重复发送。')
+    named = str(name or '').strip()
+    def adjust(settings):
+        settings['model'] = request_model['id']
+        settings['engine'] = 'qwen'
+        settings['invocation_mode'] = 'api'
+        settings['stage_skills'] = [str(path)] if path else []
+        settings['skills'] = []
+        settings['skill'] = ''
+        settings['named_execution'] = True
+        settings['named_skills'] = [named]
+    try:
+        request_model['settings'] = workflow_settings.resolve_for_send(
+            desktop.root, 'writing', direct_api=True,
+            model_snapshot=(request_model['id'], request_model['record']), adjust=adjust)
+    except ValueError as exc:
+        _skill_send_notice(desktop, _skill_send_refusal_text(exc), model=request_model['label'])
+        return True
+    model = request_model['label']
+    task = str(rest or '').strip() or '请按该技能完成当前阶段任务。'
+    visible = '/' + named + ((' ' + str(rest).strip()) if str(rest or '').strip() else '')
+    controller.mark_sent()
+    injection = request_model['settings'].get('skill_injection')
+    context = desktop.idea_chat_context()
+    gateway = desktop.idea_chat_gateway()
+    idea_chat.append(context, 'user', visible, model=model, gateway=gateway,
+                     skill_injection=injection)
+    notices = _skill_send_notices(injection)
+    for notice in notices:
+        idea_chat.append(context, 'notice', notice, model=model, gateway=gateway)
+    desktop._idea_view_model_request = getattr(desktop, '_idea_view_model_request', 0) + 1
+    desktop._idea_view_model_cache = (desktop.root, model)
+    desktop.set_idea_model_filter(model)
+    desktop.discard_idea_draft()
+    desktop.show_conversation()
+    for notice in notices:
+        desktop.status.set(notice)
+    project = desktop.root
+    token, cancelled = controller.begin_request(cancellable=True)
+    async_ticket = {'value': None}
+    if getattr(desktop, 'idea_send', None) is not None:
+        desktop.idea_send.state(['disabled'])
+    desktop.update_script_interrupt_button()
+    desktop.show_thinking(model)
+    received = lambda result: desktop._idea_api_received(token, model, request_model, result)
+    desktop.begin_stream()
+    def ask():
+        from stage_execution_service import reply_to_writing
+        return desktop.stream_call(reply_to_writing, project, task,
+                                   user_message=visible, request_model=request_model,
+                                   cancelled=cancelled.is_set)
+    desktop.submit_idea_api_request(project, token, cancelled, ask, received,
+                                    str(model) + ' 模型正在思考…', async_ticket)
+    return True
+
+
 def _send_skill(desktop, stage, parsed):
     """技能／用户包命令只在当前页的入口里执行，不换页（DOC-D8-7）；换页只认 ``/阶段``。
 
@@ -506,6 +616,10 @@ def _send_skill(desktop, stage, parsed):
         return False
     if stage == 'storyboard':
         return send_storyboard(desktop, rest, only=[name])
+    if stage == 'script':
+        # REQ-S01-118：接口模型先把技能发送交给应用内请求；不受理（非接口模型）再回落原命令行链。
+        if send_skill_request(desktop, name, path, rest):
+            return True
     if stage not in FLOW_FOR_STAGE:
         _say(desktop, _no_entry_hint(stage, home, name))
         return False

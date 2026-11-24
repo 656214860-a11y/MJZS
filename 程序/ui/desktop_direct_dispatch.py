@@ -29,4 +29,9 @@ def dispatch(host, stage, config, direct, intake_only):
     if stage == 'previs':                               # REQ-S09-50：白模预演只走本地 Agent
         from orchestrator.previs_automation import require_local_agent
         require_local_agent(config)
+    if config.get('api'):                               # REQ-S01-118：接口模型一律不开命令行窗口
+        status = getattr(host, 'status', None)
+        if status is not None:
+            status.set('接口模型不使用命令行窗口')
+        return True
     return False
