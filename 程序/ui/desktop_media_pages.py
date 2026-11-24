@@ -740,31 +740,11 @@ class MediaPagesMixin:
             return note
         self.async_(work)
     def generate_tts_per_line(self):
-        import domain.tts_api as tts_api
-        episode=self.current_episode()
-        entries,estimated=self.dialogue_entries(episode);assets=self.dialogue_assets()
-        if not entries:raise ValueError('当前分镜没有对白，无法生成配音')
-        tts_settings=tts_api.read_settings()
-        lines=tts_api.build_lines(entries,assets,tts_settings.get('voices'),tts_settings.get('speeds'),settings=tts_settings)
-        from contract.project_stages import audio
-        folder=audio(self.root)/'配音分句'
-        # 同一项目可有多集：把集标识纳入批次指纹，两集同名台词／音色不会共用缓存目录。
-        token=(episode.get('episode_id') or episode.get('id')) if isinstance(episode,dict) else None
-        out=tts_api.resume_folder(folder,lines,token);resumed=out is not None
-        out=out or dated_path(folder,'配音批次')
-        quote,pending,early=_line_quote_gate(self,lines,out,tts_settings)
-        if early:self.status.set(early);return
-        tip=quote['text']
-        if not self.media_page_services.confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
-            self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
-        def work():
-            from stage_execution_service import run_tts_lines
-            ok,reused,failed=run_tts_lines(lines,out,episode=token,project=self.root)
-            note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
-            if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
-            if resumed:note+='；已接续上次未完成的批次'
-            return note+f'；目录 {out}'
-        self.async_(work)
+        from ui.desktop_audio_direct import run_tts_per_line
+        return run_tts_per_line(self, _line_quote_gate)
+    def stop_tts_per_line(self):
+        from ui.desktop_audio_direct import stop_tts_per_line
+        return stop_tts_per_line(self)
     def open_audio_skill(self):
         from orchestrator.workflow_tasks import audio_prompt
         source=self.current_frame_json()
@@ -806,6 +786,10 @@ class MediaPagesMixin:
         dialogue_buttons=[]
         dialogue_buttons.append(audio_button(production,'生成配音（TTS）',self.generate_tts))
         dialogue_buttons.append(audio_button(production,'逐句配音（分句）',self.generate_tts_per_line))
+        # 停止入口不走 safe（批次期间 worker 忙碌会被拦）：状态由 generate_tts_per_line 的收尾看门狗管理。
+        self._tts_lines_stop_button=SecondaryButton(production,text='停止逐句配音',command=self.stop_tts_per_line,width=0,
+            state='normal' if getattr(self,'_tts_lines_stop',None) is not None else 'disabled')
+        self._tts_lines_stop_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         audio_button(production,'配音设置',self.open_tts_settings)
         import_bar=_group_bar(self,'导入与确认');audio_button(import_bar,'导入配音 / 音乐',self.import_audio,standard=True)
         audio_button(import_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'),standard=True)

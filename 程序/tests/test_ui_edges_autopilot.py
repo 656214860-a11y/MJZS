@@ -944,6 +944,113 @@ class UiEdgeAutoTests(UiEdgeCase):
             self.assertIn("都已有成品", d.status.get())
             self.assertEqual(len(asked), 1)
 
+    def test_per_line_tts_stop_and_line_progress(self):
+        """FIX-S11-E4：逐句配音批次中状态栏显示「第几句／共几句」，可在句间停止；停后再点从断点接续。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        import threading
+        from unittest.mock import patch
+        from domain import tts_api
+        import desktop as desktop_module
+        original_choose = desktop_module.Desktop.choose_project
+        desktop_module.Desktop.choose_project = lambda self: None
+        self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original_choose)
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_adopted_project(td)
+            with_dialogue(proj, [{"speaker": "CHAR_001", "text": "第一句"},
+                                 {"speaker": "CHAR_001", "text": "第二句"},
+                                 {"speaker": "CHAR_001", "text": "第三句"},
+                                 {"speaker": "CHAR_001", "text": "第四句"}])
+            win = self.tk.Tk(); win.geometry("1100x740+40+40")
+            def quiet_destroy():
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+            self.addCleanup(quiet_destroy)
+            from desktop import Desktop
+            from local_video import open_studio
+            d = Desktop(win, root=PROGRAM)
+            d.root = proj
+            d.studio = open_studio(proj)
+            d.show(PAGE["audio"]); win.update()
+            calls = []
+            gates = []
+            release_all = threading.Event()
+            def fake_synthesize(text, speed=1.0, voice=None, **_kwargs):
+                calls.append(text)
+                if release_all.is_set():
+                    return b"audio"
+                gate = threading.Event(); gates.append(gate)
+                gate.wait(15)
+                return b"audio"
+            def pump_until(predicate, timeout=15):
+                deadline = time.monotonic() + timeout
+                while time.monotonic() < deadline:
+                    win.update()
+                    if predicate():
+                        return True
+                    time.sleep(0.02)
+                win.update()
+                return predicate()
+            def find_button(widget, label):
+                from tkinter import ttk
+                for child in widget.winfo_children():
+                    if isinstance(child, ttk.Button) and str(child.cget("text")) == label:
+                        return child
+                    found = find_button(child, label)
+                    if found is not None:
+                        return found
+                return None
+            def manifest_states():
+                from contract.project_stages import audio
+                files = list((audio(proj) / "配音分句").glob("*/时间轴.json"))
+                self.assertEqual(len(files), 1)
+                return [entry.get("state") for entry in
+                        json.loads(files[0].read_text(encoding="utf-8"))]
+            try:
+                with patch.object(desktop_module, "confirm", lambda *a, **k: True), \
+                     patch.object(tts_api, "synthesize", fake_synthesize), \
+                     patch.object(tts_api, "load_key", lambda: "sk-fixed-test-key"):
+                    d.generate_tts_per_line()
+                    self.assertTrue(pump_until(lambda: len(gates) >= 1), "第一句应已提交合成")
+                    gates[0].set()
+                    self.assertTrue(pump_until(lambda: len(gates) >= 2), "第二句应已提交合成")
+                    self.assertTrue(pump_until(lambda: "/4 · SH001" in d.status.get(), timeout=8),
+                                    "逐句进度应写进状态栏，实际：" + d.status.get())
+                    stop_button = find_button(d.content, "停止逐句配音")
+                    self.assertIsNotNone(stop_button, "配音页应有「停止逐句配音」入口")
+                    self.assertFalse(stop_button.instate(["disabled"]), "批次进行中停止入口应可用")
+                    stop_button.invoke()
+                    gates[1].set()                      # 在途的第二句跑完；第三句起不再发
+                    self.assertTrue(pump_until(lambda: not d.worker), "停止后批次应收尾")
+                    self.assertEqual(calls, ["第一句", "第二句"])
+                    self.assertIn("已停止", d.status.get())
+                    states = manifest_states()
+                    self.assertEqual(len(states), 2)
+                    self.assertTrue(all(state == "ok" for state in states),
+                                    "停止后不应有句子停在 sending")
+                    self.assertTrue(pump_until(lambda: stop_button.instate(["disabled"]), timeout=5),
+                                    "批次结束后停止入口应禁用")
+                    # 再点一次：从第三句接着做，前两句沿用不重复扣费
+                    release_all.set(); calls.clear()
+                    d.generate_tts_per_line()
+                    self.assertTrue(pump_until(lambda: len(calls) >= 2), "接续批次应补做第三、四句")
+                    self.assertEqual(calls, ["第三句", "第四句"])
+                    self.assertTrue(pump_until(lambda: not d.worker), "接续批次应收尾")
+                    self.assertIn("逐句配音完成", d.status.get())
+                    states = manifest_states()
+                    self.assertEqual(len(states), 4)
+                    self.assertTrue(all(state == "ok" for state in states))
+            finally:
+                release_all.set()
+                for gate in list(gates):
+                    gate.set()
+                deadline = time.monotonic() + 10
+                while getattr(d, "worker", False) and time.monotonic() < deadline:
+                    win.update(); time.sleep(0.02)
+                win.update()
+
     def test_whole_script_tts_reuses_unchanged_audio(self):
         """08 整段配音：台词与音色都没变时第二次点击直接沿用文件，不重复扣费；换了音色才重新合成。"""
         if self.tk is None:
