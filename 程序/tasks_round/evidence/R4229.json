@@ -1,0 +1,15 @@
+{
+  "round": 4229,
+  "commit_base": "e4f0c15c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_batch_retention asset_image_import",
+    "exit": 0,
+    "passed": 12,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T01:37:14"
+}
