@@ -4,6 +4,7 @@
 Desktop 在组合入口注入服务；独立页面测试不需要初始化 Desktop 或登记全局宿主。
 """
 import infra.pet_state as pet_state
+import json
 import logging
 import queue
 import threading
@@ -41,6 +42,73 @@ LOGGER = logging.getLogger('desktop_script_pages')
 # R1973 契约：编辑按钮宽度恒取令牌；REQ-S02-37 撤掉编辑按钮后常量保留，
 # test_button_consistency 仍按同名导入核对。
 SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT
+SCRIPT_EDITOR_WHEEL_LINES = 8
+_HINT_READ_EDITABLE = '快捷键：右键编辑 / 打开其他文件 · Ctrl+F 查找 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开文件'
+_HINT_READ_ONLY = '只读查看：Ctrl+F 查找 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开其他文件（自然/结构剧本/分镜/文本）'
+_HINT_EDITING = '编辑中（自动保存）：Ctrl+S 立即保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · 右键退出编辑'
+
+
+def _format_storyboard_json(data):
+    """把分镜 JSON 格式化为易读文本，方便在编辑器中顺畅阅览。"""
+    shots = data.get('shots') if isinstance(data, dict) else None
+    if not isinstance(shots, list):
+        return json.dumps(data, ensure_ascii=False, indent=2)
+    lines = ['# %s %s' % (data.get('episode_id') or '分镜', data.get('title') or '')]
+    meta = []
+    if data.get('duration') is not None:
+        meta.append('总时长：%s 秒' % data.get('duration'))
+    if data.get('source_script'):
+        meta.append('来源剧本：%s' % data.get('source_script'))
+    if meta:
+        lines.append('｜'.join(meta))
+    for shot in shots:
+        if not isinstance(shot, dict):
+            continue
+        lines.append('')
+        lines.append('## %s｜%s（%ss）' % (
+            shot.get('id') or 'SH?', shot.get('title') or '未命名镜头',
+            shot.get('duration') if shot.get('duration') is not None else '?'))
+        chars = '、'.join(str(c) for c in (shot.get('characters') or ()) if c)
+        loc = str(shot.get('location') or '')
+        if chars or loc:
+            lines.append('- 角色：%s｜场景：%s' % (chars or '无', loc or '未注'))
+        if shot.get('dialogue'):
+            lines.append('- 对白：%s' % shot.get('dialogue'))
+        if shot.get('frame_prompt'):
+            lines.append('- 首帧提示词：%s' % shot.get('frame_prompt'))
+        if shot.get('video_prompt'):
+            lines.append('- 视频提示词：%s' % shot.get('video_prompt'))
+    return '\n'.join(lines)
+
+
+def _read_any_document(path, empty, default_reader):
+    """兼容自然剧本、结构剧本、初步分镜/分镜定稿 JSON、docx 与常见编码文本文件。"""
+    source = Path(path) if path else None
+    if source is None or not source.is_file():
+        return empty
+    suffix = source.suffix.lower()
+    if suffix == '.docx':
+        try:
+            import domain.idea_attachments as idea_attachments
+            return idea_attachments.read_source(source)
+        except (OSError, ValueError):
+            pass
+    if suffix == '.json':
+        try:
+            from infra.file_cache import read_json
+            return _format_storyboard_json(read_json(source))
+        except (OSError, UnicodeError, ValueError):
+            pass
+    text = default_reader(source, empty)
+    from domain.script_preview_service import READ_ERROR
+    if text != READ_ERROR:
+        return text
+    for encoding in ('gb18030', 'utf-16', 'latin-1'):
+        try:
+            return source.read_text(encoding=encoding)
+        except (OSError, UnicodeError):
+            continue
+    return text
 
 
 def _safe_after(widget, delay, callback):
@@ -73,6 +141,7 @@ def _build_script_preview(text_area):
     preview = TextArea(text_area, bg=COLORS["background_card"], fg=COLORS["text_primary"], height=1,
                        wrap='word', undo=True, maxundo=-1, font=SCRIPT_VIEW_FONT, relief='flat',
                        padx=SCRIPT_VIEW_PADDING[0], pady=SCRIPT_VIEW_PADDING[1])
+    preview._wheel_lines = SCRIPT_EDITOR_WHEEL_LINES
     gutter = LineNumberGutter(text_area, preview)
     scroll = ttk.Scrollbar(text_area, orient='vertical', command=preview.yview)
     # 大文件保留全文，以横向滚动浏览长行；小文件由 set_preview 改为按词换行。
@@ -603,7 +672,13 @@ class _ScriptStructurePage:
             elif role == 'structured':
                 tag = '结构剧本'
             else:
-                tag = '只读'
+                text_path = str(path)
+                if '分镜定稿' in text_path:
+                    tag = '分镜定稿（只读）'
+                elif '初步分镜' in text_path or '分镜拆分' in text_path or '分镜文档' in text_path:
+                    tag = '初步分镜（只读）'
+                else:
+                    tag = '只读'
             self._note_text = '当前：%s｜%s' % (Path(path).name, tag)
         info = getattr(self.page, 'script_structure_info_label', None)
         if info is not None and info.winfo_exists():
@@ -641,6 +716,9 @@ class _ContentBox:
         # 正文独占内容框；左右不留内边距，与底部共享输入框的外框同左同右。
         box = ttk.Frame(self.parent)
         self.frame = box
+        self.shortcut_hint = ttk.Label(
+            box, text=_HINT_READ_EDITABLE, style='SidebarProjectMuted.TLabel', anchor='w')
+        self.shortcut_hint.pack(side='bottom', fill='x', pady=(SPACING['xs'] // 2, SPACING['none']))
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
         # 网格两行：查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
         preview_area.columnconfigure(0, weight=1)
@@ -674,10 +752,54 @@ class _ContentBox:
         self.load_preview(self.active['path'])
         _install_script_edit_controls(self.owner.page, self)
         self.preview.bind('<<Modified>>', self.aids.schedule_reading_views, add='+')
+        self.preview.bind('<FocusIn>', lambda _e: self.update_shortcut_hint(), add='+')
         self.aids.install_reading_shortcuts()
+        shortcuts = getattr(self.owner.page, 'shortcuts', None)
+        if shortcuts is not None:
+            shortcuts.bind(self.preview, ('<Control-o>', '<Control-O>'),
+                           lambda _e: (self.owner.page.safe(self.open_any_document), 'break')[1],
+                           scope='剧本结构·' + self.attribute, name='打开其他文件')
+        self.update_shortcut_hint()
         setattr(self.owner.page, self.attribute, self.preview)
         setattr(self.owner.page, self.attribute + '_content_box', self)
         return box
+
+    def update_shortcut_hint(self, editing=None):
+        """根据当前是否处于编辑态及是否可编辑，实时提示可用快捷键。"""
+        label = getattr(self, 'shortcut_hint', None)
+        if label is None:
+            return
+        if editing is None:
+            session = getattr(self, 'edit_session', None)
+            editing = bool(session and session.editing)
+        if editing:
+            text = _HINT_EDITING
+        elif self.editable and self.active.get('path') is not None:
+            text = _HINT_READ_EDITABLE
+        else:
+            text = _HINT_READ_ONLY
+        try:
+            label.configure(text=text)
+        except tk.TclError:
+            pass
+
+    def open_any_document(self):
+        """打开自然剧本、结构剧本、初步分镜、分镜定稿或任意文本格式文件。"""
+        dialog = getattr(self.owner.page, 'file_dialog', None)
+        if dialog is None or not hasattr(dialog, 'open_file'):
+            return
+        initial = str(self.owner.page.root) if getattr(self.owner.page, 'root', None) else None
+        chosen = dialog.open_file(
+            parent=getattr(self.owner.page, 'win', None),
+            title='在编辑器中打开文档',
+            initialdir=initial,
+            filetypes=[
+                ('剧本／分镜／文本', '*.md *.txt *.json *.docx *.srt *.ass *.csv *.yaml *.yml'),
+                ('全部文件', '*.*'),
+            ],
+        )
+        if chosen:
+            self.select_document(chosen)
 
     def set_preview(self, value, ticket=None):
         """小文本立即显示；大文本在 Tk 空闲时分块插入，避免一次性重排。"""
@@ -724,7 +846,7 @@ class _ContentBox:
         self.preview_ticket['value'] += 1
         ticket = self.preview_ticket['value']
         if not self.owner.should_load_async(path):
-            self.set_preview(self.owner.read_preview(path, self.empty))
+            self.set_preview(_read_any_document(path, self.empty, self.owner.read_preview))
             return
         self.set_preview(self.owner.LOADING_PREVIEW)
         expected = Path(path) if path else None
@@ -732,7 +854,8 @@ class _ContentBox:
         # 预览读取独立排队，结果只由 Tk 主线程的 after 回写。
         preview_results = queue.Queue(maxsize=1)
         threading.Thread(
-            target=lambda: preview_results.put((ticket, expected, self.owner.read_preview(expected, self.empty))),
+            target=lambda: preview_results.put(
+                (ticket, expected, _read_any_document(expected, self.empty, self.owner.read_preview))),
             daemon=True,
         ).start()
         def await_preview():
@@ -771,6 +894,7 @@ class _ContentBox:
             session.editable = self.editable
             session.title = self.title
         self.owner._update_status_note(path)
+        self.update_shortcut_hint()
 
     def select_document(self, path):
         """REQ-S02-38：显示面板点选的文档；编辑态先退出并落盘，落盘失败留在原文档。"""

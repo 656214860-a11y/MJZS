@@ -140,18 +140,18 @@ STAGE_FILE_BADGE_FOLD = 3
 
 
 def _file_badge_layer(colors):
-    """折角纸张角标：主题色实心纸面、右上角浅色折角、两条浅色文字线；外圈 1 像素不透明浅色描边。"""
+    """右下角灰色文件夹角标：左上折耳＋中灰文件夹本体＋浅色折痕；外圈 1 像素不透明背景描边。"""
     from PIL import Image, ImageDraw
     w, h = STAGE_FILE_BADGE_SIZE
-    fold = STAGE_FILE_BADGE_FOLD
     image = Image.new('RGBA', (w, h), colors['background_primary'])
     draw = ImageDraw.Draw(image)
-    body = [(1, 1), (w - 2 - fold, 1), (w - 2, 1 + fold), (w - 2, h - 2), (1, h - 2)]
-    draw.polygon(body, fill=colors['primary'])
-    flap = [(w - 2 - fold, 1), (w - 2, 1 + fold), (w - 2 - fold, 1 + fold)]
-    draw.polygon(flap, fill=colors['primary_subtle'])
-    for y in (h // 2, h // 2 + 2):
-        draw.line([(3, y), (w - 4, y)], fill=colors['background_card'])
+    folder_gray = colors['text_secondary']
+    # 文件夹折耳（左上）与圆润主体，保留外圈 1px 背景描边以便和阶段主图形清晰分离。
+    tab = [(1, 2), (5, 2), (6, 3), (1, 3)]
+    body = [(1, 3), (w - 2, 3), (w - 2, h - 2), (1, h - 2)]
+    draw.polygon(tab, fill=folder_gray)
+    draw.polygon(body, fill=folder_gray)
+    draw.line([(2, 5), (w - 3, 5)], fill=colors['background_card'])
     return image
 
 

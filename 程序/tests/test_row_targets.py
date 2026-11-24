@@ -351,7 +351,7 @@ class KeyframePageTests(PageHelpers):
 
 
 class StoryboardPageTests(PageHelpers):
-    """初步分镜页（第 03 步）：采用／取消采用／删除都按统一口径取「选中」的那几份。"""
+    """初步分镜页（第 03 步）：单编辑器自动打开已采用分镜，右键可取消采用／重新采用。"""
 
     def test_the_highlighted_file_counts_as_selected(self):
         import desktop as desktop_module
@@ -362,19 +362,13 @@ class StoryboardPageTests(PageHelpers):
             desktop_module.messagebox.showerror = lambda *a, **k: errors.append(a)
             self.addCleanup(setattr, desktop_module.messagebox, "showerror", original_error)
             self.show(d, win, PAGE_OF['storyboard'])
-            tables = self.tables(d.content)
-            self.assertGreaterEqual(len(tables), 2, "这一页有两张表：剧本初稿与 JSON 定稿")
-            self.assertIn("status", tables[1]["columns"], "第二张是 JSON 定稿")
-            tree = tables[1]
-            row = str(Path(proj) / "storyboard" / "分镜拆分" / "episode.json")
-            self.assertIn(row, tree.get_children())
-            self.assertEqual(self.button_state(d, "手动取消采用"), "disabled",
-                             "一行都没高亮、也没勾选时这颗按钮是灰的")
-            tree.selection_set(row); tree.focus(row); win.update()
-            self.assertEqual(self.button_state(d, "手动取消采用"), "normal",
-                             "第 47 期第 1 条：高亮那一份也算选中，按钮跟着亮")
-            self.buttons(d.content)["手动取消采用"].invoke(); win.update()
-            self.assertEqual(errors, [], "高亮那一份也算选中，不该再报「请先在列表中…」")
+            page = d.storyboard_editor_page
+            expected = (Path(proj) / "storyboard" / "分镜拆分" / "episode.json").resolve()
+            self.assertEqual(page.active_path, expected, "03 页单编辑器默认加载已采用的分镜 JSON")
+            self.assertEqual(page.active_board_json, expected)
+            self.assertEqual(self.tables(d.content), [], "03 页不再保留结构剧本／分镜初稿双表")
+            d.safe(page.remove_selected); win.update()
+            self.assertEqual(errors, [], "当前编辑的分镜可直接取消采用，不报错")
             self.assertIn("已取消所选分镜的采用", d.status.get())
 
 

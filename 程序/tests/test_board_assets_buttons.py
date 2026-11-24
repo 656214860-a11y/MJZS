@@ -123,28 +123,24 @@ class BoardAssetsButtonTests(media_fixtures._DesktopCase):
         tk_test_support.pump(self.win, .8)
         return self.desktop
 
-    # ── T1：03 页动作按钮换行后左对齐 ────────────────────────────
+    # ── T1：03 页单编辑器无顶部／底部动作钮，必要功能收进右键菜单 ────────
     def test_t1_storyboard_action_rows_left_aligned(self):
+        from types import SimpleNamespace
+        from unittest import mock
         for size in SIZES:
             with self.subTest(size=size):
                 desktop = self._open('storyboard', size)
-                buttons = [_one(desktop.content, text) for text in STORYBOARD_BUTTONS]
-                rows = _group_rows(buttons)
-                self.assertGreaterEqual(len(rows), 1)
-                first_x = rows[0][0].winfo_rootx()
-                for index, row in enumerate(rows, start=1):
-                    self.assertEqual(
-                        row[0].winfo_rootx(), first_x,
-                        '%s：03 页第 %d 行第一颗「%s」x=%d，应与第一行第一颗 x=%d 相同'
-                        % (size, index, str(row[0].cget('text')),
-                           row[0].winfo_rootx(), first_x))
-                for previous, following in zip(rows, rows[1:]):
-                    bottom = max(item.winfo_rooty() + item.winfo_height() for item in previous)
-                    self.assertGreaterEqual(
-                        following[0].winfo_rooty(), bottom,
-                        '%s：后一行「%s」上沿 %d 压住了前一行下沿 %d'
-                        % (size, str(following[0].cget('text')),
-                           following[0].winfo_rooty(), bottom))
+                mapped_buttons = [b for b in _buttons(desktop.content) if b.winfo_ismapped()]
+                self.assertEqual(mapped_buttons, [], '%s：03 页不再保留顶部／底部按钮栏' % size)
+                page = desktop.storyboard_editor_page
+                event = SimpleNamespace(x_root=100, y_root=100)
+                with mock.patch('ui_widgets.ContextMenu.popup', return_value='break'):
+                    page.on_context_menu(event)
+                labels = [str(page.last_menu.entrycget(i, 'label'))
+                          for i in range((page.last_menu.index('end') or -1) + 1)
+                          if page.last_menu.type(i) == 'command']
+                for expected in ('导入 JSON 分镜…', '重排镜头编号', '打开分镜目录', '刷新分镜列表'):
+                    self.assertIn(expected, labels, '03 页右键菜单应包含「%s」' % expected)
 
     # ── T2：05 页前三行换行后不回到标签下面 ──────────────────────
     def test_t2_asset_rows_wrap_under_first_button(self):
@@ -205,12 +201,12 @@ class BoardAssetsButtonTests(media_fixtures._DesktopCase):
                         % (size, str(button.cget('text')),
                            button.winfo_width(), button.winfo_reqwidth()))
 
-    # ── T5：按钮文字集合与改前一致 ───────────────────────────────
+    # ── T5：03 页无遗留按钮；05 页按钮文字集合与改前一致 ───────────────
     def test_t5_button_texts_match_snapshot(self):
         desktop = self._open('storyboard', SIZES[0])
         for text in STORYBOARD_BUTTONS:
-            self.assertEqual(1, len(_by_text(desktop.content, text)),
-                             '03 页「%s」应各一颗' % text)
+            self.assertEqual(0, len(_by_text(desktop.content, text)),
+                             '03 页已改版为单编辑器，不应再残留「%s」按钮' % text)
         desktop = self._open('assets', SIZES[0])
         for text in ASSET_BUTTONS:
             self.assertEqual(1, len(_by_text(desktop.content, text)),

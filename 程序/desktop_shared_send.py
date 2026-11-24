@@ -28,8 +28,14 @@ FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets':
 # 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步，并说明文字
 # 用不上（%s＝阶段名）；文字留在输入框里，不清空。
 STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
-# 初步分镜页共享输入框占位（REQ-S03-54）：空发送＝制作已选结构剧本，非空＝补充要求。
-STORYBOARD_PLACEHOLDER = '选择上方结构剧本后发送制作分镜，可填写补充要求'
+# 初步分镜页及各阶段共享输入框占位提示（参考主流 Agent 输入框：说明发送／换行与 / 技能入口）。
+STORYBOARD_PLACEHOLDER = '输入补充要求或 / 调用技能后发送制作分镜，空输入按结构剧本生成（Enter 发送）'
+DEFAULT_STAGE_PLACEHOLDER = '输入指令或补充要求，输入 / 调用技能、点击 ✦ 勾选默认技能（Enter 发送，Shift+Enter 换行）'
+STAGE_PLACEHOLDERS = {
+    'script': '输入故事创意或修改要求，输入 / 调用技能、@ 引用文件（Enter 发送，Shift+Enter 换行）',
+    'script_structure': '直接点击发送整理结构剧本，或输入 / 调用技能（Enter 发送，Shift+Enter 换行）',
+    'storyboard': STORYBOARD_PLACEHOLDER,
+}
 _STORYBOARD_PREP_ATTR = '_storyboard_send_prep'
 
 
@@ -37,7 +43,7 @@ def sync_stage_placeholder(box, stage):
     """宿主注入的占位同步：输入框不反向导入发送分流。"""
     if box is None or not hasattr(box, '_placeholder'):
         return
-    hint = STORYBOARD_PLACEHOLDER if stage == 'storyboard' else ''
+    hint = STAGE_PLACEHOLDERS.get(str(stage or ''), DEFAULT_STAGE_PLACEHOLDER)
     if getattr(box, '_placeholder_active', False):
         try:
             box._remove_placeholder()

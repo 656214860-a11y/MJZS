@@ -202,6 +202,12 @@ class PageCacheTests(unittest.TestCase):
                 rows.update(widget.get_children())
         return rows
 
+    def catalog_paths(self, desktop):
+        page = getattr(desktop, 'storyboard_editor_page', None)
+        if page is None:
+            return set()
+        return {str(entry['path']) for bucket in (page.catalogs or {}).values() for entry in bucket}
+
     def test_hidden_page_file_change_leaves_visible_page_alone(self):
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
@@ -214,14 +220,14 @@ class PageCacheTests(unittest.TestCase):
             script.write_text('# 第2集\n新剧本内容。', encoding='utf-8')
             d.status.set('用户在别的页')
             self.queue_background_catalog(refresh)
-            self.assertNotIn(str(script), self.tree_rows(holder), '扫描完成后应等待 Tk 应用结果')
+            self.assertNotIn(str(script), self.catalog_paths(d), '扫描完成后应等待 Tk 应用结果')
             apply()
-            self.assertIn(str(script), self.tree_rows(holder), '隐藏页应应用真正的目录变更')
+            self.assertIn(str(script), self.catalog_paths(d), '隐藏页应应用真正的目录变更')
             self.assertEqual(d.status.get(), '用户在别的页')
             d.go_page(PAGE['storyboard'])
             win.update_idletasks()
             self.assertIs(self.holder(d), holder)
-            self.assertIn(str(script), self.tree_rows(holder), '切回缓存页应立即看到更新后的列表')
+            self.assertIn(str(script), self.catalog_paths(d), '切回缓存页应立即看到更新后的目录缓存')
 
     def assert_background_failure_status(self, method, expected):
         with tempfile.TemporaryDirectory() as td:

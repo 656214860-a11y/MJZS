@@ -218,21 +218,16 @@ class UiEdgePagesTests(UiEdgeCase):
                         return str(widget.cget("style"))
                     except Exception:
                         return ""
-                # 内容框是设计系统卡片；无标签行，不应留出 Labelframe 的标题高度。
-                # 空的 TLabelframe 会为标签行留出约 19 像素，白白把按钮行和内容框撑开。
-                boxes = [w for w in d.content.winfo_children() if style_of(w) == "Tokens.Card.TFrame"]
-                self.assertEqual(len(boxes), 2)
-                self.assertEqual(first_tree(boxes[0]).heading("#0")["text"], "")
-                self.assertEqual(first_tree(boxes[0]).heading("#1")["text"], "结构剧本")
-                self.assertEqual(first_tree(boxes[1]).heading("#0")["text"], "")
-                self.assertEqual(first_tree(boxes[1]).heading("#1")["text"], "分镜初稿")
+                # 03 初步分镜已改版为单分镜文本编辑器：无旧双表，主区域为分镜编辑器与底部快捷键提示。
+                self.assertIsNone(first_tree(d.content), "03 页不再包含结构剧本／分镜初稿双表")
+                self.assertTrue(hasattr(d, "storyboard_editor_preview"))
+                self.assertTrue(d.storyboard_editor_preview.winfo_exists())
+                self.assertIn("快捷键", str(d.storyboard_editor_page.shortcut_hint.cget("text")))
             finally:
                 win.destroy()
 
     def test_step2_rows_hug_their_content_boxes(self):
-        """第 31 期第 4 条 + REQ-S03-54：03 初步分镜页「刷新列表」紧贴内容框；
-        「手动制作分镜」按钮已删除，改为共享输入框发送（有意修改的旧 UI 预期）。
-        """
+        """03 初步分镜单编辑器布局：取消顶部按钮与双表，主区域为专用分镜编辑器并保留共享输入框发送入口。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -256,36 +251,20 @@ class UiEdgePagesTests(UiEdgeCase):
             d.studio = open_studio(proj)
             show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
             d.cancel_timers(); d.pet.arm_auto = lambda: None
-            buttons = {}; boxes = []
-            def style_of(widget):
-                try:
-                    return str(widget.cget("style"))
-                except Exception:
-                    return ""
+            buttons = {}; trees = []
             def walk(w):
-                if w.winfo_class() in ("TButton", "Button"):
+                if w.winfo_class() in ("TButton", "Button") and w.winfo_ismapped():
                     buttons[str(w.cget("text"))] = w
-                if style_of(w) == "Tokens.Card.TFrame":
-                    boxes.append(w)
+                if isinstance(w, ttk.Treeview):
+                    trees.append(w)
                 for child in w.winfo_children():
                     walk(child)
             walk(d.content)
-            self.assertNotIn("手动制作分镜", buttons,
-                             "REQ-S03-54：页面不再保留「手动制作分镜」按钮")
-            self.assertEqual(len(boxes), 2)
-            def first_tree(w):
-                for c in w.winfo_children():
-                    if isinstance(c, ttk.Treeview):
-                        return c
-                    found = first_tree(c)
-                    if found is not None:
-                        return found
-                return None
-            toolbar = buttons["刷新列表"].master
-            win.update()
-            gap_top = first_tree(boxes[0]).winfo_rooty() - (toolbar.winfo_rooty() + toolbar.winfo_height())
-            self.assertGreaterEqual(gap_top, 0, "内容框不能压到按钮行上")
-            self.assertLessEqual(gap_top, 14, "「刷新列表」那一行到内容框的距离要收紧（改前 30 像素）")
+            for gone in ("手动制作分镜", "刷新列表", "手动采用分镜", "手动取消采用"):
+                self.assertNotIn(gone, buttons, "03 页不再保留顶部／底部按钮「%s」" % gone)
+            self.assertEqual(trees, [], "03 页不再保留结构剧本／分镜初稿双表")
+            self.assertTrue(d.storyboard_editor_preview.winfo_ismapped())
+            self.assertGreater(d.storyboard_editor_preview.winfo_height(), 100)
             shared = getattr(d, "shared_input", None)
             self.assertIsNotNone(shared)
             self.assertIsNotNone(shared.stage_action("storyboard"),
@@ -333,10 +312,8 @@ class UiEdgePagesTests(UiEdgeCase):
             d.show(PAGE["script"]); win.update()
             self.assertFalse(hasattr(d, "idea_send"), "剧本页「发送」按钮已并入共享输入框")
             self.assertIsNone(d.stage_button, "剧本页行内「阶段配置」按钮已删")
-            # REQ-S03-54 有意修改的旧 UI 预期：初步分镜页「手动制作分镜」按钮已删，
-            # 制作入口改到共享输入框发送；本页主动作只剩「手动采用分镜」（Primary 按钮）。
-            manual = {PAGE["storyboard"]: "手动采用分镜",
-                      PAGE["assets"]: "手动制作资产", PAGE["keyframe"]: "手动制作首帧",
+            # 初步分镜页已改版为单编辑器，顶部／底部按钮收进右键菜单与共享输入框发送。
+            manual = {PAGE["assets"]: "手动制作资产", PAGE["keyframe"]: "手动制作首帧",
                       PAGE["previs"]: "手动制作白模"}
             for index, label in sorted(manual.items()):
                 with self.subTest(page=index + 1):

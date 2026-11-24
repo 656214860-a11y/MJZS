@@ -22,6 +22,17 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             time.sleep(.005)
         self.assertTrue(predicate(), '后台结果应完成回填')
 
+    @staticmethod
+    def catalog_paths(desktop):
+        page = getattr(desktop, 'storyboard_editor_page', None)
+        if page is None:
+            return set()
+        paths = set()
+        for bucket in (page.catalogs or {}).values():
+            for entry in bucket:
+                paths.add(str(entry['path']))
+        return paths
+
     def test_initial_catalog_scan_never_runs_on_ui_thread(self):
         from orchestrator.storyboard_page_controller import StoryboardPageController
         from infra.pet_state import PAGE_OF
@@ -35,10 +46,11 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.addCleanup(d.cancel_timers)
             with mock.patch.object(StoryboardPageController, 'refresh_catalogs', scan):
                 d.show(PAGE_OF['storyboard'])
-                holder = self.holder(d)
-                self.pump(win, lambda: bool(self.tree_rows(holder)))
+                self.pump(win, lambda: bool(self.catalog_paths(d)))
             self.assertTrue(calls)
             self.assertNotIn(threading.get_ident(), calls)
+            self.assertTrue(d.storyboard_editor_page.loaded)
+            self.assertIsNotNone(d.storyboard_editor_page.active_path)
 
     def test_manual_refresh_rejects_an_older_initial_result(self):
         from infra.pet_state import PAGE_OF
@@ -58,19 +70,11 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                 worker.call_args.kwargs['target']()  # 旧扫描已完成，但尚未应用
                 script = d.root / 'writing' / '第2集.md'
                 script.write_text('# 第2集\n新的剧本内容', encoding='utf-8')
-                holder = self.holder(d)
-                pending = [holder]
-                while pending:
-                    widget = pending.pop()
-                    pending.extend(widget.winfo_children())
-                    if 'text' in widget.keys() and str(widget.cget('text')) == '刷新列表':
-                        widget.invoke()
-                        break
-                else:
-                    self.fail('缺少刷新入口')
-                self.assertIn(str(script), self.tree_rows(holder))
+                page = d.storyboard_editor_page
+                page.refresh()
+                self.assertIn(str(script), self.catalog_paths(d))
                 captured['apply']()
-                self.assertIn(str(script), self.tree_rows(holder), '迟到快照不能覆盖手动刷新')
+                self.assertIn(str(script), self.catalog_paths(d), '迟到快照不能覆盖手动刷新')
 
     def test_batched_rows_keep_order_selection_and_cancel_old_fill(self):
         from tkinter import ttk
@@ -161,19 +165,12 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                 with mock.patch.object(StoryboardPageController, 'refresh_catalogs', side_effect=TypeError('测试读取失败')):
                     worker.call_args.kwargs['target']()
                 captured['apply']()
-                labels, refresh = [], None
-                pending = [self.holder(d)]
-                while pending:
-                    widget = pending.pop(); pending.extend(widget.winfo_children())
-                    if 'textvariable' in widget.keys() and widget.cget('textvariable'):
-                        labels.append(str(win.getvar(widget.cget('textvariable'))))
-                    if 'text' in widget.keys() and str(widget.cget('text')) == '刷新列表':
-                        refresh = widget
-                self.assertIn('文件列表加载失败，请点击「刷新列表」重试', labels)
+                viewer_text = d.storyboard_editor_preview.get('1.0', 'end-1c')
+                self.assertIn('分镜目录加载失败，请右键「刷新分镜列表」重试', viewer_text)
                 self.assertIn('测试读取失败', d.status.get())
-                self.assertIsNotNone(refresh)
-                refresh.invoke()
-                self.assertTrue(self.tree_rows(self.holder(d)))
+                d.storyboard_editor_page.refresh()
+                self.assertTrue(self.catalog_paths(d))
+                self.assertTrue(d.storyboard_editor_page.loaded)
 
 
 if __name__ == '__main__':

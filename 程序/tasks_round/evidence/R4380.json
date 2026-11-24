@@ -1,0 +1,15 @@
+{
+  "round": 4380,
+  "commit_base": "ec891869e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_ui_icons test_desktop_script_pages test_script_autosave test_shared_input_ui test_storyboard_page_loading",
+    "exit": 0,
+    "passed": 85,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T01:22:58"
+}

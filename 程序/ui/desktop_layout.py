@@ -328,11 +328,11 @@ class LayoutMixin:
             if isinstance(widget,(tk.Text,tk.Listbox,ttk.Treeview)):
                 top,bottom=widget.yview()
                 if (steps<0 and top>0.000001) or (steps>0 and bottom<0.999999):
-                    # 聊天记录框滚轮加速：气泡消息跨多行，一格 1 行太慢，按 IDEA_LOG_WHEEL_LINES 放大。
-                    if widget is getattr(self,'idea_log',None):
-                        widget.yview_scroll(steps*IDEA_LOG_WHEEL_LINES,'units')
-                    else:
-                        widget.yview_scroll(steps,'units')
+                    # 聊天记录框与文本编辑器滚轮加速：一格 1 行过慢，优先走控件自定义 _wheel_lines。
+                    lines=getattr(widget,'_wheel_lines',None)
+                    if lines is None:
+                        lines=IDEA_LOG_WHEEL_LINES if widget is getattr(self,'idea_log',None) else 1
+                    widget.yview_scroll(steps*int(lines),'units')
                     self.clear_hover(widget);return 'break'
             widget=getattr(widget,'master',self.win)
             if widget is None:break

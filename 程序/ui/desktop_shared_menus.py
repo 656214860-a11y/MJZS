@@ -12,6 +12,7 @@
 from __future__ import annotations
 
 import tkinter as tk
+from tkinter import ttk
 
 import infra.app_logging as app_logging
 from ui.ui_icons import IconLoader
@@ -25,8 +26,17 @@ MAX_ROWS = 12
 CHECK_SIZE = 14
 # 候选浮层行数上限、类别徽标文案与行首图标（R2980）。
 CANDIDATE_MAX_ROWS = 12
+SKILL_DESC_PREVIEW_CHARS = 24
 KIND_BADGES = {'skill': '技能', 'stage': '阶段', 'engine': '子引擎', 'attachment': '附件'}
 KIND_ICONS = {'attachment': ICON_DOCUMENT}
+
+
+def _short_desc(text, limit=SKILL_DESC_PREVIEW_CHARS):
+    """行内简短用途预览：去掉换行、超长截断；完整说明仍由右侧说明卡展示。"""
+    cleaned = ' '.join(str(text or '').split())
+    if not cleaned:
+        return ''
+    return cleaned if len(cleaned) <= limit else cleaned[:limit - 1] + '…'
 
 
 class AnchoredPanel(tk.Frame):
@@ -108,9 +118,13 @@ class AnchoredPanel(tk.Frame):
 
     def _hover_bg(self, widgets, on):
         bg = COLORS['surface_hover'] if on else COLORS['background_card']
+        desc_style = 'SkillDescHover.TLabel' if on else 'SkillDesc.TLabel'
         for widget in widgets:
             try:
-                widget.configure(bg=bg)
+                if isinstance(widget, ttk.Label):
+                    widget.configure(style=desc_style)
+                else:
+                    widget.configure(bg=bg)
             except tk.TclError:
                 app_logging.swallowed()
 
@@ -138,20 +152,58 @@ class AnchoredPanel(tk.Frame):
 
 
 class SkillPickPanel(AnchoredPanel):
-    """✦ 技能下拉：点名插入 ``/名称``、勾选＝本阶段默认、悬停看说明卡。"""
+    """✦ 技能下拉：点名插入 ``/名称``、勾选＝本阶段默认、行内简述＋右侧悬停说明卡。"""
 
     def __init__(self, host):
         super().__init__(host)
         self._check_images = []
+        self._skill_rows = []
+        self._initial_card_job = None
 
     def anchor_widgets(self):
         button = getattr(self.host, 'skill_button', None)
         return (button,) if button is not None else ()
 
+    def show(self):
+        self._cancel_initial_card()
+        super().show()
+        try:
+            self._initial_card_job = self.after_idle(self._show_initial_card)
+        except tk.TclError:
+            app_logging.swallowed()
+
+    def hide(self):
+        self._cancel_initial_card()
+        super().hide()
+
+    def _cancel_initial_card(self):
+        job = getattr(self, '_initial_card_job', None)
+        self._initial_card_job = None
+        if job:
+            try:
+                self.after_cancel(job)
+            except tk.TclError:
+                app_logging.swallowed()
+
+    def _show_initial_card(self):
+        """打开 ✦ 面板时默认展示首行技能的右侧说明卡，避免用户找不到说明入口。"""
+        self._initial_card_job = None
+        if not self.winfo_exists() or not self.is_open() or not self._skill_rows:
+            return
+        if getattr(self.host, '_skill_card', None) is not None:
+            return
+        item, row = self._skill_rows[0]
+        try:
+            if row.winfo_exists():
+                self.host._show_skill_card(item, row)
+        except tk.TclError:
+            app_logging.swallowed()
+
     def refresh(self):
         self.clear()
         self._check_images = []
         self._check_rows = {}
+        self._skill_rows = []
         # 勾选＝本阶段默认的真实状态（R3040 所见即真）：打开按 stage_config 预填，
         # 点击由 _toggle_skill_default → sync_check 即时取反写回。
         self._defaults = set(self.host._default_skills() or ())
@@ -186,7 +238,7 @@ class SkillPickPanel(AnchoredPanel):
         row = tk.Frame(self, bg=COLORS['background_card'])
         row.pack(fill='x')
         widgets = [row]
-        hoverables = []
+        hoverables = [row]
         if host._skill_defaultable(item):
             # 仅本阶段技能给勾选框：跨阶段/判不出阶段的行配置写不进，画出来是死控件
             # （R3040）；名称点击插入 /名称 的路径不受影响。
@@ -204,14 +256,23 @@ class SkillPickPanel(AnchoredPanel):
         label = tk.Label(row, text=host._skill_display(item), anchor='w',
                          bg=COLORS['background_card'], fg=COLORS['text_primary'],
                          font=FONTS['body'], pady=SPACING['xs'], cursor='hand2')
-        label.pack(side='left', fill='x', expand=True)
+        label.pack(side='left', padx=(SPACING['xs'], SPACING['sm']))
         widgets.append(label)
         hoverables.append(label)
         label.bind('<Button-1>', lambda _e, it=item: host._pick_skill(it))
+        summary = _short_desc(host._skill_description(item))
+        if summary:
+            desc = ttk.Label(row, text=summary, style='SkillDesc.TLabel',
+                             anchor='e', cursor='hand2')
+            desc.pack(side='right', padx=(SPACING['sm'], SPACING['md']))
+            widgets.append(desc)
+            hoverables.append(desc)
+            desc.bind('<Button-1>', lambda _e, it=item: host._pick_skill(it))
+        self._skill_rows.append((item, row))
         for target in hoverables:
             # 先挂悬停底色，再以 add='+' 追加说明卡——同序列裸 bind 会互相覆盖。
             self._bind_hover(target, widgets)
-            target.bind('<Enter>', lambda _e, it=item: host._show_skill_card(it, row),
+            target.bind('<Enter>', lambda _e, it=item, r=row: host._show_skill_card(it, r),
                         add='+')
             target.bind('<Leave>', lambda _e: host._schedule_skill_card_hide(), add='+')
 
@@ -282,9 +343,6 @@ class CandidatePopup:
     # ── 内容 ──────────────────────────────────────────────────────────
     def refresh(self, entries, query=''):
         """重建候选行并展开；空候选直接收掉。``query`` 用于匹配子串高亮。"""
-        # 重建前行若已挂着用途卡，重建后按新高亮行同步（REQ-S01-106），
-        # 不让卡锚在已销毁的旧行上。
-        had_card = getattr(self.host, '_skill_card', None) is not None
         self.entries = tuple(entries or ())
         self.query = str(query or '')
         self._rows = []
@@ -303,8 +361,8 @@ class CandidatePopup:
         self._paint()
         self.open = True
         self.place()
-        if had_card:
-            self._show_card(0)
+        # 唤出 / 候选时立即在右侧同步展示当前高亮项的用途说明卡（REQ-S01-106）。
+        self._show_card(0)
 
     def _segments(self, label):
         """按 ``query`` 子串切 ``label`` 为 (文本, 是否命中) 段；无命中返回单段。"""
@@ -329,6 +387,11 @@ class CandidatePopup:
                            font=FONTS['hint'], padx=SPACING['md'])
             tag.pack(side='right')
             widgets.append(tag)
+        summary = _short_desc(entry.get('hint'))
+        if summary and str(entry.get('kind') or '') != 'attachment':
+            desc = ttk.Label(row, text=summary, style='SkillDesc.TLabel', anchor='e')
+            desc.pack(side='right', padx=(SPACING['sm'], SPACING['none']))
+            widgets.append(desc)
         icon_text = KIND_ICONS.get(str(entry.get('kind') or ''))
         if icon_text:
             icon = tk.Label(row, text=icon_text, anchor='w',
@@ -405,12 +468,16 @@ class CandidatePopup:
         for record in self._rows:
             on = record['index'] == self.index
             bg = COLORS['surface_hover'] if on else COLORS['background_card']
+            desc_style = 'SkillDescHover.TLabel' if on else 'SkillDesc.TLabel'
             marks = set(record.get('marks') or ())
             for widget in record['widgets']:
                 if widget in marks:
                     continue  # 命中段保留 primary_subtle 底纹，不被行底色盖掉
                 try:
-                    widget.configure(bg=bg)
+                    if isinstance(widget, ttk.Label):
+                        widget.configure(style=desc_style)
+                    else:
+                        widget.configure(bg=bg)
                 except tk.TclError:
                     app_logging.swallowed()
 
