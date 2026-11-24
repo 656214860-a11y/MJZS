@@ -525,10 +525,11 @@ class AssetPagesMixin:
         path=(base/image).resolve()
         if not path.is_relative_to(base):raise ValueError('资产路径越界')
         if not path.is_file():raise ValueError('图片文件已不存在，请刷新列表')
-        if ask and not self.asset_page_services.confirm(self.win,'删除已导入图片',
-                self._delete_image_confirm_text(aid,image),
-                dangerous=True):
-            return False
+        if ask:
+            fn=getattr(self,'_delete_image_confirm_text',None)
+            text=fn(aid,image) if callable(fn) else AssetPagesMixin._delete_image_confirm_text(self,aid,image)
+            if not self.asset_page_services.confirm(self.win,'删除已导入图片',text,dangerous=True):
+                return False
         from domain.asset_batch_service import remove_asset_image
         base=AssetPagesMixin.asset_write_base(self)
         remove_asset_image(base,aid,gateway=AssetPagesMixin.asset_batch_gateway())
@@ -549,9 +550,9 @@ class AssetPagesMixin:
         targets=[aid for aid in ids if assets.get(aid,{}).get('image')]
         if not targets:raise ValueError('勾选的资产都没有已导入图片')
         shown='、'.join(targets[:8])+('…' if len(targets)>8 else '')
-        if not self.asset_page_services.confirm(self.win,'批量删除已导入图片',
-                self._batch_delete_images_confirm_text(targets,shown,how),
-                dangerous=True):
+        fn=getattr(self,'_batch_delete_images_confirm_text',None)
+        text=fn(targets,shown,how) if callable(fn) else AssetPagesMixin._batch_delete_images_confirm_text(self,targets,shown,how)
+        if not self.asset_page_services.confirm(self.win,'批量删除已导入图片',text,dangerous=True):
             return []
         done=[]
         for aid in targets:
