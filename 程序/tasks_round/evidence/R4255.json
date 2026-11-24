@@ -1,0 +1,15 @@
+{
+  "round": 4255,
+  "commit_base": "6b456fa5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sidebar desktop_compact_layout",
+    "exit": 0,
+    "passed": 14,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T11:40:30"
+}

@@ -328,9 +328,13 @@ class ProjectPagesMixin(RecyclePanelMixin):
         """选择器复位回当前项目；高亮＝当前项目，用户取消或被拦下时不能留在别的项上。"""
         self._sync_project_picker(snap=True)
     def set_project_group(self,state,popup=False):
-        """侧栏分组筛选：making/completed 图标钮切换项目集合；popup 时弹出该组项目选择层（R2946，弹层实现在 PageNavMixin）。"""
+        """侧栏分组筛选：making/completed/all 切换项目集合；popup 时弹出该组项目选择层（R2946，弹层实现在 PageNavMixin）。"""
         if state!=self._project_group:self._project_group=state;self._sync_project_group_styles();self._sync_project_picker()
         if popup:self._post_project_picker(state)
+    def _close_sidebar_expand(self):
+        """REQ-UI-SIDEBAR-1：换页／开浮层时收起侧栏项目二级列（实现在 ui.desktop_sidebar_project）。"""
+        from ui.desktop_sidebar_project import close_sidebar_expand
+        close_sidebar_expand(self)
     def _sync_project_group_styles(self):
         active=getattr(self,'_project_group','making')
         for state,btn in getattr(self,'project_group_buttons',{}).items():
@@ -344,37 +348,22 @@ class ProjectPagesMixin(RecyclePanelMixin):
             try:return Path(str(p.get('path')))==root
             except (OSError,ValueError):return False
         group=getattr(self,'_project_group','making')
-        if group not in ('making','completed'):group='making'
+        if group not in ('all','making','completed'):group='making'
         if snap:
             current_group=next((p.get('status','making') for p in projects if is_current(p)),None)
-            if current_group is not None and current_group!=group:
+            if group!='all' and current_group is not None and current_group!=group:
                 group=current_group
                 self._project_group=group
                 self._sync_project_group_styles()
-        items=[p for p in projects if p.get('status','making')==group]
+        items=[p for p in projects if group=='all' or p.get('status','making')==group]
         items.sort(key=project_sort_key)
         self._picker_items=items
+        name_list=getattr(self,'project_name_list',None)
+        if name_list is not None:name_list.refresh()
     def _build_project_rail(self,side):
-        """侧栏项目区图标控件：分组筛选（点了弹项目选择层）＋新建/打开目录（R2946 去下拉框）。"""
-        self.project_block=ttk.Frame(side);self.project_block.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        self._project_group='making';self._picker_items=[]
-        filters=ttk.Frame(self.project_block);filters.pack(fill='x')
-        self.project_group_buttons={}
-        for state in ('making','completed'):
-            btn=SecondaryButton(filters,text='',image=IconLoader.nav_icon(side,PROJECT_GROUP_ICONS[state]),
-                                compound='image',command=lambda s=state:self.set_project_group(s,popup=True),style='RailIcon.TButton')
-            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
-            Tooltip(btn,'在制作项目' if state=='making' else '已完成项目')
-            self.project_group_buttons[state]=btn
-        tools=ttk.Frame(self.project_block);tools.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        for attr,key,cmd,tip in (('project_new_button','new',self.new,'+ 新建项目'),
-                                 ('project_open_button','open',self.open_current_project,'打开项目目录')):
-            btn=SecondaryButton(tools,text='',image=IconLoader.nav_icon(side,PROJECT_ACTION_ICONS[key]),
-                                compound='image',command=cmd,style='RailIcon.TButton')
-            btn.pack(side='left',fill='x',expand=True,padx=(SPACING['none'],SPACING['xs']))
-            Tooltip(btn,tip);setattr(self,attr,btn)
-        self.project_buttons=(self.project_new_button,self.project_open_button)
-        self._sync_project_group_styles();self._sync_project_picker()
+        """侧栏项目区（REQ-UI-SIDEBAR-1）：单个「项目」图标＋名称列表；四个原入口收进右侧二级列。"""
+        from ui.desktop_sidebar_project import build_project_rail
+        build_project_rail(self,side)
     def project_switch_blocker(self):
         """当前项目还有任务在跑时的拦截原因；空串表示可以切换。"""
         if self.worker:return '后台任务仍在运行'
