@@ -359,6 +359,26 @@ class AccountClientTests(unittest.TestCase):
         self.assertIsInstance(result, SystemError)
         self.assertEqual(result.data['code'], account_client.NETWORK)
 
+    def test_unreachable_failures_have_distinct_codes_and_messages(self):
+        """REL-05：网络不通／服务无响应（超时）／证书校验失败三种出站失败各有稳定 code 与人话提示。"""
+        import ssl
+        cases = (
+            (urllib.error.URLError('down'), account_client.NETWORK),
+            (urllib.error.URLError(TimeoutError('timed out')), account_client.SERVICE_TIMEOUT),
+            (TimeoutError('timed out'), account_client.SERVICE_TIMEOUT),
+            (urllib.error.URLError(ssl.SSLCertVerificationError('bad cert')), account_client.CERT_ERROR),
+            (ssl.SSLCertVerificationError('bad cert'), account_client.CERT_ERROR),
+        )
+        for exc, code in cases:
+            with self.subTest(exc=exc):
+                result = account_client.meta(opener=self.opener(exc)[0])
+                self.assertIsInstance(result, SystemError)
+                self.assertEqual(result.data['code'], code)
+                self.assertEqual(result.reason, account_client.UNREACHABLE_MESSAGES[code])
+        self.assertEqual(len(set(account_client.UNREACHABLE_MESSAGES.values())), 3)
+        for text in account_client.UNREACHABLE_MESSAGES.values():
+            self.assertIn('客服', text)
+
     def test_password_endpoints_paths_and_bodies(self):
         """R2022：注册、口令登录、重置、修改口令与带用途的发码。"""
         dev = {'id': DID}

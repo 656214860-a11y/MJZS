@@ -15,7 +15,8 @@ from infra import account_store
 from infra import lease_verifier
 from orchestrator.account_controller import AccountController
 from desktop import Desktop
-from contract.service_contract import success
+from contract.service_contract import SystemError, success
+import account_client
 import test_desktop_startup_perf as startup_fixtures
 from test_account_client import KEYS, NOW, _Client, _Store, payload, sign
 
@@ -145,6 +146,33 @@ class LoginGateTests(unittest.TestCase):
         self.assertIn('当前状态：授权已失效',texts)
         self.assertNotIn('当前状态：未登录',texts)
         d.account.logout()
+
+    def test_gate_shows_unreachable_prompts_with_retry(self):
+        """R-REL05：网络不通／服务无响应／证书校验失败三种，闸叠加人话提示与重试按钮。"""
+        self.assertEqual(len({text for text in account_client.UNREACHABLE_MESSAGES.values()}), 3)
+        for code in account_client.UNREACHABLE_MESSAGES:
+            with self.subTest(code):
+                client = _Client(send_code=SystemError(account_client.UNREACHABLE_MESSAGES[code],
+                                                       data={'code': code}))
+                self.use(client)
+                d = self.desktop
+                d.begin_startup_or_login(True, lambda: None)
+                self.pump()
+                self.assertTrue(d.login_gate_active)
+                d.account_email_input.insert(0, 'a@b.cn')
+                d.account_use_code_button.invoke()
+                self.pump()
+                notice = getattr(d, 'gate_notice', None)
+                self.assertIsNotNone(notice, '闸没有给出服务不可达的提示')
+                self.assertIn(account_client.UNREACHABLE_MESSAGES[code], str(notice.cget('text')))
+                button = getattr(d, 'gate_notice_button', None)
+                self.assertIsNotNone(button, '闸没有提供重试按钮')
+                self.assertTrue(button.winfo_exists())
+                sent = sum(1 for name, _args in client.calls if name == 'send_code')
+                button.invoke()
+                self.pump()
+                self.assertEqual(sum(1 for name, _args in client.calls if name == 'send_code'),
+                                 sent + 1, '重试按钮没有重新发出登录验证码')
 
     def test_logout_brings_gate_back(self):
         self.use(_Client(),lease=sign(payload()))
