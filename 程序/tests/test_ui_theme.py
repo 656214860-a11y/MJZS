@@ -498,5 +498,33 @@ class ThemePaletteTests(unittest.TestCase):
         self.assertEqual('day', ui_tokens.resolve_theme('system', system=lambda: (_ for _ in ()).throw(RuntimeError('boom'))))
 
 
+class ThemeRefreshTests(unittest.TestCase):
+    """夜间／日间切换后存量 tk 控件与侧栏图标跟着换色，且能切回日间。"""
+
+    def setUp(self):
+        ui_tokens.set_theme('day')
+        self.win = tk.Tk()
+        self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.addCleanup(ui_tokens.set_theme, 'day')
+
+    def test_native_widgets_round_trip(self):
+        day = ui_tokens.COLORS['background_card']
+        canvas = tk.Canvas(self.win, bg=day)
+        item = canvas.create_rectangle(0, 0, 5, 5, fill=day)
+        label = tk.Label(self.win, bg=day, fg=ui_tokens.COLORS['text_primary'])
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.recolor_tree(self.win, ui_tokens.previous_palette(), ui_tokens.COLORS)
+            want = ui_tokens.COLORS['background_card'].lower()
+            self.assertEqual(str(canvas.cget('bg')).lower(), want)
+            self.assertEqual(str(canvas.itemcget(item, 'fill')).lower(), want)
+            self.assertEqual(str(label.cget('bg')).lower(), want)
+
+    def test_unrelated_colors_untouched(self):
+        mapping = ui_theme.color_map(ui_tokens.THEMES['day'], ui_tokens.THEMES['night'])
+        self.assertNotIn('#123456', mapping)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

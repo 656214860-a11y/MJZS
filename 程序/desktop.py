@@ -308,6 +308,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         apply_theme(self.win)
         self.win.option_add('*Text.selectForeground',COLORS['on_accent'])
         setup_styles(self.win)
+        from ui.ui_theme import refresh_native_widgets;refresh_native_widgets(self.win)
 
     def _init_body_and_status(self, win):
         """主体区：页面画布、统一状态栏与尺寸把手，从 __init__ 原样切出，R1808。"""
