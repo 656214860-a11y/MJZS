@@ -13,6 +13,10 @@ from ui_tokens import COLORS, SCRIPT_GUTTER_WIDTH, SCRIPT_VIEW_FONT, SPACING
 
 # 行号与槽右缘、以及与槽左缘的留白（像素）。
 _GUTTER_PAD = SPACING["xs"]
+# REQ-S02-40：折叠标记（三角形）半径与其画布 tag 前缀；点击命中框稍大于标记。
+_FOLD_TAG_PREFIX = "fold@"
+_MARK_RADIUS = 4
+_MARK_PAD = 3
 
 
 def _spec_weight(font):
@@ -32,8 +36,11 @@ class LineNumberGutter(tk.Canvas):
         super().__init__(master, bg=COLORS["background_card"], **kwargs)
         self._measure = tkfont.Font(root=self)
         self._apply_font()
+        self._fold_marks = None
+        self._fold_toggle = None
         text_widget.bind("<Configure>", self._on_text_configure, add="+")
         self.bind("<Configure>", self._redraw, add="+")
+        self.bind("<Button-1>", self._on_press, add="+")
 
     # ---- 对外接口 -----------------------------------------------------
 
@@ -47,7 +54,48 @@ class LineNumberGutter(tk.Canvas):
         """内容增减后由页面调用；滚动与尺寸变化已自动触发。"""
         self._redraw()
 
+    def set_fold_support(self, marks, toggle):
+        """REQ-S02-40：``marks()`` → ``{行号: 已折叠}``；``toggle(行号)`` 点标记回调。"""
+        self._fold_marks = marks
+        self._fold_toggle = toggle
+        self._redraw()
+
     # ---- 内部 ---------------------------------------------------------
+
+    def _on_press(self, event):
+        """点击折叠标记：命中 ``fold@行号`` 标记时回调切换，其余位置放行。"""
+        if self._fold_toggle is None:
+            return None
+        for item in self.find_overlapping(
+                event.x - _MARK_PAD, event.y - _MARK_PAD,
+                event.x + _MARK_PAD, event.y + _MARK_PAD):
+            for tag in self.gettags(item):
+                if tag.startswith(_FOLD_TAG_PREFIX):
+                    self._fold_toggle(int(tag[len(_FOLD_TAG_PREFIX):]))
+                    return "break"
+        return None
+
+    def _draw_fold_marks(self, marks, first, last):
+        """可折行左缘画三角：未折叠下指、已折叠右指；隐藏行不画。"""
+        cx = _GUTTER_PAD + _MARK_RADIUS + 1
+        for line in range(first, last + 1):
+            if line not in marks:
+                continue
+            info = self._text.dlineinfo("%d.0" % line)
+            if not info:
+                continue
+            cy = info[1] + info[3] / 2.0
+            tag = _FOLD_TAG_PREFIX + str(line)
+            pad = _MARK_RADIUS + _MARK_PAD
+            self.create_rectangle(cx - pad, cy - pad, cx + pad, cy + pad,
+                                  fill="", outline="", tags=(tag,))
+            if marks[line]:
+                points = (cx - 3, cy - _MARK_RADIUS, cx - 3, cy + _MARK_RADIUS,
+                          cx + _MARK_RADIUS, cy)
+            else:
+                points = (cx - _MARK_RADIUS, cy - 2, cx + _MARK_RADIUS, cy - 2,
+                          cx, cy + _MARK_RADIUS)
+            self.create_polygon(points, fill=COLORS["text_muted"], tags=(tag,))
 
     def _apply_font(self):
         spec = self._font_spec
@@ -100,3 +148,5 @@ class LineNumberGutter(tk.Canvas):
                 text=str(line), anchor="e",
                 font=self._font_spec, fill=COLORS["text_muted"],
             )
+        if callable(self._fold_marks):
+            self._draw_fold_marks(self._fold_marks() or {}, first, last)

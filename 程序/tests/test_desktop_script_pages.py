@@ -31,6 +31,7 @@ for _p in (str(PROGRAM), str(TESTS)):
 from test_ui_reading_density import _make_project, _settle, _show_script_structure  # noqa: E402
 
 import desktop as desktop_module     # noqa: E402
+from ui_widgets import ContextMenu    # noqa: E402
 import desktop_shared_input          # noqa: E402,F401  被对齐的一方（共享输入框），--affected 消费者锚点
 import ui.desktop_script_pages       # noqa: E402,F401  本用例的对象模块（剧本结构页），同上
 
@@ -356,6 +357,133 @@ class ScriptStructureOneEditorTests(unittest.TestCase):
             box.select_document(note)
             _settle(win, 3)
             self.assertIn('补充制作说明文本。', preview.get('1.0', 'end-1c'))
+
+
+class ScriptStructureMenuFoldTests(unittest.TestCase):
+    """REQ-S02-39/40/43：真页面右键全菜单、行号栏折叠、Ctrl+G 跳转与状态栏信息。"""
+
+    def _page_with_natural(self, td):
+        project, writing = _make_project(td)
+        natural = writing / '剧本_甲.md'
+        # 预览走 compact_display 折叠空行：夹具直接写紧凑文本，行号与源文件一致。
+        # 行号：1=第 1 集，2=场景 1：候车室，3=阿远：我回来了。，4=场景 2：站台，5=阿远：又见面了。
+        natural.write_text('第 1 集\n场景 1：候车室\n阿远：我回来了。\n'
+                           '场景 2：站台\n阿远：又见面了。\n', encoding='utf-8')
+        win, desktop = _open_window(self, project)
+        box = desktop.script_structure_editor_preview_content_box
+        box.select_document(natural)
+        _settle(win, 6)
+        return win, desktop, box, desktop.script_structure_editor_preview
+
+    def _labels(self, menu):
+        return [menu.entrycget(i, 'label') for i in range(menu.index('end') + 1)
+                if menu.type(i) == 'command']
+
+    def test_editor_menu_full_order_on_real_page(self):
+        """REQ-S02-39：真页面右键菜单按 REQ 顺序 13 项，末尾保留「打开其他文件…」。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            with mock.patch.object(ContextMenu, 'popup', lambda self, event: 'break'):
+                preview.event_generate('<Button-3>', x=5, y=5)
+            win.update()
+            menu = desktop.script_structure_editor_preview_edit_session.last_menu.menu
+            self.assertEqual(
+                self._labels(menu),
+                ['编辑', '后退一步', '前进一步', '复原全文', '立即保存',
+                 '剪切', '复制', '粘贴', '全选', '查找…', '大纲', '全部折叠', '全部展开',
+                 '打开其他文件… (Ctrl+O)'])
+
+    def test_gutter_marks_and_fold_all_expand_all(self):
+        """REQ-S02-40：行号槽标题行带标记；全部折叠只留标题行，全部展开恢复。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            tags = [tag for item in box.gutter.find_all()
+                    for tag in box.gutter.gettags(item)]
+            for line in (1, 2, 4):
+                self.assertIn('fold@%d' % line, tags, '第 %d 行应有折叠标记' % line)
+            aids = box.aids
+            aids.fold_all()
+            _settle(win, 3)
+            self.assertIn('script_fold', preview.tag_names('3.0'), '正文行应折叠')
+            self.assertIn('script_fold', preview.tag_names('5.0'), '正文行应折叠')
+            self.assertNotIn('script_fold', preview.tag_names('2.0'), '场标题行不收')
+            self.assertNotIn('script_fold', preview.tag_names('4.0'), '场标题行不收')
+            hidden = preview.dlineinfo('3.0')
+            # Tk 对整行 elide 的回报是零高宽 bbox（未布局时为空），统一按「无显示高度」判。
+            self.assertTrue(not hidden or hidden[3] == 0,
+                            '折叠后正文行不应占显示高度：%r' % (hidden,))
+            self.assertTrue(preview.dlineinfo('2.0'), '标题行始终显示')
+            aids.expand_all()
+            _settle(win, 3)
+            self.assertNotIn('script_fold', preview.tag_names('3.0'))
+            self.assertTrue(preview.dlineinfo('3.0'))
+
+    def test_toggle_fold_collapses_section_and_restores(self):
+        """REQ-S02-40：单点折叠一场正文再点展开；行号真实不变。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            aids = box.aids
+            aids.toggle_fold(2)
+            _settle(win, 3)
+            self.assertIn('script_fold', preview.tag_names('3.0'), '场正文应收起')
+            self.assertNotIn('script_fold', preview.tag_names('4.0'), '下一场标题仍显示')
+            aids.toggle_fold(2)
+            _settle(win, 3)
+            self.assertNotIn('script_fold', preview.tag_names('3.0'))
+            # loaded['raw'] 按文档口径存 CRLF；预览是 LF 且裁掉尾换行，比归一化文本。
+            self.assertEqual(preview.get('1.0', 'end-1c').rstrip('\n'),
+                             box.loaded['raw'].replace('\r\n', '\n').rstrip('\n'),
+                             '折叠只影响显示，文本内容不变')
+
+    def test_find_hit_autoexpands_collapsed_section(self):
+        """REQ-S02-40：折叠中查找命中所在段自动展开。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            aids = box.aids
+            aids.fold_all()
+            _settle(win, 3)
+            self.assertIn('script_fold', preview.tag_names('5.0'), '先确认第二场景正文收起')
+            bar = box.find_bar
+            bar.keyword.insert(0, '又见面')
+            self.assertTrue(bar.find_next())
+            self.assertNotIn('script_fold', preview.tag_names('5.0'),
+                             '命中行应自动展开')
+
+    def test_ctrl_g_jump_by_line_and_title(self):
+        """REQ-S02-43：Ctrl+G 按行号或场名跳转，命中行高亮且自动展开。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            aids = box.aids
+            self.assertTrue(aids.goto_line('5'))
+            self.assertEqual(str(preview.index('insert')), '5.0')
+            hit = preview.tag_ranges('script_outline_hit')
+            self.assertTrue(hit)
+            self.assertEqual(str(hit[0]), '5.0')
+            self.assertTrue(aids.goto_line('候车室'))
+            self.assertEqual(str(preview.index('insert')), '2.0')
+            # 折叠段里的行：跳转先自动展开。
+            aids.fold_all()
+            _settle(win, 3)
+            self.assertTrue(aids.goto_line('3'))
+            self.assertNotIn('script_fold', preview.tag_names('3.0'))
+            self.assertFalse(aids.goto_line('不存在的场景'))
+
+    def test_status_segment_shows_cursor_info(self):
+        """REQ-S02-43：状态栏段显示行号、集场、全文字数与保存时间。"""
+        with tempfile.TemporaryDirectory() as td:
+            win, desktop, box, preview = self._page_with_natural(td)
+            aids = box.aids
+            aids.update_cursor_status()
+            segment = desktop.status_bar._segments['script_cursor'][1].full_text
+            self.assertIn('第', segment)
+            self.assertIn('行', segment)
+            self.assertIn('全文', segment)
+            self.assertIn('字', segment)
+            preview.mark_set('insert', '5.0')
+            aids.update_cursor_status()
+            segment = desktop.status_bar._segments['script_cursor'][1].full_text
+            self.assertIn('第 5 行', segment)
+            self.assertIn('场景', segment)
 
 
 if __name__ == '__main__':

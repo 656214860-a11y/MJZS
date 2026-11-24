@@ -98,6 +98,49 @@ class ScriptLineNumberTests(unittest.TestCase):
                 self.assertEqual(numbers, ['1', '2', '3'])
                 root.destroy()
 
+    def test_fold_marks_drawn_and_click_reports_line(self):
+        """REQ-S02-40：set_fold_support 后可折行画出标记，点击标记回调对应行号。"""
+        root = self._window()
+        _preview, gutter = _make(root, '第 1 集\n\n场景 1：旧站台\n\n阿远：我回来了。\n')
+        marks = {1: False, 3: False}
+        toggled = []
+        gutter.set_fold_support(lambda: marks, toggled.append)
+        _settle(root)
+        tagged = {}
+        for item in gutter.find_all():
+            for tag in gutter.gettags(item):
+                if tag.startswith('fold@'):
+                    tagged.setdefault(tag, item)
+        self.assertIn('fold@1', tagged, '第 1 行应有折叠标记')
+        self.assertIn('fold@3', tagged, '第 3 行应有折叠标记')
+        # 模拟点击标记中心：命中框比三角形略大，点击附近也命中。
+        x0, y0, x1, y1 = gutter.bbox(tagged['fold@3'])
+        gutter.event_generate('<Button-1>', x=(x0 + x1) // 2, y=(y0 + y1) // 2)
+        _settle(root)
+        self.assertEqual(toggled, [3])
+        # 折叠后标记按状态换向：收起为右指，展开为下指（不同形状，靠 item 计数不区分）。
+        marks[3] = True
+        gutter.refresh()
+        _settle(root)
+
+    def test_fold_marks_skip_hidden_and_absent_by_default(self):
+        """REQ-S02-40：未接 fold 支持时行号槽只画行号；隐藏行不画标记。"""
+        root = self._window()
+        preview, gutter = _make(root, '第 1 集\n\n场景 1')
+        self.assertEqual(_numbers(gutter), ['1', '2', '3'])
+        # 未调用 set_fold_support：除行号文本外没有其它画布项。
+        for item in gutter.find_all():
+            self.assertTrue(gutter.itemcget(item, 'text').isdigit())
+        # 接入后 elide 行不画标记（dlineinfo 为空即隐藏）。
+        preview.tag_configure('foldtest', elide=True)
+        preview.tag_add('foldtest', '3.0', '4.0')
+        marks = {1: False, 3: False}
+        gutter.set_fold_support(lambda: marks, lambda _line: None)
+        _settle(root)
+        tags = [tag for item in gutter.find_all() for tag in gutter.gettags(item)]
+        self.assertIn('fold@1', tags)
+        self.assertNotIn('fold@3', tags, '被 elide 的行不应再画折叠标记')
+
     def test_gutter_font_tracks_zoom(self):
         """REQ-S02-36：set_font 后行号字号与测量字体同步变化。"""
         root = self._window()

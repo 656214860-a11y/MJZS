@@ -29,7 +29,7 @@ from ui_tokens import (
     SCRIPT_VIEW_PADDING,
     SPACING,
 )
-from ui_widgets import TextArea
+from ui_widgets import TextArea, ask_string
 from ui.desktop_script_edit_session import (
     _install_script_edit_controls,
     _reset_preview_text,
@@ -43,9 +43,9 @@ LOGGER = logging.getLogger('desktop_script_pages')
 # test_button_consistency 仍按同名导入核对。
 SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT
 SCRIPT_EDITOR_WHEEL_LINES = 8
-_HINT_READ_EDITABLE = '快捷键：右键编辑 / 打开其他文件 · Ctrl+F 查找 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开文件'
-_HINT_READ_ONLY = '只读查看：Ctrl+F 查找 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开其他文件（自然/结构剧本/分镜/文本）'
-_HINT_EDITING = '编辑中（自动保存）：Ctrl+S 立即保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · 右键退出编辑'
+_HINT_READ_EDITABLE = '快捷键：右键编辑 / 打开其他文件 · Ctrl+F 查找 · Ctrl+G 跳转 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开文件'
+_HINT_READ_ONLY = '只读查看：Ctrl+F 查找 · Ctrl+G 跳转 · Ctrl+滚轮 / Ctrl+± 缩放 · Ctrl+O 打开其他文件（自然/结构剧本/分镜/文本）'
+_HINT_EDITING = '编辑中（自动保存）：Ctrl+S 立即保存 · Ctrl+Z 撤销 · Ctrl+Y 重做 · Ctrl+F 查找 · Ctrl+G 跳转 · 右键退出编辑'
 
 
 def _format_storyboard_json(data):
@@ -737,22 +737,31 @@ class _ContentBox:
         # ui/ 样式 Label 登记值（L4-F9，desktop_script_pages.py: 1）。
         self.outline_toggle = ttk.Label(preview_area, font=SCRIPT_VIEW_FONT)
         self.aids = ReadingAids(self)
+        # L4 边界：输入弹窗由本模块注入，script_reading 不新增 ui_widgets 同层边。
+        self.aids.goto_ask = ask_string
         self.find_bar = FindBar(
             preview_area, self.preview,
             on_changed=self.aids.refresh_reading_views,
             notify=lambda message: self.owner.page.status.set(message),
             run=self.owner.page.safe,
+            headings=self.aids.heading_lines,
+            reveal=self.aids.ensure_line_visible,
         )
         self.find_bar.grid(row=0, column=0, sticky='ew')
         self.find_bar.grid_remove()
         self.outline = OutlinePanel(preview_area, self.preview)
         self.outline.grid(row=0, column=1, rowspan=2, sticky='ns')
         self.outline.grid_remove()
+        # REQ-S02-40：行号槽折叠标记数据源与点击回调。
+        self.gutter.set_fold_support(self.aids.fold_marks, self.aids.toggle_fold)
         # 必须先于 load_preview 挂上：首屏小文档走 _reset_preview_text，靠它收尾同步三件套。
         self.preview._reading_sync = self.aids.after_text_load
         self._sync_role(self.active['path'])
         self.load_preview(self.active['path'])
         _install_script_edit_controls(self.owner.page, self)
+        # REQ-S02-39：会话以 add=True 登记的老菜单整体替换为 ReadingAids 全菜单。
+        self.preview.bind('<Button-3>', self.aids.context_menu)
+        box.bind('<Destroy>', lambda _e: self.aids.release(), add='+')
         self.preview.bind('<<Modified>>', self.aids.schedule_reading_views, add='+')
         self.preview.bind('<FocusIn>', lambda _e: self.update_shortcut_hint(), add='+')
         self.aids.install_reading_shortcuts()
