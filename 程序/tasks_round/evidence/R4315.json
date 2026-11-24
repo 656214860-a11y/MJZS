@@ -1,6 +1,6 @@
 {
   "round": 4315,
-  "commit_base": "b52a39ef1",
+  "commit_base": "4925bdec9",
   "credential_scan": {
     "ran": true,
     "hits": []
@@ -11,5 +11,5 @@
     "passed": 36,
     "failed": 0
   },
-  "generated_at": "2026-11-24T17:40:06"
+  "generated_at": "2026-11-24T18:31:16"
 }
