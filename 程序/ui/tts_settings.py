@@ -7,7 +7,7 @@ import domain.tts_api as api
 import infra.tk_timers as tk_timers
 from ui_tokens import WRAPLENGTH, SPACING
 from account_inputs import PasswordInput
-from ui_widgets import (Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
+from ui_widgets import (BaseDialog, Card, DescriptionBlock, FormDialog, LineInput, PrimaryButton,
                         ProgressLabel, SecondaryButton, notify)
 
 
@@ -92,3 +92,49 @@ def show(parent, on_saved=None):
     y = max(0, parent.winfo_rooty() + (parent.winfo_height() - win.winfo_height()) // 2)
     win.geometry(f"+{x}+{y}")
     win.deiconify()
+
+
+_AUDIO_KIND_CHOICES = tuple((kind, api.AUDIO_KIND_LABELS[kind]) for kind in api.AUDIO_KINDS)
+
+
+class AudioKindDialog(BaseDialog):
+    """导入音频的用途询问：默认对白；取消、Esc 与关闭都保持 ``choice`` 为 None。"""
+
+    def __init__(self, parent):
+        self.choice = None
+        super().__init__(parent, "导入音频 · 选择用途")
+        DescriptionBlock(self.content, text="这段音频在成片里是什么用途？非对白音轨会加前缀标记，不计入对白成果。").pack(fill="x", pady=(SPACING["none"], SPACING["md"]))
+        self._selected = tk.StringVar(value="dialogue")
+        for kind, label in _AUDIO_KIND_CHOICES:
+            ttk.Radiobutton(self.content, text=label, variable=self._selected, value=kind).pack(anchor="w", pady=SPACING["xs"])
+        self.add_action("取消", self.close)
+        self.add_action("导入", self._confirm, primary=True)
+
+    def _confirm(self):
+        self.choice = self._selected.get()
+        self.close()
+
+
+def ask_audio_kind(parent):
+    """同步询问音轨用途；确定返回 kind，取消、Esc、关闭或父窗已销毁返回 None。"""
+    dialog = AudioKindDialog(parent)
+    try:
+        dialog.wait_window()
+    except tk.TclError:
+        return None
+    return dialog.choice
+
+
+def import_audio_with_kind(app, source):
+    """「导入配音 / 音乐」胶水：先问清用途再经 L3 编排导入；取消询问不导入。"""
+    kind = ask_audio_kind(app.win)
+    if kind is None:
+        return
+    from stage_execution_service import import_stage_audio
+    project = app.root
+    def work():
+        result = import_stage_audio(project, source, kind=kind)
+        if not result.ok:
+            raise ValueError(result.reason)
+        return result.data
+    app.async_(work, lambda dest: app.status.set('音频已导入：' + str(dest)))

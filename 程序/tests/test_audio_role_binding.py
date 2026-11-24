@@ -187,6 +187,21 @@ class AudioCompletionKindTests(unittest.TestCase):
         with self.assertRaisesRegex(ValueError, "对白音轨"):
             self.prepare(self.artifact("BGM_theme.wav"))
 
+    def test_l3_bgm_import_is_still_not_dialogue(self):
+        """FIX-S11-E6：经 L3 按 BGM 导入的音轨落在成果目录里，仍不能当对白完成核验。"""
+        from stage_execution_service import import_stage_audio
+        source = self.root / "song.wav"
+        source.write_bytes(b"audio bytes")
+
+        def publish(target, source):
+            target.write_bytes(source.read_bytes())
+        with patch("stage_execution_service.media_import_publisher", return_value=publish):
+            result = import_stage_audio(self.root, source, kind="bgm")
+        self.assertTrue(result.ok)
+        self.assertTrue(result.data.name.startswith("BGM_"))
+        with self.assertRaisesRegex(ValueError, "对白音轨"):
+            self.prepare(result.data)
+
     def test_dialogue_track_is_accepted(self):
         prepared = self.prepare(self.artifact("line.wav"))
         self.assertEqual(prepared["status"], "pending_review")

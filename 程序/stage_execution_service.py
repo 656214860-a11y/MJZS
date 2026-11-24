@@ -171,18 +171,18 @@ def poll_pet_test_check(session, project, at=None):
                             publish=pet_test_gateway()['publish_json'])
 
 
-def import_stage_audio(project, source):
+def import_stage_audio(project, source, kind='dialogue'):
     """音频导入编排：导入成功后刷新配音字幕清单。"""
-    result = _import_audio_file(project, source)
+    result = _import_audio_file(project, source, kind=kind)
     if result.ok:
         refresh_audio_manifests(project)
     return result
 
 
-def _import_audio_file(project, source):
+def _import_audio_file(project, source, kind='dialogue'):
     """音频导入编排：L3 注入校验与有界文件发布器。"""
     from domain.audio_import_service import import_audio
-    return import_audio(project, source, publish=media_import_publisher(project, 'audio'))
+    return import_audio(project, source, publish=media_import_publisher(project, 'audio'), kind=kind)
 
 
 
