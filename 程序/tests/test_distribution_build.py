@@ -7,11 +7,13 @@ import hashlib
 import importlib.util
 import io
 import json
+import shutil
 import tempfile
 import unittest
 from pathlib import Path
 
 from scripts import release_runtime
+from scripts import release_snapshot
 from tests.test_release_runtime import write_dist
 
 SCRIPT = Path(__file__).resolve().parents[1] / 'scripts' / 'distribution_build.py'
@@ -59,6 +61,56 @@ SOURCE_FILES = {
     '程序/a.pyc': 'pyc',
     '.git/config': 'git',
 }
+
+# 规格《03 安装签名与分发》§2.3：升级只覆盖程序文件；下列本机数据只保留不覆盖。
+# `程序/data/skill_note_terms_zh.json` 是唯一随包的内置数据文件，属程序文件。
+UPGRADE_DATA_EXCLUDE = [
+    '程序/config.json', '程序/projects.json', '程序/desktop_settings.json',
+    '程序/data/*/**', '程序/data/desktop_settings.json', '程序/data/客户端档案.json',
+    '程序/data/语音识别.json', '程序/data/语音词典.json', '程序/data/*.flag',
+    '程序/配置/宠物/**', '程序/配置/素材库.json',
+]
+
+UPGRADE_USER_FILES = {
+    '程序/config.json': '{"downloads_root": "D:/库", "video_backend": "comfy"}',
+    '程序/projects.json': '{"active": "样例", "projects": [{"name": "样例"}]}',
+    '程序/desktop_settings.json': '{"geometry": "1024x768"}',
+    '程序/private/密钥/a.dpapi': 'key-bytes',
+    '程序/private/账户/token.dpapi': 'token-bytes',
+    '程序/private/桌面续发/keep.txt': 'keep-me',
+    '程序/data/job_store/jobs.json': '{"jobs": [1]}',
+    '程序/data/artifact_index/demo/index.json': '{"items": []}',
+    '程序/data/metrics/usage.jsonl': '{"n": 1}\n',
+    '程序/data/desktop_settings.json': '{"local": true}',
+    '程序/data/客户端档案.json': '{"profile": "fixture"}',
+    '程序/data/语音识别.json': '{"backend": "offline"}',
+    '程序/data/语音词典.json': '{"words": []}',
+    '程序/data/selfcheck_failopen.flag': '',
+    '程序/配置/宠物/配置.json': '{"pet": "fixture"}',
+    '程序/配置/素材库.json': '{"assets": [1, 2]}',
+    '程序/logs/app.log': 'startup ok\n',
+}
+
+UPGRADE_PROJECT_FILES = {
+    '我的项目/样例/skill_config.json': '{"locks": []}',
+    '我的项目/样例/素材/图1.png': b'\x89PNG\r\n\x1a\nfake-bytes',
+    '我的项目/样例/分镜/shot1.json': '{"shot": 1}',
+    '我的项目/样例/音频/v1.wav': b'RIFFfake',
+}
+
+UPGRADE_PROGRAM_V2 = {
+    '启动漫剧制作助手.pyw': 'launcher-v2',
+    '程序/app.py': 'app-v2',
+    '程序/desktop.py': 'desktop-v2',
+    '程序/voice_engine/requirements.lock': 'numpy==9.9\n',
+    '运行环境/Python/python.exe': 'exe-v2',
+    '程序/data/skill_note_terms_zh.json': 'terms-v2',
+}
+
+
+def upgrade_manifest():
+    return {'keep': MANIFEST['keep'] + ['程序/data/skill_note_terms_zh.json'],
+            'exclude': MANIFEST['exclude'] + UPGRADE_DATA_EXCLUDE}
 
 
 def make_source(root):
@@ -305,6 +357,99 @@ class DistributionBuildTests(unittest.TestCase):
         self.assertEqual(code, 0)
         self.assertIn('undecided', buffer.getvalue())
         self.assertEqual(list(self.base.glob('out*')), [])
+
+    def _write_payloads(self, root, payloads):
+        root = Path(root)
+        for rel, data in payloads.items():
+            path = root / rel
+            path.parent.mkdir(parents=True, exist_ok=True)
+            if isinstance(data, bytes):
+                path.write_bytes(data)
+            else:
+                path.write_text(data, encoding='utf-8')
+
+    def _overlay(self, package, install, limit=None):
+        """zip 覆盖安装：把分发副本里的文件逐个覆盖到安装目录；limit 模拟中途断电。"""
+        package = Path(package)
+        copied = 0
+        for path in sorted(p for p in package.rglob('*') if p.is_file()):
+            target = Path(install) / path.relative_to(package)
+            target.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(path, target)
+            copied += 1
+            if limit is not None and copied >= limit:
+                break
+        return copied
+
+    def _tree(self, root):
+        root = Path(root)
+        return {p.relative_to(root).as_posix(): p.read_bytes()
+                for p in sorted(root.rglob('*')) if p.is_file()}
+
+    def _upgrade_fixture(self):
+        """旧版安装目录＝旧源构建＋运行时本机数据＋用户项目；另构建新版分发副本。"""
+        manifest = upgrade_manifest()
+        old_source = make_source(self.base / '旧源')
+        self._write_payloads(old_source, UPGRADE_USER_FILES)
+        self._write_payloads(old_source, {'程序/data/skill_note_terms_zh.json': 'terms-v1'})
+        install = self.base / '安装'
+        subject.build(install, old_source, manifest)
+        installed = {rel: (data + '-installed' if isinstance(data, str) else data)
+                     for rel, data in UPGRADE_USER_FILES.items()}
+        self._write_payloads(install, installed)
+        self._write_payloads(install, UPGRADE_PROJECT_FILES)
+        new_source = make_source(self.base / '新源')
+        self._write_payloads(new_source, UPGRADE_USER_FILES)
+        self._write_payloads(new_source, UPGRADE_PROGRAM_V2)
+        new_dist = self.base / '新副本'
+        subject.build(new_dist, new_source, manifest)
+        return install, new_dist
+
+    def test_upgrade_preserves_user_data_byte_for_byte(self):
+        install, new_dist = self._upgrade_fixture()
+        before = {rel: (install / rel).read_bytes() for rel in UPGRADE_USER_FILES}
+        project_before = self._tree(install / '我的项目')
+        saved = json.loads((new_dist / subject.DIGEST_NAME).read_text(encoding='utf-8'))
+        paths = {item['path'] for item in saved['entries']}
+        self.assertFalse(paths & set(UPGRADE_USER_FILES), paths & set(UPGRADE_USER_FILES))
+        for rel in paths:
+            self.assertFalse(rel.startswith(('程序/private/', '程序/配置/宠物/', '程序/logs/')), rel)
+            if rel.startswith('程序/data/'):
+                self.assertEqual(rel, '程序/data/skill_note_terms_zh.json', rel)
+        self._overlay(new_dist, install)
+        verdict = release_snapshot.check_upgrade(new_dist, install)
+        self.assertTrue(verdict['ok'], verdict)
+        after = {rel: (install / rel).read_bytes() for rel in UPGRADE_USER_FILES}
+        self.assertEqual(before, after)
+        self.assertEqual(project_before, self._tree(install / '我的项目'))
+
+    def test_upgrade_preserves_replaces_program_files_with_new(self):
+        install, new_dist = self._upgrade_fixture()
+        self._overlay(new_dist, install)
+        verdict = release_snapshot.check_upgrade(new_dist, install)
+        self.assertTrue(verdict['ok'], verdict)
+        for rel, text in UPGRADE_PROGRAM_V2.items():
+            self.assertEqual((install / rel).read_text(encoding='utf-8'), text, rel)
+        self.assertEqual((install / '程序/data/语音识别.json').read_text(encoding='utf-8'),
+                         UPGRADE_USER_FILES['程序/data/语音识别.json'] + '-installed')
+        self.assertEqual((install / '程序/config.json').read_text(encoding='utf-8'),
+                         UPGRADE_USER_FILES['程序/config.json'] + '-installed')
+
+    def test_upgrade_preserves_rollback_restores_old_install(self):
+        install, new_dist = self._upgrade_fixture()
+        snap = self.base / '升级前快照'
+        shutil.copytree(install, snap)
+        manifest_before = self._tree(install)
+        total = len([p for p in new_dist.rglob('*') if p.is_file()])
+        copied = self._overlay(new_dist, install, limit=max(1, total // 2))
+        self.assertLess(copied, total)
+        verdict = release_snapshot.check_upgrade(new_dist, install)
+        self.assertFalse(verdict['ok'], verdict)
+        self.assertTrue(verdict['missing'] or verdict['mismatch'], verdict)
+        self.assertNotEqual(self._tree(install), manifest_before)
+        shutil.rmtree(install)
+        shutil.copytree(snap, install)
+        self.assertEqual(manifest_before, self._tree(install))
 
 
 if __name__ == '__main__':

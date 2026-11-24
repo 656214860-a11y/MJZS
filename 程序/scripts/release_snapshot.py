@@ -3,12 +3,15 @@ r"""升级前快照与回滚演练（U4／U8）。
 ``snapshot``：覆盖式升级之前，把当前开发目录按《分发清单》构建成一份完整副本，放进
 开发目录同级的 ``<目录名>_升级快照/<版本>_<提交前8位>_<时间>``（构建器不许输出落在开发目录内），构建后立即校验；只保留最近 ``KEEP`` 份，更早的整份删除。
 ``drill``：在隔离的快照副本上做回滚演练——校验摘要，再用副本自带的解释器导入主要入口模块，
-证明这一份真能拿来退回去。两者都不写开发目录里的任何程序文件。
+证明这一份真能拿来退回去。``check_upgrade``：覆盖式升级之后，对照分发副本的
+``分发清单.json`` 逐文件核对安装目录；不一致即混合态，从升级前快照整份恢复。
+三者都不写开发目录里的任何程序文件。
 
 用法（随附解释器）::
 
     python.exe -B scripts\release_snapshot.py --snapshot
     python.exe -B scripts\release_snapshot.py --drill 升级快照\<某一份>
+    python.exe -B scripts\release_snapshot.py --check-upgrade <安装目录> --package <分发副本>
 """
 from __future__ import annotations
 
@@ -48,6 +51,33 @@ def snapshot(root=None, destination_root=None, keep=KEEP, allow_undecided=False)
             'round': report.get('round')}
 
 
+def check_upgrade(package, install) -> dict:
+    """升级后核对：安装目录里每个包内清单条目必须与新副本逐字节一致。
+
+    覆盖式升级只写 ``分发清单.json`` 列出的程序文件；config.json、projects.json、
+    desktop_settings.json、private、data 运行数据与用户项目不在包内，本函数不核对
+    也不触碰。``ok=False`` 表示安装目录处于混合态或未拷全，应按发布检查单从升级前
+    快照整份恢复。
+    """
+    package, install = Path(package), Path(install)
+    digest_path = package / distribution_build.DIGEST_NAME
+    saved = (distribution_build.read_json_file(digest_path, default=None)
+             if digest_path.is_file() else None)
+    if not isinstance(saved, dict):
+        return {'ok': False, 'checked': 0, 'missing': [], 'mismatch': [],
+                'error': '分发清单缺失或无法解析：' + str(digest_path)}
+    entries = saved.get('entries') or []
+    missing, mismatch = [], []
+    for item in entries:
+        target = install / item['path']
+        if not target.is_file():
+            missing.append(item['path'])
+        elif distribution_build._sha256(target) != item.get('sha256'):
+            mismatch.append(item['path'])
+    return {'ok': not missing and not mismatch, 'checked': len(entries),
+            'missing': missing[:20], 'mismatch': mismatch[:20]}
+
+
 def drill(snapshot_path, root=None) -> list[str]:
     """回滚演练：返回问题列表，空表示这份快照可用于回退。"""
     path = Path(snapshot_path)
@@ -73,8 +103,14 @@ def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description='升级前快照与回滚演练。')
     parser.add_argument('--snapshot', action='store_true')
     parser.add_argument('--drill', default='')
+    parser.add_argument('--check-upgrade', default='', metavar='安装目录')
+    parser.add_argument('--package', default='', metavar='分发副本')
     parser.add_argument('--allow-undecided', action='store_true')
     args = parser.parse_args(argv)
+    if args.check_upgrade:
+        report = check_upgrade(args.package, args.check_upgrade)
+        print(json.dumps(report, ensure_ascii=False, indent=2))
+        return 0 if report['ok'] else 1
     if args.drill:
         problems = drill(args.drill)
         for line in problems:
