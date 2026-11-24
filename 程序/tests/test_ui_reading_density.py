@@ -27,6 +27,12 @@ def _settle(widget, iterations=10):
         time.sleep(0.03)
 
 
+def _descendants(widget):
+    yield widget
+    for child in widget.winfo_children():
+        yield from _descendants(child)
+
+
 def _has_blank_line_outside_code(fragments):
     previous_newline = False
     for text, tags in fragments:
@@ -149,16 +155,16 @@ class ScriptDensityTests(unittest.TestCase):
             win.update()
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
-            preview = desktop.script_structure_source_preview
+            preview = desktop.script_structure_editor_preview
 
-            desktop.script_structure_source_preview_edit_button.invoke()
+            desktop.script_structure_editor_preview_edit_session.toggle_edit()
             win.update()
             self.assertEqual(str(preview.cget("state")), "normal")
 
             self.assertEqual(source.read_bytes(), original)
 
-    def test_script_text_and_directory_get_the_requested_space(self):
-        """REQ-S02-32：1280×800 下正文占宽至少 85%，目录按 1..6 行紧凑显示。"""
+    def test_script_text_gets_the_requested_space(self):
+        """REQ-S02-32/37：1280×800 下唯一编辑器正文占宽至少 85%，页面无下拉框占版面。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
             structured = writing / "结构剧本"
@@ -177,31 +183,24 @@ class ScriptDensityTests(unittest.TestCase):
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
 
-            for box, preview, tree in (
-                (desktop.script_structure_source_box,
-                 desktop.script_structure_source_preview,
-                 desktop.script_structure_source_preview_files),
-                (desktop.script_structure_output_box,
-                 desktop.script_structure_output_preview,
-                 desktop.script_structure_output_preview_files),
-            ):
-                with self.subTest(box=str(box)):
-                    self.assertGreaterEqual(
-                        preview.winfo_width() / max(1, box.winfo_width()),
-                        0.85,
-                    )
-                    line_height = tkfont.Font(font=preview.cget("font")).metrics("linespace")
-                    self.assertGreaterEqual(
-                        preview.winfo_height(),
-                        box.winfo_height() - line_height * 2,
-                    )
-                    # 文件选择已改为正文上方的横向下拉框，不再占用左侧目录列。
-                    self.assertEqual(str(tree.winfo_class()), "TCombobox")
-                    self.assertLess(tree.winfo_rooty(), preview.winfo_rooty())
-                    self.assertEqual(len(tree["values"]), max(1, len(tree.get_children())))
+            box = desktop.script_structure_editor_box
+            preview = desktop.script_structure_editor_preview
+            self.assertGreaterEqual(
+                preview.winfo_width() / max(1, box.winfo_width()),
+                0.85,
+            )
+            line_height = tkfont.Font(font=preview.cget("font")).metrics("linespace")
+            self.assertGreaterEqual(
+                preview.winfo_height(),
+                box.winfo_height() - line_height * 2,
+            )
+            from tkinter import ttk
+            pickers = [item for item in _descendants(desktop.content)
+                       if isinstance(item, ttk.Combobox)]
+            self.assertEqual(pickers, [], '文件选择改由右侧面板，页面不得再占用下拉框版面')
 
-    def test_many_documents_listed_in_dropdown(self):
-        """文件很多时全部进入下拉框。"""
+    def test_many_documents_switchable_in_single_editor(self):
+        """REQ-S02-38：文件很多时全部可经 select_document 在唯一编辑器里切换显示。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
             structured = writing / "结构剧本"
@@ -217,20 +216,25 @@ class ScriptDensityTests(unittest.TestCase):
             win.update()
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
-            tree = desktop.script_structure_output_preview_files
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
 
-            self.assertEqual(len(tree.get_children()), 8)
-            self.assertEqual(len(tree["values"]), 8)
+            for index in range(8):
+                target = (structured / ("script%d.md" % index)).resolve()
+                box.select_document(target)
+                win.update()
+                self.assertEqual(box.active['path'], target)
+                self.assertIn('正文%d' % index, preview.get('1.0', 'end-1c'))
 
-    def test_long_document_name_does_not_squeeze_reading_area(self):
-        """REQ-S02-32：最长文件名仍把正文宽度留在内容框的 85% 以上。"""
+    def test_long_document_displays_in_single_editor(self):
+        """REQ-S02-32/38：最长文件名的文档照常显示，正文宽度仍占内容框 85% 以上。"""
         with tempfile.TemporaryDirectory() as td:
             project, writing = _make_project(td)
             structured = writing / "结构剧本"
             structured.mkdir()
             long_name = "超长剧本文档名称用于验证目录栏宽度不会挤压正文阅读区域" * 2 + ".md"
             (structured / long_name).write_text(
-                "# 结构化剧本\n\n## 分场剧本\n\n正文\n",
+                "# 结构化剧本\n\n## 分场剧本\n\n长名正文\n",
                 encoding="utf-8",
             )
             win = tk.Tk()
@@ -240,11 +244,13 @@ class ScriptDensityTests(unittest.TestCase):
             self.addCleanup(lambda: win.winfo_exists() and win.destroy())
             desktop = _show_script_structure(win, project)
 
-            box = desktop.script_structure_output_box
-            preview = desktop.script_structure_output_preview
+            box = desktop.script_structure_editor_box
+            preview = desktop.script_structure_editor_preview
+            content_box = desktop.script_structure_editor_preview_content_box
+            content_box.select_document(structured / long_name)
+            win.update()
+            self.assertIn('长名正文', preview.get('1.0', 'end-1c'))
             self.assertGreaterEqual(preview.winfo_width() / max(1, box.winfo_width()), 0.85)
-            tree = desktop.script_structure_output_preview_files
-            self.assertEqual(tree["values"][0], long_name)
 
 
 if __name__ == "__main__":

@@ -16,7 +16,6 @@ import types
 import unittest
 from pathlib import Path
 from unittest import mock
-from tkinter import ttk
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
@@ -48,8 +47,6 @@ class ScriptUndoShortcutTests(unittest.TestCase):
         win = tk.Tk()
         win.withdraw()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
-        controls = ttk.Frame(win)
-        controls.pack()
         preview = tk.Text(win, undo=True)
         preview.pack()
         tmp = tempfile.TemporaryDirectory()
@@ -69,17 +66,14 @@ class ScriptUndoShortcutTests(unittest.TestCase):
             preview=preview, loaded=loaded, active=active, kind=kind,
             title='自然剧本' if kind == 'natural' else '结构剧本',
             editable=True, attribute='box',
-            owner=types.SimpleNamespace(
-                expand_editing_box=lambda content_: None,
-                restore_split_boxes=lambda: None))
+            owner=types.SimpleNamespace())
 
         def set_preview(value):
             loaded['raw'] = value
             _reset_preview_text(preview, value, kind)
             preview.configure(state='disabled')
         box.set_preview = set_preview
-        box.delete_document = mock.Mock()
-        _install_script_edit_controls(page, controls, box)
+        _install_script_edit_controls(page, box)
         win.update()  # 先让控件完成首次布局，合成事件才稳定投递
         return win, preview, page, target, page.box_edit_session
 
@@ -87,7 +81,7 @@ class ScriptUndoShortcutTests(unittest.TestCase):
         """REQ-S02-35：Ctrl+Z 后退一步、Ctrl+Y／Ctrl+Shift+Z 前进一步，登记在 registry 并绑到文本框。"""
         win, preview, page, target, session = self._setup()
         records = [r for r in page.shortcuts.registered()
-                   if r['scope'] == '剧本结构页·自然剧本']
+                   if r['scope'] == '剧本结构页·box']
         self.assertEqual({r['name'] for r in records}, {'后退一步', '前进一步'})
         sequences = {s.lower() for r in records for s in r['sequences']}
         self.assertIn('<control-z>', sequences)
@@ -100,7 +94,7 @@ class ScriptUndoShortcutTests(unittest.TestCase):
     def test_shortcut_handlers_undo_and_redo_step_by_step(self):
         """编辑态快捷键处理入口逐步后退／前进，内容与 Tk 原生撤销栈一致。"""
         win, preview, page, target, session = self._setup(kind='structured')
-        page.box_edit_button.invoke()
+        session.toggle_edit()
         win.update()
         preview.insert('end', '改')
         preview.edit_separator()            # 强制分成两步撤销

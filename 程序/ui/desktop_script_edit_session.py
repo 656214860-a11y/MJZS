@@ -1,8 +1,10 @@
-"""剧本结构页单框编辑会话：编辑／退出按钮、防抖自动保存、右键菜单与撤销快捷键。
+"""剧本结构页编辑器会话：右键菜单「编辑／退出编辑」、防抖自动保存、撤销快捷键。
 
 R2724 从 ``desktop_script_pages`` 拆出（单模块行数棘轮）：会话只依赖注入的
-``page``／``box`` 鸭子类型与 ui_tokens／ui_widgets，不反向 import 页面模块；
+``page``／``box`` 鸭子类型与 ui_tokens，不反向 import 页面模块；
 ``desktop_script_pages`` 再导入 ``_install_script_edit_controls``／``_reset_preview_text``。
+REQ-S02-37 起页面上不再有「编辑／删除」按钮：编辑入口移到文本框右键菜单首项
+（REQ-S02-39 的先行落点），删除收进右侧文件面板的右键菜单。
 """
 import logging
 import time
@@ -11,16 +13,9 @@ from pathlib import Path
 
 import orchestrator.edit_habits as edit_habits
 import ui.script_view_style as script_view_style
-from ui_tokens import (
-    BUTTON_WIDTH_EDIT,
-    SCRIPT_EDIT_SAVE_DEBOUNCE_MS,
-    SPACING,
-)
-from ui_widgets import SecondaryButton
+from ui_tokens import SCRIPT_EDIT_SAVE_DEBOUNCE_MS
 
 LOGGER = logging.getLogger('desktop_script_edit_session')
-
-SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT  # 编辑（结构框另有「删除」）按钮的字符宽度，给下拉框让出横向空间。
 
 
 def _reset_preview_text(preview, text, kind):
@@ -48,17 +43,17 @@ def _record_natural_edit(page, before, after, name):
 
 
 class _ScriptEditSession:
-    """一个剧本框的编辑会话：编辑／退出按钮、防抖自动保存、右键菜单与撤销快捷键。
+    """剧本编辑器的编辑会话：右键菜单「编辑／退出编辑」、防抖自动保存、撤销快捷键。
 
-    可见按钮只留「编辑」（编辑中变「退出」）；「后退一步／前进一步／复原全文／立即保存」
-    收进文本框右键菜单。落盘统一走 ``controller.save``（内容未变化不写盘），实际写盘
+    「编辑／退出编辑／后退一步／前进一步／复原全文／立即保存」都在文本框右键菜单
+    （REQ-S02-37/39）。落盘统一走 ``controller.save``（内容未变化不写盘），实际写盘
     由 ``save_text`` 回调分流 natural／structured 并做空内容校验。页面重建时整个会话
     随之重建，``ShortcutRegistry`` 按 scope/name 幂等替换旧绑定。
     """
 
     _MENU_LABELS = ('后退一步', '前进一步', '复原全文', '立即保存')
 
-    def __init__(self, page, controls, box):
+    def __init__(self, page, box):
         # box 是 _ContentBox：预览框、已读原文、当前文档与内容框配置都从它取。
         from domain.script_structure_edit_controller import ScriptStructureEditController
         self.page = page
@@ -74,34 +69,13 @@ class _ScriptEditSession:
         self.pending = None
         self.last_menu = None
         self.controller = ScriptStructureEditController(save=self.save_text)
-        self.edit_button = SecondaryButton(
-            controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='编辑',
-            command=lambda: page.safe(self.toggle_edit))
-        self.edit_button.pack(side='left')
-        self.delete_button = None
-        if self.kind == 'structured':
-            self.delete_button = SecondaryButton(
-                controls, width=SCRIPT_EDIT_BUTTON_WIDTH, text='删除',
-                command=lambda: page.safe(self.delete_document))
-            self.delete_button.pack(side='left', padx=(SPACING["sm"], SPACING["none"]))
         box.edit_session = self
         self.preview.bind('<<Modified>>', self.on_modified, add=True)
         self.preview.bind('<Button-3>', self.on_context_menu, add=True)
         self.preview.bind('<Destroy>', self._on_destroy, add=True)
         self._bind_undo_shortcuts()
-        self.sync_buttons()
 
-    # ── 按钮与编辑生命周期 ────────────────────────────────────────────────
-    def sync_buttons(self):
-        editing = self.editing
-        self.edit_button.configure(text='退出' if editing else '编辑')
-        # 框里没有文档就没有可编辑的对象：「编辑」直接禁用，不再点了才报错（R2168）。
-        enabled = editing or self.active['path'] is not None
-        self.edit_button.state(['!disabled'] if enabled else ['disabled'])
-        if self.delete_button is not None:
-            can_delete = not editing and self.active['path'] is not None
-            self.delete_button.state(['!disabled'] if can_delete else ['disabled'])
-
+    # ── 编辑生命周期 ────────────────────────────────────────────────────
     def toggle_edit(self):
         if self.editing:
             self.exit_edit()
@@ -118,8 +92,6 @@ class _ScriptEditSession:
         self.preview.edit_modified(False)
         self.controller.begin_edit(self.loaded['raw'])
         self.editing = True
-        self.box.owner.expand_editing_box(self.box)
-        self.sync_buttons()
         self.preview.focus_set()
 
     def exit_edit(self):
@@ -129,26 +101,12 @@ class _ScriptEditSession:
         self.cancel_pending()
         self.flush_save(self.preview.get('1.0', 'end-1c'))
         self.editing = False
-        self.box.owner.restore_split_boxes()
         self.suppress = True
         try:
             self.box.set_preview(self.loaded['raw'])
         finally:
             self.suppress = False
-        self.sync_buttons()
         self.page.status.set('已退出' + self.title + '编辑。')
-
-    def delete_document(self):
-        if self.editing:
-            raise ValueError('请先退出编辑，再删除。')
-        if self.active['path'] is None:
-            raise ValueError('当前没有可删除的' + self.title + '。')
-        name = Path(self.active['path']).name
-        if not self.page.script_page_services.confirm(
-                self.page.win, '删除' + self.title,
-                '将「' + name + '」移入项目回收站，确定删除吗？', dangerous=True):
-            return
-        self.box.delete_document()
 
     # ── 落盘 ────────────────────────────────────────────────────────────
     def save_text(self, value):
@@ -172,7 +130,7 @@ class _ScriptEditSession:
         """把文本框当前内容落盘；与上次落盘相同则不写盘。返回是否实际写盘。"""
         wrote = self.controller.save(text)
         if wrote:
-            hint = '；如要据此制作结构剧本，请重新点击“采用选中剧本”。' if self.kind == 'natural' else ''
+            hint = '；如要据此制作结构剧本，请重新采用。' if self.kind == 'natural' else ''
             stamp = time.strftime('%H:%M:%S')
             label = '已自动保存' if auto else '已保存'
             self.page.status.set('%s%s（%s）：%s%s' % (label, self.title, stamp,
@@ -267,16 +225,17 @@ class _ScriptEditSession:
     def save_now(self):
         """「立即保存」：取消待触发的防抖，直接把文本框当前内容落盘（幂等）。"""
         if not self.editing or self.active['path'] is None:
-            raise ValueError('请先点击“编辑”，修改后再保存。')
+            raise ValueError('请先经右键菜单进入“编辑”，修改后再保存。')
         self.cancel_pending()
         if not self.flush_save(self.preview.get('1.0', 'end-1c')):
             self.page.status.set('内容没有变化，无需保存。')
 
     def on_context_menu(self, event):
-        """文本框右键：编辑态给四项编辑动作，非编辑态四项均禁用。"""
+        """文本框右键：首项「编辑／退出编辑」，其后四项按编辑态与改动启用。"""
         menu = self.page.script_page_services.context_menu(self.preview)
         editing = self.editing and str(self.preview.cget('state')) == 'normal'
         if editing:
+            menu.command('退出编辑', lambda: self.page.safe(self.exit_edit))
             menu.command('后退一步', lambda: self.page.safe(self.undo_step))
             menu.command('前进一步', lambda: self.page.safe(self.redo_step))
             initial = self.controller.initial
@@ -286,6 +245,10 @@ class _ScriptEditSession:
                 menu.disabled('复原全文')
             menu.command('立即保存', lambda: self.page.safe(self.save_now))
         else:
+            if self.editable and self.active['path'] is not None:
+                menu.command('编辑', lambda: self.page.safe(self.begin_edit))
+            else:
+                menu.disabled('编辑')
             for label in self._MENU_LABELS:
                 menu.disabled(label)
         self.last_menu = menu
@@ -296,7 +259,7 @@ class _ScriptEditSession:
         shortcuts = getattr(self.page, 'shortcuts', None)
         if shortcuts is None:
             return
-        scope = '剧本结构页·' + ('自然剧本' if self.kind == 'natural' else '结构剧本')
+        scope = '剧本结构页·' + str(self.box.attribute)
         shortcuts.bind(self.preview, ('<Control-z>', '<Control-Z>'),
                        self._shortcut_undo, scope=scope, name='后退一步')
         shortcuts.bind(self.preview,
@@ -314,15 +277,12 @@ class _ScriptEditSession:
         return 'break'
 
 
-def _install_script_edit_controls(page, controls, box):
-    """给单个剧本预览框装上「编辑／退出」按钮（结构稿另有「删除」）与自动保存编辑会话。
+def _install_script_edit_controls(page, box):
+    """给剧本编辑器装上自动保存编辑会话（REQ-S02-37 起页面上不再有编辑按钮）。
 
-    会话、按钮与控制器以 ``attribute + '_edit_session'``／``'_edit_button'``／
-    ``'_controller'`` 等名登记到页面实例上，供测试与页面逻辑读取。
+    会话与控制器以 ``attribute + '_edit_session'``／``'_controller'`` 名登记到
+    页面实例上，供测试与页面逻辑读取。
     """
-    session = _ScriptEditSession(page, controls, box)
-    setattr(page, box.attribute + '_edit_button', session.edit_button)
-    if session.delete_button is not None:
-        setattr(page, box.attribute + '_delete_button', session.delete_button)
+    session = _ScriptEditSession(page, box)
     setattr(page, box.attribute + '_controller', session.controller)
     setattr(page, box.attribute + '_edit_session', session)

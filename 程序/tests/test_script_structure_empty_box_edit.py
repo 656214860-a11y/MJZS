@@ -1,21 +1,23 @@
-"""R2168：剧本结构页的内容框里没有文档时，「编辑」禁用，点了也不报错。
+"""REQ-S02-37/38：唯一编辑器没有可编辑文档或显示只读文档时，「编辑」不可用、点了不进入编辑态。
 
-用户诊断记录里「当前没有可修改的剧本文档。」九天出现 26 次：还没生成结构剧本（或还没有
-自然剧本）时，对应内容框的「编辑」仍可点，点了只得到这句报错。框里有文档时照常可编辑。
+用户诊断记录里「当前没有可修改的剧本文档。」曾九天出现 26 次：REQ-S02-37 起按钮删除，
+编辑入口移到右键菜单首项，无可编辑文档时该菜单项直接禁用；经 ``toggle_edit`` 入口
+调用仍报同一句错误。框里有可编辑文档时照常进入编辑态。
 """
 import sys
 import tempfile
 import tkinter as tk
 import unittest
 from pathlib import Path
+from unittest import mock
 
 PROGRAM = Path(__file__).resolve().parents[1]
 sys.path.insert(0, str(PROGRAM))
 
 from test_ui_reading_density import _show_script_structure  # noqa: E402
+from ui_widgets import ContextMenu  # noqa: E402
 
 NATURAL = "第 1 集\n\n场景 1：旧站台\n\n阿远：我回来了。\n"
-BOXES = ("script_structure_source_preview", "script_structure_output_preview")
 
 
 class EmptyScriptBoxEditTests(unittest.TestCase):
@@ -36,35 +38,53 @@ class EmptyScriptBoxEditTests(unittest.TestCase):
         desktop.safe = safe
         return win, desktop, errors
 
-    def test_structured_box_without_document_disables_edit(self):
-        """有自然剧本、还没有结构剧本：自然剧本框可编辑，结构剧本框「编辑」禁用且点了不报错。"""
+    def test_editor_without_document_refuses_edit(self):
+        """空项目：编辑器无可编辑文档，toggle_edit 报错且不进入编辑态。"""
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / "project"
+            project.mkdir()
+            win, desktop, errors = self._open(project)
+            session = desktop.script_structure_editor_preview_edit_session
+            desktop.safe(session.toggle_edit)
+            win.update()
+            self.assertEqual(errors, ['当前没有可修改的剧本文档。'])
+            self.assertFalse(session.editing)
+            self.assertEqual(str(desktop.script_structure_editor_preview.cget("state")), "disabled")
+
+    def test_edit_menu_item_disabled_without_document(self):
+        """空项目：右键菜单仍弹出，首项「编辑」与其余四项全部禁用。"""
+        with tempfile.TemporaryDirectory() as td:
+            project = Path(td) / "project"
+            project.mkdir()
+            win, desktop, errors = self._open(project)
+            preview = desktop.script_structure_editor_preview
+            # 隐藏桌面上 tk_popup 会真弹并卡住事件循环：打桩弹出时机，菜单本体照常构建。
+            with mock.patch.object(ContextMenu, 'popup', lambda self, event: 'break'):
+                preview.event_generate('<Button-3>', x=5, y=5)
+            win.update()
+            menu = desktop.script_structure_editor_preview_edit_session.last_menu.menu
+            end = menu.index('end')
+            labels = [menu.entrycget(i, 'label') for i in range(end + 1)]
+            states = [menu.entrycget(i, 'state') for i in range(end + 1)]
+            self.assertEqual(labels, ['编辑', '后退一步', '前进一步', '复原全文', '立即保存'])
+            self.assertEqual(states, ['disabled'] * 5)
+
+    def test_editor_with_document_enters_edit(self):
+        """有可编辑文档：toggle_edit 进入编辑态，预览转 normal。"""
         with tempfile.TemporaryDirectory() as td:
             writing = Path(td) / "project" / "writing"
             writing.mkdir(parents=True)
             (writing / "剧本_甲.md").write_text(NATURAL, encoding="utf-8")
             win, desktop, errors = self._open(writing.parent)
-            self.assertFalse(desktop.script_structure_source_preview_edit_button.instate(["disabled"]),
-                             "自然剧本框里有文档，「编辑」应可用")
-            button = desktop.script_structure_output_preview_edit_button
-            self.assertTrue(button.instate(["disabled"]), "还没有结构剧本时「编辑」应禁用")
-            button.invoke()
+            box = desktop.script_structure_editor_preview_content_box
+            box.select_document(writing / "剧本_甲.md")
+            win.update()
+            session = desktop.script_structure_editor_preview_edit_session
+            session.toggle_edit()
             win.update()
             self.assertEqual(errors, [])
-            self.assertEqual(button.cget("text"), "编辑")
-            self.assertEqual(str(desktop.script_structure_output_preview.cget("state")), "disabled")
-
-    def test_empty_project_disables_both_edit_buttons(self):
-        """两份剧本都没有：两个框的「编辑」都禁用，点了都不报错。"""
-        with tempfile.TemporaryDirectory() as td:
-            project = Path(td) / "project"
-            project.mkdir()
-            win, desktop, errors = self._open(project)
-            for name in BOXES:
-                button = getattr(desktop, name + "_edit_button")
-                self.assertTrue(button.instate(["disabled"]), name + "：框里没有文档时「编辑」应禁用")
-                button.invoke()
-                win.update()
-            self.assertEqual(errors, [])
+            self.assertTrue(session.editing)
+            self.assertEqual(str(desktop.script_structure_editor_preview.cget("state")), "normal")
 
 
 if __name__ == "__main__":

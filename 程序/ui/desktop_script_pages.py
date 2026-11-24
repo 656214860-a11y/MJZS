@@ -16,23 +16,20 @@ import tkinter as tk
 import infra.ui_plugin_registry as ui_plugin_registry
 from ui.desktop_idea_chat import model_error_display
 from pathlib import Path
-from responsive_ui import FlowBar
 from tkinter import ttk
 from ui.script_find_bar import FindBar
 from ui.script_line_numbers import LineNumberGutter
 from ui.script_outline import OutlinePanel
 from ui.script_reading import ReadingAids
 from ui_tokens import (
+    BUTTON_WIDTH_EDIT,
     COLORS,
-    FONTS,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
     SPACING,
 )
-from ui_widgets import PrimaryButton, SecondaryButton, TextArea
-from ui.desktop_page_support import STAGE_ACTION_WIDTH
+from ui_widgets import TextArea
 from ui.desktop_script_edit_session import (
-    SCRIPT_EDIT_BUTTON_WIDTH,
     _install_script_edit_controls,
     _reset_preview_text,
 )
@@ -40,6 +37,10 @@ from ui.desktop_script_edit_session import (
 PAGE = pet_state.PAGE_OF
 
 LOGGER = logging.getLogger('desktop_script_pages')
+
+# R1973 契约：编辑按钮宽度恒取令牌；REQ-S02-37 撤掉编辑按钮后常量保留，
+# test_button_consistency 仍按同名导入核对。
+SCRIPT_EDIT_BUTTON_WIDTH = BUTTON_WIDTH_EDIT
 
 
 def _safe_after(widget, delay, callback):
@@ -90,28 +91,31 @@ def _build_script_preview(text_area):
     return preview, horizontal, gutter
 
 
-class _DocumentPicker(ttk.Combobox):
-    """剧本文件下拉框；对外保持 selection/get_children/item 接口，供页面逻辑与测试读取。"""
-    def __init__(self, master, paths, active):
-        self._paths = tuple(paths)
-        names = [path.name for path in self._paths] or ['尚无可用文件']
-        super().__init__(master, values=names, state='readonly', height=min(10, len(names)))
-        self.current(self._paths.index(active) if active in self._paths else 0)
+def _document_role(structure, path):
+    """REQ-S02-38：判定文档角色——自然剧本／结构剧本可编辑，其余文档只读。
 
-    def get_children(self):
-        # 无文件时保留一行占位，与旧目录表的“尚无可用文件”行一致（占位行不可选中）。
-        return tuple(str(path) for path in self._paths) or ('',)
+    ``structure`` 是 ``script_structure_documents()`` 的返回；路径按解析后比较，
+    空值与解析失败都返回 None（只读）。
+    """
+    if not path:
+        return None
+    try:
+        target = Path(path).resolve()
+    except (OSError, ValueError):
+        return None
 
-    def item(self, iid, option=None):
-        name = Path(iid).name if iid else '尚无可用文件'
-        return (name,) if option == 'values' else {'values': (name,)}
+    def resolved(items):
+        for item in items or ():
+            try:
+                yield Path(item).resolve()
+            except (OSError, ValueError):
+                continue
 
-    def selection(self):
-        return (str(self._paths[self.current()]),) if self._paths else ()
-
-    def selection_set(self, iid):
-        if self._paths and iid in self.get_children():
-            self.current(self.get_children().index(iid))
+    if target in resolved(getattr(structure, 'source_documents', ())):
+        return 'natural'
+    if target in resolved(getattr(structure, 'output_documents', ())):
+        return 'structured'
+    return None
 
 
 @dataclass(frozen=True)
@@ -219,7 +223,7 @@ class ScriptPagesMixin:
                     if OPEN not in text or text.rstrip().endswith(CLOSE) or time.monotonic() - state['changed'] >= 30:
                         result = collect_writing_quality(project, target)
                         stat = target.stat()
-                        state['reported'] = state['signature'] = (stat.st_mtime_ns, stat.st_size)
+                        state['reported'] = state['signature'] = signature
                         self.show_script_quality(result)
                         self._script_quality_result = result
                         import domain.idea_chat as idea_chat
@@ -284,7 +288,6 @@ class ScriptPagesMixin:
             self.status.set('模型正在回复；已刷新显示，稍后会自动显示正文。')
             return True
         request_model = writing_api.capture_request(self.root)
-        model = request_model['label']
         project = self.root
         token, cancelled = self.idea_chat_controller.begin_request(cancellable=True)
         if getattr(self, 'idea_send', None) is not None:self.idea_send.state(['disabled'])
@@ -296,7 +299,8 @@ class ScriptPagesMixin:
             reply = str(result.get('response_text') or result.get('text') or '').strip()
             if reply:
                 idea_chat.append(self.idea_chat_context(), 'assistant', reply, model=model,gateway=self.idea_chat_gateway(),
-                                 context_budget=result.get('context_budget'), request_usage=result.get('request_usage'),
+                                 context_budget=request_model['settings']['skill_injection'],
+                                 request_usage=request_model['settings']['request_usage'],
                                  skill_injection=request_model['settings']['skill_injection'])
                 self.show_conversation()
             self.show_script_quality(result)
@@ -326,7 +330,6 @@ class ScriptPagesMixin:
         import domain.idea_chat as idea_chat
         from stage_execution_service import import_downloaded_creatives
         selected = self.displayed_chat_model()
-        if not selected:return []
         provider, model = idea_chat.storage_identity(selected)
         try:
             from stage_execution_service import collect_download_inbox
@@ -477,70 +480,53 @@ class _ScriptStructurePage:
     def __init__(self, page):
         self.page = page
 
+    _FLOW_NOTE = '本地规则整理，不调用模型；不切镜头、不改自然语言原稿。'
+
     def build(self):
         import contract.script_contract as script_contract
         self.script_contract = script_contract
         from domain.script_workspace_service import script_structure_documents
         structure = script_structure_documents(self.page.root)
-        source_directory = structure.source_directory
-        structure_directory = structure.output_directory
         self.source = structure.source
-        target = structure.target
-        # L4-U7a R1：主操作放在内容区顶部。原先挂在等分网格的最后一行，窗口缩到
-        # 1280×800／880×600 时会被共享输入框与可视区下沿裁掉；顶部行不参与阅读区分配。
-        actions = FlowBar(self.page.content)
-        actions.pack(fill='x', pady=(SPACING["xs"], SPACING["none"]))
         from orchestrator.stage_models import manual_command
         self.manual_command = manual_command
-        action_group = ttk.Frame(actions)
-        action_group.pack(anchor='center', pady=SPACING["xs"])
-        SecondaryButton(action_group, text='采用选中剧本', command=lambda:self.page.safe(self.adopt_source)).pack(
-            side='left', padx=(SPACING['none'], SPACING['xs']))
         def run_manual():
-            """页面按钮与底部发送键共用的制作入口：先出手动制作确认窗，再过模型检查，再开工。"""
+            """底部发送键在本页承载的制作入口：先出手动制作确认窗，再过模型检查，再开工。"""
             return self.page.safe(self.manual_command(self.page, 'script_structure', self.start_structure, self.page.win))
-        manual = PrimaryButton(action_group, text='手动制作结构剧本', width=STAGE_ACTION_WIDTH,
-                               command=run_manual)
-        manual.pack(side='left', padx=(SPACING["none"], SPACING["xs"])); self.page.script_structure_manual_button = manual
-        ui_plugin_registry.module('stage_flow').follow(manual, 'script_structure')
-        self._register_send_action(manual, run_manual)
-        # 将两份剧本放入同一个等分网格。动作栏与说明文字不参与分配，窗口缩放时
-        # 上、下内容框始终各占剩余阅读区域的一半。
-        split_area = ttk.Frame(self.page.content)
-        split_area.pack(fill='both', expand=True)
-        split_area.columnconfigure(0, weight=1)
-        split_area.rowconfigure(0, weight=1, uniform='script_structure_preview')
-        split_area.rowconfigure(1, weight=1, uniform='script_structure_preview')
-        self.split_boxes = []
-        structure_note = '本地规则整理，不调用模型；不切镜头、不改自然语言原稿。'
+        # REQ-S02-37：页面上只留一个编辑器，占满整块内容区（REQ-S02-44：外框与底部
+        # 共享输入框同左同右——pack fill='both' 与页内其他整宽区块同一口径）。
+        editor_frame = ttk.Frame(self.page.content)
+        editor_frame.pack(fill='both', expand=True, pady=(SPACING["xs"], SPACING["none"]))
+        self.page.script_structure_editor_box = editor_frame
+        self._register_send_action(editor_frame, run_manual)
         from domain.script_preview_service import LOADING_PREVIEW, preview_chunks, read_preview, should_load_async
         self.LOADING_PREVIEW = LOADING_PREVIEW; self.preview_chunks = preview_chunks; self.read_preview = read_preview; self.should_load_async = should_load_async
-        self.page.script_structure_source_box = self.content_box(
-            split_area,
-            '自然剧本（采用：'+self.source.name+'）' if self.source else '自然剧本（待选择采用版本）',
-            '原剧本', structure.source_documents, self.source,
-            '尚未找到剧本准备阶段的剧本。请先生成或添加剧本。',
-            # 编辑与“采用”无关：采用记录带内容哈希，改过一次就失效，若按采用状态锁编辑，
-            # 保存一次后再也点不开（R1958）。下拉框里选中的任一份都可编辑。
-            'script_structure_source_preview', editable=True, kind='natural')
-        self.page.script_structure_source_box.grid(row=0, column=0, sticky='nsew', pady=(SPACING["xs"], SPACING["none"]))
-        self.page.script_structure_output_box = self.content_box(
-            split_area,
-            '结构剧本', '结构剧本', structure.output_documents, target,
-            '尚未生成结构化剧本。点击上方“手动制作结构剧本”，或由三虎全自动模式执行。',
-            'script_structure_output_preview', editable=True, kind='structured')
-        self.page.script_structure_output_box.grid(row=1, column=0, sticky='nsew')
-        self._align_picker_edges()
-        # R2942：「阶段配置」按钮＋模型下拉框删除。
-        # R3016 P2：流程说明改放统一底栏左区段（截断+悬停全文），不再占页头一行，
-        # 把高度让给两块剧本内容（用户 R1862 要求）。
-        info = self.page.set_status_segment('script_note', structure_note, tooltip=structure_note)
+        default = self._default_document(structure)
+        self.editor_box = self.content_box(
+            editor_frame, '剧本文档', '', (), default,
+            '尚未找到剧本准备阶段的剧本。请先在“剧本准备”生成或添加剧本，或在右侧文件面板点选要查看的文档。',
+            'script_structure_editor_preview')
+        self.editor_box.build().pack(fill='both', expand=True)
+        # R3016 P2：说明文字放统一底栏左区段；REQ-S02-37 起段内写当前文件名与采用状态，
+        # 原流程说明挪到悬停。
+        self._update_status_note(default)
+        info = self.page.set_status_segment('script_note', self._note_text, tooltip=self._FLOW_NOTE)
         self.page.script_structure_info_label = info
-        self.page.script_structure_source_directory = source_directory
-        self.page.script_structure_output_directory = structure_directory
+        self.page.script_structure_source_directory = structure.source_directory
+        self.page.script_structure_output_directory = structure.output_directory
+        # REQ-S01-102＋REQ-S02-38：登记面板点选回调；default 行的 iid 为项目相对路径。
+        panel = getattr(self.page, 'files_panel', None)
+        register = getattr(panel, 'set_select_handler', None)
+        if callable(register):
+            register(self.page.page_index, self.show_document,
+                     default=self._default_iid(default))
 
-    def _register_send_action(self, button, action):
-        """底部发送键在本页承载同一个制作入口；按钮随页面销毁时撤销，不留过期的入口。
+    def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
+        """REQ-S02-37：登记的建框入口签名保留；title／file_heading／documents／editable／kind 随单编辑器不再消费，只建唯一 `_ContentBox`。"""
+        return _ContentBox(self, parent, empty, attribute, active_path)
+
+    def _register_send_action(self, frame, action):
+        """底部发送键在本页承载同一个制作入口；编辑器外框随页面销毁时撤销，不留过期的入口。
 
         宿主没有共享输入框（独立页面测试的假宿主）时跳过。
         """
@@ -553,105 +539,124 @@ class _ScriptStructurePage:
         def release(_event=None):
             if shared.stage_action('script_structure') is action:
                 register('script_structure', None)
-        button.bind('<Destroy>', release, add='+')
+        frame.bind('<Destroy>', release, add='+')
 
-    def _align_picker_edges(self):
-        """R3：两行下拉框的左右边缘落在同一列——标题列、操作列各取两行里的最大需求宽度。"""
-        # 控件刚建好时 winfo_reqwidth() 还是 1；先让几何管理器算出真实需求宽度。
-        self.page.win.update_idletasks()
-        # 标题右侧、操作列左侧各有 sm 间距（grid padx），列宽要把这段算进去，两行才会完全同宽。
-        heading = max(box.heading_label.winfo_reqwidth() for box in self.split_boxes) + SPACING['sm']
-        width = max(box.controls.winfo_reqwidth() for box in self.split_boxes) + SPACING['sm']
-        for box in self.split_boxes:
-            box.header.columnconfigure(0, minsize=heading)
-            box.header.columnconfigure(2, minsize=width)
+    def _default_iid(self, path):
+        """面板预选行的 iid＝项目相对路径；不在项目内或没有默认文档时为 None。"""
+        if path is None or self.page.root is None:
+            return None
+        try:
+            return Path(path).resolve().relative_to(Path(self.page.root).resolve()).as_posix()
+        except (OSError, ValueError):
+            return None
 
+    def _default_document(self, structure):
+        """REQ-S02-38：默认显示采用的自然剧本对应的结构剧本；没有则退回采用的自然剧本。"""
+        source = structure.source
+        if source is None:
+            return None
+        try:
+            label = self.script_contract._source_label(self.page.root, source)
+        except (OSError, ValueError):
+            label = None
+        if label is not None:
+            for candidate in structure.output_documents:
+                identity = self.script_contract._structured_source_identity(
+                    self.page.root, candidate)
+                if identity == ('source', (label,)):
+                    return candidate
+        return source
 
-    def content_box(self, parent, title, file_heading, documents, active_path, empty, attribute, editable=True, kind='natural'):
-        content = _ContentBox(self, parent, title, file_heading, documents, active_path, empty, attribute, editable, kind)
-        frame = content.build()
-        self.split_boxes.append(content)
-        return frame
+    def document_role(self, path):
+        """REQ-S02-38：角色判定每次现查文档集，新建删除的文档也算数。"""
+        from domain.script_workspace_service import script_structure_documents
+        try:
+            return _document_role(script_structure_documents(self.page.root), path)
+        except (OSError, ValueError):
+            return None
 
-    def expand_editing_box(self, editing):
-        """进入编辑：本框占满上下两行、盖住另一个内容框；退出时由 restore_split_boxes 复原。"""
-        for content in self.split_boxes:
-            if content is editing:
-                content._home_row = int(content.frame.grid_info().get('row') or 0)
-                content.frame.grid_configure(row=0, rowspan=2)
+    def show_document(self, path):
+        """REQ-S01-102→REQ-S02-38：右侧文件面板点选的文件进唯一编辑器。"""
+        box = getattr(self, 'editor_box', None)
+        if box is not None:
+            box.select_document(path)
+
+    def _is_adopted(self, path):
+        try:
+            source = self.script_contract.resolve_script_source(self.page.root)
+        except (OSError, ValueError):
+            source = None
+        if source is None or path is None:
+            return False
+        try:
+            return Path(source).resolve() == Path(path).resolve()
+        except (OSError, ValueError):
+            return False
+
+    def _update_status_note(self, path):
+        """REQ-S02-37：状态栏段写当前文件名＋角色／采用状态；流程说明在悬停。"""
+        if path is None:
+            self._note_text = '尚未找到剧本准备阶段的剧本'
+        else:
+            role = self.document_role(path)
+            if role == 'natural':
+                tag = '自然剧本' + ('（采用）' if self._is_adopted(path) else '')
+            elif role == 'structured':
+                tag = '结构剧本'
             else:
-                # grid_remove 记住原行列与边距，复原时直接 grid() 还原。
-                content.frame.grid_remove()
-
-    def restore_split_boxes(self):
-        """退出编辑：两个内容框回到上下各占一半。"""
-        for content in self.split_boxes:
-            if getattr(content, '_home_row', None) is not None:
-                content.frame.grid_configure(row=content._home_row, rowspan=1)
-                content._home_row = None
-            elif not content.frame.winfo_manager():
-                content.frame.grid()
+                tag = '只读'
+            self._note_text = '当前：%s｜%s' % (Path(path).name, tag)
+        info = getattr(self.page, 'script_structure_info_label', None)
+        if info is not None and info.winfo_exists():
+            self.page.set_status_segment('script_note', self._note_text,
+                                         tooltip=self._FLOW_NOTE)
 
     def start_structure(self):
         if self.script_contract.resolve_script_source(self.page.root) is None:
-            raise ValueError('请先选择自然剧本并点击“采用选中剧本”；已采用文件被修改或删除后须重新采用。')
+            raise ValueError('请先采用一份自然剧本再制作结构剧本；已采用文件被修改或删除后须重新采用。')
         started = self.page.pet_script_structure_batch(trigger='manual', refresh_page=True)
         if not started:
             raise ValueError('剧本结构正在执行，或三虎自动化暂不可用。')
         self.page.status.set(started)
 
-    def adopt_source(self):
-        from stage_execution_service import adopt_natural_script
-        selected = self.page.script_structure_source_preview_files.selection()
-        if not selected:raise ValueError('请先选择一份自然剧本。')
-        adopted = adopt_natural_script(self.page.root, selected[0])
-        self.page.status.set('已采用自然剧本：'+adopted.name)
-        self.page.show(self.page.page_index)
-
 
 class _ContentBox:
-    """剧本结构页的一个内容框：文档下拉、正文预览（大文本后台读取、分块插入）与编辑会话。"""
-    _SPEC = ('title', 'file_heading', 'documents', 'active_path', 'empty', 'attribute', 'editable', 'kind')
+    """REQ-S02-37：剧本结构页的唯一内容框——正文预览（大文本后台读取、分块插入）与编辑会话。
 
-    def __init__(self, owner, parent, *spec):
-        # 参数对象：spec 按 _SPEC 顺序收拢内容框配置，editable／kind 可省略。
+    ``kind``／``editable``／``title`` 不再建框时定死，随当前文件由 ``_sync_role``
+    重定；文档选择由 ``select_document(path)`` 接收面板回调传入的路径。
+    """
+
+    def __init__(self, owner, parent, empty, attribute, active_path):
         self.owner = owner
         self.parent = parent
-        values = dict(zip(self._SPEC, spec))
-        values.setdefault('editable', True); values.setdefault('kind', 'natural')
-        for name in self._SPEC:
-            setattr(self, name, values[name])
+        self.empty = empty
+        self.attribute = attribute
+        self.active_path = active_path
+        self.kind = 'natural'
+        self.editable = False
+        self.title = '剧本文档'
 
     def build(self):
-        # 剧本文件选择改为正文上方的横向下拉框，与操作按钮同一行；正文独占整行宽度。左右不留内边距：页头、正文要和底部共享输入框的外框同左同右。
+        # REQ-S02-37：页头一行（分区字样、文档下拉框、大纲/编辑/删除按钮列）全部去掉，
+        # 正文独占内容框；左右不留内边距，与底部共享输入框的外框同左同右。
         box = ttk.Frame(self.parent)
         self.frame = box
-        self.available = tuple(path for path in self.documents if path and path.is_file())
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
-        # 网格三行：页头／查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
+        # 网格两行：查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
         preview_area.columnconfigure(0, weight=1)
-        preview_area.rowconfigure(2, weight=1)
-        preview_header = ttk.Frame(preview_area)
-        preview_header.grid(row=0, column=0, sticky='ew')
-        # 页头一行三列：分区标题（L4-U7a R2，沿用 file_heading）、文档下拉框（占其余宽度）、操作列。
-        # 标题不独占一行，把高度留给正文（REQ-S02-32）；标题列和操作列由页面统一取等宽，
-        # 两行下拉框的左右边缘才会落在同一列（L4-U7a R3）。
-        self.heading_label = ttk.Label(preview_header, text=self.file_heading, font=FONTS['heading_3'])
-        self.heading_label.grid(row=0, column=0, sticky='w', padx=(SPACING["none"], SPACING["sm"]))
-        preview_header.columnconfigure(1, weight=1)
-        controls = ttk.Frame(preview_header)
-        controls.grid(row=0, column=2, sticky='e', padx=(SPACING["sm"], SPACING["none"]))
-        self.header = preview_header
-        self.controls = controls
-        self.file_list = _DocumentPicker(preview_header, self.available, self.active_path)
-        self.file_list.grid(row=0, column=1, sticky='ew')
-        self.active = {'path': self.active_path if self.active_path in self.available else (self.available[0] if self.available else None)}
+        preview_area.rowconfigure(1, weight=1)
+        self.active = {'path': self.active_path}
         text_area = ttk.Frame(preview_area)
-        text_area.grid(row=2, column=0, sticky='nsew')
+        text_area.grid(row=1, column=0, sticky='nsew')
         self.preview, self.horizontal, self.gutter = _build_script_preview(text_area)
         self.preview_ticket = {'value': 0}
         self.loaded = {'raw': ''}
         self.zoom_delta = 0
+        # ReadingAids 的“大纲”开合钮已随页头一起移除；保留一个不上屏的占位控件，
+        # script_reading 里对它的 configure 调用才不会 AttributeError；font 守住
+        # ui/ 样式 Label 登记值（L4-F9，desktop_script_pages.py: 1）。
+        self.outline_toggle = ttk.Label(preview_area, font=SCRIPT_VIEW_FONT)
         self.aids = ReadingAids(self)
         self.find_bar = FindBar(
             preview_area, self.preview,
@@ -659,24 +664,19 @@ class _ContentBox:
             notify=lambda message: self.owner.page.status.set(message),
             run=self.owner.page.safe,
         )
-        self.find_bar.grid(row=1, column=0, sticky='ew')
+        self.find_bar.grid(row=0, column=0, sticky='ew')
         self.find_bar.grid_remove()
         self.outline = OutlinePanel(preview_area, self.preview)
-        self.outline.grid(row=0, column=1, rowspan=3, sticky='ns')
+        self.outline.grid(row=0, column=1, rowspan=2, sticky='ns')
         self.outline.grid_remove()
-        # 「大纲」开合钮先入 controls，排在编辑按钮组左侧。
-        self.outline_toggle = SecondaryButton(controls, text='大纲', command=self.aids.toggle_outline)
-        self.outline_toggle.pack(side='left')
         # 必须先于 load_preview 挂上：首屏小文档走 _reset_preview_text，靠它收尾同步三件套。
         self.preview._reading_sync = self.aids.after_text_load
+        self._sync_role(self.active['path'])
         self.load_preview(self.active['path'])
-        self.file_list.bind('<<ComboboxSelected>>', self.select_document)
-        self.file_list.bind('<Button-3>', self.open_document_menu)
-        _install_script_edit_controls(self.owner.page, controls, self)
+        _install_script_edit_controls(self.owner.page, self)
         self.preview.bind('<<Modified>>', self.aids.schedule_reading_views, add='+')
         self.aids.install_reading_shortcuts()
         setattr(self.owner.page, self.attribute, self.preview)
-        setattr(self.owner.page, self.attribute + '_files', self.file_list)
         setattr(self.owner.page, self.attribute + '_content_box', self)
         return box
 
@@ -755,9 +755,33 @@ class _ContentBox:
                 pass
         _safe_after(self.owner.page.win, 20, await_preview)
 
-    def select_document(self, _event=None):
-        selected = self.file_list.selection()
-        if not selected or not self.available:
+    def _sync_role(self, path):
+        """REQ-S02-38：kind／editable／title 跟随当前文件，并通知会话与状态栏。
+
+        自然／结构剧本可编辑；其余文档只读，正文按 structured 的 Markdown
+        样式展示（``script_view_style.spans`` 的自然剧本样式是逐行台词向，
+        不适合通用文本文档）。
+        """
+        role = self.owner.document_role(path)
+        self.kind = role or 'structured'
+        self.editable = role is not None
+        self.title = {'natural': '自然剧本', 'structured': '结构剧本'}.get(role, '文档')
+        session = getattr(self, 'edit_session', None)
+        if session is not None:
+            session.kind = self.kind
+            session.editable = self.editable
+            session.title = self.title
+        self.owner._update_status_note(path)
+
+    def select_document(self, path):
+        """REQ-S02-38：显示面板点选的文档；编辑态先退出并落盘，落盘失败留在原文档。"""
+        if not path:
+            return
+        try:
+            chosen = Path(path).resolve()
+        except (OSError, ValueError):
+            return
+        if chosen == self.active['path']:
             return
         session = getattr(self, 'edit_session', None)
         if session is not None:
@@ -765,30 +789,8 @@ class _ContentBox:
             try:
                 session.exit_edit()
             except (OSError, ValueError) as exc:
-                self.file_list.selection_set(str(self.active['path']))
                 self.owner.page.status.set('保存失败，未切换' + self.title + '：' + str(exc))
                 return
-        chosen = Path(selected[0])
-        if chosen == self.active['path']:
-            return
         self.active['path'] = chosen
+        self._sync_role(chosen)
         self.load_preview(chosen)
-
-    def delete_document(self):
-        """目录右键删除只移入项目回收站；来源稿删除后刷新会隐藏关联结构稿。"""
-        selected = self.file_list.selection()
-        from domain.script_workspace_service import selected_workspace_document
-        destination = selected_workspace_document(self.available, selected[0] if selected else None)
-        from infra.storage_maintenance import recycle_paths
-        records = recycle_paths(self.owner.page.root, [destination], '删除' + self.title)
-        if not records:
-            raise ValueError('未能安全移入项目回收站，原文件未删除。')
-        self.owner.page.show(PAGE['script_structure'])
-        self.owner.page.status.set('已将' + destination.name + '移入回收站；关联的结构剧本已按来源刷新。')
-
-    def open_document_menu(self, event):
-        if not self.available:
-            return None
-        menu = self.owner.page.script_page_services.context_menu(self.file_list).command('删除（移入回收站）', lambda:self.owner.page.safe(self.delete_document))
-        self.owner.page._script_structure_file_menu = menu
-        return menu.popup(event)

@@ -1,7 +1,8 @@
-"""R1958：剧本结构页「自然剧本」的编辑按钮不受“采用”状态限制。
+"""R1958／REQ-S02-38：剧本结构页的自然剧本可编辑性不受“采用”状态限制。
 
 采用记录带内容哈希，改过一次就失效；多份候选未采用时来源也为空。两种情况下
-编辑按钮都应能进入编辑态，而不是报“当前没有可修改的剧本文档”。
+该文档经面板点选显示后都应能进入编辑态（REQ-S02-37 起入口为右键菜单「编辑」），
+而不是报“当前没有可修改的剧本文档”。
 """
 import sys
 import tempfile
@@ -45,18 +46,22 @@ class NaturalScriptEditTests(unittest.TestCase):
         return win, desktop, errors
 
     def _assert_editable(self, win, desktop, errors):
-        desktop.script_structure_source_preview_edit_button.invoke()
+        session = desktop.script_structure_editor_preview_edit_session
+        session.toggle_edit()
         win.update()
         self.assertEqual(errors, [])
-        self.assertEqual(str(desktop.script_structure_source_preview.cget("state")), "normal")
-        self.assertEqual(desktop.script_structure_source_preview_edit_button.cget("text"), "退出")
+        self.assertTrue(session.editing)
+        self.assertEqual(str(desktop.script_structure_editor_preview.cget("state")), "normal")
 
     def test_unadopted_candidate_is_editable(self):
         import script_contract
         with tempfile.TemporaryDirectory() as td:
-            project, _ = self._project(td, ["剧本_甲.md", "剧本_乙.md"])
+            project, writing = self._project(td, ["剧本_甲.md", "剧本_乙.md"])
             self.assertIsNone(script_contract.resolve_script_source(project), "前提：多份候选未采用")
             win, desktop, errors = self._open(project)
+            box = desktop.script_structure_editor_preview_content_box
+            box.select_document(writing / "剧本_甲.md")
+            win.update()
             self._assert_editable(win, desktop, errors)
 
     def test_adopted_script_stays_editable_after_saved_edit(self):
@@ -66,22 +71,29 @@ class NaturalScriptEditTests(unittest.TestCase):
             project, writing = self._project(td, ["剧本_甲.md", "剧本_乙.md"])
             adopt_natural_script(project, writing / "剧本_甲.md")
             win, desktop, errors = self._open(project)
+            box = desktop.script_structure_editor_preview_content_box
+            self.assertEqual(box.active['path'], (writing / "剧本_甲.md").resolve(),
+                             "默认文档应是采用的自然剧本")
             self._assert_editable(win, desktop, errors)
-            desktop.script_structure_source_preview.insert("end", "\n阿远：再见。")
+            desktop.script_structure_editor_preview.insert("end", "\n阿远：再见。")
             win.update()
-            desktop.script_structure_source_preview_edit_session.save_now()
+            desktop.script_structure_editor_preview_edit_session.save_now()
             win.update()
             self.assertEqual(errors, [])
             self.assertIn("再见", (writing / "剧本_甲.md").read_text(encoding="utf-8"))
-            self.assertIn("采用选中剧本", desktop.status.get())
+            self.assertIn("重新采用", desktop.status.get(),
+                          "保存后应提示采用记录已失效（REQ-S02-41 提示改写）")
             self.assertIsNone(script_contract.resolve_script_source(project), "前提：改后采用记录失效")
 
             # 重新进入本页（内容变了，页面按签名重建）后再点编辑，仍应可编辑（修复前此处报错）。
             import infra.pet_state as pet_state
-            before = desktop.script_structure_source_preview_edit_button
+            before = desktop.script_structure_editor_preview_edit_session
             desktop.show(pet_state.PAGE_OF["script_structure"])
             win.update()
-            self.assertIsNot(desktop.script_structure_source_preview_edit_button, before, "页面应已重建")
+            self.assertIsNot(desktop.script_structure_editor_preview_edit_session, before, "页面应已重建")
+            box = desktop.script_structure_editor_preview_content_box
+            box.select_document(writing / "剧本_甲.md")
+            win.update()
             self._assert_editable(win, desktop, errors)
 
 
