@@ -790,6 +790,14 @@
         "程序/ui/stage_model_picker.py",
         "程序/ui/ui_popup.py"
       ]
+    },
+    "程序/tests/test_seed_worktree_submodules.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "工作树子模块初始化脚本行为与边界校验",
+      "targets": [
+        "程序/scripts/seed_worktree_submodules.py"
+      ]
     }
   },
   "packaging": {
