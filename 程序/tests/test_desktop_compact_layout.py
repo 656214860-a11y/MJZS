@@ -333,18 +333,22 @@ class SidebarExpandColumnTests(unittest.TestCase):
         column = getattr(d, '_project_expand_column', None)
         self.assertIsNotNone(column, '缺少项目二级图标列（REQ-UI-SIDEBAR-1）')
         frame = column.frame
-        # 初始收起：列不占位
+        # 初始收起：列不占位；记住聊天区左缘与宽度，展开／收起都不许挤占聊天区。
         self.assertFalse(frame.winfo_ismapped())
-        # 展开：列出现在侧栏右侧
+        body_x, body_w = d.body.winfo_rootx(), d.body.winfo_width()
+        # 展开：四个项目二级图标在项目区内部 2×2 展开，与项目列表框同宽，不挤占聊天区。
         d.project_button.invoke()
         self.pump()
         self.assertTrue(frame.winfo_ismapped())
         self.assertGreaterEqual(
-            frame.winfo_rootx(),
-            d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() - 1)
+            frame.winfo_rootx(), d.project_block.winfo_rootx() - 1)
         self.assertLessEqual(
             frame.winfo_rootx() + frame.winfo_width(),
-            d.body.winfo_rootx() + 1)
+            d.project_block.winfo_rootx() + d.project_block.winfo_width() + 1)
+        self.assertLessEqual(
+            frame.winfo_rootx() + frame.winfo_width(), d.body.winfo_rootx() + 1)
+        self.assertEqual((d.body.winfo_rootx(), d.body.winfo_width()),
+                         (body_x, body_w), '展开项目二级图标不得挤占右侧聊天框')
         # 四个原项目入口都在二级列里
         for key in ('making', 'completed'):
             self.assertIn(key, d.project_group_buttons)
@@ -426,18 +430,9 @@ class SidebarExpandColumnTests(unittest.TestCase):
         if getattr(d, 'root', None) is not None:
             self.assertTrue(current, '当前项目没有高亮行')
             self.assertEqual(Path(current[0]), Path(d.root))
-        # 搜索框过滤：<KeyRelease> 绑定须存在；伪造键盘事件不可靠，直接走 refresh。
-        self.assertTrue(lst.search.bind('<KeyRelease>'), '搜索框缺少键盘过滤绑定')
-        lst.search.delete(0, 'end')
-        lst.search.insert(0, '不存在的项目名xyz')
-        lst.refresh()
-        self.pump()
-        self.assertEqual(tree.get_children(), ())
-        self.assertTrue(lst.table.empty_label.winfo_ismapped())
-        lst.search.delete(0, 'end')
-        lst.refresh()
-        self.pump()
-        self.assertEqual(len(tree.get_children()), expected)
+        # 已移除搜索框与项目管理按钮，腾出空间放 4 个项目二级图标。
+        self.assertFalse(hasattr(lst, 'search'), '侧栏项目列表不再保留筛选输入框')
+        self.assertFalse(hasattr(lst, 'manage'), '侧栏项目列表不再保留项目管理按钮')
         # 键盘：Enter 触发切换，走 request_project_switch（绑定须存在，处理器直调）
         self.assertTrue(tree.bind('<Return>'), '项目行缺少 Enter 绑定')
         # 夹具只有当前一个项目；补一条登记项让「切到别的项目」路径可判定。
@@ -489,10 +484,17 @@ class SidebarExpandColumnTests(unittest.TestCase):
                    if str(w.cget('text')) == '资产清单']
         self.assertEqual(len(buttons), 1, '二级列里只有「资产清单」一项')
         self.assertEqual(getattr(buttons[0], '_rail_icon_name', ''), 'asset_list')
-        # 弹层贴在侧栏右缘
+        # 一级图标靠左，二级图标紧贴其右且落在侧栏／项目列表框宽度内，不占聊天区。
+        anchor = d.nav[PAGE['assets']]
         self.assertGreaterEqual(
             top.winfo_rootx(),
-            d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() - 2)
+            anchor.winfo_rootx() + anchor.winfo_width() - 1)
+        self.assertLessEqual(
+            top.winfo_rootx() + top.winfo_width(),
+            d.sidebar_area.winfo_rootx() + d.sidebar_area.winfo_width() + 1)
+        self.assertLessEqual(
+            top.winfo_rootx() + top.winfo_width(), d.body.winfo_rootx() + 1,
+            '资产二级图标不得占用右侧聊天框空间')
         # 再点图标收起并回资产管理主页
         d.nav[PAGE['assets']].invoke()
         self.pump()

@@ -34,8 +34,8 @@ from ui.ui_status_bus import deliver_notice  # R3056：通知分级逻辑迁至 
 def _configure_button(style, name, *, background, foreground,
                       active_background, active_foreground,
                       pressed_background=None,
-                      disabled_background=COLORS["disabled_bg"],
-                      disabled_foreground=COLORS["disabled_text"],
+                      disabled_background=None,
+                      disabled_foreground=None,
                       padding=(SPACING["md"], CONTROL_PADDING_Y),
                       font=None, anchor=None, border_color=None, border_width=0):
     """圆角按钮：底图是带 alpha 的圆角 PNG，四态各一张；按钮自身的 ``fill`` 选项记录填充色。
@@ -45,6 +45,8 @@ def _configure_button(style, name, *, background, foreground,
     """
     root = style.master
     pressed_background = pressed_background or active_background
+    disabled_background = COLORS["disabled_bg"] if disabled_background is None else disabled_background
+    disabled_foreground = COLORS["disabled_text"] if disabled_foreground is None else disabled_foreground
     states = (("normal", background), ("active", active_background),
               ("pressed", pressed_background), ("disabled", disabled_background))
     images = {}
@@ -56,11 +58,9 @@ def _configure_button(style, name, *, background, foreground,
                                            border=border_color, border_width=border_width)
     element = "Drama.Rounded." + name.replace(".", "_") + "." + current_theme()
     if element not in style.element_names():
-        style.element_create(element, "image", images["normal"],
-                             ("active", images["active"]), ("pressed", images["pressed"]),
-                             ("disabled", images["disabled"]),
-                             border=(pr, pr, pr, pr), padding=(0, 0, 0, 0),
-                             width=1, height=1, sticky="nsew")
+        style.element_create(element, "image", images["normal"], ("disabled", images["disabled"]),
+                             ("pressed", images["pressed"]), ("active", images["active"]),
+                             border=(pr, pr, pr, pr), padding=(0, 0, 0, 0), width=1, height=1, sticky="nsew")
     rounded_layout(style, name, element)
     button_specs(root)[name] = {
         "colors": dict(states), "images": images,

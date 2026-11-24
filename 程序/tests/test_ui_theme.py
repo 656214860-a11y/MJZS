@@ -525,6 +525,22 @@ class ThemeRefreshTests(unittest.TestCase):
         mapping = ui_theme.color_map(ui_tokens.THEMES['day'], ui_tokens.THEMES['night'])
         self.assertNotIn('#123456', mapping)
 
+    def test_hover_fade_and_tick_switch_back_to_day(self):
+        from ui import ui_hover_fade
+        ui_theme.apply(self.win)
+        button = SecondaryButton(self.win, text='测试', style='RailIcon.TButton')
+        button.pack()
+        style = ttk.Style(self.win)
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            ui_hover_fade._ensure_level_style(button, 'RailIcon.TButton', 1)
+            self.assertEqual(style.layout('Fade1.RailIcon.TButton')[0][0],
+                             f'Drama.RoundedFade1.{name}.RailIcon_TButton')
+            self.assertEqual(style.layout('TCheckbutton')[0][1]['children'][0][0],
+                             f'DramaTick.indicator.{name}')
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

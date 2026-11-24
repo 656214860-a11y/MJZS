@@ -591,10 +591,10 @@ class ProjectPagesMixin(RecyclePanelMixin):
         """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
         image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT))
         self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
-            compound='image' if image is not None else 'text',
+            compound='image' if image is not None else 'text',width=0,
             command=lambda:self.go_page(PAGE_ACCOUNT),style='RailIcon.TButton')
         Tooltip(self.account_button,ACCOUNT_TITLE)
-        self.account_button.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.account_button.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def project_home(self):
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')

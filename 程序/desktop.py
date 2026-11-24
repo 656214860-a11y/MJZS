@@ -266,9 +266,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);win.option_add('*Text.selectForeground',COLORS['on_accent']);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
-        # REQ-UI-SIDEBAR-1：项目二级图标列的停靠宿主——常驻空条（约 0px），展开时才装图标列。
-        self.sidebar_expand=ttk.Frame(win);self.sidebar_expand.pack(side='left',fill='y')
-        # 项目区＝单个「项目」图标＋项目名称列表；四个原入口收进右侧二级列（REQ-UI-SIDEBAR-1）。
+        # 项目区＝单个「项目」图标＋项目名称列表；四个二级图标在项目区内部展开，不挤占聊天区。
         self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
@@ -277,7 +275,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
             # 页内切分镜、刷新列表仍直接调 show()。
-            # 第 R2933 期：编号撤掉，导航只留居中图标（PNG 缺失退回编号文字）；
+            # 第 R2933 期：编号撤掉，导航只留图标（PNG 缺失退回编号文字）；
             # 完整阶段名走悬停 Tooltip，页标题仍显示「NN  名称」。
             image=IconLoader.nav_icon(win,PAGE_NAV_ICONS.get(i))
             # 第 R2946 期：「05 资产管理」不再直接进页——点它弹「资产清单」二级选择层，
@@ -285,18 +283,18 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             command=self._assets_nav_toggle if i==PAGE['assets'] else (lambda n=i:self.go_page(n))
             b=SecondaryButton(side,text=nav_label(i),image=image,
                               compound='image' if image is not None else 'text',
-                              command=command,style='RailIcon.TButton')
+                              width=0,command=command,style='RailIcon.TButton')
             b._nav_icon_name=PAGE_NAV_ICONS.get(i)
             b._nav_tooltip=Tooltip(b,page_title(i))
-            b.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
+            b.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']));self.nav.append(b)
         # 第 R2946 期：设置入口并入图标轨末尾（与 00–14 同列同款）；不进 self.nav，
         # 翻页键与阶段页序号不受影响。点击开三虎设置hub（pet.act 走既有通路）。
         settings_image=IconLoader.nav_icon(win,'settings')
         self.settings_rail_button=SecondaryButton(side,text='',image=settings_image,
             compound='image' if settings_image is not None else 'text',
-            command=self._open_rail_settings,style='RailIcon.TButton')
+            width=0,command=self._open_rail_settings,style='RailIcon.TButton')
         self.settings_rail_button._nav_tooltip=Tooltip(self.settings_rail_button,'设置')
-        self.settings_rail_button.pack(anchor='center',fill='x',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.settings_rail_button.pack(anchor='w',pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')

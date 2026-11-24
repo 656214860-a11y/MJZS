@@ -400,13 +400,17 @@ class PageNavMixin:
         top.update_idletasks()
         width=top.winfo_reqwidth();height=top.winfo_reqheight()
         if placement=='right':
-            edge=anchor
-            try:
-                while edge.master is not None and edge.master is not self.win:
-                    edge=edge.master
-            except tk.TclError:
-                edge=anchor
-            x=edge.winfo_rootx()+edge.winfo_width();y=anchor.winfo_rooty()
+            # 二级图标紧贴左移后的一级图标右侧，收在侧栏／项目列表框宽度内，不占聊天区。
+            anchor_right=anchor.winfo_rootx()+anchor.winfo_width()
+            x=anchor_right+2;y=anchor.winfo_rooty()
+            sidebar=getattr(self,'sidebar_area',None)
+            if sidebar is not None:
+                try:
+                    limit=sidebar.winfo_rootx()+sidebar.winfo_width()
+                    if x+width>limit:
+                        x=max(anchor_right,limit-width)
+                except tk.TclError:
+                    pass
         else:
             x=anchor.winfo_rootx();y=anchor.winfo_rooty()+anchor.winfo_height()+2
         # 钳位必须落在锚点所在显示器：winfo_screenwidth 只给主屏尺寸，
