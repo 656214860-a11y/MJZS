@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""O40：项目删除／登记写失败／索引重建与回收恢复边界。"""
+"""O40：项目删除／登记写失败／索引重建与回收恢复边界；REL-06 并入 config.json 读坏回退与版本登记。"""
 import inspect
 import json
 import tempfile
@@ -8,6 +8,9 @@ from pathlib import Path
 from unittest.mock import MagicMock
 
 import desktop
+import engine
+from infra import project_settings
+from contract import artifact_schema
 from projects import Projects
 from stage_execution_service import project_registry_gateway
 from infra.storage_maintenance import recycle_base, restore_recycle_batch
@@ -133,6 +136,117 @@ class DesktopRebuildIndexTests(unittest.TestCase):
             self.assertEqual(outcome['dropped'], [str(ghost)])
             app.reload.assert_called_once()
             self.assertIn('重建项目索引', app.status.set.call_args.args[0])
+
+
+class CorruptConfigFallbackTests(unittest.TestCase):
+    """REL-06：config.json 读坏回退最近的 .bak 并提示；无 .bak 报可操作错误且不新建文件。"""
+
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory()
+        self.addCleanup(self.td.cleanup)
+        self.project = Path(self.td.name) / '项目'
+        self.project.mkdir()
+        self.config = self.project / 'config.json'
+
+    def listing(self):
+        return sorted(p.name for p in self.project.iterdir())
+
+    def test_corrupt_config_falls_back_to_recent_bak_with_notice(self):
+        backup_data = {'episode_dir': 'episode', 'custom_key': '用户自己的值'}
+        dump(self.project / 'config.json.bak', backup_data)
+        self.config.write_text('{"episode_dir":', encoding='utf-8')
+        with self.assertLogs('engine', level='WARNING') as caught:
+            cfg = engine.read_project_config(self.project)
+        self.assertEqual(cfg, backup_data, '回退必须给出备份里的用户值')
+        self.assertTrue(any('回退' in line or '备份' in line for line in caught.output),
+                        '回退必须留下用户可查的提示：' + repr(caught.output))
+        self.assertEqual(self.config.read_text(encoding='utf-8'), '{"episode_dir":',
+                         '坏文件原样留在盘上，不被顺手改写')
+
+    def test_corrupt_config_without_bak_reports_actionable_error_and_creates_nothing(self):
+        self.config.write_text('{坏配置', encoding='utf-8')
+        with self.assertRaises(ValueError) as caught:
+            engine.read_project_config(self.project)
+        message = str(caught.exception)
+        self.assertIn('config.json 无法读取', message)
+        self.assertNotIn('没有项目配置文件', message)
+        self.assertIn('config.json.bak', message, '无备份时报错要点出备份文件名，用户才知道去哪找')
+        self.assertIn('请', message, '无备份时报错必须可操作（检查编码／重新查找项目）')
+        self.assertEqual(self.listing(), ['config.json'],
+                         '读坏报错不得在目录里新建文件，更不静默建空配置')
+
+    def test_corrupt_config_with_also_corrupt_bak_reports_both_unreadable(self):
+        self.config.write_text('{坏配置', encoding='utf-8')
+        (self.project / 'config.json.bak').write_text('{也坏', encoding='utf-8')
+        with self.assertRaises(ValueError) as caught:
+            engine.read_project_config(self.project)
+        message = str(caught.exception)
+        self.assertIn('config.json 无法读取', message)
+        self.assertIn('config.json.bak', message)
+        self.assertTrue('备份' in message and ('读不出' in message or '损坏' in message or '也' in message),
+                        '备份也读坏时要明说两份都不可用：' + message)
+
+    def test_healthy_config_refreshes_bak_snapshot(self):
+        data = {'episode_dir': 'episode', 'custom_key': '最近一次好内容'}
+        dump(self.config, data)
+        engine.read_project_config(self.project)
+        backup = self.project / 'config.json.bak'
+        self.assertTrue(backup.is_file(), '成功读取后应刷新最近的 .bak 快照')
+        self.assertEqual(backup.read_bytes(), self.config.read_bytes())
+
+    def test_bak_from_last_good_read_wins(self):
+        # 好配置读过一遍留下 .bak；之后 config 损坏，下一趟读回退到那份快照。
+        dump(self.config, {'episode_dir': 'episode', 'custom_key': '第一版'})
+        engine.read_project_config(self.project)
+        self.config.write_text('{后来被改坏', encoding='utf-8')
+        cfg = engine.read_project_config(self.project)
+        self.assertEqual(cfg, {'episode_dir': 'episode', 'custom_key': '第一版'})
+
+
+class ProjectConfigVersionTests(unittest.TestCase):
+    """REL-06：config.json／skill_config.json 登记版本——容忍缺版本、拒绝未来版本、写回补版本号。"""
+
+    def setUp(self):
+        self.td = tempfile.TemporaryDirectory()
+        self.addCleanup(self.td.cleanup)
+        self.project = Path(self.td.name) / '项目'
+        self.project.mkdir()
+
+    def test_project_config_and_skill_config_are_registered(self):
+        for kind in ('project_config', 'skill_config'):
+            with self.subTest(kind=kind):
+                item = artifact_schema.spec(kind)
+                self.assertIsInstance(item['version'], int)
+                self.assertEqual(artifact_schema.classify(kind, {'x': 1}), 'missing')
+                self.assertEqual(artifact_schema.classify(kind, {'schema_version': item['version']}),
+                                 'current')
+                self.assertEqual(artifact_schema.classify(kind, {'schema_version': item['version'] + 1}),
+                                 'future')
+
+    def test_old_config_without_version_is_tolerated_and_next_write_stamps(self):
+        # 老项目 config.json 没有版本字段：照常读、用户值原样，写回时补 schema_version。
+        dump(self.project / 'config.json', {'episode_dir': '旧的指针目录', 'custom_key': '用户值'})
+        studio = engine.Studio.__new__(engine.Studio)
+        studio.root = self.project
+        studio.episode_path = self.project / 'episode' / 'episode.json'
+        studio.cfg = engine.read_project_config(self.project)
+        self.assertTrue(studio.remember_episode(), '指针不一致时 remember_episode 应写回')
+        saved = json.loads((self.project / 'config.json').read_text(encoding='utf-8'))
+        self.assertEqual(saved['schema_version'],
+                         artifact_schema.spec('project_config')['version'])
+        self.assertEqual(saved['custom_key'], '用户值', '迁移只加键、不删用户数据')
+        self.assertEqual(saved['episode_dir'], str(studio.episode_path.parent))
+
+    def test_future_version_config_is_rejected_without_touching_file(self):
+        target = artifact_schema.spec('project_config')['version'] + 1
+        original = json.dumps({'episode_dir': 'episode', 'schema_version': target},
+                              ensure_ascii=False)
+        (self.project / 'config.json').write_text(original, encoding='utf-8')
+        with self.assertRaises(ValueError) as caught:
+            engine.read_project_config(self.project)
+        self.assertIn('版本', str(caught.exception))
+        self.assertEqual((self.project / 'config.json').read_text(encoding='utf-8'), original,
+                         '拒绝未来版本不得改写原文件')
 
 
 class EmptyShellRegistrationTests(unittest.TestCase):

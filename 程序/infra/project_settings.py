@@ -2,7 +2,11 @@
 
 只保存「助手行为」类开关，不保存分镜采用列表等业务数据；沿用同一份 ui_settings.json，
 写入前先读回已有内容，避免覆盖其他模块的键。
+另收项目配置 JSON 的「最近一次可读快照」助手（同目录 ``<原名>.bak``），
+config.json 等配置读坏时回退用，命名口径与 ``artifact_schema.migrate_file`` 一致。
 """
+import shutil
+from contextlib import suppress
 from pathlib import Path
 from agent.core import read,save,read_json
 from agent.publication import access
@@ -11,6 +15,44 @@ from contract.infra_errors import ConfigError
 DEFAULTS={'auto_review':False,'auto_adopt':False,'auto_edit':False,'auto_submit':False,'auto_keyframe':False,'auto_asset':False,'auto_video':False,'auto_previs':False,'auto_final':False,'auto_handoff':False}
 
 def file(project):return Path(project)/'ui_settings.json'
+
+def config_backup_path(path):
+    """项目配置「最近一次可读快照」的位置：同目录 ``<原名>.bak``（如 config.json.bak）。"""
+    path=Path(path)
+    return path.with_name(path.name+'.bak')
+
+def refresh_json_backup(path):
+    """主文件读通后刷新 .bak 快照：内容一致不重复写；快照写不动不挡读取主流程。"""
+    path=Path(path);backup=config_backup_path(path)
+    with suppress(OSError):
+        if not backup.is_file() or backup.read_bytes()!=path.read_bytes():shutil.copyfile(path,backup)
+    return backup if backup.is_file() else None
+
+def read_json_or_backup(path,reader=read,error=None):
+    """主文件读坏后回退最近 .bak 快照：快照是 JSON 对象就返回它；救不回时抛 ``error()``，未传则返回 None。"""
+    backup=config_backup_path(path)
+    data=None
+    with suppress(OSError,ValueError,UnicodeError):data=reader(backup)
+    if isinstance(data,dict):return data
+    if error is not None:raise error()
+    return None
+
+def config_open_error(path, exc):
+    """项目配置读坏且 .bak 也不可用时的可操作报错：点名备份文件，给检查与找回两条路。"""
+    backup=config_backup_path(path)
+    detail='；同目录备份 '+backup.name+' 也读不出来' if backup.is_file() else '；同目录没有可用的备份 '+backup.name
+    return ValueError('项目配置文件 '+Path(path).name+' 无法读取：'+str(exc)+detail
+                      +'。请保留原文件，检查 UTF-8 编码与 JSON 对象格式后重试，'
+                      '或在项目选择窗口选中这个项目后点「重新查找项目」。')
+
+def note_json_backup_recovered(path, exc, *, logger):
+    """.bak 回退成功的提示：应用日志警告＋诊断台账一笔；两处写不动都不挡读取主流程。"""
+    import logging
+    logging.getLogger(logger).warning('项目配置文件 %s 读坏，已回退到同目录备份 %s（%s）',
+                                      Path(path).name,config_backup_path(path).name,exc)
+    with suppress(Exception):
+        from infra.diagnostic_state import record_degradation
+        record_degradation(exc,stage='project-config',project=str(Path(path).parent),error_code='E-IO-CORRUPT')
 
 def read_prefs(path,reader=read):
     """读取 ui_settings.json：损坏时抛出可操作的中文提示，而不是把 JSONDecodeError 抛到界面。

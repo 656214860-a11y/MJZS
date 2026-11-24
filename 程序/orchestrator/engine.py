@@ -14,6 +14,7 @@ import infra.project_settings as project_settings
 from domain.project_naming import dated_path
 from orchestrator.legacy_compat import resolved_storyboard_alias
 import contract.pet_bus as pet_bus
+import contract.artifact_schema as artifact_schema
 import domain.domain_events as domain_events
 
 def approved_versions(versions):
@@ -266,10 +267,14 @@ def read_project_config(root):
     if not config.is_file():
         raise ValueError('项目文件夹里没有项目配置文件 config.json：'+str(root)+'。这个文件夹可能是项目被移动或改名后留下的空壳；'
                          '请在项目选择窗口选中这个项目后点「重新查找项目」，或把原来的项目文件夹放回原位后再打开。')
-    try:cfg=read(config)
+    try:cfg,fresh=read(config),True
     except (OSError,ValueError) as exc:
-        raise ValueError('项目配置文件 config.json 无法读取：'+str(exc)) from None
+        cfg=project_settings.read_json_or_backup(config,error=lambda:project_settings.config_open_error(config,exc))
+        project_settings.note_json_backup_recovered(config,exc,logger='engine');fresh=False
     if not isinstance(cfg,dict):raise ValueError('项目配置文件 config.json 顶层必须为对象')
+    state=artifact_schema.classify('project_config',cfg);artifact_schema.note_read_state('project_config',state)
+    if state=='future':raise ValueError('项目配置文件 config.json 的版本 %r 高于本程序登记的 %r，请升级程序后再打开这个项目，不要改动版本号。'%(cfg.get('schema_version'),artifact_schema.spec('project_config')['version']))
+    if fresh:project_settings.refresh_json_backup(config)
     return cfg
 
 
@@ -312,7 +317,7 @@ class Studio:
             except (OSError,ValueError):return False
         if all(same(key,value) for key,value in wanted.items()):return False
         try:
-            save(self.root/'config.json',{**self.cfg,**wanted})
+            save(self.root/'config.json',artifact_schema.stamp('project_config',{**self.cfg,**wanted}))
         except OSError:
             return False
         self.cfg={**self.cfg,**wanted}

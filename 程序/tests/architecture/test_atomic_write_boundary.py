@@ -42,6 +42,23 @@ _REPLACE_REGISTERED = {
     "white_model_service.py": 2,
 }
 
+# REL-06 原子写审计：「项目配置、台账、产物清单」三类关键文件的属主模块。
+# 它们的写盘只能经统一入口——agent.core.save/save_text 或调用方注入的发布器
+# （如 domain/projects 的 publish_json=agent.core.save、artifact_schema.migrate_file
+# 的 publish 参数）。这些模块永远不得进上面两个登记表：登记等于把绕过合法化，
+# 发现直接写盘必须修产品代码，不许扩表。
+_CRITICAL_FILE_OWNERS = {
+    "engine": "项目 config.json 写回、视频产物清单（save/save_text）",
+    "stage_config": "项目 skill_config.json（save）",
+    "project_settings": "项目 ui_settings.json（save）；配置 .bak 快照经 shutil.copyfile（备份机制，同 artifact_schema.migrate_file 口径）",
+    "projects": "项目 config.json／projects.json 登记与资产清单（注入 publish_json=agent.core.save）",
+    "request_ledger": "项目 请求台账.json（save）",
+    "continuity_ledger": "项目连续性台账（save/save_text）",
+    "desktop_send_ledger": "项目续发台账（save）",
+    "artifact_lineage": "产物来源关系.json（save）",
+    "artifact_schema": "迁移写盘（.bak 快照→注入原子发布→读回断言）",
+}
+
 
 def _is_direct_replace(call: ast.Call) -> bool:
     """os.replace(a, b) 与 Path.replace(target)；str.replace 恒为两个参数，不会误报。"""
@@ -133,6 +150,22 @@ class AtomicWriteBoundaryTests(unittest.TestCase):
                 self.assertIn('未返回制作报告正文', source)
                 self.assertLess(source.index('未返回制作报告正文'),
                                 source.index('save_text(Path(report)'))
+
+    def test_critical_file_owners_stay_on_the_unified_write_entry(self):
+        # 项目配置／台账／产物清单的属主模块：不许登记为直接写盘边界，
+        # 也不许出现绕开统一入口的直接写盘调用——发现先修产品，不扩表。
+        overlap = sorted(set(_CRITICAL_FILE_OWNERS) & (_ATOMIC_BOUNDARIES | _TEMPORARY_BOUNDARIES))
+        self.assertEqual(overlap, [], '关键文件属主不得登记为直接写盘边界：' + ', '.join(overlap))
+        scanned = {module_name(path) for path in module_scan_files()}
+        missing = sorted(set(_CRITICAL_FILE_OWNERS) - scanned)
+        self.assertEqual(missing, [], '属主模块不在扫描范围，清单需修正：' + ', '.join(missing))
+        offenders = []
+        for path in module_scan_files():
+            if module_name(path) in _CRITICAL_FILE_OWNERS:
+                offenders.extend('%s:%d' % (path.name, line) for line in _write_lines(path))
+        self.assertEqual(offenders, [],
+                         '项目配置／台账／产物清单必须经统一入口写入，发现直接写盘：'
+                         + ', '.join(offenders))
 
     def test_shortcut_script_is_temporary_and_is_reclaimed(self):
         path = next(path for path in module_scan_files() if module_name(path) == 'app_shortcut')
