@@ -1,0 +1,15 @@
+{
+  "round": 4287,
+  "commit_base": "729f8800",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop_shared_input shared_input_stages shared_input_ui storyboard_page_controller storyboard_page_loading manual_gate stage_flow stage_command_contract storyboard_direct_api ui_edges_pages complexity_ratchet",
+    "exit": 0,
+    "passed": 269,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T11:50:41"
+}

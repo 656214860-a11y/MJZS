@@ -68,7 +68,7 @@ CLASS_CAPS = {
     ('pet_cloud.py', 'Cloud'): 1108,
     ('desktop_idea_chat.py', 'IdeaChatMixin'): 637,  # R3056：R2989 删除会话说明行后实测 622，登记下调
     ('app.py', 'App'): 1388,
-    ('desktop.py', 'Desktop'): 817,  # R3056：桥接拆入 StatusBridgeMixin 后实测 802，登记下调
+    ('desktop.py', 'Desktop'): 813,  # S03：旧按钮实现移除后实测 798，登记下调并保留 15 行余量
     ('skill_panel.py', 'Panel'): 646,  # R2942：阶段配置按钮工厂删除后实测 631，登记 646
     ('pet_ui_stages.py', 'PetStagesMixin'): 1161,  # R3614：实测 1146，保留 15 行余量
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,

@@ -158,6 +158,18 @@ def _present_stage(desktop, presentation, text):
     if presentation is StagePresentation.REPORT_STORYBOARD:
         return desktop.pet_report('storyboard', text)
     if presentation is StagePresentation.OPEN_STORYBOARD:
+        context = getattr(desktop, '_storyboard_send_context', None)
+        if context is not None:
+            if (desktop.root != context['project']
+                    or getattr(desktop, 'shutting_down', False)):
+                return False
+            ticket = desktop.open_storyboard_skill(
+                None, request_text=context['request_text'], only=context['named'],
+                model_snapshot=context['model_snapshot'])
+            if ticket is False or ticket is None:
+                return False
+            context['started'].append(ticket)
+            return ticket
         return desktop.open_storyboard_skill(None)
     if presentation is StagePresentation.SHOW_ANIMATIC:
         return desktop.show(pet_bus.STAGES.index('animatic'))
@@ -830,28 +842,15 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if self.root is None:raise ValueError('请先选择项目')
         from ui.workflow_agents import refresh
         show_settings(self,self.root,stage=stage,on_saved=lambda:refresh(self),function=function)
-    def open_storyboard_skill(self,key=None):
-        project, batch = self.root, {}
-        def work():
-            from stage_execution_service import storyboard_produced_scripts as produced_scripts
-            from orchestrator.storyboard_selection import selected_many
-            from orchestrator.workflow_tasks import storyboard_batch_prompt
-            scripts=selected_many(project,'script');existing=selected_many(project,'storyboard')
-            made=produced_scripts(project);already=[p for p in scripts if p in made]
-            prompt,followup=storyboard_batch_prompt(project,scripts,existing)
-            batch.update(prompt=prompt,followup=followup)
-            # 跳过已有定稿的剧本是无损操作：直接继续，避免模态确认挂住无人值守流程。
-            if not already:return '正在启动分镜制作 agent…'
-            return '已跳过 '+str(len(already))+' 个已制作分镜的剧本：'+'、'.join(Path(p).name for p in already)+'；继续处理其余剧本／分镜。'
-        def finish(message):
-            if self.root!=project or getattr(self,'shutting_down',False):return
-            # 异步准备阶段的结果原来只作为回调参数传入，界面一直停留在
-            # 「正在处理」；批量跳过已有分镜时，必须把实际处理结果反馈出来。
-            self.open_flow_agent('storyboard','初步分镜',batch['prompt'],batch['followup'])
-            self.status.set(message)
-        # 结果经异步队列回到主线程：工作线程直接调用 winfo_exists／after 在 Tk 里会抛
-        # RuntimeError: main thread is not in main loop，表现为「点了按钮没有反应」。
-        return self.async_(work,finish)
+    def sync_stage_placeholder(self, box, stage):
+        return desktop_shared_send.sync_stage_placeholder(box, stage)
+
+    def send_storyboard(self, text='', *, only=None):
+        return desktop_shared_send.send_storyboard(self, text, only=only)
+
+    def open_storyboard_skill(self, key=None, *, request_text='', only=None, model_snapshot=None):
+        return desktop_shared_send.open_storyboard_skill(
+            self, key, request_text=request_text, only=only, model_snapshot=model_snapshot)
     def open_codex_skill(self,folder,brief,value):
         """兼容旧入口：仍只启动工作流，绝不回退为直连模型对话。"""
         creative=str(value or '').strip()

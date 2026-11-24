@@ -272,6 +272,41 @@ class StageCommandContractTests(unittest.TestCase):
         self.assertEqual(self.calls, [(self.host, 'storyboard', 'auto', None)])
 
 
+class StoryboardSendRegistryContractTests(unittest.TestCase):
+    def test_manual_send_reuses_the_storyboard_batch_entry(self):
+        host = object.__new__(desktop.Desktop)
+        host.status = Mock()
+        host.pet_storyboard_batch = Mock(return_value='')
+
+        self.assertFalse(host.start_storyboard_send(
+            object(), '补充要求', ['A'], ('snapshot', {})))
+
+        host.pet_storyboard_batch.assert_called_once_with(trigger='manual')
+
+    def test_storyboard_presentation_uses_the_send_snapshot(self):
+        host = object.__new__(desktop.Desktop)
+        host.root = object()
+        host.shutting_down = False
+        host.open_storyboard_skill = Mock(return_value=17)
+        context = {
+            'project': host.root,
+            'request_text': '补充要求',
+            'named': ['A'],
+            'model_snapshot': ('snapshot', {}),
+            'started': [],
+        }
+        host._storyboard_send_context = context
+
+        result = desktop.Desktop.present_stage(
+            host, stage_handler_registry.StagePresentation.OPEN_STORYBOARD, '')
+
+        self.assertEqual(result, 17)
+        host.open_storyboard_skill.assert_called_once_with(
+            None, request_text='补充要求', only=['A'],
+            model_snapshot=('snapshot', {}))
+        self.assertEqual(context['started'], [17])
+
+
 class StageCommandEventContractTests(unittest.TestCase):
     class _Pet:
         def __init__(self):

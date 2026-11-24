@@ -2,8 +2,8 @@
 
 阶段 → ``open_flow_agent`` 流程名的映射只此一处（``workflow_settings.STAGE_CONFIG_STAGES``
 的阶段侧）；没有 Agent 流程的阶段（剧本结构／分镜预演／连贯性清单／分镜定稿／后期剪辑／
-质检与交付）回状态栏提示，不新开对话。会员闸门复用 ``account.stage_gate``，上游完成门禁
-由 ``desktop_shared_input.upstream_send_error`` 在发送前统一执行，这里不复制判定。
+质检与交付）回状态栏提示，不新开对话。会员闸门复用 ``account.stage_gate``；上游完成门禁
+由本模块在发送前统一执行，输入框只复用窄入口，不复制阶段判定。
 
 没有 Agent 流程的阶段里，页面在共享输入框上登记了发送动作（``set_stage_action``，目前是
 剧本结构页）的，自由文本改为执行该动作并说明文字用不上，见 ``_run_stage_action``。
@@ -26,6 +26,27 @@ FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets':
 # 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步，并说明文字
 # 用不上（%s＝阶段名）；文字留在输入框里，不清空。
 STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
+# 初步分镜页共享输入框占位（REQ-S03-54）：空发送＝制作已选结构剧本，非空＝补充要求。
+STORYBOARD_PLACEHOLDER = '选择上方结构剧本后发送制作分镜，可填写补充要求'
+_STORYBOARD_PREP_ATTR = '_storyboard_send_prep'
+
+
+def sync_stage_placeholder(box, stage):
+    """宿主注入的占位同步：输入框不反向导入发送分流。"""
+    if box is None or not hasattr(box, '_placeholder'):
+        return
+    hint = STORYBOARD_PLACEHOLDER if stage == 'storyboard' else ''
+    if getattr(box, '_placeholder_active', False):
+        try:
+            box._remove_placeholder()
+        except Exception:
+            app_logging.swallowed()
+    box._placeholder = hint
+    if hint and not str(box.get('1.0', 'end-1c') or '').strip():
+        try:
+            box._restore_placeholder()
+        except Exception:
+            app_logging.swallowed()
 
 
 def stage_for_index(index):
@@ -48,6 +69,66 @@ def _say(desktop, text):
             status.set(str(text))
         except Exception:
             app_logging.swallowed()
+
+
+def upstream_send_error(project, stage, status=None):
+    """发送前统一门禁：上游空白／阻塞则拒绝并提示，放行返回空串。
+
+    有 ``stage_parallel`` 门禁的阶段走 ``evaluate``；无门禁行时看紧邻上游的完成证据，
+    显式跳过（skipped）豁免。``script`` 与无项目放行，简报门禁仍由宿主发送路径负责。
+    ``storyboard`` 使用 ``storyboard_send_readiness``（REQ-S03-55），说明写入状态栏。
+    """
+    stage = str(stage or '')
+    if not stage or stage == 'script' or stage not in pet_bus.STAGES:
+        return ''
+    if project in (None, ''):
+        # REQ-S13-54：无项目放行是本门禁自己的契约，简报门禁由宿主发送路径负责。
+        return ''
+    try:
+        import orchestrator.stage_parallel as stage_parallel
+        row = stage_parallel.gate_for(stage)
+    except Exception:
+        return ''
+    if row is not None:
+        try:
+            result = stage_parallel.evaluate(project, stage)
+        except Exception:
+            return ''
+        if result.get('verdict') == stage_parallel.UPSTREAM_BLANK:
+            return '请先完成/确认「%s」阶段' % stage_parallel.label(result.get('from'))
+        if not result.get('ok'):
+            return stage_parallel.blocked_text(result) or '上游阶段未完成，请先处理'
+        return ''
+    index = pet_bus.STAGES.index(stage)
+    if index <= 0:
+        return ''
+    upstream = pet_bus.STAGES[index - 1]
+    try:
+        import orchestrator.stage_parallel as _sp
+        if _sp.stage_state(project, upstream) in _sp.EXEMPT_STATES:
+            return ''
+    except Exception:
+        app_logging.swallowed()
+    if stage == 'storyboard' and upstream == 'script_structure':
+        try:
+            from orchestrator.stage_completion_service import storyboard_send_readiness
+            sendable, note, _filled = storyboard_send_readiness(project)
+        except Exception:
+            return ''
+        if sendable and note and status is not None:
+            try:
+                status.set(str(note))
+            except Exception:
+                app_logging.swallowed()
+        return '' if sendable else (note or '请先到「剧本结构」页确认一份结构剧本，再回来发送')
+    try:
+        from orchestrator.stage_completion_service import completion_evidence
+        ok, detail = completion_evidence(project, upstream)
+    except Exception:
+        return ''
+    if ok:
+        return ''
+    return '请先完成/确认「%s」阶段（%s）' % (pet_bus.stage_name(upstream), detail or '上游成果未完成')
 
 
 def _notify_error(desktop, text):
@@ -135,8 +216,201 @@ def _run_stage_action(desktop, stage):
     return True
 
 
+def _clear_storyboard_prep(desktop, token=None):
+    if token is not None and getattr(desktop, '_storyboard_send_token', None) is not token:
+        return False
+    desktop._storyboard_send_prep = False
+    desktop._storyboard_send_ticket = None
+    desktop._storyboard_send_token = None
+    return True
+
+
+def _storyboard_prep_active(desktop):
+    """准备期防重；已取消／替换的旧 ticket 不永久锁住下一次发送。"""
+    if not getattr(desktop, _STORYBOARD_PREP_ATTR, False):
+        return False
+    ticket = getattr(desktop, '_storyboard_send_ticket', None)
+    accepts = getattr(getattr(desktop, 'background_tasks', None), 'accepts', None)
+    if ticket is not None and callable(accepts) and not accepts(ticket):
+        _clear_storyboard_prep(desktop)
+        return False
+    return True
+
+
+def _window_alive(desktop):
+    win = getattr(desktop, 'win', None)
+    if win is None:
+        return True
+    try:
+        return bool(win.winfo_exists())
+    except Exception:
+        return False
+
+
+def send_storyboard(desktop, text='', *, only=None):
+    """初步分镜窄入口（REQ-S03-54）：空发送／自由文本／点名技能共用，不直接 ``_open_flow``。
+
+    ``text`` 是补充要求（不替代结构剧本全文）；``only`` 为点名技能名单时只跑这些，
+    不读、不改 ✦ 勾选；``only is None`` 时走勾选默认技能。真正进入异步准备才返回 True。
+    """
+    if getattr(desktop, 'root', None) is None:
+        _say(desktop, '请先选择项目')
+        return False
+    if _storyboard_prep_active(desktop) or getattr(desktop, 'worker', False):
+        _say(desktop, '正在准备分镜任务，请稍候再发送。')
+        return False
+    request_text = str(text or '').strip()
+    named = [str(name) for name in only] if only else None
+    project = desktop.root
+    model_snap = None
+    shared = getattr(desktop, 'shared_input', None)
+    snap = getattr(shared, 'request_model', None) if shared is not None else None
+    if snap is not None:
+        model_snap = snap
+
+    def action():
+        reason = _account_block(desktop, 'storyboard')
+        if reason:
+            _say(desktop, reason)
+            return False
+        return _start_storyboard_batch(desktop, project, request_text, named, model_snap)
+
+    from orchestrator.stage_models import manual_command
+    runner = manual_command(desktop, 'storyboard', action, getattr(desktop, 'win', None))
+    safe = getattr(desktop, 'safe', None)
+    try:
+        result = safe(runner) if callable(safe) else runner()
+    except Exception as exc:
+        app_logging.swallowed()
+        _notify_error(desktop, '发送失败：%s' % exc)
+        return False
+    return result is True
+
+
+def _named_skill_config(project, names, model_snapshot=None):
+    """点名执行：内存里收窄 stage_skills，不写 stage_config。"""
+    from orchestrator.workflow_settings import current
+    import orchestrator.skill_registry as skill_registry
+    config = dict(current(project, 'storyboard', model_snapshot=model_snapshot))
+    registry = skill_registry.default_registry(project=project)
+    paths, missing = [], []
+    for name in names:
+        item = registry.getById(name)
+        if item is None:
+            for entry in registry.getAll():
+                if str(getattr(entry, 'name', '') or '') == name:
+                    item = entry
+                    break
+        if item is None:
+            missing.append(name)
+            continue
+        paths.append(str(item.path))
+    if missing and not paths:
+        raise ValueError('没有这个技能或子引擎：/%s' % missing[0])
+    config['stage_skills'] = paths
+    config['skills'] = []
+    config['skill'] = ''
+    config['named_execution'] = True
+    config['named_skills'] = list(names)
+    return config
+
+
+def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, model_snapshot=None):
+    """批量准备分镜任务；实现留在发送模块，Desktop 只保留兼容包装。"""
+    project = desktop.root
+    if project is None:
+        return False
+    if _storyboard_prep_active(desktop):
+        return False
+    try:
+        from orchestrator.storyboard_selection import selected_many
+        scripts = list(selected_many(project, 'script'))
+        existing = list(selected_many(project, 'storyboard'))
+    except Exception as exc:
+        _say(desktop, '读取结构剧本输入失败：' + str(exc))
+        return False
+    request_text = str(request_text or '').strip()
+    named = [str(name) for name in only] if only else None
+    batch = {}
+    token = object()
+    desktop._storyboard_send_prep = True
+    desktop._storyboard_send_ticket = None
+    desktop._storyboard_send_token = token
+
+    def work():
+        try:
+            from stage_execution_service import storyboard_produced_scripts as produced_scripts
+            from orchestrator.workflow_tasks import storyboard_batch_prompt
+            made = produced_scripts(project)
+            already = [path for path in scripts if path in made]
+            prompt, followup = storyboard_batch_prompt(project, scripts, existing)
+            if request_text:
+                supplement = '\n补充要求：' + request_text
+                prompt = prompt + supplement
+                followup = followup + supplement
+            if named:
+                prompt = ('点名执行：只运行技能 ' + '、'.join(named)
+                          + '，不附带未点名的默认勾选。\n' + prompt)
+                followup = '点名执行：只运行技能 ' + '、'.join(named) + '。\n' + followup
+            batch.update(prompt=prompt, followup=followup, named=named)
+            if not already:
+                return ('ok', '正在启动分镜制作 agent…')
+            return ('ok', '已跳过 ' + str(len(already)) + ' 个已制作分镜的剧本：'
+                    + '、'.join(Path(path).name for path in already) + '；继续处理其余剧本／分镜。')
+        except Exception as exc:
+            return ('err', str(exc))
+
+    def finish(payload):
+        if not _clear_storyboard_prep(desktop, token):
+            return
+        if (desktop.root != project or getattr(desktop, 'shutting_down', False)
+                or not _window_alive(desktop)):
+            return
+        kind, value = payload if isinstance(payload, tuple) and len(payload) == 2 else ('ok', payload)
+        if kind == 'err':
+            _say(desktop, value)
+            return
+        config = None
+        if batch.get('named'):
+            try:
+                config = _named_skill_config(project, batch['named'], model_snapshot)
+            except Exception as exc:
+                _say(desktop, str(exc))
+                return
+        elif model_snapshot is not None:
+            from orchestrator.workflow_settings import current
+            try:
+                config = current(project, 'storyboard', model_snapshot=model_snapshot)
+            except Exception:
+                config = None
+        kwargs = {'_config': config} if config is not None else {}
+        desktop.open_flow_agent('storyboard', '初步分镜', batch['prompt'], batch['followup'], **kwargs)
+        if batch.get('named'):
+            _say(desktop, '点名执行：' + '、'.join(batch['named']) + '。' + str(value or ''))
+        else:
+            _say(desktop, value)
+
+    try:
+        ticket = desktop.async_(work, finish)
+    except Exception:
+        _clear_storyboard_prep(desktop, token)
+        raise
+    if getattr(desktop, '_storyboard_send_token', None) is token:
+        desktop._storyboard_send_ticket = ticket
+    return ticket
+
+
+def _start_storyboard_batch(desktop, project, request_text, named, model_snap):
+    """经 Desktop 的 L4 适配器进入统一阶段启动入口。"""
+    starter = getattr(desktop, 'start_storyboard_send', None)
+    if not callable(starter):
+        _say(desktop, '当前页面还没有分镜发送入口')
+        return False
+    return starter(project, request_text, named, model_snap) is True
+
+
 def _send_free(desktop, stage, text):
-    """自由文本：script 走剧本准备既有发送链（简报/制作锁/直连 API 全保留）。"""
+    """自由文本：script 走剧本准备既有发送链；storyboard 走 send_storyboard（S03 例外）。"""
     text = str(text or '').strip()
     if not text:
         return False
@@ -155,6 +429,8 @@ def _send_free(desktop, stage, text):
             sender()
         # send_message 只在真正受理时清空输入框；简报缺项等早退路径保留原文。
         return not _draft_text(desktop)
+    if stage == 'storyboard':
+        return send_storyboard(desktop, text)
     if stage not in FLOW_FOR_STAGE:
         if _run_stage_action(desktop, stage):
             return False    # 文字没有被使用：返回假值让输入框保留原文
@@ -214,7 +490,11 @@ def _no_entry_hint(stage, home, name):
 
 
 def _send_skill(desktop, stage, parsed):
-    """技能／用户包命令只在当前页的入口里执行，不换页（DOC-D8-7）；换页只认 ``/阶段``。"""
+    """技能／用户包命令只在当前页的入口里执行，不换页（DOC-D8-7）；换页只认 ``/阶段``。
+
+    初步分镜（S03）：点名技能走 ``send_storyboard(..., only=[name])``，只跑点名的那一个，
+    不读 ✦ 勾选、不改 stage_config；其余 flow 阶段仍走 ``_open_flow``。
+    """
     name = str(parsed.get('name') or '')
     rest = str(parsed.get('rest') or '').strip()
     home, path = _resolve_skill(desktop, parsed)
@@ -224,6 +504,8 @@ def _send_skill(desktop, stage, parsed):
     if not stage:
         _say(desktop, '请先打开一个制作阶段页面')
         return False
+    if stage == 'storyboard':
+        return send_storyboard(desktop, rest, only=[name])
     if stage not in FLOW_FOR_STAGE:
         _say(desktop, _no_entry_hint(stage, home, name))
         return False
@@ -304,6 +586,8 @@ def host_options(desktop):
                     app_logging.swallowed()
 
     return {'on_send': on_send,
+            'on_upstream_error': lambda project, stage, status=None: upstream_send_error(
+                project, stage, status),
             'on_attachment': lambda: _attachments(desktop),
             'on_voice': lambda button: _voice(desktop,
                                               getattr(desktop, 'shared_input').input,

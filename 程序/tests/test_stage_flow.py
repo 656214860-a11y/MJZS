@@ -543,7 +543,6 @@ class ManualLabelGuardTests(unittest.TestCase):
 
     PAGES = {
         'script_structure': ('手动制作结构剧本', 'ui/desktop_script_pages.py'),
-        'storyboard': ('手动制作分镜', 'ui/storyboard_files.py'),
         'assets': ('手动制作资产', 'ui/desktop_asset_pages.py'),
         'continuity': ('手动生成连贯性清单', 'ui/desktop_media_pages.py'),
         'final': ('手动同步资产', 'ui/storyboard_files.py'),
@@ -557,6 +556,7 @@ class ManualLabelGuardTests(unittest.TestCase):
     EXEMPTIONS = {
         'script': '剧本页的制作入口是底部输入框，按钮是有意删掉的（tests/test_manual_gate.py 守着）',
         'animatic': '页面按钮叫「生成分镜预演」，改名由发送链路那一项定',
+        'storyboard': 'REQ-S03-54：初步分镜制作入口改为共享输入框发送，按钮已删除',
     }
 
     def test_table_and_exemptions_cover_every_manual_label(self):

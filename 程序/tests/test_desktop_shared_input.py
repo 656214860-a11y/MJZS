@@ -4,7 +4,8 @@
 ``SharedStageInput.set_stage_action``／``stage_action``／``run_stage_action``：
 
 - 输入框空着点发送（或回车）＝执行当前阶段登记的动作，和点页面上的制作按钮是同一个入口；
-  这条路不过上游门禁、不清输入框、不动在途标记与模型快照；
+  其他阶段不过上游门禁、不清输入框、不动在途标记与模型快照；S03 空发送例外，
+  须过上游门禁、冻结模型快照并在受理后清稿，拒绝时保留原文；
 - 输入框有字时，没有对话流程的阶段（``desktop_shared_send._send_free``）照样执行并说明
   文字用不上，文字留在输入框；没登记的阶段保持原来的提示；
 - 这一阶段正在执行时不重复开动。
@@ -87,7 +88,7 @@ class EmptySendRunsStageActionTests(_StageActionCase):
         self.box.input.insert('1.0', '  \n')
         raw = self.box.input.get('1.0', 'end-1c')
         self.box.request_snapshot = mock.Mock(return_value='snapshot')
-        with mock.patch.object(shared_input, 'upstream_send_error',
+        with mock.patch.object(shared_send, 'upstream_send_error',
                                return_value='上游未完成') as gate:
             self.assertIs(self.box.send(), True)
         self.assertEqual(self.calls, ['make'])
@@ -157,6 +158,49 @@ class EmptySendRunsStageActionTests(_StageActionCase):
         self.assertFalse(self.box.in_flight)
 
 
+class StoryboardEmptySendTests(_StageActionCase):
+    """S03 空发送也过上游门禁并捕获模型快照；其他阶段保留原 stage_action 契约。"""
+
+    def setUp(self):
+        super().setUp()
+        self.box.set_stage('storyboard')
+        self.desktop.page_index = pet_bus.STAGES.index('storyboard')
+
+    def test_upstream_rejection_does_not_run_action_or_capture_model(self):
+        self.box.set_stage_action('storyboard', self.make)
+        self.box.input.insert('1.0', '  \n')
+        raw = self.box.input.get('1.0', 'end-1c')
+        self.box.request_snapshot = mock.Mock(return_value='snapshot')
+        with mock.patch.object(shared_send, 'upstream_send_error',
+                               return_value='请先确认结构剧本') as gate:
+            self.assertIs(self.box.send(), False)
+        gate.assert_called_once_with(self.desktop.root, 'storyboard', self.box.status)
+        self.assertEqual(self.calls, [])
+        self.box.request_snapshot.assert_not_called()
+        self.assertEqual(self.box.input.get('1.0', 'end-1c'), raw)
+        self.assertFalse(self.box.in_flight)
+
+    def test_accepted_empty_send_exposes_snapshot_then_releases_request(self):
+        seen = []
+        self.box.set_stage_action(
+            'storyboard', lambda: seen.append(self.box.request_model) or True)
+        self.box.request_snapshot = mock.Mock(return_value='snapshot')
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.assertIs(self.box.send(), True)
+        self.assertEqual(seen, ['snapshot'])
+        self.box.request_snapshot.assert_called_once_with()
+        self.assertIsNone(self.box.request_model)
+        self.assertFalse(self.box.in_flight)
+
+    def test_rejected_action_propagates_false_and_releases_request(self):
+        self.box.set_stage_action('storyboard', lambda: False)
+        self.box.request_snapshot = mock.Mock(return_value='snapshot')
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.assertIs(self.box.send(), False)
+        self.assertIsNone(self.box.request_model)
+        self.assertFalse(self.box.in_flight)
+
+
 class TextSendOnStageWithoutFlowTests(_StageActionCase):
     """输入框有字、阶段没有对话流程：登记了动作就执行并说明文字用不上；没登记保持原提示。"""
 
@@ -167,7 +211,7 @@ class TextSendOnStageWithoutFlowTests(_StageActionCase):
         seen = []
         self.box.set_stage_action(STAGE, lambda: seen.append(self.status()))
         self.box.set_text('帮我整理一下结构')
-        with mock.patch.object(shared_input, 'upstream_send_error', return_value=''):
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
             self.assertIs(self.box.send(), False)
         self.assertEqual(seen, [self.hint()], '说明先写、动作后跑，且只跑一次')
         self.assertEqual(self.status(), self.hint())
@@ -195,7 +239,7 @@ class TextSendOnStageWithoutFlowTests(_StageActionCase):
     def test_text_send_still_respects_the_upstream_gate(self):
         self.box.set_stage_action(STAGE, self.make)
         self.box.set_text('帮我整理一下结构')
-        with mock.patch.object(shared_input, 'upstream_send_error',
+        with mock.patch.object(shared_send, 'upstream_send_error',
                                return_value='请先完成/确认「剧本准备」阶段'):
             self.assertIs(self.box.send(), False)
         self.assertEqual(self.calls, [], '有字的发送仍先过上游门禁')
@@ -213,13 +257,20 @@ class TextSendOnStageWithoutFlowTests(_StageActionCase):
         self.assertEqual(self.calls, [])
         self.assertIn('「%s」阶段暂无对话入口' % pet_bus.stage_name('edit'), self.status())
 
-    def test_stages_with_a_flow_ignore_stage_actions(self):
-        self.box.set_stage_action('storyboard', self.make)
+    def test_other_flow_stages_still_ignore_stage_actions(self):
+        """S03 是唯一 flow 例外；其余 flow 阶段（如资产）仍忽略 stage_action、走 Agent。"""
+        self.box.set_stage_action('assets', self.make)
         self.assertIs(
-            shared_send.send(self.desktop, 'storyboard', '按这个节奏分镜', None), True)
-        self.assertEqual(self.calls, [], '有对话流程的阶段照旧走 Agent 流程')
+            shared_send.send(self.desktop, 'assets', '补几个角色', None), True)
+        self.assertEqual(self.calls, [], '非 S03 的 flow 阶段照旧走 Agent 流程')
         self.assertEqual(self.desktop.opened[0][:3],
-                         ('storyboard', '初步分镜', '按这个节奏分镜'))
+                         ('assets', '资产管理', '补几个角色'))
+
+    def test_run_stage_action_propagates_false(self):
+        self.box.set_stage_action(STAGE, lambda: False)
+        self.assertIs(self.box.run_stage_action(), False)
+        self.box.set_stage_action(STAGE, lambda: None)
+        self.assertIs(self.box.run_stage_action(), True)
 
     def test_skill_command_on_stage_without_flow_is_unchanged(self):
         skill = SimpleNamespace(name='结构整理', stage=STAGE,

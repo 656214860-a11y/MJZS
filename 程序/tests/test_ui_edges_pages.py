@@ -230,10 +230,8 @@ class UiEdgePagesTests(UiEdgeCase):
                 win.destroy()
 
     def test_step2_rows_hug_their_content_boxes(self):
-        """第 31 期第 4/5 条：03 初步分镜页，「刷新列表」那一行与「手动制作分镜」都要紧贴下方内容框。
-
-        内容框改用了没有标签行的 Tokens.Card.TFrame（空 TLabelframe 会白留约 19 像素），
-        所以按钮行到表格顶端的距离要落在十几像素以内（改前分别是 30 / 36 像素）。
+        """第 31 期第 4 条 + REQ-S03-54：03 初步分镜页「刷新列表」紧贴内容框；
+        「手动制作分镜」按钮已删除，改为共享输入框发送（有意修改的旧 UI 预期）。
         """
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
@@ -249,16 +247,10 @@ class UiEdgePagesTests(UiEdgeCase):
             from desktop import Desktop
             from local_video import open_studio
             from tkinter import ttk
-            d = Desktop(win, root=PROGRAM)
-            d.root = proj
-            d.studio = open_studio(proj)
-            d.cancel_timers()
             import desktop as desktop_module
             original = desktop_module.Desktop.choose_project
             desktop_module.Desktop.choose_project = lambda self: None
             self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
-            from desktop import Desktop
-            from local_video import open_studio
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
@@ -271,15 +263,15 @@ class UiEdgePagesTests(UiEdgeCase):
                 except Exception:
                     return ""
             def walk(w):
-                if w.winfo_class() in ("TButton", "Button"):      # 「手动制作分镜」是 tk.Button
+                if w.winfo_class() in ("TButton", "Button"):
                     buttons[str(w.cget("text"))] = w
                 if style_of(w) == "Tokens.Card.TFrame":
                     boxes.append(w)
                 for child in w.winfo_children():
                     walk(child)
             walk(d.content)
-            storyboard_actions = [button for text, button in buttons.items() if "分镜" in text]
-            self.assertTrue(storyboard_actions, "初步分镜页需要保留一个分镜工作流入口")
+            self.assertNotIn("手动制作分镜", buttons,
+                             "REQ-S03-54：页面不再保留「手动制作分镜」按钮")
             self.assertEqual(len(boxes), 2)
             def first_tree(w):
                 for c in w.winfo_children():
@@ -290,14 +282,14 @@ class UiEdgePagesTests(UiEdgeCase):
                         return found
                 return None
             toolbar = buttons["刷新列表"].master
-            agent = storyboard_actions[0]
             win.update()
             gap_top = first_tree(boxes[0]).winfo_rooty() - (toolbar.winfo_rooty() + toolbar.winfo_height())
-            gap_mid = first_tree(boxes[1]).winfo_rooty() - (agent.winfo_rooty() + agent.winfo_height())
             self.assertGreaterEqual(gap_top, 0, "内容框不能压到按钮行上")
-            self.assertGreaterEqual(gap_mid, 0, "内容框不能压到「手动制作分镜」上")
             self.assertLessEqual(gap_top, 14, "「刷新列表」那一行到内容框的距离要收紧（改前 30 像素）")
-            self.assertLessEqual(gap_mid, 16, "「手动制作分镜」到内容框的距离要收紧（改前 36 像素）")
+            shared = getattr(d, "shared_input", None)
+            self.assertIsNotNone(shared)
+            self.assertIsNotNone(shared.stage_action("storyboard"),
+                                 "初步分镜制作入口登记在共享输入框 stage_action")
 
     def test_page_level_model_and_skill_entries_are_gone(self):
         """第 29 期第 1／4 条、第 32 期第 6 条：重复的「Model ＋ SKILL」「配置线上视频 API」入口删掉；
@@ -341,7 +333,9 @@ class UiEdgePagesTests(UiEdgeCase):
             d.show(PAGE["script"]); win.update()
             self.assertFalse(hasattr(d, "idea_send"), "剧本页「发送」按钮已并入共享输入框")
             self.assertIsNone(d.stage_button, "剧本页行内「阶段配置」按钮已删")
-            manual = {PAGE["storyboard"]: "手动制作分镜",
+            # REQ-S03-54 有意修改的旧 UI 预期：初步分镜页「手动制作分镜」按钮已删，
+            # 制作入口改到共享输入框发送；本页主动作只剩「手动采用分镜」（Primary 按钮）。
+            manual = {PAGE["storyboard"]: "手动采用分镜",
                       PAGE["assets"]: "手动制作资产", PAGE["keyframe"]: "手动制作首帧",
                       PAGE["previs"]: "手动制作白模"}
             for index, label in sorted(manual.items()):

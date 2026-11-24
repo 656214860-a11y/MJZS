@@ -10,8 +10,10 @@ from unittest.mock import Mock
 import desktop_shared_send as shared_send
 import desktop_shared_input as shared_input
 import idea_chat
+import orchestrator.stage_flow as stage_flow
 from contract import pet_bus
 from desktop_page_nav import PageNavMixin
+from ui.desktop_pet_bridge import PetBridgeMixin
 from stage_execution_service import idea_chat_gateway, project_context
 from tests.ui_edges_support import make_minimal_project
 
@@ -42,6 +44,7 @@ class _Desktop:
         self.projects = SimpleNamespace(info={'projects': []})
         self.opened = []
         self.open_flow_agent = lambda *args, **kw: self.opened.append(args)
+        self.sync_stage_placeholder = lambda box, stage: shared_send.sync_stage_placeholder(box, stage)
         for key, value in kwargs.items():
             setattr(self, key, value)
 
@@ -77,10 +80,16 @@ class SendDispatchTests(unittest.TestCase):
         desktop = self._desktop(send_message=Mock(), draft_text=lambda: '未发送的字')
         self.assertFalse(shared_send.send(desktop, 'script', '我的新创意', None))
 
-    def test_storyboard_free_text_launches_flow_agent(self):
+    def test_storyboard_free_text_goes_through_send_storyboard(self):
+        """REQ-S03-54：初步分镜自由文本走 send_storyboard，不直接 _open_flow。"""
+        calls = []
         desktop = self._desktop(page_index=2)
-        self.assertTrue(shared_send.send(desktop, 'storyboard', '按这个节奏分镜', None))
-        self.assertEqual(desktop.opened[0][:3], ('storyboard', '初步分镜', '按这个节奏分镜'))
+        with unittest.mock.patch.object(
+                shared_send, 'send_storyboard',
+                side_effect=lambda d, text='', **kw: calls.append((d, text, kw)) or True):
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '按这个节奏分镜', None))
+        self.assertEqual(calls, [(desktop, '按这个节奏分镜', {})])
+        self.assertEqual(desktop.opened, [])
 
     def test_non_flow_stage_gets_hint_not_chat(self):
         desktop = self._desktop(page_index=pet_bus.STAGES.index('edit'))
@@ -92,7 +101,11 @@ class SendDispatchTests(unittest.TestCase):
         desktop = self._desktop(page_index=0)
         desktop.open_flow_agent = Mock(side_effect=lambda *a, **k: desktop.opened.append(a))
         parsed = {'kind': 'stage', 'name': 'storyboard', 'stage': 'storyboard', 'rest': '出分镜'}
-        self.assertTrue(shared_send.send(desktop, 'script', '/分镜 出分镜', parsed))
+        with unittest.mock.patch.object(
+                shared_send, 'send_storyboard',
+                side_effect=lambda d, text='', **kw: desktop.opened.append(
+                    ('storyboard', '初步分镜', text)) or True):
+            self.assertTrue(shared_send.send(desktop, 'script', '/分镜 出分镜', parsed))
         self.assertEqual(desktop.navigated, ['storyboard'])
         self.assertEqual(desktop.opened[0][0], 'storyboard')
 
@@ -149,10 +162,13 @@ class SendDispatchTests(unittest.TestCase):
                                 shared_input=SimpleNamespace(skill_items=lambda: [skill]))
         parsed = {'kind': 'stage', 'name': 'storyboard', 'stage': 'storyboard',
                   'rest': '/分镜技法 做三版'}
-        self.assertTrue(shared_send.send(desktop, 'script', '/初步分镜 /分镜技法 做三版', parsed))
+        named = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_storyboard',
+                side_effect=lambda d, text='', **kw: named.append((text, kw.get('only'))) or True):
+            self.assertTrue(shared_send.send(desktop, 'script', '/初步分镜 /分镜技法 做三版', parsed))
         self.assertEqual(desktop.navigated, ['storyboard'])
-        self.assertEqual(desktop.opened[0][:2], ('storyboard', '初步分镜'))
-        self.assertIn('分镜技法', desktop.opened[0][2])
+        self.assertEqual(named, [('做三版', ['分镜技法'])])
 
     def test_skill_command_outside_stage_pages_asks_for_a_stage(self):
         """不在制作阶段页面时不替用户挑阶段：提示先打开一个制作阶段页面。"""
@@ -180,11 +196,377 @@ class SendDispatchTests(unittest.TestCase):
         self.assertEqual(desktop.opened, [])
         self.assertIn('需要会员', desktop.status.get())
 
-    def test_open_flow_failure_returns_false_keeps_draft(self):
-        def boom(*args, **kwargs):
-            raise ValueError('引擎没装')
-        desktop = self._desktop(page_index=2, open_flow_agent=boom)
-        self.assertFalse(shared_send.send(desktop, 'storyboard', '文本', None))
+    def test_storyboard_send_failure_keeps_draft(self):
+        """初步分镜发送被拒时返回 False，由宿主保留输入框原文。"""
+        desktop = self._desktop(page_index=2)
+        with unittest.mock.patch.object(shared_send, 'send_storyboard', return_value=False):
+            self.assertFalse(shared_send.send(desktop, 'storyboard', '文本', None))
+        self.assertEqual(desktop.opened, [])
+
+    def test_storyboard_named_skill_ignores_checked_list(self):
+        """补充：勾选 [A,B] 发 /C → 只启动 C；不改 stage_config。"""
+        skill_c = SimpleNamespace(name='C', stage='storyboard',
+                                  path=Path('skills') / 'C.skill.md')
+        desktop = self._desktop(
+            page_index=2,
+            shared_input=SimpleNamespace(skill_items=lambda: [skill_c]))
+        calls = []
+        writes = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_storyboard',
+                side_effect=lambda d, text='', **kw: calls.append((text, kw.get('only'))) or True), \
+             unittest.mock.patch('orchestrator.stage_config.save',
+                                 side_effect=lambda *a, **k: writes.append(a)):
+            parsed = {'kind': 'skill', 'name': 'C', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/C', parsed))
+        self.assertEqual(calls, [('', ['C'])])
+        self.assertEqual(writes, [])
+
+    def test_storyboard_named_same_as_checked_still_only_once(self):
+        """补充：勾选 [A] 发 /A → 只启动 A 一次。"""
+        skill_a = SimpleNamespace(name='A', stage='storyboard',
+                                  path=Path('skills') / 'A.skill.md')
+        desktop = self._desktop(
+            page_index=2,
+            shared_input=SimpleNamespace(skill_items=lambda: [skill_a]))
+        calls = []
+        with unittest.mock.patch.object(
+                shared_send, 'send_storyboard',
+                side_effect=lambda d, text='', **kw: calls.append(kw.get('only')) or True):
+            parsed = {'kind': 'skill', 'name': 'A', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/A', parsed))
+        self.assertEqual(calls, [['A']])
+
+    def test_storyboard_empty_send_uses_checked_not_named(self):
+        """补充：空发送 only=None，由批量链按勾选顺序跑；不写 stage_config。"""
+        desktop = self._desktop(page_index=2)
+        seen = []
+        writes = []
+        with unittest.mock.patch.object(
+                shared_send, '_start_storyboard_batch',
+                side_effect=lambda d, project, text, named, snap: seen.append(named) or False), \
+             unittest.mock.patch('orchestrator.stage_config.save',
+                                 side_effect=lambda *a, **k: writes.append(a)):
+            self.assertFalse(shared_send.send_storyboard(desktop, ''))
+        self.assertEqual(seen, [None])
+        self.assertEqual(writes, [])
+
+
+class _Status:
+    def __init__(self):
+        self.text = ''
+
+    def set(self, text):
+        self.text = str(text)
+
+    def get(self):
+        return self.text
+
+
+class _Tasks:
+    def __init__(self):
+        self.active = set()
+
+    def accepts(self, ticket):
+        return ticket in self.active
+
+    def cancel(self, ticket):
+        return self.active.discard(ticket) is None
+
+
+class _SendDesktop(PetBridgeMixin):
+    """真实发送链的最小宿主：保留 L4 适配器与异步准备生命周期。"""
+
+    def __init__(self, root):
+        self.root = root
+        self.status = _Status()
+        self.win = SimpleNamespace(winfo_exists=lambda: True)
+        self.worker = False
+        self.shutting_down = False
+        self.account = None
+        self.pet = SimpleNamespace(bus=SimpleNamespace(begin_run=lambda stage: None))
+        self.background_tasks = _Tasks()
+        self.jobs = []
+        self.opened = []
+        self.skills = []
+        self.shared_input = SimpleNamespace(
+            request_model=None, skill_items=lambda: list(self.skills))
+
+    def safe(self, fn):
+        return fn()
+
+    def async_(self, work, finish):
+        ticket = len(self.jobs) + 1
+        self.jobs.append((work, finish))
+        self.background_tasks.active.add(ticket)
+        self.worker = True
+        return ticket
+
+    def open_storyboard_skill(self, key=None, **kwargs):
+        return shared_send.open_storyboard_skill(self, key, **kwargs)
+
+    def present_stage(self, presentation, text):
+        import desktop
+        return desktop._present_stage(self, presentation, text)
+
+    def open_flow_agent(self, stage, label, prompt, followup=None, **kwargs):
+        self.opened.append((stage, label, prompt, followup, kwargs))
+
+
+class StoryboardSendChainTests(unittest.TestCase):
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.project = Path(self.tmp.name) / 'project'
+        self.project.mkdir()
+        self.script = self.project / 'writing' / '第01集.md'
+        self.plan = {'scripts': [self.script], 'todo': [self.script], 'revise': []}
+
+    def desktop(self):
+        return _SendDesktop(self.project)
+
+    def finish(self, desktop, index=-1):
+        ticket = index + 1 if index >= 0 else len(desktop.jobs)
+        work, done = desktop.jobs[index]
+        payload = work()
+        done(payload)
+        desktop.worker = False
+        desktop.background_tasks.active.discard(ticket)
+        return payload
+
+    def registry_patches(self, plan=None):
+        return (
+            unittest.mock.patch('orchestrator.stage_handler_registry._workflow_lock_error',
+                                return_value=''),
+            unittest.mock.patch('orchestrator.stage_handler_registry.storyboard_work_plan',
+                                return_value=self.plan if plan is None else plan),
+        )
+
+    def selection_patches(self):
+        return (
+            unittest.mock.patch('orchestrator.storyboard_selection.selected_many',
+                                side_effect=lambda project, kind: [self.script] if kind == 'script' else []),
+            unittest.mock.patch('stage_execution_service.storyboard_produced_scripts',
+                                return_value=set()),
+            unittest.mock.patch('orchestrator.workflow_tasks.storyboard_batch_prompt',
+                                return_value=('原始规则', '后续规则')),
+        )
+
+    def test_named_unchecked_skill_runs_only_it_without_rewriting_config(self):
+        desktop = self.desktop()
+        skills = [SimpleNamespace(name=name, stage='storyboard', path=Path('skills') / (name + '.md'))
+                  for name in ('A', 'B', 'C')]
+        desktop.skills = skills
+        registry = Mock()
+        registry.getById.side_effect = lambda name: next(
+            (item for item in skills if item.name == name), None)
+        registry.getAll.return_value = skills
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.skill_registry.default_registry', return_value=registry), \
+                unittest.mock.patch('orchestrator.workflow_settings.current',
+                                    return_value={'skills': ['A', 'B'], 'stage_skills': ['a', 'b']}), \
+                unittest.mock.patch('orchestrator.stage_config.save') as save:
+            parsed = {'kind': 'skill', 'name': 'C', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/C', parsed))
+            self.finish(desktop)
+        self.assertEqual(len(desktop.opened), 1)
+        config = desktop.opened[0][4]['_config']
+        self.assertEqual(config['stage_skills'], [str(skills[2].path)])
+        self.assertEqual(config['skills'], [])
+        self.assertTrue(config['named_execution'])
+        self.assertEqual(config['named_skills'], ['C'])
+        self.assertIn('点名执行：C', desktop.status.get())
+        save.assert_not_called()
+
+    def test_named_checked_skill_runs_once_without_rewriting_config(self):
+        desktop = self.desktop()
+        skill = SimpleNamespace(name='A', stage='storyboard', path=Path('skills') / 'A.md')
+        desktop.skills = [skill]
+        registry = Mock()
+        registry.getById.return_value = skill
+        registry.getAll.return_value = [skill]
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.skill_registry.default_registry', return_value=registry), \
+                unittest.mock.patch('orchestrator.workflow_settings.current',
+                                    return_value={'skills': ['A'], 'stage_skills': ['a']}), \
+                unittest.mock.patch('orchestrator.stage_config.save') as save:
+            parsed = {'kind': 'skill', 'name': 'A', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/A', parsed))
+            self.finish(desktop)
+        self.assertEqual(len(desktop.opened), 1)
+        self.assertEqual(desktop.opened[0][4]['_config']['named_skills'], ['A'])
+        save.assert_not_called()
+
+    def test_named_skill_keeps_model_snapshot_without_rewriting_config(self):
+        desktop = self.desktop()
+        skill = SimpleNamespace(name='A', stage='storyboard', path=Path('skills') / 'A.md')
+        desktop.skills = [skill]
+        snapshot = ('snapshot', {'context_length': 8192})
+        desktop.shared_input.request_model = snapshot
+        registry = Mock()
+        registry.getById.return_value = skill
+        registry.getAll.return_value = [skill]
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.skill_registry.default_registry', return_value=registry), \
+                unittest.mock.patch('orchestrator.workflow_settings.current',
+                                    return_value={'model': 'snapshot', 'skills': ['A'],
+                                                  'stage_skills': ['a']}) as current, \
+                unittest.mock.patch('orchestrator.stage_config.save') as save:
+            parsed = {'kind': 'skill', 'name': 'A', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/A', parsed))
+            self.finish(desktop)
+        current.assert_called_once_with(self.project, 'storyboard', model_snapshot=snapshot)
+        config = desktop.opened[0][4]['_config']
+        self.assertEqual(config['model'], 'snapshot')
+        self.assertEqual(config['stage_skills'], [str(skill.path)])
+        self.assertEqual(config['named_skills'], ['A'])
+        save.assert_not_called()
+
+    def test_empty_send_preserves_checked_order_and_config(self):
+        import orchestrator.skill_registry as skill_registry
+        name = skill_registry.default_registry(project=self.project).getByStage('storyboard')[0].name
+        config_path = self.project / 'skill_config.json'
+        config_path.write_text(
+            json.dumps({'storyboard': {'skills': [name]}}, ensure_ascii=False), encoding='utf-8')
+        before = config_path.read_bytes()
+        desktop = self.desktop()
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.stage_config.save') as save:
+            self.assertTrue(shared_send.send_storyboard(desktop, ''))
+            self.finish(desktop)
+        self.assertEqual(len(desktop.opened), 1)
+        self.assertNotIn('_config', desktop.opened[0][4], '空发送不覆盖勾选配置')
+        self.assertNotIn('点名执行', desktop.opened[0][2])
+        self.assertEqual(stage_flow.selected_skills(self.project, 'storyboard'), [name])
+        self.assertEqual(config_path.read_bytes(), before, '空发送不改写勾选配置')
+        save.assert_not_called()
+
+    def test_send_snapshots_selected_files_model_and_supplement(self):
+        desktop = self.desktop()
+        selected = unittest.mock.patch(
+            'orchestrator.storyboard_selection.selected_many',
+            side_effect=lambda project, kind: [self.script] if kind == 'script' else [])
+        produced = unittest.mock.patch(
+            'stage_execution_service.storyboard_produced_scripts', return_value=set())
+        prompt = unittest.mock.patch(
+            'orchestrator.workflow_tasks.storyboard_batch_prompt',
+            return_value=('原始规则', '后续规则'))
+        current = unittest.mock.patch(
+            'orchestrator.workflow_settings.current', return_value={'model': 'snapshot'})
+        with selected as selected_many, produced, prompt as batch_prompt, current:
+            ticket = shared_send.open_storyboard_skill(
+                desktop, request_text='补充要求', model_snapshot='snapshot')
+            self.assertEqual(ticket, 1)
+            self.finish(desktop)
+        self.assertEqual(selected_many.call_args_list, [
+            unittest.mock.call(self.project, 'script'),
+            unittest.mock.call(self.project, 'storyboard')])
+        batch_prompt.assert_called_once_with(self.project, [self.script], [])
+        self.assertEqual(desktop.opened[0][2], '原始规则\n补充要求：补充要求')
+        self.assertEqual(desktop.opened[0][3], '后续规则\n补充要求：补充要求')
+        self.assertEqual(desktop.opened[0][4]['_config'], {'model': 'snapshot'})
+
+    def test_preparation_rejects_duplicate_and_allows_next_after_finish(self):
+        desktop = self.desktop()
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, prompt:
+            self.assertTrue(shared_send.send_storyboard(desktop, '第一次'))
+            self.assertFalse(shared_send.send_storyboard(desktop, '第二次'))
+            self.assertEqual(len(desktop.jobs), 1)
+            self.finish(desktop)
+            self.assertTrue(shared_send.send_storyboard(desktop, '第三次'))
+        self.assertEqual(len(desktop.jobs), 2)
+        self.assertEqual(len(desktop.opened), 1)
+
+    def test_preparation_failure_releases_and_can_retry(self):
+        desktop = self.desktop()
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        with lock, plan, selected, produced, \
+                unittest.mock.patch('orchestrator.workflow_tasks.storyboard_batch_prompt',
+                                    side_effect=[ValueError('准备失败'), ('prompt', 'followup')]):
+            self.assertTrue(shared_send.send_storyboard(desktop, '第一次'))
+            self.assertEqual(self.finish(desktop), ('err', '准备失败'))
+            self.assertEqual(desktop.opened, [])
+            self.assertFalse(getattr(desktop, '_storyboard_send_prep', False))
+            self.assertTrue(shared_send.send_storyboard(desktop, '重试'))
+        self.assertEqual(len(desktop.jobs), 2)
+
+    def test_switch_project_or_destroyed_window_drops_late_result(self):
+        for mode in ('switch', 'destroy'):
+            with self.subTest(mode=mode):
+                desktop = self.desktop()
+                selected, produced, prompt = self.selection_patches()
+                with selected, produced, prompt:
+                    shared_send.open_storyboard_skill(desktop)
+                    if mode == 'switch':
+                        desktop.root = Path(self.tmp.name) / 'other'
+                    else:
+                        desktop.win.winfo_exists = lambda: False
+                    self.finish(desktop)
+                self.assertEqual(desktop.opened, [])
+                self.assertFalse(getattr(desktop, '_storyboard_send_prep', False))
+
+    def test_cancelled_ticket_does_not_block_or_clear_new_preparation(self):
+        desktop = self.desktop()
+        selected, produced, prompt = self.selection_patches()
+        with selected, produced, prompt:
+            shared_send.open_storyboard_skill(desktop, request_text='旧')
+            self.assertTrue(desktop.background_tasks.cancel(1))
+            desktop.worker = False
+            shared_send.open_storyboard_skill(desktop, request_text='新')
+            self.assertEqual(len(desktop.jobs), 2)
+            old_work, old_done = desktop.jobs[0]
+            old_done(old_work())
+            self.assertEqual(desktop.opened, [])
+            self.assertTrue(getattr(desktop, '_storyboard_send_prep', False))
+            self.finish(desktop, 1)
+        self.assertEqual(len(desktop.opened), 1)
+        self.assertIn('补充要求：新', desktop.opened[0][2])
+
+    def test_no_project_unselected_all_done_cancel_and_configure_do_not_start(self):
+        desktop = self.desktop()
+        desktop.root = None
+        self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
+        self.assertEqual(desktop.jobs, [])
+        desktop.root = self.project
+        for plan in ({'scripts': [], 'todo': [], 'revise': []},
+                     {'scripts': [self.script], 'todo': [], 'revise': []}):
+            lock, plan_patch = self.registry_patches(plan)
+            with self.subTest(plan=plan), lock, plan_patch:
+                self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
+        self.assertEqual(desktop.jobs, [])
+        lock, plan = self.registry_patches()
+        with lock, plan, \
+                unittest.mock.patch('orchestrator.stage_models.plan', return_value=None), \
+                unittest.mock.patch('orchestrator.stage_models.open_config') as configure:
+            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
+            configure.assert_not_called()
+        with lock, plan, \
+                unittest.mock.patch('orchestrator.stage_models.plan', return_value='configure'), \
+                unittest.mock.patch('orchestrator.stage_models.open_config') as configure:
+            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
+            configure.assert_called_once_with(desktop, 'storyboard')
+        import orchestrator.stage_models as stage_models
+        desktop = self.desktop()
+        with lock, plan, \
+                unittest.mock.patch('orchestrator.stage_models.plan', return_value='run'), \
+                unittest.mock.patch.object(stage_models, 'SELF_TEST', False), \
+                unittest.mock.patch.object(stage_models, 'ASKER', return_value=True), \
+                unittest.mock.patch('orchestrator.stage_config.get', return_value={'model': 'auto'}), \
+                unittest.mock.patch('orchestrator.stage_models.open_model_dropdown') as model:
+            self.assertFalse(shared_send.send_storyboard(desktop, '草稿'))
+            model.assert_called_once_with(desktop)
+        self.assertEqual(desktop.jobs, [])
 
 
 class SharedInputHostTests(unittest.TestCase):
