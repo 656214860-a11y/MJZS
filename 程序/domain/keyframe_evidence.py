@@ -12,11 +12,50 @@ from contract.platform_tools import run_process, tool_path
 _DECODED = OrderedDict()
 _LOCK = threading.Lock()
 _FRAME_FIELDS = frozenset(('frame', 'frame_deleted', 'frame_evidence'))
+# 过期口径收窄（DOC-D9-3 / Q5）：只有会影响画面生成的改动才算过期——提示词、时长、资产引用；
+# 名字／别名／标题等展示性改动不进口径。``narrow=False`` 是旧口径，供旧证据记录兼容用。
+# 镜头侧口径与首帧实际送模内容对齐（keyframe_batch.frame_prompt＋batch_frames.shot_inputs）：
+# ordinary_props 会被内联进首帧提示词，asset_bindings 是资产图的镜头级回退来源，二者都影响画面。
+_SHOT_PICTURE_FIELDS = ('id', 'duration', 'characters', 'location', 'props', 'first_frame_assets',
+                        'ordinary_props', 'asset_bindings', 'video_prompt', 'frame_prompt',
+                        'keyframe_prompt', 'first_frame_prompt', 'image_prompt')
+# appearance 是清单里 description 的同义回退名（contract.prop_assets.normalize_shot），同属外观要求。
+_METADATA_PICTURE_FIELDS = ('description', 'appearance', 'character_anchor', 'base_anchor',
+                            'state_variants', 'physical_features', 'video_prompt', 'image_prompt',
+                            'negative_prompt')
+_DISPLAY_ONLY = frozenset(('title',))
 
 
 def _digest(value):
     return hashlib.sha256(json.dumps(value, ensure_ascii=False, sort_keys=True,
                                      separators=(',', ':')).encode()).hexdigest()
+
+
+def _creative_payload(episode, narrow):
+    """过期比对用的「分镜内容」：``narrow`` 只留会影响画面生成的字段。"""
+    creative = dict(episode)
+    if narrow:
+        for key in _DISPLAY_ONLY:
+            creative.pop(key, None)
+    rows = []
+    for row in creative.get('shots') or ():
+        if not isinstance(row, dict):
+            continue
+        if narrow:
+            rows.append({key: row[key] for key in _SHOT_PICTURE_FIELDS if key in row})
+        else:
+            rows.append({key: value for key, value in row.items() if key not in _FRAME_FIELDS})
+    creative['shots'] = rows
+    return creative
+
+
+def _metadata_digest(row, narrow):
+    """引用资产行的「元数据」指纹：``narrow`` 只留会影响画面生成的字段，名字／别名不算。"""
+    if not isinstance(row, dict):
+        return _digest(row)
+    if narrow:
+        return _digest({key: row[key] for key in _METADATA_PICTURE_FIELDS if key in row})
+    return _digest({key: value for key, value in row.items() if key not in ('_registry_base', 'image')})
 
 
 def _file_hash(path):
@@ -90,12 +129,14 @@ def image_facts(image):
     return dict(facts)
 
 
-def source_evidence(source, episode, shot):
-    """Bind creative source and referenced assets, excluding generated frame state."""
+def _source_record(source, episode, shot, narrow):
+    """Bind creative source and referenced assets, excluding generated frame state.
+
+    ``narrow`` 为 True 走收窄后的过期口径（只影响画面的字段）；False 是旧口径，供旧证据
+    兼容：旧记录按旧口径登记过且来源未变时，旧口径重算一次即可判定未过期。
+    """
     from domain.asset_context import references
-    creative = dict(episode)
-    creative['shots'] = [{k: v for k, v in row.items() if k not in _FRAME_FIELDS}
-                         for row in episode.get('shots', ())]
+    creative = _creative_payload(episode, narrow)
     assets = []
     if list(references(shot)):
         from agent.shot_assets import assets as resolve_assets, asset_rows
@@ -108,12 +149,17 @@ def source_evidence(source, episode, shot):
         for ref in refs:
             row = {k: v for k, v in rows.get(ref['id'], {}).items()
                    if k not in ('_registry_base', 'image')}
-            assets.append({'id': ref['id'], 'metadata': _digest(row),
+            assets.append({'id': ref['id'], 'metadata': _metadata_digest(row, narrow),
                            'sha256': _file_hash(ref['path']) if ref.get('path') else None})
     return {'storyboard_sha256': _digest(creative), 'shot_id': shot.get('id'),
             'prompt_sha256': _digest({k: shot.get(k) for k in
                 ('frame_prompt', 'keyframe_prompt', 'first_frame_prompt', 'image_prompt')}),
             'references': assets}
+
+
+def source_evidence(source, episode, shot):
+    """当前（收窄后）来源证据：只含会影响画面生成的分镜与资产字段。"""
+    return _source_record(source, episode, shot, True)
 
 
 def _check_dimensions(facts, expected_size=None, aspect_ratio=None):
@@ -136,7 +182,11 @@ def make_evidence(source, episode, shot, image, *, expected_size=None,
     _check_dimensions(facts, expected_size, aspect_ratio)
     current = source_evidence(source, episode, shot)
     if frozen_source is not None and current != frozen_source:
-        raise ValueError('生成期间分镜或参考资产已变化，图片保留但需重新导入确认')
+        # 旧任务记录按旧口径登记过：旧口径重算一次，源未变则视为兼容未过期。
+        if _source_record(source, episode, shot, False) == frozen_source:
+            current = frozen_source
+        else:
+            raise ValueError('生成期间分镜或参考资产已变化，图片保留但需重新导入确认')
     return {'version': 1, 'image': facts, 'source': current,
             'expected_size': list(expected_size) if expected_size is not None else None,
             'aspect_ratio': aspect_ratio or ''}
@@ -159,7 +209,8 @@ def frame_problem(source, episode, shot, image, *, aspect_ratio=None):
             return '首帧来源校验记录损坏，请重新导入确认'
         if any(not row.get('sha256') for row in references):
             return '首帧引用资产缺少可核对版本，请补齐资产后重新导入确认'
-        if record != source_evidence(source, episode, shot):
+        if record != source_evidence(source, episode, shot) and \
+                record != _source_record(source, episode, shot, False):
             return '首帧来源分镜、提示词或参考资产已变化，待重新导入复核'
         return ''
     except (ValueError, OSError, TypeError, KeyError, AttributeError, IndexError) as exc:

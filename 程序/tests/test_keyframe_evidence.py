@@ -72,12 +72,48 @@ class KeyframeEvidenceTests(unittest.TestCase):
     def test_source_and_prompt_changes_require_review(self):
         self.receipt()
         original = copy.deepcopy(self.episode)
-        for scope, key, value in (('episode', 'title', 'new'), ('shot', 'frame_prompt', '新街道')):
-            self.episode = copy.deepcopy(original)
-            self.shot = self.episode['shots'][0]
-            target = self.episode if scope == 'episode' else self.shot
-            target[key] = value
-            self.assertIn('来源', self.problem())
+        self.episode = copy.deepcopy(original)
+        self.shot = self.episode['shots'][0]
+        self.shot['frame_prompt'] = '新街道'
+        self.assertIn('来源', self.problem())
+        # 过期口径收窄（DOC-D9-3 / Q5）：只影响画面的改动才判过期；展示性改动不算。
+        self.episode = copy.deepcopy(original)
+        self.shot = self.episode['shots'][0]
+        self.episode['title'] = 'new'
+        self.assertEqual(self.problem(), '')
+
+    def test_asset_name_or_alias_change_alone_is_not_stale(self):
+        save(self.root / 'assets.json', {'CHAR_001': {'name': '主角', 'image': 'reference.png'}})
+        ref = self.root / 'reference.png'
+        ref.write_bytes(png())
+        self.shot['characters'] = ['CHAR_001']
+        self.receipt()
+        self.assertEqual(self.problem(), '')
+        save(self.root / 'assets.json', {'CHAR_001': {'name': '改名后的主角', 'aliases': ['旧称'],
+                                                       'image': 'reference.png'}})
+        self.assertEqual(self.problem(), '')
+
+    def test_appearance_requirement_change_is_stale(self):
+        save(self.root / 'assets.json', {'CHAR_001': {'name': '主角', 'image': 'reference.png'}})
+        ref = self.root / 'reference.png'
+        ref.write_bytes(png())
+        self.shot['characters'] = ['CHAR_001']
+        self.receipt()
+        self.assertEqual(self.problem(), '')
+        save(self.root / 'assets.json', {'CHAR_001': {'name': '主角', 'description': '新服装',
+                                                       'image': 'reference.png'}})
+        self.assertIn('来源', self.problem())
+
+    def test_legacy_source_record_with_unchanged_source_is_not_stale(self):
+        self.receipt()
+        legacy = evidence._source_record(self.source, self.episode, self.shot, False)
+        self.shot['frame_evidence'] = {'version': 1, 'image': evidence.image_facts(self.image),
+                                      'source': legacy, 'expected_size': [16, 9], 'aspect_ratio': ''}
+        save(self.source, self.episode)
+        self.assertEqual(self.problem(), '')
+        self.shot['frame_prompt'] = '改了'
+        save(self.source, self.episode)
+        self.assertIn('来源', self.problem())
 
     def test_generated_references_do_not_invalidate_other_shots(self):
         self.episode['shots'].append({'id': 'SH002', 'frame': 'frames/SH002.png'})
@@ -115,7 +151,8 @@ class KeyframeEvidenceTests(unittest.TestCase):
         generated = self.root / 'generated.png'
         generated.write_bytes(png())
         self.image.unlink()
-        self.episode['title'] = 'changed while generating'
+        self.shot['frame_prompt'] = 'changed while generating'
+        item['shot_signature'] = fingerprint(self.shot)
         save(self.source, self.episode)
         with self.assertRaisesRegex(ValueError, '分镜或参考资产'):
             register(self.source, item, generated)

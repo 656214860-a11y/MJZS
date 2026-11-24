@@ -284,7 +284,9 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
             item = {'shot_id': 'SH001', 'shot_signature': fingerprint(shot),
                     'source_evidence': evidence.source_evidence(src, episode, shot)}
             # 签名没变、但来源内容（整集／提示词／参考资产）变了 → 同样不采用。
-            episode['title'] = '换稿了'
+            # 过期口径收窄（DOC-D9-3 / Q5）：整集标题属展示性改动，不再判过期（见
+            # test_keyframe_evidence）；这里改用「整集新增一镜」代表整集内容变化。
+            episode['shots'].append({'id': 'SH002', 'frame_prompt': '换稿了'})
             save(src, episode)
             with self.assertRaisesRegex(ValueError, '分镜或参考资产'):
                 register(src, item, generated)
