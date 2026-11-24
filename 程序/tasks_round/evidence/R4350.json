@@ -1,0 +1,15 @@
+{
+  "round": 4350,
+  "commit_base": "82e396a27",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_detail asset_versions desktop_asset_pages ui_edges_pages",
+    "exit": 0,
+    "passed": 128,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T20:01:14"
+}

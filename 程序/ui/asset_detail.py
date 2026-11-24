@@ -17,6 +17,7 @@
 
 界面只读资产清单、只写资产清单（asset_plan.update_fields）；不自己拼 JSON，也不另开第二份数据源。
 """
+import difflib
 import json
 import tkinter as tk
 from pathlib import Path
@@ -556,6 +557,246 @@ def _usage_block(desktop, aid, asset=None):
     return box
 
 
+_SOURCE_BADGES = {'generated': '生成', 'imported': '导入', 'manual': '手改'}
+_VERSION_ROWS = 20
+_COMPARE_THUMB = 240
+
+
+def _version_line(key, fields):
+    if key not in fields:
+        return key + '：（这一版没有）'
+    value = fields[key]
+    if not isinstance(value, str):
+        value = json.dumps(value, ensure_ascii=False)
+    return key + '：' + value
+
+
+def _evolution_block(desktop, aid, asset=None):
+    """演变记录块（AST-VERSION-2／DOC-D9-2）：使用情况之后、原始 JSON 之前。
+
+    详情页打开时才读版本文件：先摆占位让页面先画出来，一拍后再建行；
+    读失败只降级一行提示，不阻断本页其余块。
+    """
+    box = Card(desktop.content)
+    ttk.Label(box, text='演变记录').pack(anchor='w')
+    box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+    host = ttk.Frame(box)
+    host.pack(fill='x')
+    HintLabel(host, text='版本记录读取中…').pack(anchor='w')
+    def populate():
+        if not host.winfo_exists():
+            return
+        try:
+            from domain.asset_versions import list_versions
+            records = list_versions(desktop.root, aid)
+        except Exception:
+            records = None
+        for child in host.winfo_children():
+            child.destroy()
+        if records is None:
+            DescriptionBlock(host, text='版本记录暂时读不出，不影响本页其他内容。').pack(anchor='w')
+        elif not records:
+            DescriptionBlock(host, text='暂无历史').pack(anchor='w')
+        else:
+            _version_rows(desktop, aid, host, records)
+    win = getattr(desktop, 'win', None)
+    if win is not None:
+        win.after_idle(populate)
+    else:
+        populate()
+    return box
+
+
+def _version_rows(desktop, aid, host, records):
+    """版本行：勾选框＋版本号＋时间＋来源徽标＋一句话；默认最近 20 条可展开全部。"""
+    from domain.asset_versions import describe
+    state = {'expanded': False, 'vars': {}}
+    def build():
+        for child in host.winfo_children():
+            child.destroy()
+        state['vars'] = {}
+        shown = records if state['expanded'] else records[-_VERSION_ROWS:]
+        for record in shown:
+            line = ttk.Frame(host)
+            line.pack(fill='x', anchor='w', pady=SPACING['xs'])
+            var = tk.BooleanVar(value=False)
+            state['vars'][record.get('version')] = var
+            ttk.Checkbutton(line, variable=var).pack(side='left')
+            ttk.Label(line, text='v' + str(record.get('version'))).pack(side='left')
+            HintLabel(line, text='　' + str(record.get('at') or '')).pack(side='left')
+            source = _SOURCE_BADGES.get(record.get('source'), record.get('source') or '')
+            HintLabel(line, text='　' + source).pack(side='left')
+            ttk.Label(line, text='　' + describe(record), justify='left',
+                      wraplength=TEXT_DESC['wraplength']).pack(side='left')
+        bar = ttk.Frame(host)
+        bar.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+        SecondaryButton(bar, text='并排对比', command=lambda: desktop.safe(
+            lambda: _compare_pick(desktop, aid, records, state['vars']))).pack(side='left')
+        SecondaryButton(bar, text='退回此版', command=lambda: desktop.safe(
+            lambda: _restore_pick(desktop, aid, records, state['vars']))).pack(
+                side='left', padx=SPACING['sm'])
+        if len(records) > _VERSION_ROWS and not state['expanded']:
+            SecondaryButton(bar, text='展开全部（共 %d 条）' % len(records),
+                            command=lambda: (state.__setitem__('expanded', True),
+                                             build())).pack(side='left')
+    build()
+
+
+def _checked(vars_):
+    return [n for n, var in vars_.items() if var.get()]
+
+
+def _compare_pick(desktop, aid, records, vars_):
+    chosen = _checked(vars_)
+    if len(chosen) != 2:
+        desktop.status.set('勾选两条记录再并排对比')
+        return None
+    return compare_versions(desktop, aid, records, chosen[0], chosen[1])
+
+
+def _restore_pick(desktop, aid, records, vars_):
+    chosen = _checked(vars_)
+    if len(chosen) != 1:
+        desktop.status.set('勾选一条记录再退回')
+        return None
+    return restore_to_version(desktop, aid, chosen[0], records)
+
+
+def _version_image(desktop, summary):
+    """版本记录里的图片摘要 → 缩略图；图不在资产库或那一版没有图给 ``None``。"""
+    if not isinstance(summary, dict):
+        return None
+    rel = str(summary.get('path') or '')
+    if not rel:
+        return None
+    base = _base(desktop)
+    path = (base / rel).resolve()
+    if not path.is_file() or not path.is_relative_to(base):
+        return None
+    return asset_thumbs.thumbnail(desktop.win, path, _COMPARE_THUMB)
+
+
+def compare_versions(desktop, aid, records, a, b):
+    """两版并排对比（只读）：文字左右两栏 difflib 逐行高亮；图片左右缩略图并排。"""
+    from domain.asset_versions import snapshot_at
+    snap_a, snap_b = snapshot_at(records, a), snapshot_at(records, b)
+    fields_a, fields_b = snap_a['fields'], snap_b['fields']
+    keys = sorted(set(fields_a) | set(fields_b))
+    left_lines = [_version_line(key, fields_a) for key in keys]
+    right_lines = [_version_line(key, fields_b) for key in keys]
+    win = BaseDialog(desktop.win, aid + ' · 第 %s 版 ↔ 第 %s 版' % (a, b), modal=False)
+    panes = ttk.Frame(win.content)
+    panes.pack(fill='both', expand=True)
+    left = TextArea(panes, wrap='none', height=TEXT_ROWS['xl'],
+                    bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                    width=CHAR_WIDTH['3xl'] * 4)
+    right = TextArea(panes, wrap='none', height=TEXT_ROWS['xl'],
+                     bg=COLORS['background_card'], fg=COLORS['text_primary'],
+                     width=CHAR_WIDTH['3xl'] * 4)
+    left.tag_configure('diff', foreground=COLORS['danger_text'])
+    right.tag_configure('diff', foreground=COLORS['success_text'])
+    for item in difflib.ndiff(left_lines, right_lines):
+        code, text = item[:2], item[2:]
+        if code == '- ':
+            left.insert('end', text + '\n', 'diff')
+            right.insert('end', '\n')
+        elif code == '+ ':
+            left.insert('end', '\n')
+            right.insert('end', text + '\n', 'diff')
+        elif code == '  ':
+            left.insert('end', text + '\n')
+            right.insert('end', text + '\n')
+    for pane in (left, right):
+        pane.configure(state='disabled')
+        pane.pack(side='left', fill='both', expand=True,
+                  padx=(SPACING['none'], SPACING['sm']))
+    if 'image' in snap_a or 'image' in snap_b:
+        row = ttk.Frame(win.content)
+        row.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+        for title, snap in (('第 %s 版' % a, snap_a), ('第 %s 版' % b, snap_b)):
+            cell = ttk.Frame(row)
+            cell.pack(side='left', padx=SPACING['sm'])
+            ttk.Label(cell, text=title).pack(anchor='w')
+            image = _version_image(desktop, snap.get('image'))
+            if image is not None:
+                label = ttk.Label(cell, image=image)
+                label.image = image
+                label.pack(anchor='w')
+            else:
+                HintLabel(cell, text='（那一版没有图）' if snap.get('image') is None
+                          else '（图已不在资产库）').pack(anchor='w')
+    win.add_action('关闭', win.close)
+    return win
+
+
+def _short(value):
+    text = value if isinstance(value, str) else json.dumps(value, ensure_ascii=False)
+    text = text.replace('\n', ' ')
+    return text if len(text) <= 40 else text[:39] + '…'
+
+
+def _restore_preview(desktop, aid, asset, snap, n):
+    """确认窗正文：列出将被覆盖的当前内容（字段与图片）。"""
+    lines = ['退回第 %d 版后，下面的当前内容会被覆盖（演变记录本身一条不删）：' % n]
+    for key in sorted(snap['fields']):
+        target = snap['fields'][key]
+        if target is None and key not in asset:
+            continue
+        if target is not None and asset.get(key) == target:
+            continue
+        lines.append('%s：%s → %s' % (
+            key, _short(asset.get(key)) if key in asset else '（没有）',
+            _short(target) if target is not None else '（删除）'))
+    if 'image' in snap:
+        from domain.asset_versions import image_summary
+        base = _base(desktop)
+        rel = ''
+        try:
+            registry = read(base / 'assets.json')
+            if isinstance(registry, dict):
+                rel = str((registry.get(aid) or {}).get('image') or '')
+        except (OSError, ValueError):
+            pass
+        current = image_summary((base / rel).resolve(), base) if rel else None
+        target = snap['image']
+        same = (isinstance(target, dict) and current
+                and target.get('sha256') == current.get('sha256'))
+        if not same:
+            lines.append('图片：%s → %s' % (
+                rel or '（没有图）', (target or {}).get('path') or '（没有图）'))
+    if len(lines) == 1:
+        lines.append('（当前内容与这一版一致，只追加一条退回记录）')
+    return '\n'.join(lines)
+
+
+def restore_to_version(desktop, aid, n, records=None):
+    """「退回此版」：确认窗列出将被覆盖的当前内容；确认后走 restore_version。"""
+    from domain import asset_versions
+    asset = desktop.asset_requirements().get(aid) or {}
+    if asset.get('locked'):
+        notify(desktop.win, aid + ' 已锁定：先解锁再退回历史版本。',
+               level='error', title='无法退回', status=desktop.status, modal=False)
+        return None
+    if records is None:
+        records = asset_versions.list_versions(desktop.root, aid)
+    preview = _restore_preview(desktop, aid, asset,
+                               asset_versions.snapshot_at(records, n), n)
+    if not ask_confirmation(desktop.win, '退回第 %d 版' % n, preview, dangerous=True):
+        return None
+    from stage_execution_service import asset_batch_gateway
+    base = (desktop.asset_write_base() if hasattr(desktop, 'asset_write_base')
+            else _base(desktop))
+    try:
+        record = asset_versions.restore_version(base, aid, n,
+                                                gateway=asset_batch_gateway())
+    except (ValueError, TypeError) as exc:
+        notify(desktop.win, str(exc), level='error', title='无法退回',
+               status=desktop.status, modal=False)
+        return None
+    _complete(desktop, aid, '已退回第 %d 版（当前内容已覆盖，旧记录一条没删）' % n)
+    return record
+
+
 def _raw_block(desktop, aid):
     """区域 6：原始 JSON（折叠；只读，便于核对）。"""
     holder = ttk.Frame(desktop.content)
@@ -622,6 +863,7 @@ def show(desktop, aid):
     else:
         _role_block(desktop, aid, asset)
     _usage_block(desktop, aid, asset)
+    _evolution_block(desktop, aid, asset)
     _raw_block(desktop, aid)
     return aid
 
