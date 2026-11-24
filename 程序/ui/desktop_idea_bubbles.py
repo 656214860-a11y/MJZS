@@ -35,6 +35,28 @@ def _choice_pick_key(host, row, raw_text):
             str(row.get('at') or ''), str(raw_text or ''))
 
 
+def _undoable_overwrite(box, text):
+    """全删＋重写收成一次可撤销动作（REQ-S01-107 草稿不丢）：覆盖前把原稿
+    压进撤销栈，Ctrl+Z 一次找回；输入框不支持 undo 时退回原样写。
+    ``autoseparators`` 会把删、插各拆一步，合并须临时关掉再补显式分隔。"""
+    try:
+        box.edit_separator()
+    except tk.TclError:
+        box.delete('1.0', 'end')
+        box.insert('1.0', text)
+        return
+    try:
+        box.configure(autoseparators=False)
+        box.delete('1.0', 'end')
+        box.insert('1.0', text)
+    finally:
+        try:
+            box.configure(autoseparators=True)
+            box.edit_separator()
+        except tk.TclError:
+            pass
+
+
 def _embed_choice_card(host, box, row, raw_text, candidates, truncated):
     """在气泡下嵌入可点选项卡；点选后把选项文字写入输入框并发送。"""
     picks = getattr(host, '_choice_picks', None)
@@ -48,8 +70,7 @@ def _embed_choice_card(host, box, row, raw_text, candidates, truncated):
         picks[key] = str(label)
         entry = getattr(host, 'idea_input', None)
         if entry is not None and entry.winfo_exists():
-            entry.delete('1.0', 'end')
-            entry.insert('1.0', str(label))
+            _undoable_overwrite(entry, str(label))
         host.safe(host.send_message)
 
     request = hitl.make_request(hitl.RequestKind.CHOICE, {
@@ -247,7 +268,8 @@ class IdeaBubblesMixin:
         text=str(rows[index].get('text') or '')
         box=getattr(self,'idea_input',None)
         if not text or box is None or not box.winfo_exists():return None
-        box.delete('1.0','end');box.insert('1.0',text);box.focus_set()
+        # 回退覆盖是可撤销动作：原稿进撤销栈，Ctrl+Z 找回（REQ-S01-107）。
+        _undoable_overwrite(box,text);box.focus_set()
         self.status.set('已把这条消息放回输入框，修改后可重新发送')
         return text
     def quote_bubble_message(self,index):

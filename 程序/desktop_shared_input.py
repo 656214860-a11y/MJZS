@@ -23,7 +23,8 @@ import infra.app_logging as app_logging
 import domain.skill_command as skill_command
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus
-from ui.desktop_shared_menus import AddMenuPanel, CandidatePopup, SkillPickPanel
+from ui.desktop_shared_menus import (AddMenuPanel, CandidatePopup, SkillPickPanel,
+                                     _MenuFlow)
 from ui_popup import apply_noactivate, make_passive_popup, monitor_bounds
 from ui.ui_shortcuts import ShortcutRegistry
 from ui_tokens import (COLORS, FONTS, ICON_ADD, ICON_MICROPHONE, ICON_SEND, ICON_SKILL,
@@ -35,31 +36,6 @@ SHORTCUT_SCOPE = 'shared_input'
 SKILL_CARD_WRAP = 300
 # 发送键承载的阶段制作动作：这一阶段正在执行时不重复开动（%s＝阶段名）。
 STAGE_ACTION_BUSY = '「%s」正在执行，请等这一轮结束再点发送。'
-
-
-def _widget_path(widget):
-    """控件的 Tk 路径：Widget 取 ``_w``；``event.widget`` 在被点控件随绑定销毁时
-    回退成路径字符串（R3040），两种形态统一成路径再比较。"""
-    if widget is None:
-        return ''
-    path = getattr(widget, '_w', None)
-    return str(path) if path else str(widget)
-
-
-def _widget_within(widget, ancestor):
-    """widget 是否落在 ancestor 子树内（place 出去的浮层也是它的子孙）。
-
-    按路径判：``wpath == apath`` 或以 ``apath + '.'`` 开头；ancestor 为根 ``.``
-    时恒真。销毁控件的事件回退字符串与活控件走同一规则，不再依赖 ``.master`` 链
-    （字符串没有 master，旧写法对它恒 False，曾把面板内点击误判成外部点击）。
-    """
-    wpath = _widget_path(widget)
-    apath = _widget_path(ancestor)
-    if not wpath or not apath:
-        return False
-    if apath == '.':
-        return True
-    return wpath == apath or wpath.startswith(apath + '.')
 
 
 def project_root(desktop):
@@ -119,6 +95,70 @@ def _composer_shell(parent):
     return ring, box
 
 
+class _FlowTextArea(TextArea):
+    """共享输入框的本地编辑区（REQ-S01-107）：原生 ``undo``/``autoseparators``
+    只开在这一个框上，不全局改 ``TextArea``、不影响附件路径控制器等其他框。
+
+    Tk 文本改动统一走 ``insert``/``delete``（键入、IME 提交、粘贴、语音写入、
+    程序化改写、撤销重做同路），改动后回调宿主把候选重扫与行高自适应合并
+    成一次空闲刷新——``<<Modified>>`` 不能依赖：页面绑定不带 ``add='+'``，
+    会顶掉先挂的处理器。"""
+
+    def __init__(self, master, **kwargs):
+        self._on_flow_edit = None
+        super().__init__(master, undo=True, autoseparators=True, **kwargs)
+        # Ctrl+A/Z/Y 的控件绑定由宿主经 ShortcutRegistry 登记（Tk 的 Text 类绑定
+        # 不保证这三个键，Entry 才有）；本类只提供处理入口。
+
+    def _do_undo(self, _event=None):
+        try:
+            self.edit_undo()
+        except tk.TclError:
+            pass
+        return 'break'
+
+    def _do_redo(self, _event=None):
+        try:
+            self.edit_redo()
+        except tk.TclError:
+            pass
+        return 'break'
+
+    def _do_select_all(self, _event=None):
+        try:
+            self.tag_add('sel', '1.0', 'end-1c')
+            self.mark_set('insert', '1.0')
+            self.see('insert')
+        except tk.TclError:
+            pass
+        return 'break'
+
+    def _flow_notify(self):
+        callback = self._on_flow_edit
+        if callback is not None:
+            callback()
+
+    def insert(self, index, chars, *tags):
+        result = super().insert(index, chars, *tags)
+        self._flow_notify()
+        return result
+
+    def delete(self, index1, index2=None):
+        result = super().delete(index1, index2)
+        self._flow_notify()
+        return result
+
+    def edit_undo(self):
+        result = super().edit_undo()
+        self._flow_notify()
+        return result
+
+    def edit_redo(self):
+        result = super().edit_redo()
+        self._flow_notify()
+        return result
+
+
 def _row_icon(row, glyph, command):
     """工具行左侧图标钮（✦／＋／麦克风同款）：无边框字形钮，左对齐排布。"""
     button = SecondaryButton(row, text=glyph, width=0,
@@ -127,30 +167,65 @@ def _row_icon(row, glyph, command):
     return button
 
 
-class _CandidateFlow:
+class _CandidateFlow(_MenuFlow):
     """``/`` 与 ``@`` 光标级候选流（R2980）：触发 token 扫描 → 候选条目 →
     光标锚定自绘浮层的采纳与文本替换。
 
     ``SharedStageInput`` 继承本类；只依赖宿主已建好的 ``input``／``stage``／
     ``desktop``／``status`` 与 ``skill_items``／``engine_names``／``send`` 等
-    既有入口，拆出只为把宿主类压回复杂度棘轮线以内。
+    既有入口，拆出只为把宿主类压回复杂度棘轮线以内。菜单侧辅助
+    （面板开合、说明卡生命周期、技能行内容、输入区行高）继续经
+    ``_MenuFlow``（``ui.desktop_shared_menus``）拆出。
     """
 
     # ── ``/`` 与 ``@`` 候选（R2980：光标级触发 token → 光标锚定自绘浮层） ──
-    def _on_trigger_key(self, _event):
-        """``/``、``@`` 键按下：等默认插入完成后重扫光标处触发 token。"""
+    def _schedule_refresh(self):
+        """文本改动／几何变化合并成单个 ``after_idle`` 刷新（REQ-S01-107：
+        一波连续输入只扫一轮；切页／销毁取消待执行回调）。"""
+        if self._refresh_job is not None:
+            return
         try:
-            self.after_idle(self._refresh_candidates)
+            self._refresh_job = self.after_idle(self._run_pending_refresh)
+        except Exception:
+            self._refresh_job = None
+            app_logging.swallowed()
+
+    def _cancel_pending_refresh(self):
+        job = self._refresh_job
+        self._refresh_job = None
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                app_logging.swallowed()
+
+    def _flush_pending_refresh(self):
+        """Enter／发送走同步判定前，把排队中的重扫先就地跑完（否则刚敲的
+        ``/`` 还没开候选，Enter 就把 token 发出去了）。"""
+        if self._refresh_job is None:
+            return
+        self._cancel_pending_refresh()
+        self._run_pending_refresh()
+
+    def _run_pending_refresh(self):
+        self._refresh_job = None
+        try:
+            self._refresh_candidates()
         except Exception:
             app_logging.swallowed()
+        try:
+            self._fit_input_height()
+        except Exception:
+            app_logging.swallowed()
+
+    def _on_trigger_key(self, _event):
+        """``/``、``@`` 键按下：等默认插入完成后重扫光标处触发 token。"""
+        self._schedule_refresh()
         return None
 
     def _on_button_release(self, _event):
         """鼠标点击移动光标不产生 KeyRelease：同样重扫，锚点跟随光标。"""
-        try:
-            self.after_idle(self._refresh_candidates)
-        except Exception:
-            app_logging.swallowed()
+        self._schedule_refresh()
         return None
 
     def _raw_text(self):
@@ -172,15 +247,47 @@ class _CandidateFlow:
     def _on_key_release(self, event):
         if event.keysym in ('Up', 'Down', 'Return', 'Escape', 'Tab', 'ISO_Left_Tab'):
             return
-        self._refresh_candidates()
+        self._schedule_refresh()
+
+    def _ime_composing(self):
+        """输入法组词／选词进行中（best-effort）：Tk 拿不到 IME 组合态，
+        只能靠 KeyPress 探针（keycode 229／keysym ``process``）猜；
+        测试与宿主可替换本判定，真机覆盖以 Windows 拼音人工项为准。"""
+        return bool(self._composing)
+
+    def _on_ime_probe(self, event):
+        """KeyPress 探针：组词期常见的 process-key（keycode 229）记为组词中，
+        其余按键复位；返回 None 不消费事件，默认插入照常。"""
+        try:
+            if (getattr(event, 'keycode', 0) == 229
+                    or getattr(event, 'keysym', '') == 'process'):
+                self._composing = True
+            else:
+                self._composing = False
+        except Exception:
+            self._composing = False
+        return None
+
+    def _on_escape(self, event):
+        """Esc 分层消费：组词中先交输入法；有浮层收一层回 ``'break'``；
+        无浮层放行给同组件后绑的宿主绑定（剧本页运行中 Esc＝终止），
+        空闲 Esc 不动输入框、不清草稿。"""
+        if self._ime_composing():
+            return None
+        return self.close_completion()
 
     def _on_return(self, event):
         """Enter 发送（Shift+Enter 换行）；候选开着先采纳当前项不发送（R2980）。
 
         返回 ``'break'`` 拦截同组件上后绑的页面级 Enter 绑定（如剧本页 send_on_enter），
         保证 13 页共用同一条发送路径；Shift+Enter 返回 None 放行默认换行。
+        REQ-S01-107：发送前先把排队中的重扫跑完（刚敲 ``/`` 弹出的候选不会被
+        漏判）；输入法组词确认中的 Enter 既不采纳候选也不发任务。
         """
         if getattr(event, 'state', 0) & 0x1:
+            return None
+        self._flush_pending_refresh()
+        if self._ime_composing():
             return None
         if self.candidates.open and self.candidates.entries:
             entry = self.candidates.selected()
@@ -189,6 +296,25 @@ class _CandidateFlow:
                 return 'break'
         self.send()
         return 'break'
+
+    def _atomic_edit(self, writer):
+        """把 ``writer()`` 里连续的 insert/delete 收成一次可撤销动作：
+        ``autoseparators`` 会把删、插各自断开，要合并必须临时关掉自动
+        分隔、操作前后再补显式分隔符；框不支持 undo 时退回原样执行。"""
+        try:
+            self.input.edit_separator()
+        except tk.TclError:
+            writer()
+            return
+        try:
+            self.input.configure(autoseparators=False)
+            writer()
+        finally:
+            try:
+                self.input.configure(autoseparators=True)
+                self.input.edit_separator()
+            except tk.TclError:
+                pass
 
     def _refresh_candidates(self):
         """重扫光标处 ``/``／``@`` token：命中按类别取候选重建浮层，否则收掉。"""
@@ -217,18 +343,30 @@ class _CandidateFlow:
             self.candidates.close()
 
     def _mention_entries(self, query):
-        """``@`` 候选（R2980）：仅剧本准备页，列已入库附件的显示名。"""
+        """``@`` 候选（R2980）：仅剧本准备页，列已入库附件的显示名。
+
+        REQ-S01-107：入库清单按（项目, 阶段）缓存，连续按键不重复扫盘；
+        采纳登记新引用或切阶段时失效重取。"""
         if self.stage != 'script':
             return ()
         project = self.project
         if project is None:
             return ()
+        key = (str(project), self.stage)
+        cached = self._mention_cache
+        if cached is None or cached[0] != key:
+            try:
+                from stage_execution_service import stage_idea_attachment_paths
+                paths = tuple(stage_idea_attachment_paths(project))
+            except Exception:
+                app_logging.swallowed()
+                return ()
+            self._mention_cache = (key, paths)
         needle = str(query or '').strip().lower()
         entries = []
         try:
             from domain.idea_attachments import display_name
-            from stage_execution_service import stage_idea_attachment_paths
-            for path in stage_idea_attachment_paths(project):
+            for path in self._mention_cache[1]:
                 name = display_name(path)
                 if needle and needle not in name.lower():
                     continue
@@ -255,8 +393,11 @@ class _CandidateFlow:
             # 不吃会出现「/name  后文」双空格；换行不吃（不粘连行）。
             if self.input.get(end) in (' ', '\t'):
                 end = self.input.index(end + ' + 1 char')
-            self.input.delete(start, end)
-            self.input.insert(start, insert)
+            # 补全插入收成一次可撤销动作：「删 token＋插 /name 」并成一步，
+            # Ctrl+Z 一次退回采纳前文本（REQ-S01-107）。
+            self._atomic_edit(
+                lambda: (self.input.delete(start, end),
+                         self.input.insert(start, insert)))
             body = insert.rstrip()
             if body:
                 tag_end = self.input.index('%s + %d chars' % (start, len(body)))
@@ -319,24 +460,9 @@ class _CandidateFlow:
             return
         try:
             add(str(path))
+            self._mention_cache = None  # 新引用入库：@ 候选清单下轮重取
         except Exception:
             app_logging.swallowed()
-
-    def _on_input_configure(self, event=None):
-        if event is not None and getattr(event, 'widget', None) is not self:
-            return
-        if self.candidates.open:
-            try:
-                self.after_idle(self.candidates.place)
-            except Exception:
-                app_logging.swallowed()
-        for panel in (getattr(self, 'skill_panel', None),
-                      getattr(self, 'add_panel', None)):
-            if panel is not None and panel.is_open():
-                try:
-                    self.after_idle(panel.place_panel)
-                except Exception:
-                    app_logging.swallowed()
 
     def close_completion(self):
         """关闭候选浮层与 ✦／＋ 图标下拉（Esc／失焦／切页共用入口）；
@@ -349,33 +475,6 @@ class _CandidateFlow:
         return None
 
     # ── 悬停说明卡：与技能行／候选行同一行、行右侧紧贴（Devin 式，R2971 定版） ──
-    def _hide_skill_card(self):
-        self._cancel_skill_card_hide()
-        card = getattr(self, '_skill_card', None)
-        self._skill_card = None
-        if card is not None:
-            try:
-                card.destroy()
-            except Exception:
-                app_logging.swallowed()
-
-    def _schedule_skill_card_hide(self):
-        """离开技能行延迟收说明卡：给鼠标移向卡片留 200ms 窗口。"""
-        self._cancel_skill_card_hide()
-        try:
-            self._skill_card_hide_id = self.after(200, self._hide_skill_card)
-        except Exception:
-            app_logging.swallowed()
-
-    def _cancel_skill_card_hide(self):
-        job = getattr(self, '_skill_card_hide_id', None)
-        self._skill_card_hide_id = None
-        if job:
-            try:
-                self.after_cancel(job)
-            except Exception:
-                app_logging.swallowed()
-
     def _show_skill_card(self, item, owner):
         """悬停卡片：与 ``owner``（技能行／候选行）同一行、在行右侧紧贴显示；
         右缘出屏翻到行左侧，纵向对行中心，最后钳进屏幕（R2971 定版）。"""
@@ -468,6 +567,12 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 导入新 skill 或切阶段后失效。
         self._skills_cache = None
         self._engines_cache = None
+        # REQ-S01-107：文本/几何改动合并成单个 after_idle 刷新；销毁前取消。
+        self._refresh_job = None
+        # （项目根, 阶段）→ 草稿原文：13 页共用一个 Text，各阶段草稿互不覆盖。
+        self._drafts = {}
+        # 输入法组词探针状态（best-effort，真机覆盖见验收文件）。
+        self._composing = False
         self._build()
 
     # ── 构建 ────────────────────────────────────────────────────────────
@@ -483,9 +588,10 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 附件不再独占卡片行——上传/引用以「@原名」行内文本落在输入框顶部引用区。
         # 输入区去内框线（highlightthickness=0）；width=1：Text 默认按 80 字符报需求宽
         # （≈672px）会顶爆 stage_area 需求宽、面板在最小窗被挤成 1px，实际宽由 fill 决定。
-        self.input = TextArea(
+        self.input = _FlowTextArea(
             box, height=TEXT_ROWS['sm'], wrap='word', highlightthickness=0, width=1,
             placeholder='输入指令或补充要求，输入 / 调用技能（Enter 发送，Shift+Enter 换行）')
+        self.input._on_flow_edit = self._schedule_refresh
         self.input.pack(fill='x')
         for seq, color in (('<FocusIn>', COLORS['border_input_hover']),
                            ('<FocusOut>', COLORS['border_default'])):
@@ -537,22 +643,33 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 鼠标点光标不触发 KeyRelease：ButtonRelease 同样重扫触发 token。
         self.input.bind('<ButtonRelease>', self._on_button_release, add='+')
         self.input.bind('<Return>', self._on_return, add='+')
+        # 输入法组词探针（REQ-S01-107：Tk 拿不到 IME 状态，靠 keycode/keysym 尽力猜）。
+        self.input.bind('<KeyPress>', self._on_ime_probe, add='+')
         # 候选开着时：上下键选、Tab 采纳、失焦收掉、窗口重排跟随锚定（DSH 行为）。
         self.input.bind('<Up>', self.candidates.key, add='+')
         self.input.bind('<Down>', self.candidates.key, add='+')
         self.input.bind('<Tab>', self.candidates.key, add='+')
         self.input.bind('<FocusOut>', self.candidates.focus_out, add='+')
+        self.input.bind('<FocusOut>',
+                        lambda _e: setattr(self, '_composing', False), add='+')
         self.bind('<Configure>', self._on_input_configure, add='+')
         # ``/`` 与 ``@`` 触发、``Esc`` 关闭都走宿主 ShortcutRegistry 登记（任务书轮 3／R2980）。
         self.shortcuts.bind(self.input, ('/',), self._on_trigger_key,
                             scope=SHORTCUT_SCOPE, name='slash_completion')
         self.shortcuts.bind(self.input, ('@',), self._on_trigger_key,
                             scope=SHORTCUT_SCOPE, name='mention_completion')
-        self.shortcuts.bind(self.input, ('<Escape>',),
-                            lambda _e: self.close_completion(),
+        self.shortcuts.bind(self.input, ('<Escape>',), self._on_escape,
                             scope=SHORTCUT_SCOPE, name='dismiss_completion')
         self.shortcuts.bind(self.input, ('<KP_Enter>',), self._on_return,
                             scope=SHORTCUT_SCOPE, name='send_on_enter')
+        # Tk 的 Text 类绑定不保证 Ctrl+A/Z/Y（Entry 才有），显式补齐标准编辑键；
+        # 与 / 触发、Esc 同走 ShortcutRegistry 登记，不落 <Control-> 直绑字面量。
+        self.shortcuts.bind(self.input, ('<Control-Key-z>',), self.input._do_undo,
+                            scope=SHORTCUT_SCOPE, name='edit_undo')
+        self.shortcuts.bind(self.input, ('<Control-Key-y>',), self.input._do_redo,
+                            scope=SHORTCUT_SCOPE, name='edit_redo')
+        self.shortcuts.bind(self.input, ('<Control-Key-a>',), self.input._do_select_all,
+                            scope=SHORTCUT_SCOPE, name='select_all')
         self._sync_model_label()
         sync = getattr(self.desktop, 'sync_stage_placeholder', None)
         if callable(sync):
@@ -563,9 +680,36 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
     def project(self):
         return project_root(self.desktop)
 
+    def _draft_key(self):
+        root = self.project
+        return (str(root) if root is not None else '', self.stage)
+
+    def _preserve_draft(self):
+        """切走前把本阶段草稿原文按（项目, 阶段）存仓（REQ-S01-107：
+        13 页共用一个 Text，各阶段草稿互不覆盖；发送成功或用户删空才清）。"""
+        self._drafts[self._draft_key()] = self._raw_text()
+
+    def _restore_draft(self):
+        """恢复本阶段草稿原文（无存稿则清空）。阶段切换是上下文恢复不是
+        编辑动作：撤销栈先清零，避免 Ctrl+Z 把别页草稿倒灌回本页。"""
+        text = self._drafts.get(self._draft_key(), '')
+        try:
+            self.input.edit_reset()
+        except tk.TclError:
+            pass
+        self.input.delete('1.0', 'end')
+        self.input.insert('1.0', text)
+        try:
+            self.input.mark_set('insert', 'end-1c')
+        except tk.TclError:
+            pass
+
     def set_stage(self, stage):
-        """切页只换上下文：不重建实例，只刷新模型下拉框、补全候选与占位提示。"""
+        """切页只换上下文：先把旧阶段草稿存仓，再恢复新阶段草稿，其余照旧
+        ——不重建实例，只刷新模型下拉框、补全候选与占位提示。"""
+        self._preserve_draft()
         self.stage = str(stage or 'script')
+        self._mention_cache = None
         picker = getattr(self, 'model_picker', None)
         if picker is not None:
             try:
@@ -575,6 +719,8 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
                 app_logging.swallowed()
         # R2942：换页先收掉补全弹层（锚点与候选都变），并让技能/引擎缓存下轮重取。
         self.close_completion()
+        self._cancel_pending_refresh()
+        self._restore_draft()
         self._skills_cache = None
         self._engines_cache = None
         self._sync_model_label()
@@ -629,133 +775,6 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             return opener()
         return ''
 
-    def _show_panel(self, panel):
-        """图标下拉互斥展开：先收 / 补全与另一个面板；已开着再点图标＝收起。"""
-        self.candidates.close()
-        self._active_token = None
-        other = self.add_panel if panel is self.skill_panel else self.skill_panel
-        if other.is_open():
-            other.hide()
-        panel.toggle()
-        self._hide_skill_card()
-
-    def _hide_panels(self):
-        """收掉 ✦／＋ 两个图标下拉与悬停说明卡；返回是否有面板原本开着。"""
-        hidden = False
-        for panel in (getattr(self, 'skill_panel', None),
-                      getattr(self, 'add_panel', None)):
-            if panel is not None and panel.is_open():
-                panel.hide()
-                hidden = True
-        self._hide_skill_card()
-        return hidden
-
-    def _panel_outside_click(self, event):
-        """点在面板与它的图标钮之外：收掉开着的下拉（图标钮开合走 command）。"""
-        widget = getattr(event, 'widget', None)
-        for panel in (getattr(self, 'skill_panel', None),
-                      getattr(self, 'add_panel', None)):
-            if panel is None or not panel.is_open():
-                continue
-            if _widget_within(widget, panel):
-                continue
-            anchors = [anchor for anchor in panel.anchor_widgets()
-                       if anchor is not None]
-            if any(_widget_within(widget, anchor) for anchor in anchors):
-                continue
-            panel.hide()
-            self._hide_skill_card()
-
-    def _release_panel_click(self, event):
-        """输入框销毁时摘掉整窗 ``<Button-1>`` 监听，不留指向死控件的绑定。"""
-        if event.widget is not self:
-            return
-        top = getattr(self, '_panel_click_top', None)
-        funcid = getattr(self, '_panel_click_id', None)
-        try:
-            if top is not None and funcid:
-                top.unbind('<Button-1>', funcid)
-        except Exception:
-            app_logging.swallowed()
-
-    @staticmethod
-    def _skill_name(item):
-        """技能规范名：``Skill`` 对象取 ``.name``、字典取 ``name``、字符串原样——
-        不取 ``str(item)`` 的 ``Skill(name @ stage)`` repr，也不映射别名。"""
-        if isinstance(item, dict):
-            return str(item.get('name') or '')
-        name = getattr(item, 'name', None)
-        if name is not None:
-            return str(name)
-        return str(item or '')
-
-    @staticmethod
-    def _skill_display(item):
-        """列表行只显示技能包原始 ``name``（REQ-S01-91），不拼 displayName。"""
-        return SharedStageInput._skill_name(item) or '（未命名技能）'
-
-    def _skill_stage(self, item):
-        """技能归属阶段 id（``stage_id`` 归一）：显式 ``stage`` 字段优先，
-        缺失按名回查注册表；判不出返回 ``''``。"""
-        stage = item.get('stage') if isinstance(item, dict) else getattr(item, 'stage', None)
-        if not stage:
-            name = self._skill_name(item)
-            if name:
-                try:
-                    import skill_registry
-                    found = skill_registry.default_registry().getById(name)
-                    stage = getattr(found, 'stage', None) if found is not None else None
-                except Exception:
-                    app_logging.swallowed()
-        if not stage:
-            return ''
-        try:
-            import skill_registry
-            return skill_registry.stage_id(stage)
-        except Exception:
-            return str(stage)
-
-    def _skill_defaultable(self, item):
-        """可设为本阶段默认：项目已开 且 归属阶段==当前阶段（R3040：
-        跨阶段与判不出阶段的行不给会永远写不进的死勾选框）。"""
-        if self.project is None:
-            return False
-        own = self._skill_stage(item)
-        if not own:
-            return False
-        try:
-            import skill_registry
-            return own == skill_registry.stage_id(self.stage)
-        except Exception:
-            return own == self.stage
-
-    def _skill_list_items(self):
-        """当前阶段技能在前、其余在后；去重、限量。"""
-        try:
-            import orchestrator.skill_registry as skill_registry
-            registry = skill_registry.default_registry(project=self.project)
-            current = list(registry.getByStage(self.stage))
-            seen = {self._skill_name(item) for item in current if self._skill_name(item)}
-            others = [item for item in registry.getAll()
-                      if self._skill_name(item) and self._skill_name(item) not in seen]
-            return (current + others)[:20]
-        except Exception:
-            app_logging.swallowed()
-            return list(self.skill_items())[:20]
-
-    def _default_skills(self):
-        """当前阶段在三虎默认里的 skill 名单（stage_config 条目的 skills 字段）。"""
-        try:
-            import orchestrator.stage_config as stage_config
-            project = self.project
-            if project is None:
-                return []
-            entry = stage_config.get(project, self.stage) or {}
-            return list(entry.get('skills') or [])
-        except Exception:
-            app_logging.swallowed()
-            return []
-
     def _toggle_skill_default(self, name):
         """勾选/取消本阶段默认 skill：写回 stage_config（三虎自动流程按此执行）。"""
         import orchestrator.stage_config as stage_config
@@ -783,36 +802,6 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
                 sync(name)
             else:
                 panel.refresh()
-
-    def _skill_description(self, item):
-        """悬停说明：字典取 ``description``；``Skill`` 对象直接读属性（``str(item)``
-        是 ``Skill(name @ stage)`` repr，不能拿去 ``getById`` 查——R2971 修正）。"""
-        if isinstance(item, dict):
-            return str(item.get('description') or '')
-        desc = getattr(item, 'description', None)
-        if desc is not None:
-            return str(desc)
-        try:
-            import orchestrator.skill_registry as skill_registry
-            registry = skill_registry.default_registry(project=self.project)
-            found = registry.getById(SharedStageInput._skill_name(item))
-            if found is not None:
-                return str(getattr(found, 'description', '') or '')
-        except Exception:
-            app_logging.swallowed()
-        return ''
-
-    def _pick_skill(self, item):
-        """点击技能：把 ``/技能名`` 写进输入框并聚焦（不自动发送）。"""
-        name = self._skill_name(item)
-        self._hide_panels()
-        if name:
-            self.set_text('/' + name + ' ')
-            try:
-                self.input.focus_set()
-                self.input.mark_set('insert', 'end-1c')
-            except Exception:
-                app_logging.swallowed()
 
     def _import_skill_repo(self):
         """从仓库地址导入（＋ 菜单「添加技能…」下钻）：走 skill_import_service 同一管线。"""
@@ -912,6 +901,8 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             self.input.delete('1.0', 'end')
         except Exception:
             app_logging.swallowed()
+        # 用户删空＝放弃本阶段草稿（REQ-S01-107）：存仓里这份一并清掉。
+        self._drafts.pop(self._draft_key(), None)
         # 文本清空后触发 token 失效：候选浮层与图标下拉一并收掉（R2980）。
         self.close_completion()
 
@@ -928,7 +919,13 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             return None
 
     def send(self):
-        """发送门禁 → 命令解析 → 快照捕获 → 宿主 ``on_send``；返回是否受理。"""
+        """发送门禁 → 命令解析 → 快照捕获 → 宿主 ``on_send``；返回是否受理。
+
+        REQ-S01-107：在途派遣未结束不受理新发送（连点 Enter／按钮、
+        ``on_send`` 内重入只算一次）；同步拒绝与异步失败都不动草稿。"""
+        if self.in_flight:
+            return False
+        self._flush_pending_refresh()
         value = self.text()
         if not value:
             # 空输入框＝执行当前阶段登记的发送动作。S03 仍须过上游门禁并冻结模型，
@@ -965,3 +962,8 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.in_flight = False
         self.request_model = None
         self._sync_model_label()
+
+    def destroy(self):
+        """销毁前取消待执行刷新：``after_idle`` 回调不再触碰已销毁控件。"""
+        self._cancel_pending_refresh()
+        super().destroy()

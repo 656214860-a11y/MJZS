@@ -9,6 +9,7 @@ from types import SimpleNamespace
 import desktop_shared_input as shared_input
 import desktop_shared_send as shared_send
 from ui_shortcuts import ShortcutRegistry
+from unittest import mock
 
 
 def _descendants(widget):
@@ -105,6 +106,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         box.set_text('/')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='/'))
+        self.win.update()
         self.assertEqual(box.candidates.entries[0]['label'], '/mine-skill')
         box.close_completion()
 
@@ -118,11 +120,13 @@ class SharedInputLayoutTests(unittest.TestCase):
                 box.set_text(text)
                 self._caret_end(box)
                 box._on_key_release(SimpleNamespace(keysym='x'))
+                self.win.update()
                 self.assertFalse(box.candidates.open, text)
         box.set_text('帮我 /sto 一下')
         self._caret_end(box)
         box.input.mark_set('insert', '1.7')  # 光标落在 /sto 词尾
         box._on_key_release(SimpleNamespace(keysym='o'))
+        self.win.update()
         self.assertTrue(box.candidates.open, '行中 / 同样触发候选')
 
     def test_midline_slash_stays_plain_text_on_send(self):
@@ -132,6 +136,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         self._caret_end(box)
         box.input.mark_set('insert', '1.7')
         box._on_key_release(SimpleNamespace(keysym='o'))
+        self.win.update()
         self.assertTrue(box.candidates.open)
         entry = next(e for e in box.candidates.entries if e['name'] == 'storyboard')
         box._apply_candidate(entry)
@@ -145,14 +150,17 @@ class SharedInputLayoutTests(unittest.TestCase):
         box.set_text('/')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='/'))
+        self.win.update()
         all_count = len(box.candidates.entries)
         box.set_text('/zzz-no-match')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='z'))
+        self.win.update()
         self.assertFalse(box.candidates.open, '无命中时浮层收掉')
         box.set_text('/sto')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='o'))
+        self.win.update()
         self.assertTrue(box.candidates.open)
         self.assertLess(len(box.candidates.entries), all_count, '继续输入实时过滤')
 
@@ -161,6 +169,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         box.set_text('/')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='/'))
+        self.win.update()
         popup = box.candidates
         self.assertTrue(popup.open)
         self.assertGreaterEqual(len(popup.entries), 2)
@@ -184,6 +193,7 @@ class SharedInputLayoutTests(unittest.TestCase):
         box.set_text('/')
         self._caret_end(box)
         box._on_key_release(SimpleNamespace(keysym='/'))
+        self.win.update()
         box._apply_candidate(box.candidates.entries[0])
         ranges = box.input.tag_ranges('shared_token')
         self.assertTrue(ranges, '插入体应带 shared_token 底色 tag')
@@ -203,6 +213,7 @@ class SharedInputLayoutTests(unittest.TestCase):
             box.set_text('@人')
             self._caret_end(box)
             box._on_key_release(SimpleNamespace(keysym='r'))
+            self.win.update()
             self.assertTrue(box.candidates.open)
             entry = box.candidates.entries[0]
             self.assertEqual(entry['kind'], 'attachment')
@@ -217,6 +228,7 @@ class SharedInputLayoutTests(unittest.TestCase):
             box.set_text('@')
             self._caret_end(box)
             box._on_key_release(SimpleNamespace(keysym='@'))
+            self.win.update()
             self.assertFalse(box.candidates.open, '其他阶段页 @ 不弹菜单')
 
     def test_send_blocked_when_upstream_blank(self):
@@ -984,6 +996,370 @@ class CandidateHintCardTests(unittest.TestCase):
                         f'✦ 列表行应带行内说明：{panel_texts}')
         self.assertIsNotNone(box._skill_card, '展开 ✦ 面板后应默认弹出右侧说明卡')
         self.assertEqual(self._card_text(box), first_desc)
+
+
+class SharedInputFlowDefectTests(unittest.TestCase):
+    """UX-INPUT-FLOW（REQ-S01-107）：连续输入、候选选择、多行编辑、防误发与草稿不丢。
+
+    全部真 Tk 隐藏桌面＋临时项目目录；Windows 拼音组词不在自动化覆盖内，
+    人工验收项见结果文件（此处只钉「组词中事件不消费」的接口行为）。
+    """
+
+    def setUp(self):
+        self.win = tk.Tk()
+        self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'project'
+        self.root.mkdir()
+        self.desktop = SimpleNamespace(root=self.root,
+                                       status=tk.StringVar(master=self.win, value=''),
+                                       win=self.win)
+        self.sent = []
+
+    def _options(self, **over):
+        options = {'on_send': lambda text, parsed: self.sent.append((text, parsed)) or True,
+                   'on_upstream_error': shared_send.upstream_send_error,
+                   'skills': [SimpleNamespace(name='mine-skill', stage='storyboard',
+                                              description='用途甲')],
+                   'engines': ()}
+        options.update(over)
+        return options
+
+    def _make(self, **kwargs):
+        options = self._options(**kwargs.pop('options', {}))
+        box = shared_input.SharedStageInput(self.win, desktop=self.desktop,
+                                            options=options, **kwargs)
+        box.pack(fill='x')
+        self.win.update_idletasks()
+        self.addCleanup(box.destroy)
+        return box
+
+    def _make_bottom(self, **kwargs):
+        """输入框贴窗口底部（与 Desktop 排布同构），供真实几何断言。"""
+        options = self._options(**kwargs.pop('options', {}))
+        filler = tk.Frame(self.win)
+        filler.pack(fill='both', expand=True)
+        box = shared_input.SharedStageInput(self.win, desktop=self.desktop,
+                                            options=options, **kwargs)
+        box.pack(side='bottom', fill='x')
+        self.win.deiconify()
+        self.win.geometry('1000x800')
+        for _ in range(6):
+            self.win.update_idletasks()
+            self.win.update()
+        self.addCleanup(box.destroy)
+        return box
+
+    def _caret_end(self, box):
+        box.input.mark_set('insert', 'end-1c')
+
+    def _settle(self, times=4):
+        for _ in range(times):
+            self.win.update()
+
+    def _open_candidates(self, box, text='/'):
+        box.set_text(text)
+        self._caret_end(box)
+        box._on_key_release(SimpleNamespace(keysym='/'))
+        self._settle()
+
+    # ── 撤销／重做／全选与多行编辑 ─────────────────────────────────────
+
+    def test_native_undo_redo_and_select_all(self):
+        """隐藏桌面投递不了 Control/字母 KeyPress（同 test_script_undo_shortcuts）：
+        键位投递由 Tk 负责，这里断言控件真实绑定串＋直调处理入口。"""
+        box = self._make()
+        self.assertTrue(box.input.bind('<Control-Key-z>'), 'Ctrl+Z 须真实绑到输入框')
+        self.assertTrue(box.input.bind('<Control-Key-y>'), 'Ctrl+Y 须真实绑到输入框')
+        self.assertTrue(box.input.bind('<Control-Key-a>'), 'Ctrl+A 须真实绑到输入框')
+        box.set_text('第一段草稿')
+        box.input.edit_undo()
+        self._settle()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '', 'Ctrl+Z 应撤销输入')
+        box.input.edit_redo()
+        self._settle()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '第一段草稿')
+        box.input._do_select_all()
+        ranges = box.input.tag_ranges('sel')
+        self.assertTrue(ranges, 'Ctrl+A 应全选')
+        self.assertEqual(box.input.get(ranges[0], ranges[1]), '第一段草稿')
+
+    def test_candidate_adopt_is_one_undoable_step(self):
+        box = self._make(stage='storyboard')
+        self._open_candidates(box)
+        self.assertTrue(box.candidates.open)
+        box._apply_candidate(box.candidates.entries[0])
+        applied = box.input.get('1.0', 'end-1c')
+        self.assertTrue(applied.startswith('/') and applied.endswith(' '))
+        box.input.edit_undo()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '/',
+                         '候选采纳（删 token＋插 /name ）应是一次可撤销动作')
+
+    def test_multiline_insert_and_paste_never_send(self):
+        box = self._make()
+        box.input.insert('1.0', '第一行\n第二行\n第三行')
+        self._settle()
+        self.assertEqual(self.sent, [], '多行插入不得触发发送')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '第一行\n第二行\n第三行')
+        try:
+            self.win.clipboard_clear()
+            self.win.clipboard_append('剪贴一\n剪贴二')
+            self._caret_end(box)
+            box.input.event_generate('<<Paste>>')
+            self._settle()
+            self.assertIn('剪贴一\n剪贴二', box.input.get('1.0', 'end-1c'))
+        except tk.TclError:
+            pass  # 隐藏桌面无剪贴板时，多行不发送已由直接插入覆盖
+        self.assertEqual(self.sent, [], '多行粘贴不得触发发送')
+
+    def test_rewind_overwrite_is_undoable(self):
+        import desktop_idea_bubbles as bubbles
+        box = self._make()
+        box.set_text('手头的稿子')
+        host = SimpleNamespace(idea_input=box.input,
+                               _idea_display_rows=lambda: ({'text': '回退那条'},),
+                               status=self.desktop.status)
+        bubbles.IdeaBubblesMixin.rewind_bubble_message(host, 0)
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '回退那条')
+        box.input.edit_undo()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '手头的稿子',
+                         '回退覆盖前须把原稿压进撤销栈，一次 Ctrl+Z 找回')
+
+    # ── 高度随可见软换行 ────────────────────────────────────────────
+
+    def test_height_follows_display_lines_sm_to_xl(self):
+        from ui_tokens import TEXT_ROWS
+        box = self._make_bottom()
+        self.assertEqual(int(box.input.cget('height')), TEXT_ROWS['sm'])
+        box.set_text('\n'.join('第%d行' % i for i in range(6)))
+        self._settle()
+        self.assertEqual(int(box.input.cget('height')), 6, '6 行正文应撑到 6 行高')
+        box.set_text('\n'.join('第%d行' % i for i in range(30)))
+        self._settle()
+        self.assertEqual(int(box.input.cget('height')), TEXT_ROWS['xl'],
+                         '超出上限停在 xl=10，框内滚动')
+        box.set_text('')
+        self._settle()
+        self.assertEqual(int(box.input.cget('height')), TEXT_ROWS['sm'],
+                         '删空回最小高度')
+
+    def test_short_window_keeps_tool_row_visible(self):
+        box = self._make_bottom()
+        self.win.geometry('760x280')
+        box.set_text('\n'.join('第%d行' % i for i in range(40)))
+        self._settle(6)
+        win_bottom = self.win.winfo_rooty() + self.win.winfo_height()
+        icon_bottom = box.icon_row.winfo_rooty() + box.icon_row.winfo_height()
+        self.assertGreaterEqual(box.icon_row.winfo_height(), 10, '图标行有真实高度')
+        self.assertLessEqual(icon_bottom, win_bottom + 2, '工具行底边必须留在窗口内')
+
+    # ── 候选浮层：不重建、保持选择、全量可达 ─────────────────────────
+
+    def test_refresh_same_data_keeps_selection_and_rows(self):
+        box = self._make()
+        self._open_candidates(box)
+        popup = box.candidates
+        popup.move(1)
+        rows_before = popup._rows
+        widget_before = popup._rows[0]['widgets'][0]
+        popup.refresh(popup.entries, query=popup.query)
+        self.assertEqual(popup.index, 1, '同 token/query/数据不得重置高亮')
+        self.assertIs(popup._rows, rows_before, '同数据不得销毁重建行')
+        self.assertIs(popup._rows[0]['widgets'][0], widget_before)
+
+    def test_selection_follows_same_kind_name_or_first(self):
+        box = self._make()
+        self._open_candidates(box)
+        popup = box.candidates
+        self.assertGreaterEqual(len(popup.entries), 3)
+        popup.move(1)
+        target = popup.selected()
+        popup.refresh((popup.entries[0], target, popup.entries[2]), query=popup.query)
+        self.assertIs(popup.selected(), target, '原 (kind,name) 仍在列表里时保持选中')
+        popup.refresh((popup.entries[0],), query=popup.query)
+        self.assertEqual(popup.index, 0, '原项消失才回落首项')
+
+    def test_candidates_beyond_first_page_reachable(self):
+        skills = [SimpleNamespace(name='skill-%02d' % i, stage='script')
+                  for i in range(20)]
+        box = self._make(options={'skills': skills})
+        self._open_candidates(box)
+        popup = box.candidates
+        from ui.desktop_shared_menus import CANDIDATE_MAX_ROWS
+        self.assertGreater(len(popup.entries), CANDIDATE_MAX_ROWS,
+                           '测试前提：候选要超过首屏 12 行')
+        for _ in range(len(popup.entries) - 1):
+            popup.key(SimpleNamespace(keysym='Down'))
+        self.assertEqual(popup.index, len(popup.entries) - 1,
+                         '键盘必须能选到首屏之外的项')
+        self.assertTrue(any(r['index'] == popup.index for r in popup._rows),
+                        '高亮项必须滚进可见区')
+        self.assertEqual(popup.selected()['name'], popup.entries[-1]['name'])
+        popup._scroll(-len(popup.entries))
+        self.assertEqual(popup._top, 0, '滚轮一路回顶')
+
+    # ── 草稿不丢：按（项目, 阶段）分仓 ──────────────────────────────
+
+    def test_stage_drafts_are_isolated_and_restored(self):
+        box = self._make()
+        box.set_text('剧本页的草稿')
+        box.set_stage('storyboard')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '',
+                         '剧本草稿不得带进分镜页')
+        box.set_text('分镜页的草稿')
+        box.set_stage('script')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '剧本页的草稿',
+                         '切回剧本页恢复自己的草稿')
+        box.set_stage('storyboard')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '分镜页的草稿')
+
+    def test_send_or_manual_clear_drops_stage_draft(self):
+        box = self._make()
+        box.set_text('发出去的')
+        self.assertTrue(box.send())
+        box.end_request()
+        box.set_stage('storyboard')
+        box.set_stage('script')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '', '发送成功不回灌旧稿')
+        box.set_text('删掉的')
+        box.clear()
+        box.set_stage('storyboard')
+        box.set_stage('script')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '', '手动删空同样清稿')
+
+    def test_pick_skill_inserts_at_cursor_keeps_draft(self):
+        box = self._make()
+        box.set_text('先写了一半 ')
+        self._caret_end(box)
+        box._pick_skill({'name': 'mine-skill'})
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '先写了一半 /mine-skill ',
+                         '点技能在光标处插入 /名，不得整框覆盖')
+
+    def test_ref_block_sync_keeps_lines_user_extended(self):
+        import desktop_idea_attachments as idea_attach_mixin
+        box = self._make()
+        box.input.delete('1.0', 'end')
+        box.input.insert('1.0', '@a.txt\n@a.txt 我的补充\n正文行\n')
+        box.input.tag_add('idea_ref', '1.0', '4.0')
+        host = idea_attach_mixin.IdeaAttachmentsMixin()
+        host.idea_input = box.input
+        host.idea_attachment_paths = (Path('a.txt'),)
+        host._idea_cursor_ref_names = set()
+        host.shared_input = box
+        host._sync_idea_ref_block()
+        text = box.input.get('1.0', 'end-1c')
+        self.assertIn('我的补充', text, '标签被用户扩写后不得误删')
+        self.assertIn('正文行', text)
+        self.assertEqual(text.splitlines()[0], '@a.txt', '引用区仍按本轮引用重建')
+
+    # ── 防误发：IME、Esc 分层、在途防重 ─────────────────────────────
+
+    def test_escape_consumes_one_layer_only(self):
+        box = self._make()
+        box.set_text('别动我')
+        self.assertIsNone(box._on_escape(SimpleNamespace()),
+                          '无浮层时 Esc 放行给宿主（运行中停止等）')
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '别动我', '空闲 Esc 不清草稿')
+        box.open_add_menu()
+        self.assertTrue(box.add_panel.is_open())
+        self.assertEqual(box._on_escape(SimpleNamespace()), 'break')
+        self.assertFalse(box.add_panel.is_open())
+        self._open_candidates(box)
+        self.assertEqual(box._on_escape(SimpleNamespace()), 'break')
+        self.assertFalse(box.candidates.open)
+
+    def test_ime_composing_events_are_not_consumed(self):
+        box = self._make()
+        box.set_text('组词中')
+        box._ime_composing = lambda: True
+        self.assertIsNone(box._on_return(SimpleNamespace(state=0)),
+                          '输入法组词中 Enter 不发任务')
+        self.assertEqual(self.sent, [])
+        box._ime_composing = lambda: False
+        self._open_candidates(box)
+        box._ime_composing = lambda: True
+        self.assertIsNone(box._on_return(SimpleNamespace(state=0)),
+                          '输入法组词中 Enter 不采纳候选')
+        self.assertTrue(box.candidates.open)
+        self.assertIsNone(box._on_escape(SimpleNamespace()),
+                          '输入法组词中 Esc 先交给输入法')
+        self.assertTrue(box.candidates.open)
+
+    def test_enter_flushes_pending_refresh_before_deciding(self):
+        box = self._make()
+        box.set_text('/')
+        self._caret_end(box)
+        box._on_key_release(SimpleNamespace(keysym='/'))
+        self.assertEqual(box._on_return(SimpleNamespace(state=0)), 'break')
+        self.assertEqual(self.sent, [], '刚弹出的候选开着时 Enter 只采纳')
+        self.assertTrue(box.input.get('1.0', 'end-1c').startswith('/'))
+        self.assertFalse(box.candidates.open)
+
+    def test_send_rejected_while_in_flight_and_not_reentrant(self):
+        box = self._make()
+        box.set_text('一次')
+        self.assertTrue(box.send())
+        self.assertTrue(box.in_flight)
+        box.set_text('又一次')
+        self.assertFalse(box.send(), '在途请求未结束不得再受理')
+        self.assertEqual(len(self.sent), 1)
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '又一次', '拒绝后保留草稿')
+        box.end_request()
+        self.assertTrue(box.send())
+        self.assertEqual(len(self.sent), 2)
+
+    def test_send_is_not_reentrant(self):
+        box = self._make()
+        calls, inner = [], []
+
+        def reentrant(text, parsed):
+            calls.append(1)
+            if len(calls) > 1:
+                return True
+            inner.append(box.send())
+            return True
+
+        box.on_send = reentrant
+        box.set_text('外层')
+        self.assertTrue(box.send())
+        self.assertEqual(inner, [False], 'on_send 内重入 send() 必须被拒')
+
+    # ── 刷新合并、按键无扫描、销毁回收 ───────────────────────────────
+
+    def test_burst_edits_merge_into_one_idle_refresh(self):
+        box = self._make()
+        runs = []
+        original = box._refresh_candidates
+        box._refresh_candidates = lambda: runs.append(1) or original()
+        for _ in range(5):
+            box.input.insert('end-1c', '字')
+            box._on_key_release(SimpleNamespace(keysym='x'))
+        self._settle()
+        self.assertEqual(len(runs), 1, '一波输入与几何变化合并单个 after_idle 重扫')
+
+    def test_mention_scan_cached_per_project_stage(self):
+        calls = []
+        fake = Path('proj_素材_x.txt')
+        with mock.patch('stage_execution_service.stage_idea_attachment_paths',
+                        side_effect=lambda project: calls.append(1) or (fake,)):
+            box = self._make(stage='script')
+            for text in ('@', '@素', '@素材'):
+                box.set_text(text)
+                self._caret_end(box)
+                box._on_key_release(SimpleNamespace(keysym='x'))
+                self._settle()
+        self.assertEqual(len(calls), 1, '同项目同阶段的 @ 附件扫描不得每键重扫')
+
+    def test_pending_refresh_cancelled_on_destroy(self):
+        box = self._make()
+        runs = []
+        box._refresh_candidates = lambda *a, **k: runs.append(1)
+        box._on_trigger_key(SimpleNamespace(keysym='/'))
+        box.destroy()
+        self._settle()
+        self.assertEqual(runs, [], '销毁后不得再执行已排队的刷新回调')
 
 
 if __name__ == '__main__':

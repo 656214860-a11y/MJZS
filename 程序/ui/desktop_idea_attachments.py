@@ -50,10 +50,18 @@ class IdeaAttachmentsMixin:
             if shown not in names:names.append(shown)
         return names
     def _sync_idea_ref_block(self):
-        """按本轮引用重建顶部「@原名」引用区：先删带 idea_ref 标签的旧行，再从 1.0 写入新块。"""
+        """按本轮引用重建顶部「@原名」引用区：先删带 idea_ref 标签的旧行，再从 1.0 写入新块。
+
+        REQ-S01-107：标签行逐行核对——整行仍是「@本轮内名」才删，标签被
+        编辑扩写到用户正文的行保留并摘掉标签；删行与写块并成一次可撤销动作。"""
         box=getattr(self,'idea_input',None)
         if box is None or not box.winfo_exists():return
         try:
+            from domain.idea_attachments import display_name
+            names=self._idea_ref_block_names()
+            valid=set(names)
+            for path in getattr(self,'idea_attachment_paths',()):
+                valid.add(display_name(path));valid.add(Path(path).name)
             marked=set()
             if 'idea_ref' in box.tag_names():
                 ranges=box.tag_ranges('idea_ref')
@@ -62,12 +70,25 @@ class IdeaAttachmentsMixin:
                         a=int(str(ranges[i]).split('.')[0]);b=int(str(ranges[i+1]).split('.')[0])
                     except (ValueError,IndexError):continue
                     marked.update(range(a,max(a,b)))
+            try:box.edit_separator()
+            except tk.TclError:pass
+            try:box.configure(autoseparators=False)
+            except tk.TclError:pass
             for line in sorted(marked,reverse=True):
-                try:box.delete('%d.0'%line,'%d.0'%(line+1))
-                except tk.TclError:app_logging.swallowed()
-            names=self._idea_ref_block_names()
+                try:text=box.get('%d.0'%line,'%d.end'%line)
+                except tk.TclError:continue
+                if text.startswith('@') and text[1:] in valid:
+                    try:box.delete('%d.0'%line,'%d.0'%(line+1))
+                    except tk.TclError:app_logging.swallowed()
+                else:
+                    try:box.tag_remove('idea_ref','%d.0'%line,'%d.0'%(line+1))
+                    except tk.TclError:pass
             if not names:
                 if 'idea_ref' in box.tag_names():box.tag_remove('idea_ref','1.0','end')
+                try:
+                    box.configure(autoseparators=True)
+                    box.edit_separator()
+                except tk.TclError:pass
                 return
             box.mark_set('_idea_ref_sync',box.index('insert'))
             box.insert('1.0',''.join('@%s\n'%n for n in names))
@@ -84,6 +105,10 @@ class IdeaAttachmentsMixin:
                     continue
                 if not text.startswith('@'):break
                 scan+=1
+            try:
+                box.configure(autoseparators=True)
+                box.edit_separator()
+            except tk.TclError:pass
         except tk.TclError:app_logging.swallowed()
     def remove_idea_ref_line(self,path):
         """删掉输入框里对应「@原名／@文件名」的那一行（取消引用或删除副本时调用）。"""

@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4394（R4393 合并轮：合入 AST-VERSION-2(R4350) 与 EC-3 通知守卫修复 FIX-AST-V2-EC3-GUARD(R4390)；断言未动；未跑全量。上一轮：R4388 合并轮：isolate right files panel per stage and route production stages to direct API file output；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4401（R4400 合并轮：合入 UX-INPUT-FLOW(R4396)：共享输入框连续输入、局部 undo、草稿不丢与防误发（3 条自动验收全绿，Windows 拼音 IME 人工项标未验证）；断言未动；未跑全量。上一轮：R4393 合并轮：合入 AST-VERSION-2(R4350) 与 EC-3 通知守卫修复 FIX-AST-V2-EC3-GUARD(R4390)；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

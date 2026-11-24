@@ -8,6 +8,11 @@
 ``CandidatePopup``（R2980）：``/`` 命令与 ``@`` 引用共用的光标级候选浮层——
 锚在文本光标正下方、不足翻上、屏幕四边钳制；自绘行带类别徽标与匹配子串高亮，
 上下键／Tab／点击／悬停导航，采纳经宿主 ``_apply_candidate``。
+
+``_MenuFlow``（REQ-S01-107）：宿主 ``SharedStageInput`` 的菜单侧辅助——面板
+开合与外部点击、悬停说明卡生命周期、技能行内容与输入区行高自适应。与
+``_CandidateFlow`` 同属一条宿主契约；拆到本模块只为把宿主模块压回行数棘轮
+线以内，不新增同层依赖边（行高换算就地展开 Tk 原语，不引 ``responsive_ui``）。
 """
 from __future__ import annotations
 
@@ -17,7 +22,7 @@ from tkinter import ttk
 import infra.app_logging as app_logging
 from ui.ui_icons import IconLoader
 from ui_popup import monitor_bounds
-from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING
+from ui_tokens import COLORS, FONTS, ICON_DOCUMENT, ICON_FONT, SPACING, TEXT_ROWS
 from ui_widgets import HintLabel
 
 # 与 CompletionPopup.MAX_ITEMS 同量级：当前阶段技能在前，超出截断。
@@ -332,37 +337,90 @@ class CandidatePopup:
         self.query = ''
         self.index = 0
         self._rows = []
+        # 可见行窗口起点：首屏最多 CANDIDATE_MAX_ROWS 行，全部候选经
+        # 键盘/滚轮滚达（REQ-S01-107），不再截断成「… 还有 N 项」。
+        self._top = 0
         # 与 AnchoredPanel 同理挂顶层窗：光标上方空间不足时浮层 y 为负，
         # 挂在 SharedStageInput 上会被 master 边界裁掉（R2971 实测）。
         self.frame = tk.Frame(host.winfo_toplevel(), bg=COLORS['background_card'],
                               highlightthickness=1,
                               highlightbackground=COLORS['border_input_hover'])
+        self.frame.bind('<MouseWheel>', self._on_wheel, add='+')
         # 宿主销毁时回收浮层与说明卡：载体挂顶层窗下，不随宿主自动消失（REQ-S01-106）。
         host.bind('<Destroy>', self._on_host_destroy, add='+')
 
     # ── 内容 ──────────────────────────────────────────────────────────
     def refresh(self, entries, query=''):
-        """重建候选行并展开；空候选直接收掉。``query`` 用于匹配子串高亮。"""
-        self.entries = tuple(entries or ())
-        self.query = str(query or '')
-        self._rows = []
-        for child in self.frame.winfo_children():
-            child.destroy()
-        if not self.entries:
+        """刷新候选并展开；空候选直接收掉。``query`` 用于匹配子串高亮。
+
+        REQ-S01-107：同 token/query/数据不变时不销毁重建行、不重置选择；
+        数据变了重建，但原 (kind,name) 仍在列表里则保持选中，消失才回首项。"""
+        entries = tuple(entries or ())
+        query = str(query or '')
+        if not entries:
+            self.entries, self.query = entries, query
             self.close()
             return
-        for index, entry in enumerate(self.entries[:CANDIDATE_MAX_ROWS]):
-            self._row(entry, index)
-        extra = len(self.entries) - CANDIDATE_MAX_ROWS
-        if extra > 0:
-            HintLabel(self.frame, text='… 还有 %d 项' % extra).pack(
-                fill='x', padx=SPACING['md'])
+        if (self.open and entries == self.entries and query == self.query):
+            self.place()
+            return
+        keep = self.selected() if self.open else None
+        keep_key = ((keep.get('kind'), keep.get('name'))
+                    if isinstance(keep, dict) else None)
+        self.entries, self.query = entries, query
+        self._top = 0
+        self._rebuild_rows()
         self.index = 0
+        if keep_key is not None:
+            for i, entry in enumerate(self.entries):
+                if (entry.get('kind'), entry.get('name')) == keep_key:
+                    self.index = i
+                    break
+        self._ensure_visible(self.index)
         self._paint()
         self.open = True
         self.place()
         # 唤出 / 候选时立即在右侧同步展示当前高亮项的用途说明卡（REQ-S01-106）。
-        self._show_card(0)
+        self._show_card(self.index)
+
+    def _build_rows(self):
+        """只建可见窗口 ``[self._top, self._top+MAX)`` 内的行；窗口外候选
+        靠键盘/滚轮滚入，不整屏重建。"""
+        stop = min(len(self.entries), self._top + CANDIDATE_MAX_ROWS)
+        for index in range(self._top, stop):
+            self._row(self.entries[index], index)
+
+    def _rebuild_rows(self):
+        for child in self.frame.winfo_children():
+            child.destroy()
+        self._rows = []
+        self._build_rows()
+        self._paint()
+
+    def _scroll_to(self, top):
+        """把可见窗口起点钳到合法范围并（窗口变了才）重建行。"""
+        top = max(0, min(int(top), max(0, len(self.entries) - CANDIDATE_MAX_ROWS)))
+        if top == self._top and self._rows:
+            return
+        self._top = top
+        self._rebuild_rows()
+        self.place()
+
+    def _scroll(self, delta):
+        """滚轮滚动可见窗口（±行）：首屏之外的候选全部滚达。"""
+        self._scroll_to(self._top + delta)
+
+    def _on_wheel(self, event):
+        delta = -1 if getattr(event, 'delta', 0) > 0 else 1
+        self._scroll(delta)
+        return 'break'
+
+    def _ensure_visible(self, index):
+        """高亮项滚进可见窗口。"""
+        if index < self._top:
+            self._scroll_to(index)
+        elif index >= self._top + CANDIDATE_MAX_ROWS:
+            self._scroll_to(index - CANDIDATE_MAX_ROWS + 1)
 
     def _segments(self, label):
         """按 ``query`` 子串切 ``label`` 为 (文本, 是否命中) 段；无命中返回单段。"""
@@ -432,6 +490,7 @@ class CandidatePopup:
                         lambda _e, i=index: self._hover(i), add='+')
             widget.bind('<Leave>',
                         lambda _e: self.host._schedule_skill_card_hide(), add='+')
+            widget.bind('<MouseWheel>', self._on_wheel, add='+')
 
     def _hover(self, index):
         """行悬停：高亮跟随＋用途卡。重复进入同一行也要重挂卡（取消待收）。"""
@@ -441,10 +500,11 @@ class CandidatePopup:
     def _show_card(self, index):
         """按当前高亮行显示一张被动用途卡：复用宿主 ``_show_skill_card``，
         锚在行右侧、不足翻左、钳当前显示器；正文只取条目 ``hint``，
-        无说明显示「暂无用途说明」，不抢焦点、不 grab。"""
-        if not (0 <= index < len(self._rows)):
+        无说明显示「暂无用途说明」，不抢焦点、不 grab。
+        ``index`` 是全局候选序号：行被滚出窗口时不发卡。"""
+        record = next((r for r in self._rows if r['index'] == index), None)
+        if record is None:
             return
-        record = self._rows[index]
         entry = record['entry']
         item = {'name': entry.get('name'),
                 'description': str(entry.get('hint') or '') or '暂无用途说明'}
@@ -487,12 +547,14 @@ class CandidatePopup:
         return None
 
     def move(self, delta):
-        count = min(len(self.entries), CANDIDATE_MAX_ROWS)
+        """上下键移动高亮：全量候选可达（REQ-S01-107），越出可见窗口自动滚入。"""
+        count = len(self.entries)
         if not count:
             return
         index = max(0, min(count - 1, self.index + delta))
         if index != self.index:
             self.index = index
+            self._ensure_visible(index)
             self._paint()
             # 键盘高亮变更同步说明（REQ-S01-106），焦点仍留在文本区。
             self._show_card(index)
@@ -607,4 +669,314 @@ class CandidatePopup:
         try:
             self.frame.destroy()
         except tk.TclError:
+            app_logging.swallowed()
+
+
+def _widget_path(widget):
+    """控件的 Tk 路径：Widget 取 ``_w``；``event.widget`` 在被点控件随绑定销毁时
+    回退成路径字符串（R3040），两种形态统一成路径再比较。"""
+    if widget is None:
+        return ''
+    path = getattr(widget, '_w', None)
+    return str(path) if path else str(widget)
+
+
+def _widget_within(widget, ancestor):
+    """widget 是否落在 ancestor 子树内（place 出去的浮层也是它的子孙）。
+
+    按路径判：``wpath == apath`` 或以 ``apath + '.'`` 开头；ancestor 为根 ``.``
+    时恒真。销毁控件的事件回退字符串与活控件走同一规则，不再依赖 ``.master`` 链
+    （字符串没有 master，旧写法对它恒 False，曾把面板内点击误判成外部点击）。
+    """
+    wpath = _widget_path(widget)
+    apath = _widget_path(ancestor)
+    if not wpath or not apath:
+        return False
+    if apath == '.':
+        return True
+    return wpath == apath or wpath.startswith(apath + '.')
+
+
+def _display_rows(box, limit):
+    """可见软换行数，量到 ``limit`` 行即停（口径同 ``responsive_ui.display_lines``；
+    L4 同层边未登记，这里就地展开 Tk 原语）。"""
+    try:
+        stop = box.index('1.0 + %d displaylines' % max(1, int(limit)))
+        if box.compare(stop, '<', 'end-1c'):
+            return max(1, int(limit))
+        counted = box.count('1.0', 'end-1c', 'displaylines')
+    except (tk.TclError, AttributeError):
+        return 1
+    lines = counted[0] if isinstance(counted, (tuple, list)) else counted
+    if lines is None:
+        lines = 1
+    try:
+        return max(1, int(lines))
+    except (TypeError, ValueError):
+        return 1
+
+
+def _line_px(widget, fallback=18):
+    """输入区一行像素高（口径同 ``responsive_ui.font_linespace``，只量默认字体档）。"""
+    from tkinter import font as tkfont
+    try:
+        return max(8, int(tkfont.Font(root=widget, font='TkDefaultFont').metrics('linespace')))
+    except Exception:
+        return fallback
+
+
+class _MenuFlow:
+    """``SharedStageInput`` 的菜单侧辅助：候选与 ✦／＋ 图标面板的开合、
+    悬停说明卡生命周期、技能行内容与输入区行高自适应（REQ-S01-107）。
+
+    与 ``_CandidateFlow`` 同属一条宿主契约（``input``／``stage``／``status``／
+    ``candidates``／``skill_panel``／``add_panel`` 已由宿主建好，面板动作经
+    ``host`` 回调）；拆出只为把宿主模块压回行数棘轮线以内。
+    """
+
+    # ── 输入区行高与宿主 ``<Configure>`` ────────────────────────────────
+    def _on_input_configure(self, event=None):
+        if event is not None and getattr(event, 'widget', None) is not self:
+            return
+        if self.candidates.open:
+            try:
+                self.after_idle(self.candidates.place)
+            except Exception:
+                app_logging.swallowed()
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is not None and panel.is_open():
+                try:
+                    self.after_idle(panel.place_panel)
+                except Exception:
+                    app_logging.swallowed()
+
+    def _fit_input_height(self):
+        """行高随实际可见软换行：``TEXT_ROWS.sm``→``xl``，矮窗再按可用内容区
+        钳制；超限靠框内滚动，工具行始终可见（REQ-S01-107）。"""
+        try:
+            shown = _display_rows(self.input, TEXT_ROWS['xl'])
+            # displaylines 在布局没算到的段落会少计：与 fit_composer 同款
+            # 取「逻辑行∨显示行」，换行符给出的下界永不少报。
+            logical = int(str(self.input.index('end-1c')).split('.')[0])
+            rows = min(TEXT_ROWS['xl'], max(TEXT_ROWS['sm'], shown, logical))
+            rows = min(rows, self._input_room_rows())
+            if int(self.input.cget('height')) != rows:
+                self.input.configure(height=rows)
+        except (tk.TclError, ValueError):
+            app_logging.swallowed()
+
+    def _input_room_rows(self):
+        """矮窗钳制：输入区最多吃〔窗口高 − 卡内不变装饰（工具行＋边距）
+        − dock 内兄弟控件〕折合的行数，最少 1 行。"""
+        try:
+            top = self.winfo_toplevel()
+            win_h = top.winfo_height()
+            if win_h <= 1:
+                return TEXT_ROWS['xl']
+            line = max(1, _line_px(self.input))
+            chrome = max(0, self.input_card.winfo_reqheight()
+                         - self.input.winfo_reqheight())
+            siblings = 0
+            for child in self.master.winfo_children():
+                if child is self:
+                    continue
+                try:
+                    siblings += child.winfo_reqheight()
+                except tk.TclError:
+                    pass
+            return max(1, (win_h - chrome - siblings) // line)
+        except tk.TclError:
+            return TEXT_ROWS['xl']
+
+    # ── 悬停说明卡生命周期（卡片本体由宿主 ``_show_skill_card`` 绘制） ──
+    def _hide_skill_card(self):
+        self._cancel_skill_card_hide()
+        card = getattr(self, '_skill_card', None)
+        self._skill_card = None
+        if card is not None:
+            try:
+                card.destroy()
+            except Exception:
+                app_logging.swallowed()
+
+    def _schedule_skill_card_hide(self):
+        """离开技能行延迟收说明卡：给鼠标移向卡片留 200ms 窗口。"""
+        self._cancel_skill_card_hide()
+        try:
+            self._skill_card_hide_id = self.after(200, self._hide_skill_card)
+        except Exception:
+            app_logging.swallowed()
+
+    def _cancel_skill_card_hide(self):
+        job = getattr(self, '_skill_card_hide_id', None)
+        self._skill_card_hide_id = None
+        if job:
+            try:
+                self.after_cancel(job)
+            except Exception:
+                app_logging.swallowed()
+
+    # ── ✦／＋ 图标下拉开合（面板本体见 AnchoredPanel 系） ──────────────
+    def _show_panel(self, panel):
+        """图标下拉互斥展开：先收 / 补全与另一个面板；已开着再点图标＝收起。"""
+        # 排队中的重扫先跑完：它的「输入即收面板」规则若在面板摆位里的
+        # update_idletasks 中触发，会把刚开的面板又收掉（REQ-S01-107）。
+        self._flush_pending_refresh()
+        self.candidates.close()
+        self._active_token = None
+        other = self.add_panel if panel is self.skill_panel else self.skill_panel
+        if other.is_open():
+            other.hide()
+        panel.toggle()
+        self._hide_skill_card()
+
+    def _hide_panels(self):
+        """收掉 ✦／＋ 两个图标下拉与悬停说明卡；返回是否有面板原本开着。"""
+        hidden = False
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is not None and panel.is_open():
+                panel.hide()
+                hidden = True
+        self._hide_skill_card()
+        return hidden
+
+    def _panel_outside_click(self, event):
+        """点在面板与它的图标钮之外：收掉开着的下拉（图标钮开合走 command）。"""
+        widget = getattr(event, 'widget', None)
+        for panel in (getattr(self, 'skill_panel', None),
+                      getattr(self, 'add_panel', None)):
+            if panel is None or not panel.is_open():
+                continue
+            if _widget_within(widget, panel):
+                continue
+            anchors = [anchor for anchor in panel.anchor_widgets()
+                       if anchor is not None]
+            if any(_widget_within(widget, anchor) for anchor in anchors):
+                continue
+            panel.hide()
+            self._hide_skill_card()
+
+    def _release_panel_click(self, event):
+        """输入框销毁时摘掉整窗 ``<Button-1>`` 监听，不留指向死控件的绑定。"""
+        if event.widget is not self:
+            return
+        top = getattr(self, '_panel_click_top', None)
+        funcid = getattr(self, '_panel_click_id', None)
+        try:
+            if top is not None and funcid:
+                top.unbind('<Button-1>', funcid)
+        except Exception:
+            app_logging.swallowed()
+
+    # ── 技能行内容（清单、默认勾选、说明、点名插入） ──────────────────
+    @staticmethod
+    def _skill_name(item):
+        """技能规范名：``Skill`` 对象取 ``.name``、字典取 ``name``、字符串原样——
+        不取 ``str(item)`` 的 ``Skill(name @ stage)`` repr，也不映射别名。"""
+        if isinstance(item, dict):
+            return str(item.get('name') or '')
+        name = getattr(item, 'name', None)
+        if name is not None:
+            return str(name)
+        return str(item or '')
+
+    @staticmethod
+    def _skill_display(item):
+        """列表行只显示技能包原始 ``name``（REQ-S01-91），不拼 displayName。"""
+        return _MenuFlow._skill_name(item) or '（未命名技能）'
+
+    def _skill_stage(self, item):
+        """技能归属阶段 id（``stage_id`` 归一）：显式 ``stage`` 字段优先，
+        缺失按名回查注册表；判不出返回 ``''``。"""
+        stage = item.get('stage') if isinstance(item, dict) else getattr(item, 'stage', None)
+        if not stage:
+            name = self._skill_name(item)
+            if name:
+                try:
+                    import skill_registry
+                    found = skill_registry.default_registry().getById(name)
+                    stage = getattr(found, 'stage', None) if found is not None else None
+                except Exception:
+                    app_logging.swallowed()
+        if not stage:
+            return ''
+        try:
+            import skill_registry
+            return skill_registry.stage_id(stage)
+        except Exception:
+            return str(stage)
+
+    def _skill_defaultable(self, item):
+        """可设为本阶段默认：项目已开 且 归属阶段==当前阶段（R3040：
+        跨阶段与判不出阶段的行不给会永远写不进的死勾选框）。"""
+        if self.project is None:
+            return False
+        own = self._skill_stage(item)
+        if not own:
+            return False
+        try:
+            import skill_registry
+            return own == skill_registry.stage_id(self.stage)
+        except Exception:
+            return own == self.stage
+
+    def _skill_list_items(self):
+        """当前阶段技能在前、其余在后；去重、限量。"""
+        try:
+            import orchestrator.skill_registry as skill_registry
+            registry = skill_registry.default_registry(project=self.project)
+            current = list(registry.getByStage(self.stage))
+            seen = {self._skill_name(item) for item in current if self._skill_name(item)}
+            others = [item for item in registry.getAll()
+                      if self._skill_name(item) and self._skill_name(item) not in seen]
+            return (current + others)[:20]
+        except Exception:
+            app_logging.swallowed()
+            return list(self.skill_items())[:20]
+
+    def _default_skills(self):
+        """当前阶段在三虎默认里的 skill 名单（stage_config 条目的 skills 字段）。"""
+        try:
+            import orchestrator.stage_config as stage_config
+            project = self.project
+            if project is None:
+                return []
+            entry = stage_config.get(project, self.stage) or {}
+            return list(entry.get('skills') or [])
+        except Exception:
+            app_logging.swallowed()
+            return []
+
+    def _skill_description(self, item):
+        """悬停说明：字典取 ``description``；``Skill`` 对象直接读属性（``str(item)``
+        是 ``Skill(name @ stage)`` repr，不能拿去 ``getById`` 查——R2971 修正）。"""
+        if isinstance(item, dict):
+            return str(item.get('description') or '')
+        desc = getattr(item, 'description', None)
+        if desc is not None:
+            return str(desc)
+        try:
+            import orchestrator.skill_registry as skill_registry
+            registry = skill_registry.default_registry(project=self.project)
+            found = registry.getById(_MenuFlow._skill_name(item))
+            if found is not None:
+                return str(getattr(found, 'description', '') or '')
+        except Exception:
+            app_logging.swallowed()
+        return ''
+
+    def _pick_skill(self, item):
+        """点击技能：在光标处插入 ``/技能名 `` 并聚焦（REQ-S01-107 草稿不丢：
+        原整框 set_text 会把已写的字全冲掉）；插入收成一次可撤销动作。"""
+        name = self._skill_name(item)
+        self._hide_panels()
+        if not name:
+            return
+        self._atomic_edit(
+            lambda: self.input.insert('insert', '/' + name + ' '))
+        try:
+            self.input.focus_set()
+        except Exception:
             app_logging.swallowed()
