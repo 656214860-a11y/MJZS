@@ -231,7 +231,7 @@ def check(script_annotations=None, tts_lines=None, *, rules=None, **kwargs):
                                         "emotion": t.get("emotion_param")}})
 
     return {"deviations": deviations, "unverifiable": unverifiable,
-            "passed": len(scripts) - len(deviations) - len([u for u in unverifiable if u.get("reason") != "缺标注" or True])}
+            "passed": len(scripts) - len(deviations) - len([u for u in unverifiable if u.get("reason") != "缺标注"])}
 
 
 # aliases

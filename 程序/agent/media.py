@@ -24,6 +24,31 @@ def png_complete(path):
         return False
 
 
+def image_content_ok(path):
+    """导入候选按内容验真：后缀合法但内容不是对应格式的完整图片时返回 False。
+
+    PNG 看签名＋IHDR＋IEND，JPG 看 SOI＋EOI，WEBP 看 RIFF＋WEBP；
+    只读头 16 字节与尾 8 字节，不把整图读进内存。
+    """
+    suffix = os.path.splitext(str(path))[1].lower()
+    try:
+        size = os.path.getsize(path)
+        with open(path, "rb") as handle:
+            head = handle.read(16)
+            handle.seek(max(0, size - 8))
+            tail = handle.read(8)
+    except OSError:
+        return False
+    if suffix == ".png":
+        return (size >= 33 and head.startswith(PNG_SIGNATURE)
+                and head[12:16] == b"IHDR" and tail[:4] == b"IEND")
+    if suffix in (".jpg", ".jpeg"):
+        return size >= 4 and head.startswith(b"\xff\xd8") and tail[-2:] == b"\xff\xd9"
+    if suffix == ".webp":
+        return size >= 12 and head[:4] == b"RIFF" and head[8:12] == b"WEBP"
+    return False
+
+
 def png_size(path):
     """读 24 字节 PNG 文件头拿宽高，顺手校验签名与尺寸。"""
     with open(path, "rb") as handle:
