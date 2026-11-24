@@ -51,6 +51,12 @@ class PendingOfferContextTests(unittest.TestCase):
         agent.pending_offer = ''
         self.assertEqual(pet_agent.Agent.context(agent), {})
 
+    def test_facts_failure_without_errors_sink_stays_silent(self):
+        def boom():
+            raise RuntimeError('facts broke')
+        agent = SimpleNamespace(machine=None, projects_snapshot=lambda: [], pending_offer='', facts=boom)
+        self.assertEqual(pet_agent.Agent.context(agent), {})
+
 
 if __name__ == '__main__':
     unittest.main()
