@@ -21,6 +21,7 @@ from pathlib import Path
 
 import infra.app_logging as app_logging
 import domain.skill_command as skill_command
+import infra.tk_timers as tk_timers
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus
 from ui.desktop_shared_menus import (AddMenuPanel, CandidatePopup, SkillPickPanel,
@@ -36,6 +37,8 @@ SHORTCUT_SCOPE = 'shared_input'
 SKILL_CARD_WRAP = 300
 # 发送键承载的阶段制作动作：这一阶段正在执行时不重复开动（%s＝阶段名）。
 STAGE_ACTION_BUSY = '「%s」正在执行，请等这一轮结束再点发送。'
+# 发送键空闲悬停提示；本阶段在跑时换成 STAGE_ACTION_BUSY 同款说明（SEND-2）。
+SEND_TOOLTIP_IDLE = '发送（Enter）\nShift+Enter 换行；运行中变为终止'
 
 
 def project_root(desktop):
@@ -534,6 +537,8 @@ class _StageActions:
         """执行登记动作；传播 False，旧动作 None 仍视为已执行，运行中不重复开动。"""
         stage = str(stage or self.stage)
         action = self._stage_actions.get(stage)
+        if action is None and callable(self.stage_action_fallback):
+            action = self.stage_action_fallback(stage)     # SEND-2：五阶段的手动制作兜底
         if action is None:
             return False
         if ui_plugin_registry.module('stage_flow').running(stage):
@@ -541,6 +546,27 @@ class _StageActions:
             return False
         result = action()
         return False if result is False else True
+
+    def _sync_send_state(self):
+        """SEND-2／REQ-S02-41：本阶段在跑→发送键置灰＋悬停写明；收场恢复。
+
+        只动可用态与悬停：图标归发送键自己与剧本页中断模式（``_send_interrupt``），
+        别的闸门置的灰由 stage_flow.apply_state 的既有口径原样保留。"""
+        button = getattr(self, 'send_button', None)
+        if button is None or getattr(self, '_send_interrupt', False):
+            return
+        stage = str(self.stage or '')
+        running = False
+        try:
+            flow = ui_plugin_registry.module('stage_flow')
+            running = bool(flow.running(stage))
+            flow.apply_state(button, stage)
+        except Exception:
+            app_logging.swallowed()
+        tooltip = getattr(self, '_send_tooltip', None)
+        if tooltip is not None:
+            tooltip.text = (STAGE_ACTION_BUSY % pet_bus.stage_name(stage)
+                            if running else SEND_TOOLTIP_IDLE)
 
 
 class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
@@ -563,6 +589,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.in_flight = False
         self.request_model = None
         self._stage_actions = {}    # 阶段 → 发送键承载的制作动作（页面建页时登记）
+        self.stage_action_fallback = options.get('stage_action_fallback')  # SEND-2：未登记阶段的兜底
         # R2942 流畅度：/ 补全与技能列表每次按键都读注册表/目录，这里按内容树记忆，
         # 导入新 skill 或切阶段后失效。
         self._skills_cache = None
@@ -619,7 +646,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         Tooltip(self.skill_button, '技能\n点选插入 /名称，勾选=本阶段默认；输入 / 可快速调用')
         Tooltip(self.attachment_button, '添加\n附件、模型与技能导入的统一入口')
         Tooltip(self.voice_button, '语音输入\n点击开始／停止麦克风听写')
-        Tooltip(self.send_button, '发送（Enter）\nShift+Enter 换行；运行中变为终止')
+        self._send_tooltip = Tooltip(self.send_button, SEND_TOOLTIP_IDLE)
         Tooltip(self.model_picker, '选择模型\n切换本阶段对话模型与推理档位')
 
         # ``/`` 与 ``@`` 候选：锚在文本光标的卡片浮层（R2980，desktop_shared_menus）。
@@ -674,6 +701,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         sync = getattr(self.desktop, 'sync_stage_placeholder', None)
         if callable(sync):
             sync(self.input, self.stage)
+        tk_timers.repeat(self, 400, self._sync_send_state)   # 阶段在跑→发送键置灰（SEND-2）
 
     # ── 上下文 ──────────────────────────────────────────────────────────
     @property
@@ -727,6 +755,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         sync = getattr(self.desktop, 'sync_stage_placeholder', None)
         if callable(sync):
             sync(self.input, self.stage)
+        self._sync_send_state()
 
     def skill_items(self):
         if self._skills:

@@ -156,6 +156,47 @@ def apply_text(widget, stage):
     return changed
 
 
+def _widget_disabled(widget):
+    """ttk 的 ``.state(['disabled'])`` 与旧式 ``-state`` 两种置灰都认。"""
+    try:
+        if widget.instate(['disabled']):
+            return True
+    except Exception:
+        app_logging.swallowed()
+    try:
+        return str(widget.cget('state')) == 'disabled'
+    except Exception:
+        return False
+
+
+def apply_state(widget, stage):
+    """只刷可点状态，不碰文字（SEND-2／REQ-S02-41：共享输入框的发送键——
+    按钮上的图标归发送键自己与页面闸管，这里只负责「运行中置灰」）。
+
+    置灰口径与 apply_text 同一份 _stage_flow_forced：自己压下去的灰收场才点亮，
+    页面上别的闸管的置灰照旧归它们。
+    """
+    forced = bool(getattr(widget, '_stage_flow_forced', False))
+    if running(stage):
+        if forced:
+            return False
+        try:
+            already = _widget_disabled(widget)
+            widget.configure(state='disabled')
+            widget._stage_flow_forced = not already
+            return not already
+        except Exception:
+            return False
+    if forced:
+        try:
+            widget.configure(state='normal')
+            widget._stage_flow_forced = False
+            return True
+        except Exception:
+            app_logging.swallowed()
+    return False
+
+
 def follow(widget, stage, interval=400):
     """按钮建好之后挂上：按当前状态刷字与置灰，按钮拆了就自己停。
 
@@ -283,6 +324,18 @@ def blockers(project, stage):
     return out
 
 
+def _stage_source_text(project, stage):
+    """REQ-S02-41：剧本结构确认窗写明这一次用哪份自然剧本（项目相对路径）。"""
+    if stage != 'script_structure' or project is None:
+        return ''
+    try:
+        from contract.script_contract import resolve_script_source, _source_label
+        source = resolve_script_source(project)
+        return _source_label(project, source) if source is not None else ''
+    except Exception:
+        return ''
+
+
 def _summary_data(desktop, stage, project):
     """弹窗摘要要的那几个数，只算一遍：blockers 每调一次就要按门禁读一遍资产索引、台账与批次。"""
     names = selected_skills(project, stage)
@@ -291,6 +344,7 @@ def _summary_data(desktop, stage, project):
     blocked = blockers(project, stage)
     return {'model': model_label(desktop, project, stage), 'skills': len(names),
             'skillNames': names, 'paid': paid, 'seconds': seconds, 'blocked': blocked,
+            'source': _stage_source_text(project, stage),
             'blocked_text': ('依赖：' + '、'.join(stage_name(dep) for dep in blocked) + '未完成')
                             if blocked else ''}
 
@@ -333,8 +387,10 @@ def _lines(stage, data):
     else:
         lines.append('预计：' + money)
     hint = RECOVERY_HINTS.get(stage, '')
-    if data['blocked_text'] or hint:
-        lines.append('；'.join(text for text in (data['blocked_text'], '人工／失败处理：' + hint if hint else '') if text))
+    source = ('剧本：' + data['source']) if data.get('source') else ''
+    if data['blocked_text'] or hint or source:
+        lines.append('；'.join(text for text in (source, data['blocked_text'],
+                               '人工／失败处理：' + hint if hint else '') if text))
     return lines[:4]
 
 
