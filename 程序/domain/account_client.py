@@ -26,6 +26,15 @@ CLIENT_VERSION = VERSION.lstrip('Vv')
 TOS_VERSION = '2026-10'
 PRIVACY_VERSION = '2026-10'
 NETWORK = 'network'
+SERVICE_TIMEOUT = 'service_timeout'
+CERT_ERROR = 'cert_error'
+SUPPORT_PLACEHOLDER = '联系客服：[待用户提供联系渠道]'
+# 服务不可达时登录闸的三种人话提示；支持渠道占位待用户提供（见结果文件）。
+UNREACHABLE_MESSAGES = {
+    NETWORK: '连不上账号服务器，请检查网络后重试；' + SUPPORT_PLACEHOLDER,
+    SERVICE_TIMEOUT: '账号服务响应超时，请稍后再试；' + SUPPORT_PLACEHOLDER,
+    CERT_ERROR: '账号服务证书校验失败，请确认系统时间与网络环境后重试；' + SUPPORT_PLACEHOLDER,
+}
 SUPPRESS_NETWORK_ENV = 'DRAMA_SUPPRESS_NETWORK'
 # 测试服 IP 自签证书（公开内容，2027-10-22 到期）；域名上线后作废。
 PINNED_CERT = '''-----BEGIN CERTIFICATE-----
@@ -167,6 +176,16 @@ def _read_json(response):
     return data if isinstance(data, dict) else None
 
 
+def _unreachable(exc):
+    """把出站失败归类：返回 ``(code, message)``；区分网络不通／服务无响应（超时）／证书校验失败。"""
+    reason = exc.reason if isinstance(exc, urllib.error.URLError) else exc
+    if isinstance(reason, ssl.SSLCertVerificationError):
+        return CERT_ERROR, UNREACHABLE_MESSAGES[CERT_ERROR]
+    if isinstance(reason, TimeoutError) or 'timed out' in str(reason or '').lower():
+        return SERVICE_TIMEOUT, UNREACHABLE_MESSAGES[SERVICE_TIMEOUT]
+    return NETWORK, UNREACHABLE_MESSAGES[NETWORK]
+
+
 def request(method, path, body=None, *, token='', opener=None):
     """发一次请求；2xx 返回 success(data=响应对象)，否则失败结果（``data['code']``）。"""
     headers = {'Accept': 'application/json', 'X-Client-Version': CLIENT_VERSION}
@@ -189,7 +208,8 @@ def request(method, path, body=None, *, token='', opener=None):
         finally:
             exc.close()
     except (urllib.error.URLError, OSError, ValueError) as exc:
-        return SystemError('连不上账号服务器，请检查网络后重试', data={'code': NETWORK, 'detail': type(exc).__name__})
+        code, message = _unreachable(exc)
+        return SystemError(message, data={'code': code, 'detail': type(exc).__name__})
     if payload is None:
         return SystemError('账号服务返回了无法识别的内容', data={'code': 'bad_response'})
     return success(payload)
