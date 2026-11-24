@@ -1,0 +1,15 @@
+{
+  "round": 4391,
+  "commit_base": "67fd96c99",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_completion tts offline_asr_setup",
+    "exit": 0,
+    "passed": 126,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T03:44:44"
+}

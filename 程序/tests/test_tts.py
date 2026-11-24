@@ -588,6 +588,29 @@ class TtsBatchResumeTests(unittest.TestCase):
             self.assertEqual(manifest[0]["file"], name_first)
             self.assertEqual(manifest[1]["file"], name_second)
 
+    def test_manifest_non_object_entry_names_file_and_index(self):
+        """FIX-S11-LOW E-14：时间轴清单混入非对象条目时报出清单文件与第几项，
+        报价与逐句配音同口径，不静默续跑、不自动修清单。"""
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            lines = self.lines(3)
+            entries = [dict(lines[0], state="ok", file=""), "坏条目",
+                       dict(lines[2], state="ok", file="")]
+            (folder / "时间轴.json").write_text(json.dumps(entries, ensure_ascii=False),
+                                                encoding="utf-8")
+            with self.assertRaises(ValueError) as preview:
+                tts_api.batch_cost_preview(folder, lines, folder)
+            message = str(preview.exception)
+            self.assertIn("时间轴.json", message)
+            self.assertIn("第 2 项", message)
+            self.assertIn("不是对象", message)
+            generate = Mock(return_value=b"audio")
+            with self.assertRaises(ValueError) as rerun:
+                tts_api.run_lines(lines, folder, generate=generate, gateway=_gateway())
+            self.assertIn("时间轴.json", str(rerun.exception))
+            self.assertIn("第 2 项", str(rerun.exception))
+            generate.assert_not_called()
+
 
 class TtsBatchIdentityTests(unittest.TestCase):
     """O12：批次身份含端点／模型／音色／语速，开批冻结，换配置不算旧缓存，损坏音频不续用。"""

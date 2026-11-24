@@ -567,6 +567,32 @@ class MediaCompletionTests(unittest.TestCase):
             prepare_media_completion(self.root, 'delivery', [fake])
         self.assertFalse(completion_evidence(self.root, 'delivery')[0])
 
+    def test_missing_ffprobe_prompt_names_the_config_entry(self):
+        """FIX-S11-LOW E-12：缺 FFprobe 的提示写明去哪配——项目 config.json 的
+        「ffprobe」键，可在「设置 → 开发信息 → 环境自检」核对。"""
+        save(self.root / 'config.json', {})
+        path = self.artifact('audio')
+        with patch('contract.platform_tools.tool_path', return_value=None):
+            with self.assertRaises(ValueError) as caught:
+                prepare_media_completion(self.root, 'audio', [path])
+        message = str(caught.exception)
+        self.assertIn('请先配置 FFprobe', message)
+        self.assertIn('config.json', message)
+        self.assertIn('环境自检', message)
+
+    def test_import_without_media_tools_prompt_names_the_config_entry(self):
+        """FIX-S11-LOW E-12：缺 FFmpeg/FFprobe 的导入提示同样写明配置入口。"""
+        from agent.media import MediaValidationError, validate_import
+        path = self.root / 'input.wav'
+        path.write_bytes(b'x')
+        with patch('contract.platform_tools.tool_path', return_value=None):
+            with self.assertRaises(MediaValidationError) as caught:
+                validate_import(path, {}, 'audio')
+        message = str(caught.exception)
+        self.assertIn('请先配置 FFmpeg 和 FFprobe', message)
+        self.assertIn('config.json', message)
+        self.assertIn('环境自检', message)
+
     def test_desktop_entry_requires_confirmation_and_rechecks_project(self):
         from types import SimpleNamespace
         from unittest.mock import Mock
