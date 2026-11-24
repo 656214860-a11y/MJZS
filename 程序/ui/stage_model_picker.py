@@ -187,7 +187,7 @@ class StageModelPicker(ttk.Frame):
     def _open_popup(self):
         self._close_popup()
         win = self.winfo_toplevel()
-        top = Flyout(win)
+        top = Flyout(win, noactivate=True)
         self._popup = top
         self._popup_win = win
         self._fill_popup(top.body)
@@ -412,9 +412,76 @@ class StageModelPicker(ttk.Frame):
         unregister_live(self)
 
     # ── 交互 ────────────────────────────────────────────────────────────────
+    # R4259（REQ-S01-117）：切模型／推理档位会写阶段配置并触发 save/refresh 回调，
+    # 回调若清掉底部共享输入框的文本就自动还原——只还原输入框，模型与档位写入不回滚。
+    def _draft_input(self):
+        """共享输入框的文本控件；没接线或已销毁返回 None（静默跳过）。"""
+        shared = getattr(self.desktop, 'shared_input', None)
+        box = getattr(shared, 'input', None) if shared is not None else None
+        if box is None:
+            return None
+        try:
+            return box if box.winfo_exists() else None
+        except tk.TclError:
+            return None
+
+    @staticmethod
+    def _draft_offset(box, index):
+        """``line.col`` 索引 → 全文字符偏移（0 基）。"""
+        line, _, col = str(index).partition('.')
+        return len(box.get('1.0', '%s.0' % line)) + int(col or 0)
+
+    def _draft_snapshot(self):
+        """草稿快照：(原文, insert 偏移, 选区两端偏移或 None)；取不到返回 None。"""
+        box = self._draft_input()
+        if box is None:
+            return None
+        try:
+            selection = None
+            try:
+                selection = (self._draft_offset(box, box.index('sel.first')),
+                             self._draft_offset(box, box.index('sel.last')))
+            except tk.TclError:
+                pass
+            return (box.get('1.0', 'end-1c'),
+                    self._draft_offset(box, box.index('insert')), selection)
+        except tk.TclError:
+            return None
+
+    def _restore_draft(self, snapshot):
+        """文本变了先删后还原原文；光标钳到新末尾内；选区有效才恢复；最后回焦点。"""
+        if snapshot is None:
+            return
+        box = self._draft_input()
+        if box is None:
+            return
+        text, insert, selection = snapshot
+        try:
+            if box.get('1.0', 'end-1c') != text:
+                box.delete('1.0', 'end')
+                box.insert('1.0', text)
+            end = len(box.get('1.0', 'end-1c'))
+            box.mark_set('insert', '1.0 + %d chars' % min(insert, end))
+            if selection is not None and 0 <= selection[0] <= selection[1] <= end:
+                box.tag_add('sel', '1.0 + %d chars' % selection[0],
+                            '1.0 + %d chars' % selection[1])
+            box.focus_set()
+        except tk.TclError:
+            pass
+
+    def _keep_draft(self, action):
+        """快照 → 执行 ``action``（含其触发的 save/refresh 回调）→ 还原草稿回焦点。"""
+        snapshot = self._draft_snapshot()
+        try:
+            return action()
+        finally:
+            self._restore_draft(snapshot)
+
     def _choose_model(self, model_id):
-        self.choose_model(model_id)
-        self._close_popup()
+        def act():
+            self.choose_model(model_id)
+            self._close_popup()
+        return self._keep_draft(act)
 
     def choose_model(self, model_id=None):
         if model_id is not None:
@@ -425,16 +492,18 @@ class StageModelPicker(ttk.Frame):
 
     def choose_reasoning(self, level):
         """写本阶段的推理等级；界面档位立即跟随（不写模型与 SKILL）。"""
-        level = stage_config.clean_reasoning(level)
-        self._level.set(level)
-        project = self.project()
-        if not project:
-            return None
-        entry = stage_config.put(project, self.stage, reasoning=level)
-        if self._popup_open():
-            self._fill_popup(self._popup.body)
-            self._place_popup(self._popup)
-        return entry
+        def act():
+            level_clean = stage_config.clean_reasoning(level)
+            self._level.set(level_clean)
+            project = self.project()
+            if not project:
+                return None
+            entry = stage_config.put(project, self.stage, reasoning=level_clean)
+            if self._popup_open():
+                self._fill_popup(self._popup.body)
+                self._place_popup(self._popup)
+            return entry
+        return self._keep_draft(act)
 
     def save(self):
         """只写模型这一项，SKILL 勾选与推理等级保持原样。"""
