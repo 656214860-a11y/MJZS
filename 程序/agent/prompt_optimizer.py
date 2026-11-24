@@ -203,7 +203,7 @@ def settings(app):
             save(CONFIG,updated);cfg=updated;profiles=dict(cfg.get('profiles',{}));forget_key_if_unused(cfg,base)
             entries['model'].delete(0,'end');refresh_models();choice.set(name_for(entries['base_url'].get().strip()))
             app.write('API 模型已删除并保存：'+model)
-        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='优化设置')
+        except (ValueError,OSError) as exc:import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='优化设置')
 
     DescriptionBlock(body,text='智谱 GLM-4.7-Flash：选择后自动填入地址与模型，请填写智谱 API Key。切换服务商保留各自配置。\n填写用于文本优化的模型与密钥，不是视频模型。支持 OpenAI 兼容接口；本地 Ollama 可填写本机地址。\n点击整理提示词时会发送本镜分镜、资产编号与名称及提示词（不上传图片），并可能产生文本模型费用。\n保存设置不会调用模型。MCP 包版本：0.1.0；来源与许可证见安装目录 README.md。',wraplength=WRAPLENGTH['xl']).grid(row=7,column=0,columnspan=2,padx=SPACING['md'],pady=SPACING['md'],sticky='w')
     def commit():
@@ -221,7 +221,7 @@ def settings(app):
             model_secrets.save(key_name_for(updated['base_url']),secret,root=_secret_root())
             updated=remember(latest,{**updated,'api_key':''})
             save(CONFIG,updated);win.destroy();app.write('优化服务设置已保存。点击“MCP 优化”开始优化。')
-        except (ValueError,OSError) as e:notify(win, str(e), level='error', title='优化设置')
+        except (ValueError,OSError) as e:import contract.error_codes as error_codes;notify(win, error_codes.user_text(e), level='error', title='优化设置')
     actions=ttk.Frame(body);actions.grid(row=8,column=0,columnspan=2,pady=SPACING['md'])
     PrimaryButton(actions,text='保存设置',command=commit).pack(side='left',padx=SPACING['xs'])
     SecondaryButton(actions,text='删除模型',command=delete_model).pack(side='left',padx=SPACING['xs'])

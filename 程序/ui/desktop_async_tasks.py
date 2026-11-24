@@ -7,6 +7,7 @@ import queue
 import threading
 
 import infra.app_logging as app_logging
+import contract.error_codes as error_codes
 from ui.desktop_page_registry import page_title
 
 
@@ -19,7 +20,7 @@ class AsyncTasksMixin:
             try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
             except Exception as e:
                 # 先交付失败结果：诊断记录自己抛错时，worker／忙碌态仍要靠这条结果复位。
-                self.q.put((ticket,False,str(e),None))
+                self.q.put((ticket,False,error_codes.user_text(e),None))
                 try:
                     import infra.diagnostic_capture as diagnostic_capture
                     diagnostic_capture.record_degradation(

@@ -5,6 +5,7 @@ from types import SimpleNamespace
 from unittest import mock
 
 from desktop_async_tasks import AsyncTasksMixin
+from contract import error_codes
 
 
 class _Host(AsyncTasksMixin):
@@ -36,7 +37,7 @@ class AsyncFailureDeliveryTests(unittest.TestCase):
             host.async_(boom)
             ticket, ok, message, done = host.q.get(timeout=5)
         self.assertFalse(ok)
-        self.assertEqual(message, 'task failed')
+        self.assertEqual(message, error_codes.describe('E-UNKNOWN'))
         self.assertIsNone(done)
 
 

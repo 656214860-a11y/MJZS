@@ -4,6 +4,7 @@ import tkinter as tk
 from tkinter import ttk
 from pathlib import Path
 from agent.core import read, save
+from contract import error_codes
 from infra.pet_state import PAGE_OF
 from responsive_ui import scroll_form
 from ui_widgets import BaseDialog, Card, PrimaryButton, SecondaryButton, notify
@@ -164,7 +165,7 @@ def show(desktop):
         try:
             n, touched = apply(desktop.root, selected)
         except Exception as exc:
-            notify(win, str(exc), level='error', title='识别背景人物', status=desktop.status)
+            notify(win, error_codes.user_text(exc), level='error', title='识别背景人物', status=desktop.status)
             return
         win.destroy()
         desktop.asset_kind = 'characters'

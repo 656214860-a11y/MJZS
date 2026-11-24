@@ -48,7 +48,7 @@ def show(parent,on_saved=None):
             updated=remember(load(),{**value,'api_key':''});save(settings_path(),updated);cfg=updated
             if on_saved:on_saved()
             win.destroy()
-        except Exception as exc:notify(win, str(exc), level='error', title='Qwen 设置', status=status)
+        except Exception as exc:import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='Qwen 设置', status=status)
     def delete_model():
         nonlocal cfg
         try:
@@ -59,7 +59,7 @@ def show(parent,on_saved=None):
             vars['model'].set('');refresh_models()
             status.set('模型已删除并保存。请选择其他模型，或填写新模型后保存。')
             if on_saved:on_saved()
-        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='Qwen 设置', status=status)
+        except (ValueError,OSError) as exc:import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='Qwen 设置', status=status)
     def check():
         try:cfg=values()
         except ValueError as exc:status.set(str(exc));return

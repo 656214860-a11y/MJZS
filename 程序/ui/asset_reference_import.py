@@ -4,6 +4,7 @@ import hashlib
 import tkinter as tk
 from tkinter import ttk
 from agent.core import read
+from contract import error_codes
 from infra.pet_state import PAGE_OF
 from asset_reference_images import CATEGORIES,EXTENSIONS,ROLE_GROUPS,classified_target,image_bytes,save_copy,attach,unbind
 from ui.ui_dialogs import FileDialog
@@ -84,7 +85,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             else:app.show(PAGE_OF['assets'])
             app.status.set(f'已保存 {count} 张分类参考图。'+('点击“批量导入参考图”完成绑定。' if pending else '已自动绑定资产。'))
             win.destroy()
-        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='保存未完成')
+        except (ValueError,OSError) as exc:notify(win, error_codes.user_text(exc), level='error', title='保存未完成')
     def remove_refs():
         """解除参考图绑定并将受控文件移入回收站。
 
@@ -110,7 +111,7 @@ def show(app,aid=None,role=None,pending=False,parent=None,on_saved=None):
             else:app.show(PAGE_OF['assets'])
             app.status.set('已解除 '+str(len(values))+' 张「'+role+'」参考图绑定，文件已移入回收站。')
             win.destroy()
-        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='删除未完成')
+        except (ValueError,OSError) as exc:notify(win, error_codes.user_text(exc), level='error', title='删除未完成')
     SecondaryButton(buttons,text='删除参考图',command=remove_refs).pack(side='left')
     PrimaryButton(buttons,text='保存',command=commit).pack(side='right')
     SecondaryButton(buttons,text='取消',command=win.destroy).pack(side='right',padx=(SPACING['none'],BUTTON_GAP))

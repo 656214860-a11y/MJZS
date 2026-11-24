@@ -1,0 +1,15 @@
+{
+  "round": 4335,
+  "commit_base": "930a05fc4",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k notification_boundary ui_error_text desktop_async_tasks",
+    "exit": 0,
+    "passed": 28,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T19:01:04"
+}

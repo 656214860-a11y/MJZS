@@ -74,6 +74,7 @@ import orchestrator.stage_config as stage_config
 import orchestrator.stage_models as stage_models
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract.pet_bus import STAGE_NAMES, read_json, stage_label as _bus_stage_label
+from contract import error_codes
 from infra.storage_maintenance import recycle_paths
 from ui_tokens import (COLORS, FONTS, SPACING, NOTE_HEIGHT_COMPACT,
                        NOTE_HEIGHT_REGULAR, NOTE_LIST_MAX_WIDTH, NOTE_LIST_MIN_WIDTH,
@@ -724,7 +725,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         try:
             project = self.project()
         except Exception as exc:
-            notify(self.winfo_toplevel(), str(exc), title=TITLE,
+            notify(self.winfo_toplevel(), error_codes.user_text(exc), title=TITLE,
                    status=getattr(self.desktop, 'status', None), modal=False)
             return None
         names = self.selected()
@@ -856,7 +857,7 @@ def show_skill_health(panel):
         report = workflow_settings.skill_health_report(panel.registry, stage=panel.stage,
                                                       locks=locks, local_modified=modified)
     except Exception as exc:
-        notify(panel.winfo_toplevel(), 'SKILL 体检失败：%s' % exc, title=TITLE,
+        notify(panel.winfo_toplevel(), 'SKILL 体检失败：%s' % error_codes.user_text(exc), title=TITLE,
                status=getattr(panel.desktop, 'status', None), modal=False)
         return None
     return show_skill_health_report(panel.winfo_toplevel(), report, lead='本阶段',

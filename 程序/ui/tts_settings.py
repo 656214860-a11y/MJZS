@@ -77,10 +77,10 @@ def show(parent, on_saved=None):
                 on_saved()
             win.destroy()
         except (ValueError, OSError, _json.JSONDecodeError) as exc:
-            notify(win, str(exc), level='error', title="保存失败", status=status)
+            import contract.error_codes as error_codes
+            notify(win, error_codes.user_text(exc), level='error', title="保存失败", status=status)
 
-    row = ttk.Frame(body)
-    row.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(SPACING['md'], SPACING['none']))
+    row = ttk.Frame(body);row.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(SPACING['md'], SPACING['none']))
     PrimaryButton(row, text="保存", command=commit).pack(side="left")
     SecondaryButton(row, text="检查配置", command=check).pack(side="left", padx=SPACING['sm'])
     SecondaryButton(row, text="测试连接", command=probe).pack(side="left", padx=SPACING['sm'])

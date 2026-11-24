@@ -13,6 +13,7 @@ import ui.asset_reference_search as search
 from asset_reference_images import ROLE_GROUPS
 from cell_hover import bind_row_menu
 from infra.pet_state import PAGE_OF
+from contract import error_codes
 from responsive_ui import CheckboxColumn, auto_columns, configure_check_column, bind_row_toggle
 from ui.ui_dialogs import FileDialog
 from ui_tokens import BUTTON_GAP, CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, SPACING
@@ -199,14 +200,14 @@ class _ReferenceWall:
         try:
             self.commit()
         except (ValueError, OSError) as exc:
-            notify(self.win, str(exc), level='error', title='入库未开始', status=self.status)
+            notify(self.win, error_codes.user_text(exc), level='error', title='入库未开始', status=self.status)
 
     def safe(self, fn):
         def run():
             try:
                 fn()
             except (ValueError, OSError) as exc:
-                notify(self.win, str(exc), level='error', title='操作提示', status=self.status)
+                notify(self.win, error_codes.user_text(exc), level='error', title='操作提示', status=self.status)
         return run()
 
     def pick_file(self):

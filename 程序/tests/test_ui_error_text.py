@@ -6,6 +6,8 @@ Desktop.safe()、go() 与 App.safe() 把原始异常交给诊断记录，go() �
 记录自己出错不影响提示。
 全部用假对象直接调未绑定的方法，不建窗口。
 """
+import queue
+import time
 import unittest
 from types import SimpleNamespace
 from unittest import mock
@@ -170,6 +172,45 @@ class AsyncFailedTests(unittest.TestCase):
         host = self.host()
         AsyncTasksMixin._async_failed(host, '断线')
         host.notifier.error.assert_called_once_with('断线', title='操作未完成')
+
+
+class BackgroundPathFailureTests(unittest.TestCase):
+    """EC-3：后台任务在入队前就把异常转成统一文字，显示处拿不到异常对象——
+    带本机路径的系统报错不能再漏到提示里。"""
+
+    def host(self):
+        host = SimpleNamespace(_async_ticket=0, worker=False, page_index=0, root='',
+                               q=queue.Queue(),
+                               busy_state=SimpleNamespace(set_busy=lambda *args, **kwargs: None),
+                               background_tasks=SimpleNamespace(
+                                   submit=lambda ticket, **_kw: ticket,
+                                   run=lambda ticket, fn: fn()),
+                               notifier=mock.Mock(),
+                               _idea_requesting=False,
+                               update_script_interrupt_button=mock.Mock(),
+                               clear_thinking=mock.Mock())
+        host._schedule_async_result_poll = lambda ticket: None
+        return host
+
+    def test_failure_with_local_path_never_shows_the_path(self):
+        path = 'D:\\项目库\\私有\\secret.txt'
+        error = FileNotFoundError(2, 'No such file or directory', path)
+        host = self.host()
+        recorded = []
+        with mock.patch(RECORD, side_effect=lambda *args, **kwargs: recorded.append(args[0])):
+            AsyncTasksMixin.async_(host, _raising(error))
+            ticket, ok, message, done = host.q.get(timeout=5)
+            deadline = time.monotonic() + 5
+            while not recorded and time.monotonic() < deadline:
+                time.sleep(0.01)
+        self.assertFalse(ok)
+        self.assertIsNone(done)
+        AsyncTasksMixin._async_failed(host, message)
+        shown = host.notifier.error.call_args.args[0]
+        self.assertNotIn('项目库', shown)
+        self.assertNotIn('secret', shown)
+        self.assertTrue(shown.startswith('[E-'))
+        self.assertEqual(recorded, [error])
 
 
 if __name__ == '__main__':

@@ -11,6 +11,7 @@ import domain.previs_routing as previs_routing
 from stage_execution_service import previs_entries, previs_ready, previs_records_directory, white_model_shot_directory, record_previs_evidence
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract.platform_tools import open_path
+from contract import error_codes
 from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_column, CheckboxColumn,
                            work_rows, work_hint, view_row)
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
@@ -70,7 +71,7 @@ def online_window(desktop, source, ids):
                 record_previs_evidence(desktop.root, sid, source)
                 desktop.status.set(sid + ' 白模已导入：' + str(target))
         except Exception as exc:
-            notify(win, str(exc), level='error', title='导入白模', status=desktop.status)
+            notify(win, error_codes.user_text(exc), level='error', title='导入白模', status=desktop.status)
     row = ttk.Frame(body); row.pack(fill='x', pady=SPACING['sm'])
     PrimaryButton(row, text='打开线上白模并复制说明', command=open_online).pack(side='left')
     SecondaryButton(row, text='导入该镜头白模', command=import_result).pack(
@@ -223,7 +224,7 @@ class _LocalPrevisWindow:
             open_path(path)
             self.desktop.status.set('已打开白模设置：'+str(path)+'；把 blender 填成 blender.exe 的完整路径后重进本页')
         except Exception as exc:
-            notify(self.desktop.win,str(exc),level='error',title='白模预演',status=self.desktop.status)
+            notify(self.desktop.win,error_codes.user_text(exc),level='error',title='白模预演',status=self.desktop.status)
 
     def check_environment(self):
         notify(self.desktop.win,wm.diagnose_text(),title='白模环境检查')
@@ -273,7 +274,7 @@ class _LocalPrevisWindow:
             self.decisions=previs_entries(self.project,self.source)
             if len(rows)>1:self.reason.set('已把 %d 个镜头设为「%s」%s'%(len(rows),self.chosen_level.get(),work_hint(rows,how)))
             self.show_decision();self.refresh()
-        except Exception as exc:notify(self.desktop.win, str(exc), level='error', title='动作复杂度', status=self.desktop.status)
+        except Exception as exc:notify(self.desktop.win, error_codes.user_text(exc), level='error', title='动作复杂度', status=self.desktop.status)
 
     def start(self):
         if self.state['busy']:notify(self.desktop.win, '已有本地任务运行中，请等待完成', title='白模预演', status=self.desktop.status);return
@@ -294,7 +295,7 @@ class _LocalPrevisWindow:
             groups=dispatch_stage_previs(self.project,self.source,ids,self.state,monitor=True,start_complex=agent_start)
             if groups['medium']:online_window(self.desktop,self.source,groups['medium'])
             self.refresh()
-        except Exception as exc:notify(self.desktop.win, str(exc), level='error', title='白模预演', status=self.desktop.status)
+        except Exception as exc:notify(self.desktop.win, error_codes.user_text(exc), level='error', title='白模预演', status=self.desktop.status)
 
     def stop(self):
         """强制关闭制作进程：结束正在跑的引擎（连同子进程），并让工作线程停掉后续镜头。
@@ -334,7 +335,7 @@ class _LocalPrevisWindow:
                 from infra.native_apps import open_blender
                 open_blender(path)
             else:open_path(path)
-        except Exception as exc:notify(self.desktop.win, str(exc), level='error', title='白模预演', status=self.desktop.status)
+        except Exception as exc:notify(self.desktop.win, error_codes.user_text(exc), level='error', title='白模预演', status=self.desktop.status)
 
     def open_current_directory(self):
         try:
@@ -342,7 +343,7 @@ class _LocalPrevisWindow:
             folder.mkdir(parents=True,exist_ok=True)
             open_path(folder)
         except Exception as exc:
-            notify(self.desktop.win, str(exc), level='error', title='当前白模目录', status=self.desktop.status)
+            notify(self.desktop.win, error_codes.user_text(exc), level='error', title='当前白模目录', status=self.desktop.status)
 
     def logs(self):
         folder=previs_records_directory(self.project,self.state);open_path(folder);self.desktop.status.set('已打开制作记录：'+str(folder))

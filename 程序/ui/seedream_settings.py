@@ -72,7 +72,7 @@ def show(parent,on_saved=None):
             api.save_profile(values['base_url'].get(),values['model'].get(),values['api_key'].get(), profile_id=current[0] or None)
             if on_saved:on_saved()
             win.destroy()
-        except (ValueError,OSError) as exc:notify(win, str(exc), level='error', title='保存失败', status=status)
+        except (ValueError,OSError) as exc:import contract.error_codes as error_codes;notify(win, error_codes.user_text(exc), level='error', title='保存失败', status=status)
     def check():
         try:
             api.validate(values['base_url'].get(),values['model'].get(),values['api_key'].get())

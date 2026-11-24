@@ -9,6 +9,7 @@ import tkinter as tk
 from tkinter import ttk
 
 from contract.script_contract import PRODUCTION_LOCK_DEFINITIONS
+from contract import error_codes
 from production_lock_fields import CompactLabel, ProductionLockFields
 from ui_tokens import (CHAR_WIDTH, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, SPACING,
                        STAGE_PANEL_LAYOUT)
@@ -94,7 +95,7 @@ class PanelWorkflowMixin:
         try:
             project = self.project()
         except Exception as exc:
-            notify(self.winfo_toplevel(), str(exc), title='制作锁预选',
+            notify(self.winfo_toplevel(), error_codes.user_text(exc), title='制作锁预选',
                    status=getattr(self.desktop, 'status', None), modal=False)
             return None
         import orchestrator.stage_config as stage_config
@@ -119,7 +120,7 @@ class PanelWorkflowMixin:
             try:
                 save_writing_production_locks(project, fields.values())
             except Exception as exc:
-                notify(window, '制作锁保存失败：%s' % exc, title='制作锁预选',
+                notify(window, '制作锁保存失败：%s' % error_codes.user_text(exc), title='制作锁预选',
                        status=getattr(self.desktop, 'status', None), modal=False)
                 return
             if getattr(self, 'state', None) is not None:

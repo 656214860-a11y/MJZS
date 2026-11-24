@@ -6,6 +6,7 @@ import infra.app_logging as app_logging
 import infra.hash_backend as hash_backend
 hash_backend.install()
 import contract.pet_bus as pet_bus
+import contract.error_codes as error_codes
 import queue
 import threading
 import time
@@ -619,7 +620,7 @@ class App:
             with self.studio.lock():
                 self.studio.episode=save_stage_white_model_upload(self.studio.episode_path,sid,var.get())
         except Exception as exc:
-            var.set(previous);self.notifier.error(str(exc), title='白模上传')
+            var.set(previous);self.notifier.error(error_codes.user_text(exc), title='白模上传')
     def layout_white_cells(self):
         if not hasattr(self,'white_cells') or not self.tree.winfo_exists():return
         ids=set(self.tree.get_children())
@@ -679,7 +680,7 @@ class App:
                 folder=prepare_writing_project(self.root,text,stage.get(),duration.get())
                 self.write('编剧任务书已生成：'+str(folder));open_path(folder)
                 self.notifier.success('任务书、技能说明、资产表和JSON模板已保存。\n交给 Codex 执行即可，本按钮不调用模型。', title='已准备', modal=True)
-            except Exception as e:self.notifier.error(str(e), title='无法准备')
+            except Exception as e:self.notifier.error(error_codes.user_text(e), title='无法准备')
         PrimaryButton(win,text='生成编剧任务书（离线）',command=generate).pack(pady=SPACING['md'])
     def import_json(self):
         from domain.writing import validate_episode
@@ -1367,7 +1368,7 @@ class App:
                 WanAdapter(cfg) # Reject arbitrary credential destinations before saving.
                 from stage_execution_service import publish_cloud_video_studio_config
                 publish_cloud_video_studio_config(self.root/'config.json',cfg);self.studio.cfg=cfg;win.destroy();self.refresh()
-            except Exception as e:self.notifier.error(str(e), title='无法保存')
+            except Exception as e:self.notifier.error(error_codes.user_text(e), title='无法保存')
         PrimaryButton(body,text='保存',command=commit).grid(row=len(labels)+1,column=1,pady=SPACING['md'])
     def open_assembled(self):
         from contract.project_stages import exports
