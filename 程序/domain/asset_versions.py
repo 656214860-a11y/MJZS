@@ -391,3 +391,235 @@ def restore_version(base, aid, n, *, gateway=None):
                           {'field': 'restore', 'kind': 'restore',
                            'before': before, 'after': after, 'restore_of': n},
                           source='manual', publish=publish)
+
+
+# ── 动态参考视频（AST-MOTION-REF／DOC-D9-1 后半件）───────────────────────────
+# 每个资产可持有自己的视频（转身展示、动作参考）：mp4/mov/webm、≤20MB、最多 3 条，
+# sha256 去重，落在 ``assets/参考视频/<类目>/<aid>/``，登记进资产清单
+# ``motion_references`` 字段；删除只走 ``storage_maintenance.recycle_paths``；
+# 写入口照常追加 ``field='motion_references'`` 的版本记录（imported／manual）。
+
+_MOTION_KINDS = {'CHAR': '角色', 'LOC': '场景', 'PROP': '道具'}
+_MOTION_SUFFIXES = ('.mp4', '.mov', '.webm')
+_MOTION_MAX_BYTES = 20 * 1024 * 1024
+_MOTION_MAX_COUNT = 3
+_MOTION_GATEWAY = ('read_json', 'publish_json', 'publish_bytes', 'file_hash', 'copy_file')
+
+
+def motion_ref_dir(base, aid):
+    """``<资产库>/assets/参考视频/<类目>/<aid>/``；编号非法抛 ``ValueError``。"""
+    aid = str(aid or '').strip()
+    if not AID_PATTERN.fullmatch(aid):
+        raise ValueError('资产编号不正确：' + (aid or '（空）'))
+    # 与 versions_path 同一口径：纯词法归一，不 resolve（目录可能还不存在）。
+    root = Path(os.path.normcase(os.path.abspath(os.fspath(base))))
+    return root / 'assets' / '参考视频' / _MOTION_KINDS[aid.split('_', 1)[0]] / aid
+
+
+def _motion_gateway(gateway):
+    """读改写五件套；``None`` 时用 L1 底座自装，形状不对抛 ``TypeError``。"""
+    if gateway is None:
+        import shutil
+        from agent.core import file_hash, save, save_bytes
+        from infra.file_cache import read_json
+        return {'read_json': read_json, 'publish_json': save, 'publish_bytes': save_bytes,
+                'file_hash': file_hash, 'copy_file': shutil.copy2}
+    if not isinstance(gateway, dict) or any(not callable(gateway.get(k)) for k in _MOTION_GATEWAY):
+        raise TypeError('动态参考写入需要 read_json/publish_json/publish_bytes/file_hash/copy_file 网关')
+    return gateway
+
+
+def _motion_plan(base, gateway):
+    plan_file = Path(base) / 'assets' / '资产清单' / 'assets.json'
+    plan = gateway['read_json'](plan_file) if plan_file.is_file() else {}
+    if not isinstance(plan, dict):
+        raise ValueError('资产清单 assets.json 顶层必须为对象')
+    return plan_file, plan
+
+
+def _motion_rows(row):
+    rows = row.get('motion_references') if isinstance(row, dict) else None
+    return rows if isinstance(rows, list) else []
+
+
+def _motion_publish(gateway):
+    return lambda path, text: gateway['publish_bytes'](path, text.encode('utf-8'))
+
+
+def _motion_probe(path):
+    """ffprobe 读时长（秒）；工具缺失或读不出回 ``None``，导入不因此失败。"""
+    try:
+        from contract.platform_tools import run_process, tool_path
+        probe = tool_path('ffprobe')
+        if not probe:
+            return None
+        done = run_process([probe, '-v', 'error', '-show_entries', 'format=duration',
+                            '-of', 'default=noprint_wrappers=1:nokey=1', os.fspath(path)],
+                           capture_output=True, text=True, timeout=15)
+        if done.returncode != 0:
+            return None
+        return round(float(str(done.stdout).strip()), 2)
+    except Exception:
+        return None
+
+
+def attach_motion_ref(base, aid, path, *, gateway=None, probe=None):
+    """导入一条动态参考视频：复制进资产库、登记 ``motion_references``、追加版本记录。
+
+    只收 mp4/mov/webm、≤20MB、同资产最多 3 条；sha256 与已登记条目相同返回提示、
+    不再复制也不再记版本。落库名 ``<原名>_<sha256:12>.<后缀>``；``probe`` 注入时长
+    探测（默认 ffprobe），读不出记 ``None``。返回状态文案；形状不对抛 ``ValueError``。
+    """
+    gateway = _motion_gateway(gateway)
+    source = Path(path)
+    if source.suffix.lower() not in _MOTION_SUFFIXES:
+        raise ValueError('只支持 mp4／mov／webm 动态参考视频：' + source.name)
+    if not source.is_file():
+        raise ValueError('动态参考视频不存在：' + str(source))
+    if source.stat().st_size > _MOTION_MAX_BYTES:
+        raise ValueError('动态参考视频不能超过 20MB：' + source.name)
+    base = Path(base).resolve()
+    folder = motion_ref_dir(base, aid)
+    plan_file, plan = _motion_plan(base, gateway)
+    row = plan.get(aid)
+    if not isinstance(row, dict):
+        raise ValueError('资产不存在：' + str(aid))
+    rows = _motion_rows(row)
+    digest = gateway['file_hash'](source)
+    for item in rows:
+        if isinstance(item, dict) and str(item.get('sha256') or '') == digest:
+            return '这条视频已在动态参考里：' + str(item.get('name') or source.name)
+    if len(rows) >= _MOTION_MAX_COUNT:
+        raise ValueError('每项资产最多 3 条动态参考视频：先删掉旧的再导入')
+    target = folder / (source.stem + '_' + digest[:12] + source.suffix.lower())
+    target.parent.mkdir(parents=True, exist_ok=True)
+    gateway['copy_file'](source, target)
+    entry = {'path': target.relative_to(base).as_posix(), 'name': source.name,
+             'duration': (probe or _motion_probe)(target), 'sha256': digest}
+    new_row = dict(row)
+    new_row['motion_references'] = rows + [entry]
+    updated = dict(plan)
+    updated[aid] = new_row
+    gateway['publish_json'](plan_file, updated)
+    append_version(base, aid,
+                   {'field': 'motion_references', 'kind': 'motion_reference',
+                    'before': {'motion_references': list(rows)},
+                    'after': {'motion_references': list(new_row['motion_references'])}},
+                   source='imported', publish=_motion_publish(gateway))
+    return '已导入动态参考视频：' + source.name
+
+
+def unbind_motion_ref(base, aid, relative, *, gateway=None):
+    """删掉清单里的一条动态参考：文件进回收站（唯一删除入口），并记 manual 版本记录。"""
+    gateway = _motion_gateway(gateway)
+    base = Path(base).resolve()
+    motion_ref_dir(base, aid)
+    plan_file, plan = _motion_plan(base, gateway)
+    row = plan.get(aid)
+    if not isinstance(row, dict):
+        raise ValueError('资产不存在：' + str(aid))
+    rows = _motion_rows(row)
+    relative = str(relative or '')
+    target = next((item for item in rows
+                   if isinstance(item, dict) and str(item.get('path') or '') == relative), None)
+    if target is None:
+        raise ValueError('这条动态参考已不在清单里，请刷新后重试')
+    kept = [item for item in rows if item is not target]
+    new_row = dict(row)
+    new_row['motion_references'] = kept
+    updated = dict(plan)
+    updated[aid] = new_row
+    gateway['publish_json'](plan_file, updated)
+    candidate = (base / relative).resolve()
+    if candidate.is_file() and candidate.is_relative_to(base):
+        try:
+            from infra.storage_maintenance import recycle_paths
+            recycle_paths(base, (candidate,), '删除动态参考视频')
+        except Exception:
+            _LOG.warning('动态参考视频移回收站失败：%s', relative)
+    append_version(base, aid,
+                   {'field': 'motion_references', 'kind': 'motion_reference',
+                    'before': {'motion_references': list(rows)},
+                    'after': {'motion_references': list(kept)}},
+                   source='manual', publish=_motion_publish(gateway))
+    return '已删除动态参考：' + str(target.get('name') or Path(relative).name)
+
+
+def motion_refs(base, aid, *, gateway=None):
+    """只读：已登记且文件仍在库内的动态参考清单（越界／缺文件／坏行／非视频后缀跳过）。"""
+    gateway = _motion_gateway(gateway)
+    base = Path(base).resolve()
+    motion_ref_dir(base, aid)
+    _plan_file, plan = _motion_plan(base, gateway)
+    out = []
+    for item in _motion_rows(plan.get(aid)):
+        if not isinstance(item, dict):
+            continue
+        rel = str(item.get('path') or '')
+        candidate = (base / rel).resolve() if rel else None
+        if not (candidate and candidate.is_file() and candidate.is_relative_to(base)):
+            continue
+        if candidate.suffix.lower() not in _MOTION_SUFFIXES:
+            continue
+        entry = dict(item)
+        entry['path'] = candidate.relative_to(base).as_posix()
+        entry['abs'] = candidate
+        out.append(entry)
+    return out
+
+
+def _open_media(path):
+    from contract.platform_tools import open_path
+    open_path(path)
+
+
+def motion_lines(desktop, aid, *, gateway=None, pick=None, after=None, safe=None, probe=None):
+    """详情页「动态参考」块的行规格 ``(文案, 动作或None, 视频路径或None)``，UI 按行摆按钮。
+
+    每条登记视频给「打开」＋「删除」两行，末尾恒有「导入视频」与一句能力说明；
+    空态开头多一行提示。``pick``／``after``／``safe``／``probe`` 供测试注入；
+    缺省 ``pick`` 走 ``desktop.asset_page_services.file_dialog``，``after`` 重建
+    详情页并把结果写状态栏（与 ``_complete`` 同序），``safe`` 恒等直调——
+    UI 侧应传 ``desktop.safe``，让导入失败变成状态栏提示而不是页面崩溃。
+    """
+    base = Path(desktop.asset_base()).resolve()
+    gateway = _motion_gateway(gateway)
+    safe = safe or (lambda fn: fn())
+    if pick is None:
+        def _pick():
+            return desktop.asset_page_services.file_dialog(desktop.win).open_file(
+                title='选择动态参考视频：' + str(aid),
+                filetypes=[('视频', '*.mp4 *.mov *.webm')])
+        pick = _pick
+    if after is None:
+        def _after(message):
+            desktop.open_asset_detail(aid)
+            desktop.note(message)
+        after = _after
+
+    def import_now():
+        source = pick()
+        if source:
+            after(attach_motion_ref(base, aid, source, gateway=gateway, probe=probe))
+
+    try:
+        refs = motion_refs(base, aid, gateway=gateway)
+    except Exception:
+        refs = []                     # 清单读不出只留导入入口，不拖垮整个详情页
+    rows = []
+    for item in refs:
+        path, rel = item['abs'], item['path']
+        name = str(item.get('name') or path.name)
+        duration = item.get('duration')
+        label = '打开 ' + name
+        if isinstance(duration, (int, float)) and duration > 0:
+            label += '（%g 秒）' % duration
+        rows.append((label, lambda p=path: safe(lambda: _open_media(p)), path))
+        rows.append(('删除 ' + name,
+                     lambda r=rel: safe(lambda: after(
+                         unbind_motion_ref(base, aid, r, gateway=gateway))), None))
+    if not refs:
+        rows.append(('还没有动态参考：mp4／mov／webm，20MB 以内，最多 3 条', None, None))
+    rows.append(('导入视频', lambda: safe(import_now), None))
+    rows.append(('提交时仅 Seedance 2.0／2.5 带入参考视频；其它模型仅存档不带入', None, None))
+    return rows

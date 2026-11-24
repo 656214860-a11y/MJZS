@@ -18,6 +18,7 @@ from unittest.mock import Mock, patch
 from contract.service_contract import SystemError
 
 from cloud_video import PROVIDERS, provider_label, saved_provider_key, session_folder, settings_window
+from image_fixtures import png
 
 
 def _gateway():
@@ -255,6 +256,116 @@ class StaleSettingsWindowTests(unittest.TestCase):
             self.assertEqual(busy,[('请等待当前请求结束后删除模型','error'),
                                    ('当前任务尚未结束，请稍后保存','error')])
             self.assertEqual(sorted(p.name for p in project.iterdir()),['episode.json'])
+
+
+class MotionReferencePayloadTests(unittest.TestCase):
+    """AST-MOTION-REF：角色动态参考视频进 Seedance 的 content 槽位（不真实联网）。
+
+    先红后绿依据：改前 ``VolcengineAdapter.payload`` 不读 ``motion_references``，
+    支持分支断言 ``role=reference_video`` 条目为 0 条而失败。
+    """
+
+    def _library(self, td, rows):
+        base = Path(td) / 'assetlib'
+        image = base / 'assets/characters/CHAR_001.png'
+        image.parent.mkdir(parents=True, exist_ok=True)
+        image.write_bytes(png())
+        plan_file = base / 'assets/资产清单/assets.json'
+        plan_file.parent.mkdir(parents=True, exist_ok=True)
+        plan_file.write_text(json.dumps(
+            {'CHAR_001': {'name': '角色', 'motion_references': rows}},
+            ensure_ascii=False), encoding='utf-8')
+        return base, image
+
+    def _adapter(self, model='doubao-seedance-2-0-251215'):
+        from agent.volcengine import VolcengineAdapter
+        return VolcengineAdapter({'cloud_provider': 'volcengine', 'model': model,
+                                  'base_url': 'https://ark.cn-beijing.volces.com/api/v3',
+                                  'resolution': '720p'})
+
+    def _payload(self, td, rows, *, ref_id='CHAR_001', ref_image=None,
+                 model='doubao-seedance-2-0-251215'):
+        base, image = self._library(td, rows)
+        frame = Path(td) / 'frame.png'
+        frame.write_bytes(png())
+        shot = {'video_prompt': '画面', 'duration': 4, '_reference_mode': 'seedance',
+                '_asset_references': [{'id': ref_id, 'path': str(ref_image or image)}]}
+        return base, self._adapter(model).payload(shot, frame)
+
+    @staticmethod
+    def _videos(payload):
+        return [c for c in payload['content'] if c.get('role') == 'reference_video']
+
+    def test_seedance_payload_carries_motion_reference(self):
+        rel = 'assets/参考视频/角色/CHAR_001/turn.mp4'
+        raw = b'\x00\x00\x00\x18ftypmp42fake'
+        with tempfile.TemporaryDirectory() as td:
+            base, image = self._library(td, [{'path': rel, 'name': 'turn.mp4',
+                                              'duration': 3.2, 'sha256': 'f' * 64}])
+            clip = base / rel
+            clip.parent.mkdir(parents=True, exist_ok=True)
+            clip.write_bytes(raw)
+            frame = Path(td) / 'frame.png'
+            frame.write_bytes(png())
+            shot = {'video_prompt': '画面', 'duration': 4, '_reference_mode': 'seedance',
+                    '_asset_references': [{'id': 'CHAR_001', 'path': str(image)}]}
+            payload = self._adapter().payload(shot, frame)
+            videos = self._videos(payload)
+            self.assertEqual(len(videos), 1)
+            self.assertEqual(videos[0]['type'], 'video_url')
+            self.assertTrue(videos[0]['video_url']['url'].startswith('data:video/mp4;base64,'))
+            import base64 as _b64
+            self.assertEqual(_b64.b64decode(videos[0]['video_url']['url'].split(',', 1)[1]),
+                             raw)
+
+    def test_motion_reference_skipped_when_model_lacks_support(self):
+        """Seedance 1.5 不在 SUPPORT 表（只认 2.0／2.5）→ 跳过不带入，详情页写明仅存档。"""
+        rel = 'assets/参考视频/角色/CHAR_001/turn.mp4'
+        with tempfile.TemporaryDirectory() as td:
+            base, image = self._library(td, [{'path': rel, 'name': 'turn.mp4'}])
+            clip = base / rel
+            clip.parent.mkdir(parents=True, exist_ok=True)
+            clip.write_bytes(b'\x00\x00\x00\x18ftypmp42fake')
+            frame = Path(td) / 'frame.png'
+            frame.write_bytes(png())
+            payload = self._adapter('doubao-seedance-1-5-pro-251215').payload(
+                {'video_prompt': '画面', 'duration': 4, '_reference_mode': 'seedance',
+                 '_asset_references': [{'id': 'CHAR_001', 'path': str(image)}]}, frame)
+            self.assertEqual(self._videos(payload), [])
+
+    def test_motion_reference_skipped_for_non_char_asset(self):
+        """动态参考提交接线只认角色（CHAR_）；LOC/PROP 即便登记也不进请求。"""
+        rel = 'assets/参考视频/角色/CHAR_001/turn.mp4'
+        with tempfile.TemporaryDirectory() as td:
+            base, image = self._library(td, [{'path': rel, 'name': 'turn.mp4'}])
+            clip = base / rel
+            clip.parent.mkdir(parents=True, exist_ok=True)
+            clip.write_bytes(b'\x00\x00\x00\x18ftypmp42fake')
+            loc = base / 'assets/scenes/LOC_001.png'
+            loc.parent.mkdir(parents=True, exist_ok=True)
+            loc.write_bytes(png(color='blue'))
+            _base, payload = self._payload(td, [{'path': rel, 'name': 'turn.mp4'}],
+                                           ref_id='LOC_001', ref_image=loc)
+            self.assertEqual(self._videos(payload), [])
+
+    def test_motion_reference_skips_escape_missing_and_bad_rows(self):
+        rel = 'assets/参考视频/角色/CHAR_001/ok.mp4'
+        rows = [{'path': '../escape.mp4'},
+                {'path': 'assets/参考视频/角色/CHAR_001/gone.mp4'},
+                'not-a-dict',
+                {'path': rel}]
+        with tempfile.TemporaryDirectory() as td:
+            base, image = self._library(td, rows)
+            clip = base / rel
+            clip.parent.mkdir(parents=True, exist_ok=True)
+            clip.write_bytes(b'\x00\x00\x00\x18ftypmp42fake')
+            frame = Path(td) / 'frame.png'
+            frame.write_bytes(png())
+            shot = {'video_prompt': '画面', 'duration': 4, '_reference_mode': 'seedance',
+                    '_asset_references': [{'id': 'CHAR_001', 'path': str(image)}]}
+            payload = self._adapter().payload(shot, frame)
+            videos = self._videos(payload)
+            self.assertEqual(len(videos), 1)
 
 
 if __name__ == "__main__":

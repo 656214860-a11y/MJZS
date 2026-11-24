@@ -857,6 +857,11 @@ def show(desktop, aid):
     desktop.note(note)
     _gates_block(desktop, aid)
     _board_block(desktop, aid, asset)
+    from domain.asset_versions import motion_lines
+    box = Card(desktop.content); ttk.Label(box, text='动态参考').pack(anchor='w'); box.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
+    for text, run, thumb in motion_lines(desktop, aid, safe=desktop.safe):
+        thumb = asset_thumbs.media_thumbnail(box, thumb, CELL_SIZE) if thumb else None
+        button = SecondaryButton(box, image=thumb, text=text, compound='left', command=run or (lambda: None), state='normal' if run else 'disabled'); button.image = thumb; button.pack(anchor='w')
     if aid.startswith('CHAR_'):
         _anchor_block(desktop, aid, asset)
         _role_block(desktop, aid, asset)

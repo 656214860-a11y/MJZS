@@ -1,0 +1,15 @@
+{
+  "round": 4399,
+  "commit_base": "d16585a84",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k asset_versions asset_detail cloud_video",
+    "exit": 0,
+    "passed": 125,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T04:45:58"
+}

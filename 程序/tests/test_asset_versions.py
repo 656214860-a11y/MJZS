@@ -588,5 +588,170 @@ class RestoreVersionTests(unittest.TestCase):
         self.assertTrue(current.is_file())
 
 
+class MotionRefTests(unittest.TestCase):
+    """AST-MOTION-REF：角色动态参考视频的登记、去重、上限、回收与版本记录（DOC-D9-1 后半件）。
+
+    先红后绿依据：改前 ``domain.asset_versions`` 没有 ``attach_motion_ref``／
+    ``unbind_motion_ref``／``motion_refs``／``motion_lines``／``motion_ref_dir``，
+    这些调用一律 AttributeError。
+    """
+
+    def setUp(self):
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.base = make_library(self.tmp.name, asset=asset_fields())
+        self.gateway = batch_gateway()
+
+    def _clip(self, name, raw=b'\x00\x00\x00\x18ftypmp42fakeclip'):
+        path = Path(self.tmp.name) / 'pick' / name
+        path.parent.mkdir(parents=True, exist_ok=True)
+        path.write_bytes(raw)
+        return path
+
+    def _plan(self):
+        return json.loads((self.base / 'assets/资产清单/assets.json')
+                          .read_text(encoding='utf-8'))
+
+    def _refs(self, aid=AID):
+        from domain import asset_versions
+        return asset_versions.motion_refs(self.base, aid, gateway=self.gateway)
+
+    def _attach(self, src, **kwargs):
+        from domain import asset_versions
+        kwargs.setdefault('probe', lambda _path: None)
+        return asset_versions.attach_motion_ref(self.base, AID, src,
+                                                gateway=self.gateway, **kwargs)
+
+    def test_attach_registers_file_plan_and_version(self):
+        src = self._clip('turn.mp4')
+        message = self._attach(src, probe=lambda _path: 3.2)
+        self.assertIn('已导入', message)
+        rows = self._plan()[AID]['motion_references']
+        self.assertEqual(len(rows), 1)
+        row = rows[0]
+        self.assertEqual(row['sha256'], hashlib.sha256(src.read_bytes()).hexdigest())
+        self.assertEqual(row['duration'], 3.2)
+        self.assertEqual(row['name'], 'turn.mp4')
+        stored = self.base / row['path']
+        self.assertTrue(stored.is_file())
+        self.assertEqual(stored.read_bytes(), src.read_bytes())
+        self.assertEqual(stored.parent, self.base / 'assets/参考视频/角色' / AID)
+        records = read_records(version_file(self.base))
+        self.assertEqual(len(records), 1)
+        self.assertEqual(records[0]['field'], 'motion_references')
+        self.assertEqual(records[0]['kind'], 'motion_reference')
+        self.assertEqual(records[0]['source'], 'imported')
+        self.assertEqual(self._refs()[0]['path'], row['path'])
+
+    def test_attach_dedupes_same_sha256(self):
+        first = self._clip('turn.mp4')
+        self._attach(first)
+        dup = self._clip('turn-copy.mp4', first.read_bytes())
+        message = self._attach(dup)
+        self.assertIn('已在', message)
+        self.assertEqual(len(self._plan()[AID]['motion_references']), 1)
+        folder = self.base / 'assets/参考视频/角色' / AID
+        self.assertEqual(len(list(folder.iterdir())), 1)
+
+    def test_attach_limit_three(self):
+        for name in ('a.mp4', 'b.mov', 'c.webm'):
+            self._attach(self._clip(name, ('clip-' + name).encode()))
+        with self.assertRaisesRegex(ValueError, '最多 3'):
+            self._attach(self._clip('d.mp4', b'clip-d'))
+        self.assertEqual(len(self._plan()[AID]['motion_references']), 3)
+
+    def test_attach_rejects_suffix_oversize_and_missing(self):
+        with self.assertRaisesRegex(ValueError, 'mp4'):
+            self._attach(self._clip('note.txt'))
+        big = self._clip('big.mp4', b'\x00' * (20 * 1024 * 1024 + 1))
+        with self.assertRaisesRegex(ValueError, '20'):
+            self._attach(big)
+        with self.assertRaisesRegex(ValueError, '不存在'):
+            self._attach(Path(self.tmp.name) / 'pick' / 'gone.mp4')
+        from domain import asset_versions
+        with self.assertRaisesRegex(ValueError, '不存在'):
+            asset_versions.attach_motion_ref(self.base, 'CHAR_999',
+                                             self._clip('late.mp4'),
+                                             gateway=self.gateway, probe=lambda _p: None)
+        self.assertNotIn('motion_references', self._plan()[AID])
+
+    def test_unbind_recycles_file_and_versions(self):
+        from domain import asset_versions
+        src = self._clip('turn.mp4')
+        self._attach(src, probe=lambda _path: 1.5)
+        rel = self._plan()[AID]['motion_references'][0]['path']
+        message = asset_versions.unbind_motion_ref(self.base, AID, rel,
+                                                   gateway=self.gateway)
+        self.assertIn('已删除', message)
+        self.assertEqual(self._plan()[AID].get('motion_references'), [])
+        self.assertFalse((self.base / rel).exists())
+        from infra.storage_maintenance import recycle_base
+        self.assertTrue(list(recycle_base(self.base).rglob('*.mp4')))
+        records = read_records(version_file(self.base))
+        self.assertEqual([r['source'] for r in records], ['imported', 'manual'])
+        self.assertEqual(records[1]['field'], 'motion_references')
+
+    def test_unbind_missing_row_refused(self):
+        from domain import asset_versions
+        with self.assertRaisesRegex(ValueError, '刷新'):
+            asset_versions.unbind_motion_ref(
+                self.base, AID, 'assets/参考视频/角色/CHAR_001/none.mp4',
+                gateway=self.gateway)
+
+    def test_motion_refs_skip_escape_missing_and_bad_rows(self):
+        good = self._clip('ok.mp4')
+        self._attach(good)
+        plan_file = self.base / 'assets/资产清单/assets.json'
+        plan = self._plan()
+        plan[AID]['motion_references'] += [
+            {'path': '../escape.mp4'},
+            {'path': 'assets/参考视频/角色/CHAR_001/gone.mp4'},
+            'not-a-dict']
+        save(plan_file, plan)
+        rows = self._refs()
+        self.assertEqual(len(rows), 1)
+        self.assertEqual(rows[0]['name'], 'ok.mp4')
+
+    def test_motion_ref_dir_validation(self):
+        from domain import asset_versions
+        self.assertEqual(asset_versions.motion_ref_dir(self.base, 'LOC_001'),
+                         self.base / 'assets/参考视频/场景' / 'LOC_001')
+        with self.assertRaises(ValueError):
+            asset_versions.motion_ref_dir(self.base, 'OTHER_001')
+        with self.assertRaises(ValueError):
+            asset_versions.motion_ref_dir(self.base, '../CHAR_001')
+
+    def test_motion_lines_rows_and_actions(self):
+        from types import SimpleNamespace
+        from domain import asset_versions
+        events = []
+        desktop = SimpleNamespace(asset_base=lambda: self.base, win=None)
+        after = lambda msg: events.append(msg) or msg
+        src = self._clip('turn.mp4')
+        rows = asset_versions.motion_lines(
+            desktop, AID, gateway=self.gateway,
+            pick=lambda: str(src), after=after, probe=lambda _p: 1.5)
+        texts = [text for text, _run, _thumb in rows]
+        self.assertTrue(any('还没有' in t for t in texts))
+        self.assertIn('导入视频', texts)
+        self.assertTrue(any('Seedance' in t for t in texts))
+        runs = {text: run for text, run, _thumb in rows if run}
+        runs['导入视频']()
+        self.assertEqual(len(self._plan()[AID]['motion_references']), 1)
+        self.assertTrue(any('已导入' in e for e in events))
+        rows = asset_versions.motion_lines(
+            desktop, AID, gateway=self.gateway, pick=lambda: '',
+            after=after, probe=lambda _p: 1.5)
+        texts = [text for text, _run, _thumb in rows]
+        self.assertTrue(any(t.startswith('打开 ') and 'turn.mp4' in t
+                            and '1.5' in t for t in texts))
+        deletes = [run for text, run, _thumb in rows
+                   if run and text.startswith('删除 ')]
+        self.assertEqual(len(deletes), 1)
+        deletes[0]()
+        self.assertEqual(self._plan()[AID].get('motion_references'), [])
+        self.assertTrue(any('已删除' in e for e in events))
+
+
 if __name__ == '__main__':
     unittest.main()
