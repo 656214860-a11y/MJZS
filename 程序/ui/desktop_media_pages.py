@@ -757,14 +757,55 @@ class MediaPagesMixin:
         tip=quote['text']
         if not self.media_page_services.confirm(self.win, '逐句配音（付费）', tip+'\n\n继续提交？', dangerous=True):
             self.status.set('已取消逐句配音：未提交任何句子，也没有产生费用');return
+        # 逐句进度经状态总线上屏（工作线程安全）；stop 只在句间生效，由 L2 run_lines 判定。
+        from ui.ui_status_bus import Message
+        stop=threading.Event();finished=threading.Event()
+        self._tts_lines_stop=stop
+        stop_button=getattr(self,'_tts_lines_stop_button',None)
+        if stop_button is not None:
+            try:stop_button.configure(state='normal')
+            except tk.TclError:pass
+        def report(text):
+            self.status_bus.publish(Message.make('info',str(text),source='tts_per_line',auto=False))
         def work():
             from stage_execution_service import run_tts_lines
-            ok,reused,failed=run_tts_lines(lines,out,episode=token,project=self.root)
-            note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
+            try:
+                ok,reused,failed=run_tts_lines(lines,out,episode=token,project=self.root,report=report,stop=stop)
+            finally:
+                finished.set()
+            if stop.is_set():
+                note=f'逐句配音已停止：成功 {ok}/{len(lines)}，失败 {failed}；再次点击会接续本批次'
+            else:
+                note=f'逐句配音完成：成功 {ok}/{len(lines)}，失败 {failed}'
             if reused:note+=f'（沿用已生成 {reused} 句，未重复扣费）'
             if resumed:note+='；已接续上次未完成的批次'
             return note+f'；目录 {out}'
-        self.async_(work)
+        def watch():
+            # 批次收尾（完成/失败/停止）恢复停止入口；只认自己那一批的 stop，防止误清新批次。
+            if not finished.is_set():
+                try:self.win.after(200,watch)
+                except tk.TclError:pass
+                return
+            if getattr(self,'_tts_lines_stop',None) is not stop:return
+            self._tts_lines_stop=None
+            button=getattr(self,'_tts_lines_stop_button',None)
+            if button is not None:
+                try:button.configure(state='disabled')
+                except tk.TclError:pass
+        try:self.win.after(200,watch)
+        except tk.TclError:pass
+        try:
+            self.async_(work)
+        except Exception:
+            finished.set()
+            raise
+    def stop_tts_per_line(self):
+        """停止逐句配音：只在句与句之间生效，在途的那句跑完后不再提交新句（L2 run_lines 判定）。"""
+        stop=getattr(self,'_tts_lines_stop',None)
+        if stop is None:
+            self.status.set('当前没有正在进行的逐句配音批次');return
+        stop.set()
+        self.status.set('已请求停止逐句配音：当前句完成后不再提交新句')
     def open_audio_skill(self):
         from orchestrator.workflow_tasks import audio_prompt
         source=self.current_frame_json()
@@ -806,6 +847,10 @@ class MediaPagesMixin:
         dialogue_buttons=[]
         dialogue_buttons.append(audio_button(production,'生成配音（TTS）',self.generate_tts))
         dialogue_buttons.append(audio_button(production,'逐句配音（分句）',self.generate_tts_per_line))
+        # 停止入口不走 safe（批次期间 worker 忙碌会被拦）：状态由 generate_tts_per_line 的收尾看门狗管理。
+        self._tts_lines_stop_button=SecondaryButton(production,text='停止逐句配音',command=self.stop_tts_per_line,width=0,
+            state='normal' if getattr(self,'_tts_lines_stop',None) is not None else 'disabled')
+        self._tts_lines_stop_button.pack(side='left',padx=(SPACING['none'],SPACING['sm']),pady=SPACING['xs'])
         audio_button(production,'配音设置',self.open_tts_settings)
         import_bar=_group_bar(self,'导入与确认');audio_button(import_bar,'导入配音 / 音乐',self.import_audio,standard=True)
         audio_button(import_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('audio'),standard=True)
