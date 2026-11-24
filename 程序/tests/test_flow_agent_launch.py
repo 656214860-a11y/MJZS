@@ -189,6 +189,199 @@ class FlowAgentLaunchTests(unittest.TestCase):
         host.status.set.assert_called_with(message)
         host.notifier.warning.assert_called_once_with(message, title='请手动发送')
 
+    def test_skill_send_api_route_api_model_never_opens_cli(self):
+        """REQ-S01-118：接口模型（config['api'] 非空）在 open_flow_agent 任何入口都不起 CLI。"""
+        api = {'base_url': 'https://x', 'path': '/v1', 'wire_api': 'chat', 'key_env': 'K'}
+        for stage in ('assets', 'writing', 'video_prompt'):
+            host = self.host(sync=False)
+            config = {'engine': 'qwen', 'program': '', 'model': 'm1', 'api': api}
+            with self.subTest(stage=stage), self.stubs(), \
+                    patch('workflow_settings.freeze_skills', side_effect=lambda value: value):
+                self.open(host, stage, config)
+            host.async_.assert_not_called()
+            host.status.set.assert_called_once_with('接口模型不使用命令行窗口')
+
+    def test_skill_send_api_route_cli_model_unchanged(self):
+        """REQ-S01-118：命令行引擎模型（无 api）行为逐字不变，照旧进入 use_cli 准备链。"""
+        host = self.host(sync=False)
+        with self.stubs():
+            self.open(host, 'assets', {'engine': 'qwen', 'program': '', 'model': ''})
+        host.async_.assert_called_once()
+        self.assertEqual([], host.status.set.call_args_list)
+
+
+class SkillSendApiRouteTests(unittest.TestCase):
+    """REQ-S01-118（UX-B2API）：剧本页 /技能名 在接口模型下走应用内请求，不开命令行窗口。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.project = Path(temp.name) / '项目'
+        self.project.mkdir()
+
+    def host(self, **extra):
+        from orchestrator.idea_chat_controller import IdeaChatController
+        values = dict(root=self.project, worker=False, status=Mock(), notifier=Mock(),
+                      idea_chat_controller=IdeaChatController(),
+                      open_flow_agent=Mock(), update_script_interrupt_button=Mock(),
+                      set_idea_model_filter=Mock(), discard_idea_draft=Mock(),
+                      show_conversation=Mock(), show_thinking=Mock(), begin_stream=Mock(),
+                      stream_call=Mock(return_value={'ok': True, 'response_text': '好'}),
+                      submit_idea_api_request=Mock(),
+                      idea_chat_context=Mock(return_value=object()),
+                      idea_chat_gateway=Mock(return_value={}))
+        values.update(extra)
+        return SimpleNamespace(**values)
+
+    def request_model(self, label='M1'):
+        from domain.idea_document_paths import ChatModel
+        return {'id': 'm1', 'record': {'context_length': 128000},
+                'label': ChatModel(label, 'm1', 'P'), 'provider': 'P'}
+
+    def patches(self, settings=None, error=None):
+        """send_skill_request 的外部边界全部打桩；settings 为 resolve_for_send 的返回。"""
+        request = self.request_model()
+        resolve = Mock()
+        if error is not None:
+            resolve.side_effect = error
+        else:
+            resolve.return_value = settings if settings is not None else {'skill_injection': {}}
+        return (patch('writing_api.capture_request_model', return_value=request),
+                patch('orchestrator.workflow_settings.resolve_for_send', resolve),
+                patch('domain.idea_chat.append'), request, resolve)
+
+    def send_skill(self, host, name='分镜技法', path=None, rest='做三版'):
+        import desktop_shared_send as shared_send
+        return shared_send.send_skill_request(
+            host, name, path if path is not None else Path('skills') / 'x' / '分镜技法.skill.md', rest)
+
+    def test_skill_send_api_route_shared_send_prefers_in_app_request(self):
+        """剧本页 /技能名：send_skill_request 受理时不再 _open_flow 开命令行窗口。"""
+        import desktop_shared_send as shared_send
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self.host(opened=[],
+                            shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        desktop.open_flow_agent = lambda *a, **k: desktop.opened.append(a)
+        parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': 'script', 'rest': '做三版'}
+        with patch.object(shared_send, 'send_skill_request', return_value=True) as sender:
+            self.assertTrue(shared_send.send(desktop, 'script', '/分镜技法 做三版', parsed))
+        sender.assert_called_once_with(desktop, '分镜技法', skill.path, '做三版')
+        self.assertEqual(desktop.opened, [])
+
+    def test_skill_send_api_route_shared_send_falls_back_for_cli(self):
+        """send_skill_request 返回 False（非接口模型）：原 _open_flow 链逐字保留。"""
+        import desktop_shared_send as shared_send
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self.host(opened=[],
+                            shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        desktop.open_flow_agent = lambda *a, **k: desktop.opened.append(a)
+        parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': 'script', 'rest': '做三版'}
+        with patch.object(shared_send, 'send_skill_request', return_value=False):
+            self.assertTrue(shared_send.send(desktop, 'script', '/分镜技法 做三版', parsed))
+        self.assertEqual(desktop.opened[0][:2], ('writing', '剧本准备'))
+        self.assertIn('请完整读取并严格遵循本地技能文件', desktop.opened[0][2])
+
+    def test_skill_send_api_route_request_freezes_named_skill_in_app(self):
+        """接口模型：只把本条点名技能冻结后装进应用内请求，请求链与自由文本一致。"""
+        host = self.host()
+        capture, resolve, append, request, resolver = self.patches({'skill_injection': {'loaded': []}})
+        with capture, resolve, append as rows:
+            self.assertTrue(self.send_skill(host))
+        self.assertEqual(True, resolver.call_args.kwargs['direct_api'])
+        self.assertEqual(('m1', {'context_length': 128000}), resolver.call_args.kwargs['model_snapshot'])
+        config = {'stage_skills': ['a', 'b'], 'skills': ['x'], 'skill': 'x',
+                  'engine': 'codex', 'model': '', 'invocation_mode': ''}
+        resolver.call_args.kwargs['adjust'](config)
+        self.assertEqual(config['stage_skills'], [str(Path('skills') / 'x' / '分镜技法.skill.md')])
+        self.assertEqual(config['skills'], [])
+        self.assertEqual(config['skill'], '')
+        self.assertTrue(config['named_execution'])
+        self.assertEqual(config['named_skills'], ['分镜技法'])
+        self.assertEqual(config['engine'], 'qwen')
+        self.assertEqual(config['invocation_mode'], 'api')
+        self.assertEqual(config['model'], 'm1')
+        user_rows = [c for c in rows.call_args_list if c.args[1] == 'user']
+        self.assertEqual(len(user_rows), 1)
+        self.assertEqual(user_rows[0].args[2], '/分镜技法 做三版')
+        self.assertEqual(user_rows[0].kwargs['skill_injection'], {'loaded': []})
+        host.submit_idea_api_request.assert_called_once()
+        ask = host.submit_idea_api_request.call_args.args[3]
+        ask()
+        call = host.stream_call.call_args
+        self.assertEqual(call.args[0].__name__, 'reply_to_writing')
+        self.assertEqual(call.args[1:], (self.project, '做三版'))
+        self.assertEqual(call.kwargs['user_message'], '/分镜技法 做三版')
+        self.assertIs(call.kwargs['request_model'], request)
+        self.assertTrue(host.idea_chat_controller.requesting)
+        host.open_flow_agent.assert_not_called()
+
+    def test_skill_send_api_route_degraded_reference_notice(self):
+        """引用被省略或不可发送：照常发送已装下部分，notice＋状态栏各说明一次。"""
+        cases = (
+            ({'references': [{'status': 'skipped'}], 'skipped': [{'status': 'skipped'}],
+              'degraded': True}, ['技能引用装不下本次请求，已省略部分引用']),
+            ({'references': [{'status': 'resource'}], 'skipped': [], 'degraded': False},
+             ['技能含无法随请求发送的文件，已省略']),
+        )
+        for injection, expected in cases:
+            with self.subTest(injection=injection):
+                host = self.host()
+                capture, resolve, append, request, resolver = self.patches({'skill_injection': injection})
+                with capture, resolve, append as rows:
+                    self.assertTrue(self.send_skill(host))
+                notice_rows = [c.args[2] for c in rows.call_args_list if c.args[1] == 'notice']
+                self.assertEqual(notice_rows, expected)
+                for text in expected:
+                    host.status.set.assert_any_call(text)
+                host.submit_idea_api_request.assert_called_once()
+
+    def test_skill_send_api_route_refusal_explains_reason(self):
+        """正文装不下或模型没填上下文长度：不发送，两处说明具体原因类别。"""
+        cases = (
+            (ValueError('未填写上下文窗口m1 context_window_unknown 填context_length'),
+             '模型没有填上下文长度，请在模型管理里补充'),
+            (ValueError('SKILL/阶段指令超出预算：完整正文及包装 9,999 token，预算 1,000 token，已阻止发送。'),
+             '技能正文超出模型上下文'),
+        )
+        for error, expected in cases:
+            with self.subTest(error=str(error)):
+                host = self.host()
+                capture, resolve, append, request, resolver = self.patches(error=error)
+                with capture, resolve, append as rows:
+                    self.assertTrue(self.send_skill(host))
+                notice_rows = [c.args[2] for c in rows.call_args_list if c.args[1] == 'notice']
+                self.assertEqual(notice_rows, [expected])
+                host.status.set.assert_any_call(expected)
+                host.submit_idea_api_request.assert_not_called()
+                self.assertFalse(host.idea_chat_controller.requesting)
+
+    def test_skill_send_api_route_non_api_model_returns_false(self):
+        """非接口模型返回 False，由共享发送回落到原命令行链，不发应用内请求。"""
+        host = self.host()
+        request = {'id': '', 'record': {}, 'label': '', 'provider': ''}
+        with patch('writing_api.capture_request_model', return_value=request):
+            self.assertFalse(self.send_skill(host))
+        host.submit_idea_api_request.assert_not_called()
+
+    def test_skill_send_api_route_notice_stays_out_of_model_context(self):
+        """notice 行只作显示：load(model) 拼上下文与 latest_text 都不含它；「全部」视图仍可见。"""
+        from stage_execution_service import idea_chat_gateway, project_context
+        import domain.idea_chat as idea_chat
+        context = project_context(self.project)
+        gateway = idea_chat_gateway()
+        idea_chat.append(context, 'user', '问一句', model='测试模型UXB2API', gateway=gateway)
+        idea_chat.append(context, 'assistant', '回一句', model='测试模型UXB2API', gateway=gateway)
+        idea_chat.append(context, 'notice', '技能引用装不下本次请求，已省略部分引用',
+                         model='测试模型UXB2API', gateway=gateway)
+        model_rows = idea_chat.load(context, model='测试模型UXB2API', gateway=gateway)
+        self.assertEqual([row['role'] for row in model_rows], ['user', 'assistant'])
+        all_rows = idea_chat.load(context, model='', gateway=gateway)
+        self.assertEqual([row['role'] for row in all_rows], ['user', 'assistant', 'notice'])
+        self.assertNotIn('技能引用装不下', idea_chat.history_context(model_rows))
+        self.assertEqual(idea_chat.latest_text(context, model='测试模型UXB2API', gateway=gateway), '回一句')
+
 
 if __name__ == '__main__':
     unittest.main()

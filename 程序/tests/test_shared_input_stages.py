@@ -124,6 +124,30 @@ class SendDispatchTests(unittest.TestCase):
         self.assertIn('分镜技法', prompt)
         self.assertIn('做三版', prompt)
 
+    def test_skill_command_on_script_prefers_in_app_skill_request(self):
+        """REQ-S01-118：剧本页 /技能名 先交 send_skill_request 应用内请求；受理则不开 Agent 窗口。"""
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self._desktop(page_index=0,
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': 'script', 'rest': '做三版'}
+        with unittest.mock.patch.object(shared_send, 'send_skill_request', return_value=True) as accepted:
+            self.assertTrue(shared_send.send(desktop, 'script', '/分镜技法 做三版', parsed))
+        accepted.assert_called_once_with(desktop, '分镜技法', skill.path, '做三版')
+        self.assertEqual(desktop.opened, [])
+
+    def test_skill_command_on_script_falls_back_when_in_app_declines(self):
+        """REQ-S01-118：send_skill_request 返回 False（非接口模型）时仍走 _open_flow。"""
+        skill = SimpleNamespace(name='分镜技法', stage='storyboard',
+                                path=Path('skills') / 'x' / '分镜技法.skill.md')
+        desktop = self._desktop(page_index=0,
+                                shared_input=SimpleNamespace(skill_items=lambda: [skill]))
+        parsed = {'kind': 'skill', 'name': '分镜技法', 'stage': 'script', 'rest': '做三版'}
+        with unittest.mock.patch.object(shared_send, 'send_skill_request', return_value=False):
+            self.assertTrue(shared_send.send(desktop, 'script', '/分镜技法 做三版', parsed))
+        self.assertEqual(desktop.opened[0][:2], ('writing', '剧本准备'))
+        self.assertIn('请完整读取并严格遵循本地技能文件', desktop.opened[0][2])
+
     def test_cross_stage_skill_on_page_without_entry_stays_and_hints(self):
         """DOC-D8-7：剧本结构页没有对话入口，用别的阶段的技能发送只提示，不换页、不开 Agent。"""
         here = pet_bus.STAGES.index('script_structure')

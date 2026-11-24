@@ -165,12 +165,18 @@ def _all_rows(root, model=None, provider='', *, gateway=None):
 
 
 def load(root, model=None, *, gateway=None):
-    """读取对话；指定模型时只返回该模型自己的聊天页。"""
+    """读取对话；指定模型时只返回该模型自己的聊天页。
+
+    ``role='notice'`` 的说明行（REQ-S01-118）不进按模型的加载结果：模型上下文拼接、
+    最近回复定位与按模型导出都走这条路，说明行只给界面看。``model`` 为空的全量
+    读取仍包含它，界面按 ``_model_tab_rows`` 把它摆回所属模型的目录条下。
+    """
     rows = _all_rows(root, model=model, gateway=gateway)
     key = str(model or '').strip()
     if not key:
         return rows
-    selected = [rows[index] for index in _row_indexes(rows, model)]
+    selected = [rows[index] for index in _row_indexes(rows, model)
+                if str(rows[index].get('role') or '') != 'notice']
     if selected:
         return selected
     # 旧版本的对话没有 model 字段。仅当整个文件都是这种旧格式时才展示它，
