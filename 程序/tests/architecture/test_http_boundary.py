@@ -74,6 +74,9 @@ def _hardcoded_addresses() -> list:
 
 
 OUTBOUND_DOC = 'docs/process/外发内容清单.md'
+# 清单登记锚点：``相对路径.py::符号限定名``（外层到内层；模块顶层记 ``<module>``；
+# 同一符号下多个出站点按行数登记多条，守卫按多重集计数核对）。
+_SITE = re.compile(r'([\w\-./]+\.py)::([\w.<>]+)')
 
 # 出站点口径：对这些传输入口名的 Load 引用（直接调用、注入绑定、基类继承都算
 # 外发点）；``webbrowser.open``（含 ``*.webbrowser.open``）单独按链尾匹配。
@@ -102,18 +105,37 @@ def _dotted(node) -> str:
     return ''
 
 
-def _outbound_points(path) -> set:
-    """生产文件里的外发点行号集合。"""
-    hits = set()
-    for node in ast.walk(parse(path)):
-        if isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load):
-            if node.attr in _OUTBOUND_NAMES:
-                hits.add(node.lineno)
-            elif node.attr == 'open' and _dotted(node.value).endswith('webbrowser'):
-                hits.add(node.lineno)
-        elif isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load) and node.id in _OUTBOUND_NAMES:
-            hits.add(node.lineno)
-    return hits
+def _outbound_sites(tree) -> dict:
+    """``tree`` 里各所属符号限定名 -> 外发点行号列表；模块顶层记 ``<module>``。"""
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    sites = {}
+    for node in ast.walk(tree):
+        hit = isinstance(node, ast.Attribute) and isinstance(node.ctx, ast.Load) and (
+            node.attr in _OUTBOUND_NAMES or (
+                node.attr == 'open' and _dotted(node.value).endswith('webbrowser')))
+        hit = hit or (isinstance(node, ast.Name) and isinstance(node.ctx, ast.Load)
+                      and node.id in _OUTBOUND_NAMES)
+        if not hit:
+            continue
+        chain, cursor = [], node
+        while cursor in parents:
+            cursor = parents[cursor]
+            if isinstance(cursor, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef)):
+                chain.append(cursor.name)
+        sites.setdefault('.'.join(reversed(chain)) or '<module>', []).append(node.lineno)
+    for lines in sites.values():
+        lines.sort()
+    return sites
+
+
+def _detected_sites() -> dict:
+    """全部生产文件的出站点：``{(rel_path, qualname): 升序行号列表}``。"""
+    sites = {}
+    for path in production_runtime_files():
+        rel = _rel(path)
+        for qualname, lines in _outbound_sites(parse(path)).items():
+            sites[(rel, qualname)] = lines
+    return sites
 
 
 class HttpBoundaryTests(unittest.TestCase):
@@ -146,37 +168,60 @@ class HttpBoundaryTests(unittest.TestCase):
 
 
 class OutboundRegistryTests(unittest.TestCase):
-    """REL-11：外发内容清单必须登记每一个出站点，且条目与代码一一对应。"""
+    """REL-11：外发内容清单按 ``file.py::符号限定名`` 登记每一个出站点，条数与代码一一对应。"""
 
     def _registry(self) -> str:
         path = ROOT / OUTBOUND_DOC
         self.assertTrue(path.is_file(), '缺少外发内容清单：' + OUTBOUND_DOC)
         return path.read_text(encoding='utf-8')
 
+    def _registry_sites(self) -> dict:
+        """清单登记的出站点计数：锚点每出现一次记一条。"""
+        sites = {}
+        for rel, qualname in _SITE.findall(self._registry()):
+            key = (rel, qualname)
+            sites[key] = sites.get(key, 0) + 1
+        return sites
+
     def test_outbound_registry_lists_required_flows(self):
         text = self._registry()
         for flow in ('联网采风', '模型请求', '更新检查', '账号服务'):
             self.assertIn(flow, text, '外发内容清单未列出流程：' + flow)
 
+    def test_outbound_sites_resolve_enclosing_qualnames(self):
+        """守卫键是 (文件, 符号限定名, 计数)：跨行号漂移稳定；模块顶层记 ``<module>``。"""
+        source = (
+            'import webbrowser\n'
+            'top = urlopen\n'
+            'def f():\n'
+            '    webbrowser.open("u")\n'
+            '    helper = urlopen\n'
+            'class C:\n'
+            '    def m(self):\n'
+            '        return request_json\n'
+            '    def n(self):\n'
+            '        webbrowser.open("u")\n'
+            '        webbrowser.open("v")\n')
+        self.assertEqual(_outbound_sites(ast.parse(source)),
+                         {'<module>': [2], 'f': [4, 5], 'C.m': [8], 'C.n': [10, 11]})
+
     def test_outbound_registry_covers_every_outbound_point(self):
-        registered = {(loc, int(line)) for loc, line in _LOC.findall(self._registry())}
+        registered = self._registry_sites()
         unregistered = {}
-        for path in production_runtime_files():
-            rel = _rel(path)
-            missing = sorted(_outbound_points(path)
-                             - {line for loc, line in registered if loc == rel})
-            if missing:
-                unregistered[rel] = missing
+        for (rel, qualname), lines in sorted(_detected_sites().items()):
+            missing = len(lines) - registered.get((rel, qualname), 0)
+            if missing > 0:
+                unregistered.setdefault(rel, []).append(
+                    '%s x%d @%s' % (qualname, missing, ','.join('L%d' % n for n in lines)))
         self.assertEqual(unregistered, {},
-                         '未登记的外发点（写入 %s）：' % OUTBOUND_DOC + repr(unregistered))
+                         '未登记的外发点（按 文件.py::符号名 写入 %s）：' % OUTBOUND_DOC
+                         + repr(unregistered))
 
     def test_outbound_registry_has_no_stale_entries(self):
-        detected = set()
-        for path in production_runtime_files():
-            rel = _rel(path)
-            detected.update((rel, line) for line in _outbound_points(path))
-        stale = sorted({(loc, int(line)) for loc, line in _LOC.findall(self._registry())}
-                       - detected)
+        detected = _detected_sites()
+        stale = sorted('%s::%s x%d' % (rel, qualname, count - len(detected.get((rel, qualname), ())))
+                       for (rel, qualname), count in self._registry_sites().items()
+                       if count > len(detected.get((rel, qualname), ())))
         self.assertEqual(stale, [], '外发内容清单登记了已不存在的出站点：' + repr(stale))
 
 
