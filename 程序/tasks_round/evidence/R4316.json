@@ -1,0 +1,15 @@
+{
+  "round": 4316,
+  "commit_base": "b52a39ef1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k seed_worktree_submodules",
+    "exit": 0,
+    "passed": 8,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T17:43:11"
+}
