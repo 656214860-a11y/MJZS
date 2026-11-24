@@ -1,0 +1,15 @@
+{
+  "round": 4258,
+  "commit_base": "79fa309b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k confirm_gates asset_plan continuity_ledger",
+    "exit": 0,
+    "passed": 63,
+    "failed": 0
+  },
+  "generated_at": "2026-11-24T07:13:40"
+}

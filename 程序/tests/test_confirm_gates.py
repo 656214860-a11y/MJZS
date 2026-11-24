@@ -339,6 +339,57 @@ class ConfirmationBindingTests(unittest.TestCase):
                              "旧记录没有摘要，按升级前口径仍然算已确认")
 
 
+class UnsupportedChoiceTests(unittest.TestCase):
+    """G-08 的 conflict: 裁决还没有落盘语义：不许把点了的选择当成已确认。"""
+
+    @staticmethod
+    def _conflict_item():
+        row = {"kind": "多图抢同一件事", "batch_id": "B01",
+               "priority": ["@图片1", "@图片2"], "reason": "两张都抢面部"}
+        return cg.conflict_candidates(ledger={"conflicts": [row]})[0]
+
+    @staticmethod
+    def _desktop(td):
+        from ui.desktop_automation_tick import AutomationTickMixin
+        desk = AutomationTickMixin.__new__(AutomationTickMixin)
+        desk.root = td
+        desk.status = type("Status", (), {"set": mock.Mock()})()
+        desk.pet_report = mock.Mock()
+        return desk
+
+    def test_an_unsupported_gate_key_is_rejected_without_writing(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            from stage_execution_service import apply_asset_plan_gate_choice
+            self.assertIsNone(apply_asset_plan_gate_choice(td, "conflict:B01", "候选一"),
+                              "不支持的 key 不落盘、不返回已采用结果")
+
+    def test_pick_gate_rejects_a_conflict_choice_instead_of_confirming_it(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            desk = self._desktop(td)
+            desk.pick_gate("conflict:B01", "候选一")
+            self.assertNotEqual(cg.state_of(td, "conflict:B01"), cg.APPLIED,
+                                "不支持的 key 不许记成已确认")
+            self.assertNotIn("已确认", desk.status.set.call_args[0][0],
+                             "没生效的选择不许显示成已确认")
+            item = self._conflict_item()
+            self.assertEqual([row["key"] for row in cg.pending(td, (item,))], ["conflict:B01"],
+                             "没生效的裁决要重新摆出，不能算问过")
+
+    def test_auto_decide_does_not_confirm_a_conflict_choice(self):
+        with tempfile.TemporaryDirectory() as td:
+            stage_layout.ensure(td)
+            import stage_flow
+            desk = self._desktop(td)
+            desk.gate_level = lambda: next(iter(stage_flow.AUTO_LEVELS))
+            desk.pending_gate_asks = lambda: [self._conflict_item()]
+            desk.auto_decide_gates()
+            self.assertNotEqual(cg.state_of(td, "conflict:B01"), cg.APPLIED,
+                                "自动那一拍也不许把不支持的裁决记成已确认")
+
+
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)

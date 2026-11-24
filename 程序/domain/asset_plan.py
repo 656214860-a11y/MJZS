@@ -231,7 +231,9 @@ def _apply_gate_choice(project, key, choice, episode_dir="", *, gateway=None):
     """将主观门禁的锚点／正典板选择写入资产清单。
 
     门禁契约只负责判断和记录确认；这项领域写入必须留在资产服务层，
-    避免 L0 ``confirm_gates`` 反向依赖资产上下文。
+    避免 L0 ``confirm_gates`` 反向依赖资产上下文。不支持的 key（如
+    ``conflict:`` 裁决键）返回 ``None``：不落盘、不伪造已采用结果，
+    调用方据此拒绝记成已确认。
     """
     head, _, asset_id = str(key or '').partition(':')
     if head not in ('anchor', 'canon') or not asset_id:
