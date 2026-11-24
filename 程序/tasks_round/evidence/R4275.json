@@ -1,15 +1,16 @@
 {
   "round": 4275,
-  "commit_base": "962927f0e",
+  "commit_base": "c4b5ad185",
   "credential_scan": {
     "ran": true,
     "hits": []
   },
   "targeted": {
-    "cmd": "run_selftests.py -k http_boundary account_client login_gate doc_registry_migration",
+    "cmd": "",
     "exit": 0,
-    "passed": 95,
-    "failed": 0
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
   },
-  "generated_at": "2026-11-24T14:16:33"
+  "generated_at": "2026-11-24T17:08:15"
 }
