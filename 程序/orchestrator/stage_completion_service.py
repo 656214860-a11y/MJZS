@@ -1,8 +1,10 @@
 """无界面的阶段成果核验服务。"""
 from pathlib import Path
+import json
 import math
 
 import contract.pet_bus as pet_bus
+from domain.idea_script_heuristic import flexible_structure_manifests
 
 
 def media_output_folders(root, stage):
@@ -795,12 +797,33 @@ def completion_evidence(root, stage, video_ready=None):
         return False, '成果校验失败：%s' % exc
 
 
+def _sync_flexible_manifests(script_contract, root, text):
+    from agent.core import read, save_text
+    flex = flexible_structure_manifests(script_contract, text)
+    if not any(item.get('items') for item in flex.values()):
+        return False, '', False
+    folder = script_contract.structure_manifest_dir(root)
+    if not script_contract.structure_manifest_problems(root):
+        same = all(
+            sorted(str(x.get('name') or '') for x in script_contract.items_of(read(folder / name)))
+            == sorted(x['name'] for x in data['items'])
+            for name, data in flex.items()
+        )
+        if same:
+            return True, '', False
+    for name, data in flex.items():
+        save_text(folder / name, json.dumps(data, ensure_ascii=False, indent=2))
+    if not script_contract.structure_manifest_problems(root):
+        return True, '已按当前结构剧本补全清单', True
+    return False, '', False
+
+
 def storyboard_send_readiness(project):
     """初步分镜发送门禁（REQ-S03-55）：有可用结构稿即可发送，不复用 S02 完成核验。
 
     返回 ``(可发送, 说明, 已自动补清单)``。唯一拦截情形是没有可用结构稿；
-    三份清单有问题时先按当前结构稿派生补写一次，补得上就放行并说明，
-    补不出（如模型按集写的稿没有可派生名单）也只给说明、不拦截。
+    三份清单有问题时先按当前结构稿派生补写一次（先严格格式、再兼容模型变体标题／列表／表格），
+    补得上就放行并说明，补不出（如模型按集写的稿没有可派生名单）也只给说明、不拦截。
     ``completion_evidence`` 的判定不受影响。
     """
     try:
@@ -829,6 +852,10 @@ def storyboard_send_readiness(project):
             problems = script_contract.structure_manifest_problems(root, source)
             if not problems:
                 return True, '已按当前结构剧本补全清单', True
+        else:
+            ok, note, filled = _sync_flexible_manifests(script_contract, root, text)
+            if ok:
+                return True, note, filled
     except (OSError, TypeError, ValueError, KeyError, ImportError):
         pass
     reason = problems[0] if problems else '清单核验未通过'

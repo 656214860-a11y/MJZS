@@ -652,6 +652,27 @@ class StoryboardSendReadinessTests(unittest.TestCase):
         self.assertIn('未能自动生成', note)
         self.assertIn('不影响分镜制作', note)
 
+    def test_llm_formatted_archives_auto_derive_manifests(self):
+        """模型生成的变体标题／加粗键／列表／表格结构稿也能自动补全三份清单，不再报未能自动生成。"""
+        self._script(
+            '# 结构剧本\n\n'
+            '## 一、角色清单\n\n'
+            '### 林夏\n'
+            '- **别名**：小夏\n'
+            '- **默认服装**：白色风衣\n\n'
+            '## 2. 场景设定\n\n'
+            '- 咖啡馆：靠窗木桌、午后斜阳\n\n'
+            '## 道具表\n\n'
+            '| 道具 | 说明 |\n'
+            '| --- | --- |\n'
+            '| 旧怀表 | 银壳裂纹 |\n'
+        )
+        sendable, note, filled = self.readiness(self.root)
+        self.assertTrue(sendable)
+        self.assertTrue(filled)
+        self.assertIn('补全清单', note)
+        self.assertEqual(self.contract.structure_manifest_problems(self.root), [])
+
     def test_no_usable_script_blocks_with_guidance(self):
         """没有任何结构稿：拦截，文案指引去「剧本结构」页确认。"""
         sendable, note, filled = self.readiness(self.root)

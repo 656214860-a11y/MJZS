@@ -15,6 +15,8 @@ from pathlib import Path
 import infra.app_logging as app_logging
 import domain.skill_command as skill_command
 from contract import pet_bus
+from orchestrator.storyboard_plan_service import storyboard_work_plan
+from orchestrator.storyboard_selection import selected_many, sync_structured_script
 
 # pet 阶段 → open_flow_agent 流程名；键集合必须始终是 pet_bus.STAGES 的子集。
 FLOW_FOR_STAGE = {'script': 'writing', 'storyboard': 'storyboard', 'assets': 'assets',
@@ -399,13 +401,56 @@ def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, mode
     return ticket
 
 
+def _read_status(desktop):
+    status = getattr(desktop, 'status', None)
+    if not hasattr(status, 'get'):
+        return ''
+    try:
+        return str(status.get() or '')
+    except Exception:
+        app_logging.swallowed()
+        return ''
+
+
+def _ensure_storyboard_script(project):
+    if project is None:
+        return
+    try:
+        if not selected_many(project, 'script'):
+            sync_structured_script(project)
+    except (OSError, ValueError, TypeError):
+        app_logging.swallowed()
+
+
+def _storyboard_idle_note(project):
+    if project is None:
+        return ''
+    try:
+        plan = storyboard_work_plan(project)
+    except (OSError, ValueError, KeyError, TypeError):
+        app_logging.swallowed()
+        return ''
+    if not plan['scripts']:
+        return '未选择结构剧本，请先在上方勾选一份结构剧本再发送'
+    if not plan['todo'] and not plan['revise']:
+        return '当前勾选的结构剧本均已生成并采用分镜；如需重做请先取消采用或勾选其他剧本'
+    return ''
+
+
 def _start_storyboard_batch(desktop, project, request_text, named, model_snap):
     """经 Desktop 的 L4 适配器进入统一阶段启动入口。"""
     starter = getattr(desktop, 'start_storyboard_send', None)
     if not callable(starter):
         _say(desktop, '当前页面还没有分镜发送入口')
         return False
-    return starter(project, request_text, named, model_snap) is True
+    _ensure_storyboard_script(project)
+    before = _read_status(desktop)
+    started = starter(project, request_text, named, model_snap) is True
+    if not started and _read_status(desktop) == before:
+        note = _storyboard_idle_note(project)
+        if note:
+            _say(desktop, note)
+    return started
 
 
 def _send_free(desktop, stage, text):
