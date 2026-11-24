@@ -686,7 +686,7 @@ class ModelRouter:
         if adapter is not None:
             return Choice(DEFAULT_MODEL, adapter, '实在没得挑，用默认的 Flash', '',
                           adapter.capabilities(DEFAULT_MODEL), adapter.cost(DEFAULT_MODEL), kind)
-        return Choice(kind=kind, reason='没有可用模型：先在设置里配好 GPT／Qwen／DeepSeek 的 API Key')
+        return Choice(kind=kind, reason=missing_setup_hint())
 
     def _affordable(self, kind):
         if self.budget is None:
@@ -931,3 +931,14 @@ def agent_patch(choice, records=None, config=None, program=None):
     if not getattr(choice, 'ok', False) or getattr(choice, 'auto', False):
         return {}
     return model_pool.patch_for(choice.model, records, config, program)
+
+
+def missing_setup_hint(destination=''):
+    """REL-03：缺模型或引擎时的统一提示——同一句话指出去处，去处可随界面替换。
+
+    挂文件尾部（而不是常量区）：``docs/process/外部依赖清单.md`` 按行号登记本文件的
+    四个供应商默认地址，前置插入会让登记失锚。
+    """
+    return ('需要配置模型或引擎：' + (destination or
+            '在「模型管理」里「+ 新增模型…」并保存 API Key；'
+            '或安装命令行引擎后在「调用设置」选择其 .exe'))

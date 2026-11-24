@@ -1,6 +1,9 @@
 # -*- coding: utf-8 -*-
 """启动登录闸：未登录先盖登录页，登录后才启动；已登录（含到期）直接进。"""
+import contextlib
+import os
 import re
+import shutil
 import tempfile
 import unittest
 import unittest.mock
@@ -266,8 +269,10 @@ class ModelGuideTests(LoginGateTests):
         self._login_through_gate(client)
         d = self.desktop
         opened = []
+        import infra.config_snapshot as config_snapshot
         import model_pool
-        with unittest.mock.patch.object(model_pool, 'raw', return_value={}),                 unittest.mock.patch.object(d.pet, 'open_model_manager',
+        with unittest.mock.patch.object(model_pool, 'raw', return_value={}),                 unittest.mock.patch.object(config_snapshot, 'has_usable_cli_engine',
+                                           return_value=False),                 unittest.mock.patch.object(d.pet, 'open_model_manager',
                                            lambda: opened.append(1)):
             d.account_login_button.invoke(); self.pump()
         self.assertEqual(opened, [1])
@@ -298,6 +303,140 @@ class ModelGuideTests(LoginGateTests):
             d.begin_startup_or_login(True, lambda: None)
             self.pump()
         self.assertEqual(opened, [])
+
+
+class MissingSetupHintTests(unittest.TestCase):
+    """REL-03（REQ-S01-119）：缺模型或引擎时的统一提示——同一句话、指出去处。"""
+
+    def test_hint_lists_both_destinations(self):
+        import model_router
+        text = model_router.missing_setup_hint()
+        self.assertIn('需要配置', text)
+        for needle in ('模型管理', '新增模型', 'API Key', '命令行引擎', '调用设置', '.exe'):
+            self.assertIn(needle, text)
+
+    def test_hint_accepts_a_specific_destination(self):
+        import model_router
+        text = model_router.missing_setup_hint('点下方「配置线上视频 API」保存接口与 Key')
+        self.assertIn('需要配置', text)
+        self.assertIn('配置线上视频 API', text)
+
+
+class FirstRunMatrixTests(LoginGateTests):
+    """REL-03（REQ-S01-119）：干净机器四种缺配置组合的端到端行为——
+    启动自检、登录引导、发送边界三处的提示都要指出去处；不调用真实模型。"""
+
+    def _sandbox_engines(self, engines=()):
+        """引擎探测环境钉进临时沙盒：PATH 查不到引擎、安装目录指向临时位置；
+        ``engines`` 里列出的引擎在其已知安装目录放入假 .exe。"""
+        sandbox = Path(tempfile.mkdtemp(dir=self.temp.name))
+        local, appdata, home = sandbox / 'LA', sandbox / 'AD', sandbox / 'home'
+        plants = {'codex': local / 'OpenAI' / 'Codex' / 'bin' / 'v1' / 'codex.exe',
+                  'claude': home / '.local' / 'bin' / 'claude.exe'}
+        for name in engines:
+            exe = plants[name]
+            exe.parent.mkdir(parents=True, exist_ok=True)
+            exe.write_text('x')
+        real_which = shutil.which
+        engine_exes = ('codex.exe', 'claude.exe', 'qwen.exe', 'opencode-cli.exe')
+        stack = contextlib.ExitStack()
+        self.addCleanup(stack.close)
+        stack.enter_context(unittest.mock.patch('shutil.which',
+                lambda name, *a, **k: None if name in engine_exes else real_which(name, *a, **k)))
+        stack.enter_context(unittest.mock.patch.dict(os.environ,
+                {'LOCALAPPDATA': str(local), 'APPDATA': str(appdata)}))
+        stack.enter_context(unittest.mock.patch.object(Path, 'home', classmethod(lambda cls: home)))
+        return sandbox
+
+    def _login_through_gate(self, client):
+        """同 ModelGuideTests：走闸到输入验证码前一步；登录键留给调用方在补丁上下文里点。"""
+        self.use(client)
+        d = self.desktop
+        d.begin_startup_or_login(True, lambda: None)
+        self.pump()
+        d.account_email_input.insert(0, 'a@b.cn')
+        d.account_use_code_button.invoke(); self.pump()
+        d.account_code_input.insert(0, '123456')
+
+    def _gate_guide(self, models):
+        """走完整登录闸，``models`` 为 model_pool.raw 的补丁值；返回 (是否开模型管理, 状态栏文本)。"""
+        client = _Client(send_code=success({'ok': True}),
+                         verify_code=success({'refresh_token': 'r1',
+                                              'lease': sign(payload()), 'server_time': NOW}))
+        self._login_through_gate(client)
+        d = self.desktop
+        opened = []
+        import model_pool
+        with unittest.mock.patch.object(model_pool, 'raw', return_value=models), \
+                unittest.mock.patch.object(d.pet, 'open_model_manager', lambda: opened.append(1)):
+            d.account_login_button.invoke(); self.pump()
+        return opened, str(d.status.get())
+
+    def _selfcheck_program(self, models=None):
+        """临时程序目录（含可选模型池配置），跑真实启动自检返回 Diagnostic 列表。"""
+        import infra.diagnostic_capture as diagnostic_capture
+        from test_startup_selfcheck import _write_models
+        program = Path(tempfile.mkdtemp(dir=self.temp.name)) / '程序'
+        _write_models(program, models)
+        state = Path(self.temp.name) / 'logs' / 'diagnostics' / 'latest.json'
+        with unittest.mock.patch.multiple(diagnostic_capture, PROGRAM=program,
+                LOGS=state.parent.parent, ERROR_LOG=state.parent.parent / 'e.log',
+                STATE_FILE=state):
+            return diagnostic_capture.run_startup_selfcheck(program)
+
+    def _send(self, **kwargs):
+        """发送边界真实解析：空项目在 storyboard 阶段走 resolve_for_send。"""
+        import orchestrator.workflow_settings as workflow_settings
+        project = Path(tempfile.mkdtemp(dir=self.temp.name))
+        return workflow_settings.resolve_for_send(project, 'storyboard', **kwargs)
+
+    def test_first_run_matrix_empty_pool_no_engine(self):
+        """REQ-S01-119 空池无引擎：自检报 model-pool-empty、登录后弹模型管理、
+        发送在入队前被拦——三处提示都含两处去处。"""
+        self._sandbox_engines()
+        hit = [item for item in self._selfcheck_program() if item.code == 'model-pool-empty']
+        self.assertEqual(len(hit), 1)
+        for needle in ('模型管理', '调用设置'):
+            self.assertIn(needle, hit[0].remedy)
+        opened, status = self._gate_guide({})
+        self.assertEqual(opened, [1])
+        for needle in ('模型管理', '调用设置'):
+            self.assertIn(needle, status)
+        with self.assertRaises(ValueError) as ctx:
+            self._send()
+        for needle in ('模型管理', '调用设置'):
+            self.assertIn(needle, str(ctx.exception))
+
+    def test_first_run_matrix_cli_engine_only(self):
+        """REQ-S01-119 只装命令行引擎：自检不报空池、登录后不弹引导、
+        发送预检放行（本条是卡面点名的有意契约变更）。"""
+        self._sandbox_engines(('codex',))
+        self.assertNotIn('model-pool-empty', [item.code for item in self._selfcheck_program()])
+        opened, _status = self._gate_guide({})
+        self.assertEqual(opened, [])
+        config = self._send()
+        self.assertEqual(config['engine'], 'codex')
+
+    def test_first_run_matrix_api_only(self):
+        """REQ-S01-119 只配直连 API：自检干净、不弹引导；直连发送不查本机引擎。"""
+        self._sandbox_engines()
+        self.assertNotIn('model-pool-empty',
+                         [item.code for item in self._selfcheck_program({'m1': {'model': 'm', 'label': 'M'}})])
+        opened, _status = self._gate_guide({'models': {'m1': {'model': 'm'}}})
+        self.assertEqual(opened, [])
+        config = self._send(direct_api=True, model_snapshot=('m1', {'model': 'm', 'label': 'M'}))
+        self.assertEqual(config['engine'], 'qwen')
+        self.assertEqual(config['model'], 'm1')
+
+    def test_first_run_matrix_engine_and_api(self):
+        """REQ-S01-119 两者齐全：自检干净、无引导、发送预检放行。"""
+        self._sandbox_engines(('codex',))
+        self.assertNotIn('model-pool-empty',
+                         [item.code for item in self._selfcheck_program({'m1': {'model': 'm', 'label': 'M'}})])
+        opened, _status = self._gate_guide({'models': {'m1': {'model': 'm'}}})
+        self.assertEqual(opened, [])
+        config = self._send()
+        self.assertEqual(config['engine'], 'codex')
 
 
 def _walk(widget):

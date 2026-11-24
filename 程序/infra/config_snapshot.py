@@ -27,6 +27,30 @@ def has_stored_models(program) -> bool:
     return isinstance(models, dict) and bool(models)
 
 
+def has_usable_cli_engine(which=None, environ=None, home=None) -> bool:
+    """本机是否装有任一已知命令行引擎（REL-03）；``which``／``environ``／``home`` 可注入。
+
+    查找点与 ``workflow_settings.find_program`` 的 CLI 分支对齐：PATH 先行，
+    再查各引擎的已知安装目录（Qwen 需 node 与入口脚本成对存在）。判定只用
+    表达式短路（``any``／``and``），不增语句级分支——分支覆盖率基线按实体
+    决策点数钉死，本模块属 L1 受棘轮。
+    """
+    import shutil
+    which = which or shutil.which
+    environ = os.environ if environ is None else environ
+    home = Path.home() if home is None else Path(home)
+    local = Path(environ.get('LOCALAPPDATA', ''))
+    qwen = local / 'qwen-code' / 'qwen-code'
+    appdata = environ.get('APPDATA')
+    return any((
+        any(which(exe) for exe in ('codex.exe', 'claude.exe', 'qwen.exe', 'opencode-cli.exe')),
+        any((local / 'OpenAI' / 'Codex' / 'bin').glob('*/codex.exe')),
+        (home / '.local' / 'bin' / 'claude.exe').is_file(),
+        (qwen / 'node' / 'node.exe').is_file() and (qwen / 'lib' / 'cli-entry.js').is_file(),
+        bool(appdata) and any((Path(appdata) / 'ai.opencode.desktop' / 'cli').glob('*/opencode-cli.exe')),
+    ))
+
+
 def keep(path, folder, prefix, slots=SLOTS):
     """把 ``path`` 现有内容复制进 ``folder`` 里最久没写的槽位；源文件不存在则什么也不做。"""
     try:

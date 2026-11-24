@@ -20,6 +20,7 @@ REPO = HERE.parent                                     # 仓库根（启动漫�
 sys.path.insert(0, str(HERE))
 sys.path.insert(0, str(Path(__file__).resolve().parent))
 
+import infra.config_snapshot as config_snapshot
 import infra.diagnostic_capture as subject
 from contract.diagnostics import Diagnostic, Severity, StartupPhase
 from ui.ui_status_bus import StatusBus
@@ -92,18 +93,26 @@ class StartupSelfcheckTests(unittest.TestCase):
 
     def test_empty_model_pool_reports_degraded(self):
         _write_models(self.program)                      # 不写 models 键 → 空池
-        items = self._run()
+        with mock.patch.object(config_snapshot, 'has_usable_cli_engine', return_value=False):
+            items = self._run()
         hit = [item for item in items if item.code == 'model-pool-empty']
         self.assertEqual(len(hit), 1)
         self.assertIs(hit[0].severity, Severity.DEGRADED)
         self.assertEqual(hit[0].scope, StartupPhase.CONFIG.value)
+
+    def test_empty_pool_with_cli_engine_skips_warning(self):
+        """REL-03（REQ-S01-119）：模型池为空但本机有命令行引擎 → 不报 model-pool-empty。"""
+        _write_models(self.program)
+        with mock.patch.object(config_snapshot, 'has_usable_cli_engine', return_value=True):
+            self.assertNotIn('model-pool-empty', self._codes(self._run(), Severity.DEGRADED))
 
     def test_configured_model_pool_has_no_empty_warning(self):
         self.assertNotIn('model-pool-empty', self._codes(self._run()))
 
     def test_missing_model_config_is_an_empty_pool(self):
         (self.program / '配置' / '宠物' / '配置.json').unlink()
-        self.assertIn('model-pool-empty', self._codes(self._run(), Severity.DEGRADED))
+        with mock.patch.object(config_snapshot, 'has_usable_cli_engine', return_value=False):
+            self.assertIn('model-pool-empty', self._codes(self._run(), Severity.DEGRADED))
 
     def test_unreadable_model_config_records_nonfatal_check_error(self):
         (self.program / '配置' / '宠物' / '配置.json').write_text('{', encoding='utf-8')
@@ -184,6 +193,68 @@ class StartupSelfcheckTests(unittest.TestCase):
                 mock.patch.object(Path, 'rglob', counting_rglob):
             self._run()
         self.assertEqual(calls, {'walk': 0, 'rglob': 0})
+
+
+class CliEngineProbeTests(unittest.TestCase):
+    """REL-03：config_snapshot.has_usable_cli_engine 的自包含探针，
+    查找点与 workflow_settings.find_program 的 CLI 分支对齐（PATH → 已知安装目录）。"""
+
+    def _env(self, root):
+        local, appdata, home = Path(root) / 'LA', Path(root) / 'AD', Path(root) / 'home'
+        return local, appdata, {'LOCALAPPDATA': str(local), 'APPDATA': str(appdata)}, home
+
+    def test_nothing_installed_reports_false(self):
+        with tempfile.TemporaryDirectory() as root:
+            _local, _appdata, environ, home = self._env(root)
+            self.assertFalse(config_snapshot.has_usable_cli_engine(
+                which=lambda name: None, environ=environ, home=home))
+
+    def test_engine_on_path_reports_true(self):
+        for exe in ('codex.exe', 'claude.exe', 'qwen.exe', 'opencode-cli.exe'):
+            with self.subTest(exe):
+                self.assertTrue(config_snapshot.has_usable_cli_engine(
+                    which=lambda name, _e=exe: 'x' if name == _e else None,
+                    environ={}, home=Path('missing')))
+
+    def test_codex_install_dir_reports_true(self):
+        with tempfile.TemporaryDirectory() as root:
+            local, _a, environ, home = self._env(root)
+            exe = local / 'OpenAI' / 'Codex' / 'bin' / 'v1' / 'codex.exe'
+            exe.parent.mkdir(parents=True)
+            exe.write_text('x', encoding='utf-8')
+            self.assertTrue(config_snapshot.has_usable_cli_engine(
+                which=lambda name: None, environ=environ, home=home))
+
+    def test_claude_home_bin_reports_true(self):
+        with tempfile.TemporaryDirectory() as root:
+            _l, _a, environ, home = self._env(root)
+            exe = home / '.local' / 'bin' / 'claude.exe'
+            exe.parent.mkdir(parents=True)
+            exe.write_text('x', encoding='utf-8')
+            self.assertTrue(config_snapshot.has_usable_cli_engine(
+                which=lambda name: None, environ=environ, home=home))
+
+    def test_qwen_install_pair_required(self):
+        with tempfile.TemporaryDirectory() as root:
+            local, _a, environ, home = self._env(root)
+            qwen = local / 'qwen-code' / 'qwen-code'
+            (qwen / 'node').mkdir(parents=True)
+            (qwen / 'node' / 'node.exe').write_text('x', encoding='utf-8')
+            (qwen / 'lib').mkdir(parents=True)
+            probe = dict(which=lambda name: None, environ=environ, home=home)
+            self.assertFalse(config_snapshot.has_usable_cli_engine(**probe),
+                             '只有 node.exe、缺 cli-entry.js 不算装好')
+            (qwen / 'lib' / 'cli-entry.js').write_text('x', encoding='utf-8')
+            self.assertTrue(config_snapshot.has_usable_cli_engine(**probe))
+
+    def test_opencode_appdata_cli_reports_true(self):
+        with tempfile.TemporaryDirectory() as root:
+            _l, appdata, environ, home = self._env(root)
+            exe = Path(environ['APPDATA']) / 'ai.opencode.desktop' / 'cli' / 'v1' / 'opencode-cli.exe'
+            exe.parent.mkdir(parents=True)
+            exe.write_text('x', encoding='utf-8')
+            self.assertTrue(config_snapshot.has_usable_cli_engine(
+                which=lambda name: None, environ=environ, home=home))
 
 
 class StartupDiagnosticsRecordTests(unittest.TestCase):
@@ -903,6 +974,9 @@ class FamilySwitchTests(unittest.TestCase):
                                       ERROR_LOG=self.state.parent.parent / 'e.log', STATE_FILE=self.state)
         patcher.start()
         self.addCleanup(patcher.stop)
+        engine_probe = mock.patch.object(config_snapshot, 'has_usable_cli_engine', return_value=False)
+        engine_probe.start()
+        self.addCleanup(engine_probe.stop)
         _write_models(self.program, {'m1': {'model': 'm', 'label': 'm'}})
 
     def _run(self):

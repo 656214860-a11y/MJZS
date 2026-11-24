@@ -144,12 +144,16 @@ class LoginGateMixin:
             stored = model_pool.raw().get('models')
             if isinstance(stored, dict) and stored:
                 return                              # 已有模型：不打扰
+            import infra.config_snapshot as config_snapshot
+            if config_snapshot.has_usable_cli_engine():
+                return                              # 已装命令行引擎：不打扰（REL-03）
         except Exception:  # noqa: BLE001 —— 配置读不出来按已有处理，不拦登录后续
             return
         opener = getattr(self.pet, 'open_model_manager', None)
         if opener is None:
             return
-        self.status.set('模型池为空：在模型管理里「+ 新增模型…」并保存 API Key 后即可开始制作')
+        import infra.model_router as model_router
+        self.status.set(model_router.missing_setup_hint())
         try:
             opener()
         except Exception:  # noqa: BLE001 —— 引导失败不影响已通过的登录

@@ -9,7 +9,7 @@ import json
 import threading
 import contract.pet_bus as pet_bus
 import tkinter as tk
-import infra.ui_plugin_registry as ui_plugin_registry
+import infra.ui_plugin_registry as ui_plugin_registry, infra.model_router as model_router
 from agent.core import read
 from app import App
 import orchestrator.media_page_controller as media_logic
@@ -671,7 +671,7 @@ class MediaPagesMixin:
             self.button(self.content,'配置线上视频 API',lambda:ui_plugin_registry.module('cloud_video').settings_window(self))
             return
         if mode=='cloud' and not is_cloud:
-            header_note('首次使用线上生成，请先配置服务商、模型和API Key。保存后在此页面显示镜头工作台。')
+            header_note(model_router.missing_setup_hint('点下方「配置线上视频 API」保存接口与 Key'))
             self.button(self.content,'配置线上视频 API',lambda:ui_plugin_registry.module('cloud_video').settings_window(self))
             return
         if is_cloud:
