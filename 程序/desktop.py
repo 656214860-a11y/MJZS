@@ -44,7 +44,7 @@ import infra.ui_plugin_registry as ui_plugin_registry
 import orchestrator.stage_handler_registry as stage_handler_registry
 from contract.platform_tools import find_editor_shortcut, launch_windows_app, open_directory, open_path, open_target, tcp_listener
 from orchestrator.desktop_startup_service import DesktopStartupController
-from ui.desktop_account_page import AccountPageMixin
+from ui.desktop_account_page import AccountPageMixin, with_help_hint
 from ui.desktop_login_gate import LoginGateMixin
 from ui.desktop_page_nav import PageNavMixin
 from ui.desktop_lifecycle import LifecycleMixin
@@ -590,7 +590,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                 e, page=PAGES[getattr(self,'page_index',0)],
                 project=str(getattr(self,'root', '') or ''),
                 automatic_daily_open=bool(getattr(self,'_startup_project_choice',False)))
-            import contract.error_codes as error_codes;self.notifier.error(error_codes.user_text(e))
+            import contract.error_codes as error_codes;message = with_help_hint(error_codes.user_text(e),e);self.notifier.error(message)
 
     def export_diagnostics_package(self):
         """唯一的用户诊断包动作：先透明说明白名单，再让用户选择保存位置。"""

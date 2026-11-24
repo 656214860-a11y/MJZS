@@ -426,6 +426,68 @@ class AccountPageTests(unittest.TestCase):
             self.assertEqual(len(d.content.winfo_children()),base)
 
 
+class HelpEntryTests(unittest.TestCase):
+    """REL-13：应用内「帮助」入口与环境类错误指引；不建 Tk 窗口，只用临时目录。"""
+
+    def test_help_topics_cover_three_user_docs_and_entry_exists(self):
+        from desktop_account_page import AccountPageMixin, help_topics
+        self.assertTrue(hasattr(AccountPageMixin, '_account_help_card'), '账户页缺「帮助」入口块')
+        self.assertEqual([title for title, _path in help_topics()],
+                         ['使用说明', '环境类错误指引', '已知问题'])
+
+    def test_help_docs_ship_with_app_and_load(self):
+        from desktop_account_page import help_doc_text, help_topics
+        missing = [title for title, path in help_topics() if not help_doc_text(path).strip()]
+        self.assertEqual(missing, [], '帮助文档缺失或为空：' + '、'.join(missing))
+
+    def test_help_doc_text_reads_utf8_and_tolerates_missing(self):
+        from desktop_account_page import help_doc_text, help_topics
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            target = root / 'docs' / 'guide.md'
+            target.parent.mkdir(parents=True)
+            target.write_text('指南正文', encoding='utf-8')
+            self.assertEqual(help_doc_text(target), '指南正文')
+            self.assertEqual(help_doc_text(root / 'missing.md'), '')
+            self.assertEqual([title for title, _ in help_topics(root)],
+                             [title for title, _ in help_topics()])
+
+    def test_env_guide_has_five_pages_each_with_required_fields(self):
+        from desktop_account_page import ENV_HELP_PAGES, help_doc_text, help_topics
+        text = help_doc_text(dict(help_topics())['环境类错误指引'])
+        self.assertEqual(set(ENV_HELP_PAGES.values()),
+                         {'FFmpeg 缺失', '磁盘满', '模型 Key 无效', '网络不可达', '账号服务不可达'})
+        for page in sorted(set(ENV_HELP_PAGES.values())):
+            self.assertIn('## ' + page, text, page)
+            section = text.split('## ' + page, 1)[1].split('## ', 1)[0]
+            for field in ('现象', '原因', '怎么办', '联系方式'):
+                self.assertIn(field, section, '%s 缺「%s」' % (page, field))
+
+    def test_env_error_prompt_ends_with_help_pointer(self):
+        import errno
+        from desktop_account_page import with_help_hint
+        cases = {'E-TOOL-MISSING': 'FFmpeg 缺失', 'E-IO-WRITE': '磁盘满',
+                 'E-AUTH-REJECTED': '模型 Key 无效', 'E-NET-UNREACHABLE': '网络不可达',
+                 'network': '账号服务不可达', 'service_timeout': '账号服务不可达'}
+        for code, page in cases.items():
+            text = with_help_hint('出错了', {'code': code})
+            self.assertIn('查看帮助', text, code)
+            self.assertIn(page, text, code)
+        class _Coded(Exception):
+            code = 'E-TOOL-MISSING'
+        self.assertIn('FFmpeg 缺失', with_help_hint('出错了', _Coded()))
+        self.assertIn('磁盘满', with_help_hint('写失败', OSError(errno.ENOSPC, 'no space')))
+        self.assertEqual(with_help_hint('原样', {'code': 'E-UNKNOWN'}), '原样')
+        self.assertEqual(with_help_hint('原样', {}), '原样')
+        self.assertEqual(with_help_hint('原样', ValueError('x')), '原样')
+
+    def test_known_issues_doc_lists_user_visible_fields(self):
+        from desktop_account_page import help_doc_text, help_topics
+        text = help_doc_text(dict(help_topics())['已知问题'])
+        for field in ('现象', '影响', '临时办法'):
+            self.assertIn(field, text)
+
+
 def _walk(widget):
     for child in widget.winfo_children():
         yield child
