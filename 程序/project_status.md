@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4447（R4446 合并轮：合入 EC-5B(R4442)：状态栏启动自检警告与视频页错误分类两处查表→error_codes.describe() 统一出口及测试契约同步（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。上一轮：R4445 合并轮：合入 DOC-S01(R4443)：S01 剧本准备阶段文档补齐 ## 接口（IF-S01 55 行）与 ## 交互（UX-S01 50 行）（独立 cpa verify 1/1 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4450（R4449 合并轮：合入 FIX-FULLSAFE-SEND-AND-LOGIN(R4441)：清零全量 6 文件 25 条既有红（resolve_for_send 给定 config 沿用契约、test_writing_api 假 exe 实文件夹具、desktop_login_gate getattr 守卫；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。上一轮：R4446 合并轮：合入 EC-5B(R4442)：状态栏启动自检警告与视频页错误分类两处查表→error_codes.describe() 统一出口及测试契约同步（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 
