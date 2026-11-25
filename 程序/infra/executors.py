@@ -95,10 +95,7 @@ class _VendorGate:
     def acquire(self, cancel=None):
         """占槽；``limit<=0`` 直接放行；cancel 置位时放弃返回 False。"""
         with self._cond:
-            if self.limit <= 0:
-                self.in_flight += 1
-                return True
-            while self.in_flight >= self.limit:
+            while self.limit > 0 and self.in_flight >= self.limit:
                 if _cancelled(cancel):
                     return False
                 self._cond.wait(timeout=_GATE_POLL)
@@ -122,7 +119,9 @@ def set_vendor_limit(vendor, limit):
         raise ConfigError('供应商并发上限必须是整数') from None
     with _VENDOR_LOCK:
         if value <= 0:
-            _VENDOR_GATES.pop(name, None)
+            old = _VENDOR_GATES.pop(name, None)
+            if old is not None:
+                old.set_limit(0)   # 唤醒仍阻塞在旧闸门上的等待线程
             effective = 0
         else:
             gate = _VENDOR_GATES.get(name)
@@ -159,11 +158,8 @@ def _ensure_network_workers():
         want = max(_NETWORK_MIN_WORKERS,
                    sum(gate.limit for gate in _VENDOR_GATES.values()
                        if gate.limit > 0))
-    pool = _POOLS.get('network')
-    if pool is not None:
-        pool.add_workers(want - len(pool._workers))
-    else:
-        _pool('network', want)
+    pool = _pool('network', want)
+    pool.add_workers(want)
 
 
 def _execute_item(item):
@@ -173,13 +169,13 @@ def _execute_item(item):
         if future.cancelled() or _cancelled(cancel):
             future.cancel()
             return
-        if not future.set_running_or_notify_cancel():
-            return
         gate = _vendor_gate(vendor)
         if gate is not None and not gate.acquire(cancel):
             future.cancel()
             return
         try:
+            if not future.set_running_or_notify_cancel():
+                return
             future.set_result(fn())
         finally:
             if gate is not None:
@@ -217,9 +213,13 @@ class _Pool:
         thread.start()
         self._workers.append(thread)
 
-    def add_workers(self, count):
-        for _ in range(max(0, int(count))):
-            self._spawn_worker()
+    def add_workers(self, want):
+        """扩容到 ``want`` 个 worker（只增不减）；关闭后不再新建。"""
+        with self._lock:
+            if self._closing:
+                return
+            for _ in range(max(0, int(want) - len(self._workers))):
+                self._spawn_worker()
 
     def submit(self, item):
         with self._lock:
