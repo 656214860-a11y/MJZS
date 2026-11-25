@@ -1027,9 +1027,11 @@ class UiEdgeAutoTests(UiEdgeCase):
                     self.assertEqual(calls, ["第一句", "第二句"])
                     self.assertIn("已停止", d.status.get())
                     states = manifest_states()
-                    self.assertEqual(len(states), 2)
-                    self.assertTrue(all(state == "ok" for state in states),
-                                    "停止后不应有句子停在 sending")
+                    self.assertEqual(len(states), 4,
+                                     "批次开始就把全部句子先落盘（未发的预记 failed），停止后清单仍是整批 4 句")
+                    self.assertEqual(states[:2], ["ok", "ok"])
+                    self.assertEqual(states[2:], ["failed", "failed"],
+                                     "第三句起没发送出去：停在 failed（非 sending、非 ok），续跑时才会补做")
                     self.assertTrue(pump_until(lambda: stop_button.instate(["disabled"]), timeout=5),
                                     "批次结束后停止入口应禁用")
                     # 再点一次：从第三句接着做，前两句沿用不重复扣费
@@ -2185,7 +2187,14 @@ class BatchContinuationTests(unittest.TestCase):
             calls = self.no_modal()
             d, win = self.desktop(td, proj)
             show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
-            [b for b in self.buttons(d.content) if b.cget("text") == "手动采用分镜"][0].invoke()
+            # R4380：顶部「手动采用分镜」已并入编辑器右键菜单；菜单项「采用选中分镜」调用的
+            # 就是页面方法 adopt_selected()。编辑器未锁定单份分镜 JSON 时（active_board_json
+            # 为空，例如文件栏停在结构剧本文档上），采用目标是目录里的全部分镜 JSON——
+            # 已采用的照常跳过且不弹确认。
+            page = d.storyboard_editor_page
+            self.assertIsNotNone(page, "初步分镜页实例应挂在 desktop.storyboard_editor_page")
+            page.active_board_json = None
+            page.adopt_selected()
             win.update()
             self.assertEqual(calls, [])
             saved = json.loads((proj / "ui_settings.json").read_text(encoding="utf-8"))
