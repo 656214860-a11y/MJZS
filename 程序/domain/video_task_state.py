@@ -28,6 +28,21 @@ def provider_failure_reason(version):
     return ''
 
 
+# A3（EC-5，盘点报告 §B3）：视频任务终态与 ``error_kind`` → 登记表错误码。
+# ``task_status`` 12 态是状态不是错误码，不进表。``NO_ERROR_INFO`` 是
+# ``provider_failure_reason`` 第三分支（终态且无 error/error_code 时
+# 「原因未知」）的伪取值——该分支没有字面值，用它进表登记。
+NO_ERROR_INFO='no_error_info'
+VIDEO_FAILURE_TO_CODE:dict[str,str]={
+    # provider_status 终态（remedy 文案按「服务商取消」域另写，见盘点表B）
+    'canceled':'E-CANCELLED','cancelled':'E-CANCELLED','expired':'E-TASK-EXPIRED',
+    NO_ERROR_INFO:'E-UNKNOWN',
+    # error_kind 七类（ui/video_progress.ERROR_LABELS 键集；disk 为近似映射）
+    'auth':'E-AUTH-REJECTED','quota':'E-QUOTA-EXCEEDED','protocol':'E-NET-CLIENT',
+    'refused':'E-CONTENT-POLICY','network':'E-NET-UNREACHABLE','disk':'E-IO-WRITE',
+    'unknown':'E-UNKNOWN'}
+
+
 _OTHER_ACTIVE={}
 # ``_OTHER_ACTIVE`` 的 get/clear/set 复合序列必须在锁内原子完成：
 # 并发「set→按键回读」与「超限 clear」交错会抛 KeyError。签名计算与状态文件

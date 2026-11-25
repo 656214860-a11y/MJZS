@@ -1,0 +1,15 @@
+{
+  "round": 4416,
+  "commit_base": "2e77de5db",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k error_code_mapping error_codes model_router video_task_state account_client selfcheck",
+    "exit": 1,
+    "passed": 194,
+    "failed": 1
+  },
+  "generated_at": "2026-11-25T07:04:22"
+}

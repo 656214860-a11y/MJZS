@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4435（R4434 合并轮：合入 FIX-SELFCHECK-LAUNCHER-STUB(R4431)：同步 test_startup_selfcheck 子进程桩 ui_widgets 导入（对齐 R4427 UX-L5-DIALOGS，独立 cpa verify 2/2 全绿）；断言未动；未跑全量。上一轮：R4432 合并轮：合入 SEND-2(R4424)：十三阶段发送全链路盘点、五阶段空发送兜底入口与 S02-41 发送键置灰/剧本名汇总（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4438（R4437 合并轮：合入 EC-5(R4417)：L0-L2 四张错误码映射表、新增 3 登记码与 AST 闭集完整性测试（独立 cpa verify 4/4 全绿）；断言未动；未跑全量。上一轮：R4434 合并轮：合入 FIX-SELFCHECK-LAUNCHER-STUB(R4431)：同步 test_startup_selfcheck 子进程桩 ui_widgets 导入（对齐 R4427 UX-L5-DIALOGS，独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

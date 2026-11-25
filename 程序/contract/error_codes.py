@@ -61,6 +61,9 @@ _ITEMS = (
     ErrorCode('E-CONFIG-INVALID', Severity.WARN, False, '配置无效或缺失', '检查对应配置项后重试'),
     ErrorCode('E-START-FAILED', Severity.FATAL, False, '程序启动失败', '重新启动一次；仍然失败请把提示里的日志文件发给技术支持'),
     ErrorCode('E-START-SELFCHECK', Severity.FATAL, False, '启动自检没有通过', '按下面列出的处理建议逐条处理后重新启动'),
+    ErrorCode('E-RECEIPT-UNKNOWN', Severity.ERROR, False, '请求是否受理无法确认', '稍后到任务中心核对，或重试'),
+    ErrorCode('E-TASK-EXPIRED', Severity.ERROR, False, '任务已过期', '远端任务过期不会自动重发，请重新提交'),
+    ErrorCode('E-CLIENT-TOO-OLD', Severity.ERROR, False, '客户端版本过低', '升级客户端后重试'),
 
 )
 

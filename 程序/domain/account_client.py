@@ -78,6 +78,45 @@ MESSAGES = {
     'weak_password': '密码须为 8–64 位，并同时包含字母和数字',
 }
 PASSWORD_MIN, PASSWORD_MAX = 8, 64
+
+# A6（EC-5，盘点报告 §B6）：本地合成 ``data['code']`` 码 → 登记表错误码。
+# 21 个服务端业务码（``MESSAGES`` 键集）不进表：EC-Q2 原样显示，已有逐条文案；
+# ``session_invalid``／``client_too_old`` 本机也合成（orchestrator/account_controller
+# 与 ``_failure`` 的 426 特例）故进表。``http_<N>``（非 426）一族由
+# ``http_status_to_code`` 按 ``http_client._classify`` 同口径归一，不进静态表。
+ACCOUNT_TO_CODE: dict[str, str] = {
+    'network': 'E-NET-UNREACHABLE',
+    'service_timeout': 'E-NET-TIMEOUT',    # 表B漏列：语义吻合「服务响应超时」
+    'cert_error': 'E-NET-UNREACHABLE',     # 表B漏列：近似，证书校验失败无专码
+    'bad_response': 'E-NET-CLIENT',
+    'client_error': 'E-NET-CLIENT',
+    'client_too_old': 'E-CLIENT-TOO-OLD',
+    'session_invalid': 'E-AUTH-REJECTED',  # 近似
+    'session_changed': 'E-AUTH-REJECTED',  # 近似
+    'write_failed': 'E-IO-WRITE',
+    'local_clear_failed': 'E-IO-WRITE',
+    # 会话/租约本机维护失败无专码，余量保留
+    'lease_unverified': 'E-AUTH-REJECTED',
+    'remote_logout_unconfirmed': 'E-AUTH-REJECTED',
+}
+
+
+def http_status_to_code(status):
+    """``http_<status>`` 一族 → 登记表码：与 ``http_client._classify`` 同口径；
+    426 在 ``_failure`` 里先归 ``client_too_old``，不会走到本函数。"""
+    try:
+        number = int(status)
+    except (TypeError, ValueError):
+        return 'E-NET-CLIENT'
+    if number == 429:
+        return 'E-NET-RATE-LIMIT'
+    if number in (401, 403):
+        return 'E-AUTH-REJECTED'
+    if 500 <= number < 600:
+        return 'E-NET-SERVER'
+    return 'E-NET-CLIENT'
+
+
 _context = None
 
 
