@@ -52,7 +52,8 @@ class IdeaAttachmentsMixin:
     def _sync_idea_ref_block(self):
         """按本轮引用重建顶部「@原名」引用区：先删带 idea_ref 标签的旧行，再从 1.0 写入新块。
 
-        REQ-S01-107：标签行逐行核对——整行仍是「@本轮内名」才删，标签被
+        REQ-S01-107：标签行逐行核对——整行仍是「@名」且名字在本轮引用或
+        ``_idea_synced_ref_names``（本方法上次写入的引用名集）内才删，标签被
         编辑扩写到用户正文的行保留并摘掉标签；删行与写块并成一次可撤销动作。"""
         box=getattr(self,'idea_input',None)
         if box is None or not box.winfo_exists():return
@@ -62,6 +63,9 @@ class IdeaAttachmentsMixin:
             valid=set(names)
             for path in getattr(self,'idea_attachment_paths',()):
                 valid.add(display_name(path));valid.add(Path(path).name)
+            # 引用缩减/清空后旧行不再属本轮，但仍是同步写入而非用户正文：
+            # 并入上次写入集，让已取消引用的「@名」行能被认出并删掉。
+            valid|=getattr(self,'_idea_synced_ref_names',set()) or set()
             marked=set()
             if 'idea_ref' in box.tag_names():
                 ranges=box.tag_ranges('idea_ref')
@@ -85,6 +89,7 @@ class IdeaAttachmentsMixin:
                     except tk.TclError:pass
             if not names:
                 if 'idea_ref' in box.tag_names():box.tag_remove('idea_ref','1.0','end')
+                self._idea_synced_ref_names=set()
                 try:
                     box.configure(autoseparators=True)
                     box.edit_separator()
@@ -94,6 +99,7 @@ class IdeaAttachmentsMixin:
             box.insert('1.0',''.join('@%s\n'%n for n in names))
             box.tag_add('idea_ref','1.0','%d.0'%(len(names)+1))
             box.mark_set('insert','_idea_ref_sync')
+            self._idea_synced_ref_names=set(names)
             # 草稿恢复等途径带回的未标记同名 @ 行紧跟引用区，去重避免双份。
             keep=set(names);scan=len(names)+1
             for _ in range(12):
