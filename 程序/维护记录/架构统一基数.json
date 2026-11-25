@@ -8,6 +8,7 @@
    "animatic_sketch_backends": "domain/animatic_sketch_backends.py",
    "animatic_timeline": "domain/animatic_timeline.py",
    "asset_versions": "domain/asset_versions.py",
+   "stage_reply_log": "domain/stage_reply_log.py",
    "skill_residue_service": "domain/skill_residue_service.py",
    "voice_emotion_check": "domain/voice_emotion_check.py"
   },
@@ -51,7 +52,8 @@
    "domain_events",
    "offline_asr_setup",
    "script_structure_edit_controller",
-   "writing_stream"
+   "writing_stream",
+   "stage_reply_log"
   ],
   "historical_name_audit_pending": [
    "animatic_service",

@@ -331,6 +331,8 @@ class PageNavMixin:
         shared=getattr(self,'shared_input',None)
         if shared is None:return
         stage=desktop_shared_send.stage_for_index(getattr(self,'page_index',None))
+        reply=getattr(self,'reply_area',None)
+        if reply is not None:reply.sync_stage(stage)
         if not stage:
             shared.pack_forget()
             return

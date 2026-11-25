@@ -379,7 +379,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         # 页面切换只调 set_stage 换上下文（desktop_page_nav._sync_shared_input），
         # 非阶段页与锁定／首页路由由 pack_forget 隐藏。
         self.shared_input=desktop_shared_send.make_shared_input(self)
-        self.shared_input.pack(side='top',fill='x')
+        self.shared_input.pack(side='top',fill='x');import ui.stage_reply_area as _sra;self.reply_area=_sra.StageReplyArea(self.input_dock,self)  # UX-REPLY-AREA：输入框正上方的「过程与回话区」单实例（script/非阶段页由切页联动隐藏）
         # 忙碌时在状态栏右端转一个小圆圈（BusyState 起停）；平时不占位。
         self.busy_state.spinner=Spinner(self.body,host=self.status_bar)
         # 不放 ttk.Sizegrip：它由 Tk 逐像素实时改窗口大小、内容跟着重排，和另三个角（系统边框缩放）表现不一致；右下角也走系统边框。

@@ -405,7 +405,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 741,
+   "total": 743,
    "percent": 0.0
   },
   {
@@ -609,7 +609,7 @@
   {
    "module": "desktop_shared_send.py",
    "covered": 0,
-   "total": 770,
+   "total": 771,
    "percent": 0.0
   },
   {
@@ -982,6 +982,12 @@
    "module": "domain/speech_api.py",
    "covered": 0,
    "total": 341,
+   "percent": 0.0
+  },
+  {
+   "module": "domain/stage_reply_log.py",
+   "covered": 0,
+   "total": 128,
    "percent": 0.0
   },
   {
@@ -2541,7 +2547,7 @@
   {
    "module": "ui/desktop_page_nav.py",
    "covered": 0,
-   "total": 440,
+   "total": 442,
    "percent": 0.0
   },
   {
@@ -2908,6 +2914,12 @@
    "module": "ui/stage_model_picker.py",
    "covered": 0,
    "total": 387,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/stage_reply_area.py",
+   "covered": 0,
+   "total": 300,
    "percent": 0.0
   },
   {
@@ -3363,8 +3375,8 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 4,
-   "total": 41,
-   "percent": 9.8
+   "total": 44,
+   "percent": 9.1
   },
   {
    "module": "infra/tk_timers.py",
@@ -4154,5 +4166,5 @@
   }
  ],
  "modules_covered": 134,
- "modules_total": 689
+ "modules_total": 691
 }
