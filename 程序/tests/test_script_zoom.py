@@ -105,7 +105,12 @@ class ScriptZoomTests(unittest.TestCase):
         _settle(win)
         self.assertEqual(_font_size(preview), base + 1)
         self.assertEqual(box.gutter._font_spec[1], base + 1)
-        fonts = {box.gutter.itemcget(item, "font") for item in box.gutter.find_all()}
+        # R4397 起 gutter 还画折叠标记的 rectangle/polygon 图元（无 -font 选项）：
+        # 只对 text 图元取字体，且必须有行号文本。
+        text_items = [item for item in box.gutter.find_all()
+                      if box.gutter.type(item) == "text"]
+        self.assertTrue(text_items, "行号槽应有行号文本图元")
+        fonts = {box.gutter.itemcget(item, "font") for item in text_items}
         self.assertTrue(any(str(base + 1) in str(font) for font in fonts),
                         "行号字体未随缩放更新")
         self._press_until(win, preview, "<Control-minus>", lambda: box.zoom_delta == 0)

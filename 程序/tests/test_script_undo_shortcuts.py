@@ -82,14 +82,17 @@ class ScriptUndoShortcutTests(unittest.TestCase):
         win, preview, page, target, session = self._setup()
         records = [r for r in page.shortcuts.registered()
                    if r['scope'] == '剧本结构页·box']
-        self.assertEqual({r['name'] for r in records}, {'后退一步', '前进一步'})
+        # R4380 同 scope 补登 Ctrl+S「立即保存」（desktop_script_edit_session.py:278）。
+        self.assertEqual({r['name'] for r in records}, {'后退一步', '前进一步', '立即保存'})
         sequences = {s.lower() for r in records for s in r['sequences']}
         self.assertIn('<control-z>', sequences)
         self.assertIn('<control-shift-z>', sequences)
+        self.assertIn('<control-s>', sequences)
         # registry 之外还要真的绑到文本框上：bind 查询返回非空绑定脚本。
         self.assertTrue(preview.bind('<Control-z>'))
         self.assertTrue(preview.bind('<Control-Shift-Z>'))
         self.assertTrue(preview.bind('<Control-y>'))
+        self.assertTrue(preview.bind('<Control-s>'))
 
     def test_shortcut_handlers_undo_and_redo_step_by_step(self):
         """编辑态快捷键处理入口逐步后退／前进，内容与 Tk 原生撤销栈一致。"""

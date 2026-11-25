@@ -1051,7 +1051,8 @@ class DockContentTests(StageRailTests):
         panel = self.desktop.files_panel
         self._stage_file('script_structure', '结构正稿.md')
         calls = []
-        panel.set_select_handler(self.desktop.page_index, lambda path: calls.append(path))
+        old_page = self.desktop.page_index
+        panel.set_select_handler(old_page, lambda path: calls.append(path))
         self.addCleanup(panel.clear_select_handler)
         row = next(item for item in self.rows() if item.endswith('样例剧本.md'))
         panel.script_tree.selection_set(row)
@@ -1059,7 +1060,9 @@ class DockContentTests(StageRailTests):
         self.assertEqual(len(calls), 1)
         self.desktop.show(PAGE['script_structure'])
         self.wait_index()
-        self.assertEqual(panel._select_handlers, {})
+        # R4358（UX-S02-ONE-EDITOR）起剧本结构页自己登记 show_document：
+        # 契约收窄为「旧页键被清掉」，登记表非空是新页有意行为。
+        self.assertNotIn(old_page, panel._select_handlers)
         new_row = next((item for item in self.rows() if item.endswith('.md')), None)
         if new_row is not None:
             panel.script_tree.selection_set(new_row)

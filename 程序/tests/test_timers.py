@@ -116,6 +116,21 @@ class WindowTimerTests(unittest.TestCase):
             tk_timers.repeat = lambda widget, interval, callback: (
                 registered.append((widget, interval)), original_repeat(widget, interval, callback))[1]
             self.addCleanup(setattr, tk_timers, "repeat", original_repeat)
+            # R4424 起主窗口共享输入框挂了一条常驻 tk_timers.repeat（400ms 状态同步）：
+            # 它随宿主控件 <Destroy> 自取消、不属 cancel_timers 管辖，且每次重排换新
+            # after id，「after info 全空」的旧口径因此不再成立。按控件归属核对同一
+            # 不变式：记录每个 widget 排过的 after id，关窗后批量窗口自己的必须全消失。
+            scheduled = []
+            original_after = self.tk.Misc.after
+
+            def record_after(widget, ms, func=None, *args):
+                after_id = original_after(widget, ms, func, *args)
+                if func is not None:
+                    scheduled.append((widget, str(after_id)))
+                return after_id
+
+            self.tk.Misc.after = record_after
+            self.addCleanup(setattr, self.tk.Misc, "after", original_after)
             asset_batch.show(d, "workflow", selected_ids=["CHAR_001"])
             win.update()
             popup = [w for w in win.winfo_children() if isinstance(w, self.tk.Toplevel)][-1]
@@ -124,11 +139,8 @@ class WindowTimerTests(unittest.TestCase):
             self.assertTrue(intervals, "资产批量窗口没有登记刷新循环")
             self.assertEqual(set(intervals), {250})
             popup.destroy(); win.update()
-            remaining = set(win.tk.call("after", "info"))
-            # R2989 P1：主窗口统一状态栏的 100ms 消息心跳是常驻 after，不属于批量窗口定时器。
-            bar = getattr(d, 'status_bar', None)
-            if bar is not None:
-                remaining -= set(str(after_id) for after_id in bar._pending_afters)
+            popup_jobs = {job for widget, job in scheduled if widget is popup}
+            remaining = set(win.tk.call("after", "info")) & popup_jobs
             self.assertEqual(remaining, set())
 
     def test_window_placement_idle_job_is_cancelled_on_close(self):
