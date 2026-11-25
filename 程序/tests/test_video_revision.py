@@ -25,6 +25,9 @@ class VideoRevisionTests(unittest.TestCase):
                 with execution_scope(control):
                     studio.submit('SH001')
                 saved = read(studio.db)['shots']['SH001'][0]
+                from domain.video_staleness import INPUT_SIGNATURE_FIELD
+                self.assertTrue(saved.get(INPUT_SIGNATURE_FIELD))
+                self.assertTrue(saved.get('signature'))
                 self.assertEqual(saved['execution']['run_id'], control.run_id)
                 self.assertEqual(saved['execution']['task_id'], 'SH001')
                 self.assertTrue(saved['execution']['attempt_id'])
@@ -171,6 +174,12 @@ class VideoRevisionTests(unittest.TestCase):
         with patch('agent.h3_reference_adapter.attach', return_value=[asset]), patch('local_video.prepare_graph',
                 return_value=({'114': {'inputs': {}}, 'ref': {'inputs': {}}}, {})):
             studio.submit('SH001')
+        from domain import video_staleness
+        saved = read(studio.db)['shots']['SH001'][0]
+        reference_rows = [{'id': 'CHAR_001', 'path': asset['path'], 'sha256': 'a' * 64}]
+        expected = video_staleness.input_signature(
+            studio.episode_path, studio.shot('SH001'), 'comfy', reference_rows, 'a' * 64)
+        self.assertEqual(saved[video_staleness.INPUT_SIGNATURE_FIELD], expected)
 
     def test_money_rejection_does_not_submit_or_consume_seconds(self):
         from infra.pet_llm import RequestLedger
@@ -333,6 +342,57 @@ class VideoRevisionTests(unittest.TestCase):
                     self.assertEqual(app.confirm_submit.call_args.args[2], 5)
                 else:
                     app.confirm_submit.assert_not_called()
+
+    def test_batch_revise_button_marks_checked_shots_without_resubmitting(self):
+        from app import App
+        studio = Mock()
+        studio.review_many.return_value = '已标记需修改 2/2 镜'
+        app = SimpleNamespace(studio=studio, note=Mock(), refresh=Mock(), write=Mock())
+        app.note.get.return_value = '资产已变化'
+        with patch('app.work_targets', return_value=(['SH001', 'SH002'], 'checked')):
+            App.review_checked_revise(app)
+        studio.review_many.assert_called_once_with(['SH001', 'SH002'], 'revise', '资产已变化')
+        app.refresh.assert_called_once_with()
+        app.write.assert_called_once_with('已标记需修改 2/2 镜')
+
+    def test_batch_revise_without_target_is_rejected(self):
+        from app import App
+        app = SimpleNamespace(studio=Mock(), note=Mock(), refresh=Mock(), write=Mock())
+        with patch('app.work_targets', return_value=([], 'checked')):
+            with self.assertRaisesRegex(ValueError, '请先勾选'):
+                App.review_checked_revise(app)
+        app.studio.review_many.assert_not_called()
+
+    def test_batch_revise_keeps_highlight_fallback_notice(self):
+        from app import App
+        studio = Mock()
+        studio.review_many.return_value = '已标记需修改 1/1 镜'
+        app = SimpleNamespace(studio=studio, note=Mock(), refresh=Mock(), write=Mock())
+        app.note.get.return_value = ''
+        with patch('app.work_targets', return_value=(['SH002'], 'shown')):
+            App.review_checked_revise(app)
+        app.write.assert_called_once_with('没有勾选行：按高亮的那一行 SH002 标记。\n已标记需修改 1/1 镜')
+
+    def test_video_display_state_marks_stale_and_legacy_downloads(self):
+        from app import video_display_state
+        from domain import video_staleness
+        frame = self.root / 'frames/SH001.png'
+        frame.parent.mkdir(parents=True, exist_ok=True)
+        frame.write_bytes(b'frame-v1')
+        shot = {'id': 'SH001', 'duration': 5, 'video_prompt': '动作', 'frame': 'frames/SH001.png'}
+        episode = self.root / 'episode.json'
+        save(episode, {'shots': [shot]})
+        video = self.root / 'data/SH001/v001/SH001.mp4'
+        video.parent.mkdir(parents=True, exist_ok=True)
+        video.write_bytes(b'video')
+        row = {'version': 1, 'state': 'downloaded', 'review': 'pending',
+               'file': 'data/SH001/v001/SH001.mp4',
+               video_staleness.INPUT_SIGNATURE_FIELD: video_staleness.input_signature(episode, shot)}
+        self.assertEqual(video_display_state(episode, self.root, shot, row), '已下载')
+        frame.write_bytes(b'frame-version-2')
+        self.assertEqual(video_display_state(episode, self.root, shot, row), '输入已过期')
+        row.pop(video_staleness.INPUT_SIGNATURE_FIELD)
+        self.assertEqual(video_display_state(episode, self.root, shot, row), '历史版本无法判定')
 
     def test_local_auto_plan_polls_rework_but_never_starts_it_automatically(self):
         from local_video import auto_plan

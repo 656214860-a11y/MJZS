@@ -5,7 +5,7 @@ import tkinter as tk
 
 import infra.diagnostic_capture as diagnostic_capture
 import domain.task_center_service as task_center_service
-from ui_widgets import BaseDialog, TextArea, LineInput
+from ui_widgets import BaseDialog, DescriptionBlock, TextArea, LineInput
 from ui_tokens import TEXT_ROWS
 
 
@@ -47,24 +47,66 @@ def show(desktop):
         data['unresolved_execution'] = [row for row in data['unresolved_execution']
                                         if row.get('project') in (None, selected)]
     dialog = BaseDialog(desktop.win, '运行状况', geometry='640x520', minsize=(420, 320))
-    query = LineInput(dialog.content, placeholder='镜头或资产编号（留空显示全部尝试）')
+    query = LineInput(dialog.content, placeholder='镜头/句子/批次/请求号/运行号（留空显示全部尝试）')
     query.pack(fill='x')
+    feedback = DescriptionBlock(dialog.content, text='')
+    feedback.pack(fill='x')
     text = TextArea(dialog.content, wrap='word', height=TEXT_ROWS['4xl'])
     text.pack(fill='both', expand=True)
     text.insert('1.0', '\n'.join(task_center_service.format_lines(data)))
     text.set_readonly(True)
+    def filtered_rows():
+        runtime = data.get('project_runtime') or {}
+        key = query.get().strip()
+        return [row for row in runtime.get('tasks', []) if task_center_service.task_matches(row, key)]
+
+    def focus_error(message):
+        query.set_error(message)
+        feedback.configure(text=message)
+
     def filter_attempts():
+        query.clear_error()
+        feedback.configure(text='')
         view = dict(data)
         if data.get('project_runtime'):
             runtime = dict(data['project_runtime'])
-            key = query.get().strip()
-            runtime['tasks'] = [row for row in runtime['tasks'] if not key or row['task_id'] == key]
+            runtime['tasks'] = filtered_rows()
             view['project_runtime'] = runtime
         text.set_readonly(False)
         text.delete('1.0', 'end')
         text.insert('1.0', '\n'.join(task_center_service.format_lines(view)))
         text.set_readonly(True)
+
+    def open_audio_focus():
+        rows = [row for row in filtered_rows() if row.get('stage') == 'audio']
+        if not rows:
+            focus_error('没有匹配的配音句')
+            return
+        if len(rows) > 1:
+            focus_error('匹配到 %d 句配音，请先用批次、句序或请求号缩小到一句' % len(rows))
+            return
+        row = rows[0]
+        page_of = getattr(desktop, 'page_of', None)
+        index = page_of('audio') if callable(page_of) else None
+        if index is None:
+            focus_error('当前桌面没有配音页入口')
+            return
+        query.clear_error()
+        feedback.configure(text='')
+        fields = ('stage', 'state', 'task_id', 'batch', 'version', 'line_index', 'text_preview',
+                  'attempt_id', 'cost_request_id', 'operation', 'recovery')
+        desktop._tts_recovery_focus = {key: row[key] for key in fields if row.get(key) is not None}
+        dialog.close()
+        go = getattr(desktop, 'go', None)
+        go_page = getattr(desktop, 'go_page', None)
+        if callable(go):
+            go(index)
+        elif callable(go_page):
+            go_page(index)
+        else:
+            desktop.show(index)
     dialog.add_action('查询尝试', filter_attempts)
+    dialog.add_action('打开配音页定位', open_audio_focus)
     query.bind('<Return>', lambda event: filter_attempts())
     dialog.add_action('关闭', dialog.close, primary=True)
     if data.get('queued'):

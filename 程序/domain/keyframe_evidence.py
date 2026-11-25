@@ -58,6 +58,16 @@ def _metadata_digest(row, narrow):
     return _digest({key: value for key, value in row.items() if key not in ('_registry_base', 'image')})
 
 
+def picture_shot_payload(row):
+    """镜头内容里会实际影响画面生成的部分；供首帧和视频共用同一收窄口径。"""
+    return {key: row[key] for key in _SHOT_PICTURE_FIELDS if key in row}
+
+
+def picture_metadata_digest(row):
+    """资产元数据里会实际影响画面生成的部分；名字／别名不参与过期判定。"""
+    return _metadata_digest(row, True)
+
+
 def _file_hash(path):
     digest = hashlib.sha256()
     with Path(path).open('rb') as stream:

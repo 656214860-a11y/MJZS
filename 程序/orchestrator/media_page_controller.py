@@ -234,3 +234,11 @@ def frame_checks_key(merged, stored_key, source):
     if merged:
         return stored_key or str(Path(source).resolve())
     return str(Path(source).resolve())
+
+
+def checked_revise_text(studio, ids, how, note):
+    """批量标「需修改」的业务结果文本；目标解析与界面刷新仍由视频页负责。"""
+    if not ids:
+        raise ValueError('请先勾选需要重做的镜头')
+    prefix = '没有勾选行：按高亮的那一行 %s 标记。\n' % ids[0] if how == 'shown' else ''
+    return prefix + studio.review_many(ids, 'revise', note)

@@ -79,6 +79,8 @@ class TokenButtonStateTests(unittest.TestCase):
     """设计系统按钮在浅色悬停和禁用态都必须保留可读文字。"""
 
     def setUp(self):
+        self.addCleanup(ui_tokens.set_theme, ui_tokens.current_theme())
+        ui_tokens.set_theme('day')
         self.win = tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
@@ -367,6 +369,7 @@ class ThemePaletteTests(unittest.TestCase):
 
     def setUp(self):
         self._was = ui_tokens.current_theme()
+        ui_tokens.set_theme('day')
         self.addCleanup(ui_tokens.set_theme, self._was)
 
     @staticmethod
@@ -533,16 +536,24 @@ class ThemePaletteTests(unittest.TestCase):
                 self.assertEqual('night', ui_tokens.system_theme())
         self.assertEqual('day', ui_tokens.resolve_theme('system', system=lambda: (_ for _ in ()).throw(RuntimeError('boom'))))
 
+    def test_hidden_desktop_uses_day_without_querying_host_preferences(self):
+        from unittest.mock import patch
+        with patch.dict('os.environ', {'DRAMA_HIDDEN_DESKTOP': '1'}), \
+                patch.object(ui_tokens, '_registry_apps_use_light_theme') as registry:
+            self.assertEqual('day', ui_tokens.system_theme())
+            registry.assert_not_called()
+
 
 class ThemeRefreshTests(unittest.TestCase):
     """夜间／日间切换后存量 tk 控件与侧栏图标跟着换色，且能切回日间。"""
 
     def setUp(self):
+        self._was = ui_tokens.current_theme()
         ui_tokens.set_theme('day')
         self.win = tk.Tk()
         self.win.withdraw()
         self.addCleanup(self.win.destroy)
-        self.addCleanup(ui_tokens.set_theme, 'day')
+        self.addCleanup(ui_tokens.set_theme, self._was)
 
     def test_native_widgets_round_trip(self):
         day = ui_tokens.COLORS['background_card']

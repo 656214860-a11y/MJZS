@@ -207,6 +207,9 @@ def launch(selfcheck=True):
                 diagnostic_capture.notify_startup_fatal(fatal_items)
             raise SystemExit(1)
         safe_start = diagnostic_capture.startup_gate(ask=entry_confirm)
+    # L5 组合根：把 L4 的 SKILL 工具适配器注入 L3；编排器本身不反向依赖 UI。
+    import ui.skill_tools as skill_tools
+    skill_tools.install_executor()
     from desktop import Desktop
     window = tk.Tk()
     window._selfcheck_degraded = degraded_items

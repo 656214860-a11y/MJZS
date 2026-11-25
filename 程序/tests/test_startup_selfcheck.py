@@ -804,6 +804,13 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 app_icon.set_app_id = lambda: None
                 app_icon.apply = lambda window: None
 
+                # C 卡组合根在 .pyw 内绑定工具执行器；启动隔离桩不加载真实 UI 依赖树。
+                ui_pkg = _mod('ui')
+                ui_pkg.__path__ = []
+                skill_tools = _mod('ui.skill_tools')
+                skill_tools.install_executor = lambda: None
+                ui_pkg.skill_tools = skill_tools
+
                 platform_tools = _mod('platform_tools')
                 platform_tools.work_area = lambda: (0, 0, 1920, 1080)
                 platform_tools.outer_rect_for_client = lambda x, y, w, h: (x, y, w, h)

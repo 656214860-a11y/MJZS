@@ -119,6 +119,7 @@ class LocalStudio(Studio):
         validate_video_submission(self,sid)
         with self.lock():
             st=self.state();versions=st['shots'][sid];shot=self.shot(sid)
+            source_shot=shot
             from domain.video_task_state import submission_block_reason
             blocked=submission_block_reason(versions)
             if blocked:raise ValueError(blocked)
@@ -159,7 +160,14 @@ class LocalStudio(Studio):
                 source_assets.append(receipt)
             if any(not item.get('path') or not item.get('sha256') for item in [first_frame, *source_assets]):
                 raise ValueError('本地上传缺少素材来源回执，尚未提交生成')
-            v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph)}
+            from domain.video_source_evidence import media_input_signature_record
+            media_sources={'first_frame':first_frame,
+                           'assets':source_assets}
+            input_record=media_input_signature_record(
+                self.episode_path, source_shot, 'comfy',
+                media_sources)
+            v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':False,'backend':'comfy','endpoint':api.url,'output_node':options.get('output','92'),'review':'pending','created':time.time(),'signature':fingerprint(graph),
+               **input_record}
             from contract.platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid)
             v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'

@@ -125,38 +125,14 @@ def file_snapshot(context, ignored=IGNORED):
 
 def default_source(context):
     """Find the current storyboard source without loading the file-picker page."""
-    from agent.core import read
-    from contract.project_stages import storyboard
-    project = _context(context).root
-    prefs = read(project / 'ui_settings.json') if (project / 'ui_settings.json').is_file() else {}
-    value = prefs.get('storyboard_file') if isinstance(prefs, dict) else None
-    selected = (project / value).resolve() if value else None
-    if selected and selected.is_relative_to(project.resolve()) and selected.suffix == '.json' and selected.is_file():
-        return selected
-    working = storyboard(project) / '分镜拆分'
-    candidates = sorted(working.glob('EP*_分镜.json'), key=lambda path: path.stat().st_mtime, reverse=True)
-    if candidates:
-        return candidates[0]
-    legacy = project / 'storyboard' / '分镜拆分'
-    candidates = sorted(legacy.glob('EP*_分镜.json'), key=lambda path: path.stat().st_mtime, reverse=True)
-    if candidates:
-        return candidates[0]
-    for path in (working / 'episode.json', storyboard(project) / 'episode.json'):
-        if path.is_file():
-            return path
-    return working / 'episode.json'
+    from domain.storyboard_storage import default_source as storage_default_source
+    return storage_default_source(_context(context).root)
 
 
 def resolve_source(context, path):
     """Resolve aliases and legacy episode placeholders to a current storyboard source."""
-    from domain.storyboard_storage import resolved_alias
-    from contract.project_stages import storyboard
-    project = _context(context).root.resolve()
-    path = resolved_alias(project, Path(path))
-    legacy_episode = project / 'storyboard' / 'episode.json'
-    if not path.exists() and path in (storyboard(project) / 'episode.json', legacy_episode):
-        return default_source(context).resolve()
-    return path
+    from domain.storyboard_storage import resolve_source as storage_resolve_source
+    return storage_resolve_source(_context(context).root, path)
 
 
 def check_adoptable(paths):
@@ -221,8 +197,8 @@ def _shot_rows(data):
             for shot in shots if isinstance(shot, dict)]
 
 
-def generated_video_versions(project):
-    """已生成过视频的镜头编号 -> 版本记录列表（项目本地与云端工作集，只读）。"""
+def generated_video_workspaces(project):
+    """镜头编号 -> [(工作集根目录, 版本记录)]；项目本地与云端工作集合并，只读。"""
     from infra.file_cache import read_json
     project = Path(project)
     roots = [project]
@@ -240,9 +216,29 @@ def generated_video_versions(project):
         shots = data.get('shots') if isinstance(data, dict) else None
         if isinstance(shots, dict):
             for sid, versions in shots.items():
-                if versions:
-                    found[str(sid)] = [version for version in versions if isinstance(version, dict)]
+                rows = [(root, version) for version in versions or [] if isinstance(version, dict)]
+                if rows:
+                    found.setdefault(str(sid), []).extend(rows)
+    def sort_key(item):
+        version = item[1]
+        try:
+            created = float(version.get('created') or 0)
+        except (TypeError, ValueError):
+            created = 0.0
+        try:
+            number = int(version.get('version') or 0)
+        except (TypeError, ValueError):
+            number = 0
+        return created, number
+    for rows in found.values():
+        rows.sort(key=sort_key)
     return found
+
+
+def generated_video_versions(project):
+    """已生成过视频的镜头编号 -> 版本记录列表（项目本地与云端工作集合并，只读）。"""
+    return {sid: [version for _root, version in rows]
+            for sid, rows in generated_video_workspaces(project).items()}
 
 
 def _generated_video_shots(project):
@@ -365,7 +361,7 @@ def adoption_impact(context, paths):
 def stale_video_shots(project, source) -> list:
     """当前来源下已生成视频中与当前内容不符（已过期）的镜头编号（只读现算）。
 
-    持久过期标记的单一现算入口：版本记录签名 vs 同一口径重算指纹；不落盘、不自动重做。
+    输入过期的单一现算入口：版本记录输入指纹 vs 同一口径重算指纹；不落盘、不自动重做。
     """
     from domain import video_staleness
     source = Path(source).resolve()

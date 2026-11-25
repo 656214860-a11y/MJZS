@@ -614,6 +614,31 @@
   },
   "max_depth": 4,
   "test_ownership": {
+    "程序/tests/architecture/test_skill_orchestrator_boundary.py": {
+      "kind": "architecture",
+      "owner": "项目维护者",
+      "contract": "L3 SKILL 编排器不得静态或字面量动态导入 L4 UI 工具表，只能消费注入的 ToolResult 执行器",
+      "targets": [
+        "程序/orchestrator/skill_orchestrator.py",
+        "程序/ui/skill_tools.py"
+      ]
+    },
+    "程序/tests/test_tool_result_contract.py": {
+      "kind": "contract",
+      "owner": "项目维护者",
+      "contract": "工具结果信封的状态、旧返回值兼容与异常处理",
+      "targets": ["程序/contract/service_contract.py"]
+    },
+    "程序/tests/test_tool_execution_protocol.py": {
+      "kind": "contract",
+      "owner": "项目维护者",
+      "contract": "SKILL 工具执行协议：L4 适配器产出 L0 ToolResult，L3 编排器经注入执行器消费并把未绑定、页面、缺输入与失败映射为明确状态",
+      "targets": [
+        "程序/contract/service_contract.py",
+        "程序/orchestrator/skill_orchestrator.py",
+        "程序/ui/skill_tools.py"
+      ]
+    },
     "程序/tests/test_media_page_buttons.py": {
       "kind": "module",
       "owner": "项目维护者",

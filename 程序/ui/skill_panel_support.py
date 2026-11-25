@@ -644,12 +644,13 @@ def sync_models(project, program=None):
 
 
 def build_orchestrator(desktop, project):
-    """挂上本项目的一套编排器：总线／错误账本都用桌面现成的。
+    """挂上本项目的一套编排器：总线／错误账本／L4 工具适配器都用桌面现成的。
 
     路由器按程序目录读模型池（阶段配置挑中的那条要是模型管理里的自定义模型，也得发得出去）。
     """
+    import ui.skill_tools as skill_tools
     from stage_execution_service import build_orchestrator as _build_orchestrator
-    return _build_orchestrator(desktop, project)
+    return _build_orchestrator(desktop, project, tool_executor=skill_tools.execute_tool)
 
 
 def program_of(desktop):

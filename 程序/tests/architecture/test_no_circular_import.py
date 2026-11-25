@@ -99,7 +99,6 @@ class ProductionCycleScannerTests(unittest.TestCase):
 # keyframe_evidence→shot_assets→white_model_ref→white_model→stage_parallel 环吸收，
 # 同时暴露出与静态环同源的 {core,file_cache,publication}；按实测重登。
 KNOWN_DYNAMIC_CYCLES = (
-    ("local_video", "skill_orchestrator", "skill_tools", "stage_execution_service"),
     ("stage_models", "workflow_settings"),
     ("core", "file_cache", "publication"),
     ("keyframe_evidence", "shot_assets", "stage_parallel", "white_model", "white_model_ref"),

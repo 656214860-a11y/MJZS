@@ -19,7 +19,7 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
 
     def test_audited_readonly_scope_has_reasons_and_fixed_entrypoints(self):
         expected = {
-            'video_source_evidence': {'submitted_sources'},
+            'video_source_evidence': {'submitted_sources', 'input_signature_record', 'media_input_signature_record'},
             'project_naming': {'dated_path'},
             'script_preview_service': {'should_load_async', 'read_preview', 'preview_chunks'},
             'storyboard_rows_service': {'shot_stats', 'frame_rows', 'rows_from_sources'},
@@ -134,6 +134,19 @@ class ServiceReturnContractBoundaryTests(unittest.TestCase):
                           if isinstance(node, (ast.FunctionDef, ast.AsyncFunctionDef, ast.ClassDef))}
                 self.assertTrue(symbols, module)
                 self.assertTrue(set(symbols) <= actual, (name, module, symbols))
+
+    def test_new_integration_services_have_an_explicit_readonly_scope_basis(self):
+        """A/B 卡新增只读服务不得无审计落入既存豁免；审计完成前保持 pending。"""
+        root = Path(ROOT)
+        ledger = json.loads((root / '维护记录' / '架构统一基数.json').read_text(encoding='utf-8'))['第一项']
+        readonly = set(ledger['readonly_scope_audit'])
+        for name in ('commercial_inventory_service', 'task_center_service'):
+            with self.subTest(name=name):
+                if name in ledger['exempt_items']:
+                    self.assertIn(name, readonly, '落入豁免前必须先完成只读入口审计')
+                else:
+                    self.assertIn(name, ledger['scope_audit_pending'])
+                self.assertNotIn(name, ledger['adopters'])
 
     def test_only_approved_l2_adopters_import_service_contract(self):
         """解冻后的每批迁移仍必须显式更新采用方棘轮。"""

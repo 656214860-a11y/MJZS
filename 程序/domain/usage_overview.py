@@ -135,6 +135,347 @@ def untracked_comfy(project, ledger):
     return missing
 
 
+def _finite_decimal(value):
+    from decimal import Decimal, InvalidOperation
+    try:
+        number = Decimal(str(value))
+    except (InvalidOperation, ValueError):
+        return None
+    if isinstance(value, bool) or not number.is_finite() or number < 0:
+        return None
+    return number
+
+
+def _decimal_text(value):
+    if value is None:
+        return None
+    text = format(value, 'f')
+    if '.' in text:
+        text = text.rstrip('0').rstrip('.')
+    return text or '0'
+
+
+def _same_version(left, right):
+    try:
+        return int(left) == int(right)
+    except (TypeError, ValueError):
+        return str(left) == str(right)
+
+
+def _relative(root, path):
+    try:
+        return Path(path).resolve().relative_to(Path(root).resolve()).as_posix()
+    except (OSError, ValueError):
+        return str(path)
+
+
+def _attempt_money_accumulation(rows):
+    """汇总台账金额事实；只展开一层循环，供嵌套深度门禁与状态判定共用。"""
+    from decimal import Decimal
+    total = Decimal(0)
+    known = False
+    states = []
+    missing_rate = False
+    stale_receipt = False
+    for row in rows:
+        state = pet_llm.RequestLedger.effective_money_state(row)
+        states.append(state or 'unknown')
+        amount = _finite_decimal(row.get('budget_cost'))
+        missing_rate = missing_rate or amount is None
+        if amount is not None:
+            total += amount
+            known = True
+        stale_receipt = stale_receipt or (row.get('money_state') == 'reconciled' and state != 'reconciled')
+    return {'total': total, 'known': known, 'states': states,
+            'missing_rate': missing_rate, 'stale_receipt': stale_receipt}
+
+
+def _attempt_bill_state(rows, facts, *, missing):
+    """按优先级判定账单状态；每级只返回事实，不推断供应商未提供的数据。"""
+    if not rows:
+        label = ('版本登记的请求号在请求台账中缺失，费用未知；请到「设置→预算→费用核对」人工核对'
+                 if missing else
+                 '没有可关联的请求台账记录，费用未知；请到「设置→预算→费用核对」人工核对')
+        return 'missing', label
+    if facts['missing_rate']:
+        return 'missing_rate', '缺费率或未计价，费用未知；请补费率并人工核对账单'
+    if facts['stale_receipt']:
+        return 'stale_receipt', '账单凭据缺失或已变化，原金额保留为待核实；请重新核对费用'
+    states = facts['states']
+    if any(state == 'unknown' for state in states):
+        return 'unknown', '供应商用量或结果未知，费用未知；请查询终态后人工核对账单'
+    if any(state == 'reserved' for state in states):
+        return 'reserved', '费用仍是预留，供应商终态未知；请查询终态后人工核对账单'
+    if states and all(state == 'reconciled' for state in states):
+        return 'reconciled', '人工已核对账单'
+    return 'estimated', '冻结费率估算，缺供应商账单核对'
+
+
+def _attempt_cost_fact(rows, *, missing=False, not_submitted=False, duplicate_of=None):
+    """一次视频尝试的账单事实；金额、估算和供应商对账状态分开，不把未知当零。"""
+    rows = [row for row in rows if isinstance(row, dict)]
+    currency = next((str(row.get('currency')) for row in rows if row.get('currency')), None)
+    if not_submitted and not rows:
+        return {'amount': '0', 'currency': currency, 'bill_state': 'not_submitted',
+                'label': '发送前被拦截，未产生远端请求', 'manual_check_required': False, 'states': []}
+    if any(row.get('state') == 'duplicate' for row in rows):
+        label = ('同一远端任务已并入请求 %s；本行不重复计列' % duplicate_of if duplicate_of else
+                 '同一远端任务被标重，但原请求缺失，费用未知；请人工核对')
+        return {'amount': None, 'currency': currency, 'bill_state': 'duplicate', 'label': label,
+                'manual_check_required': duplicate_of is None, 'states': ['duplicate']}
+    facts = _attempt_money_accumulation(rows)
+    bill_state, label = _attempt_bill_state(rows, facts, missing=missing)
+    amount = _decimal_text(facts['total']) if facts['known'] else None
+    if amount == '0' and bill_state == 'reconciled':
+        label += '（确认零费用）'
+    elif amount == '0' and bill_state == 'estimated':
+        label += '；估算为 0 仍需账单核对'
+    return {'amount': amount, 'currency': currency, 'bill_state': bill_state, 'label': label,
+            'manual_check_required': bill_state not in ('reconciled',), 'states': facts['states']}
+
+
+def adopted_video_versions(project, delivery_evidence=None):
+    """读取采用版本证据：已确认交付旁的剪辑来源优先，缺失时退到视频阶段清单。"""
+    root = Path(project).resolve()
+    rows, issues = {}, []
+
+    def remember(item, evidence, basis):
+        if not isinstance(item, dict):
+            return
+        shot = item.get('shot', item.get('id'))
+        version = item.get('version', item.get('adopted_version'))
+        if shot is None or version is None:
+            return
+        rows[str(shot)] = {'version': version, 'sha256': item.get('sha256'),
+                           'evidence': evidence, 'basis': basis}
+
+    if isinstance(delivery_evidence, dict):
+        for output in delivery_evidence.get('outputs') or []:
+            if not isinstance(output, dict) or not output.get('path'):
+                continue
+            master = (root / output['path']).resolve()
+            bundle_path = master.parent / 'edit_bundle.json'
+            if not bundle_path.is_file():
+                issues.append('交付成片旁缺少剪辑来源清单，采用版本未知：' + output['path'])
+                continue
+            try:
+                bundle = read_json(bundle_path)
+            except (OSError, ValueError):
+                issues.append('剪辑来源清单无法读取，采用版本未知：' + _relative(root, bundle_path))
+                continue
+            if (not isinstance(bundle, dict) or bundle.get('master_sha256') != output.get('sha256')
+                    or (bundle.get('master') and bundle.get('master') != master.name)
+                    or not isinstance(bundle.get('manifest'), list)):
+                issues.append('剪辑来源清单与已确认交付不一致，采用版本未知：' + _relative(root, bundle_path))
+                continue
+            evidence = _relative(root, bundle_path)
+            for item in bundle['manifest']:
+                remember(item, evidence, 'confirmed_edit_bundle')
+        if rows:
+            return {'rows': rows, 'basis': 'confirmed_edit_bundle', 'issues': issues}
+
+    from contract.stage_path_service import read_dirs
+    candidates = [folder / 'output' / name for folder in read_dirs(root, 'video')
+                  for name in ('video_manifest.json', 'videos.json')]
+    for path in candidates:
+        if not path.is_file():
+            continue
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            issues.append('视频阶段清单无法读取，采用版本未知：' + _relative(root, path))
+            continue
+        shots = data.get('shots') if isinstance(data, dict) else None
+        if not isinstance(shots, list):
+            issues.append('视频阶段清单格式无效，采用版本未知：' + _relative(root, path))
+            continue
+        evidence = _relative(root, path)
+        for item in shots:
+            remember(item, evidence, 'video_stage_manifest')
+        if rows:
+            return {'rows': rows, 'basis': 'video_stage_manifest', 'issues': issues}
+    return {'rows': rows, 'basis': 'none', 'issues': issues}
+
+
+def _video_attempt_totals(rows):
+    from decimal import Decimal
+    currencies = {}
+    unknown = missing = not_submitted = duplicate = 0
+    for row in rows:
+        cost = row.get('cost') or {}
+        amount = _finite_decimal(cost.get('amount'))
+        state = cost.get('bill_state')
+        currency = cost.get('currency')
+        if state != 'duplicate' and (currency or amount is not None):
+            currency = currency or '币种未配置'
+            bucket = currencies.setdefault(currency, {'reconciled': Decimal(0), 'estimated': Decimal(0),
+                                                      'held_or_unknown': Decimal(0)})
+            if amount is not None:
+                key = {'reconciled': 'reconciled', 'estimated': 'estimated'}.get(state, 'held_or_unknown')
+                bucket[key] += amount
+        if state in ('missing', 'missing_rate'):
+            missing += 1
+        elif state in ('unknown', 'reserved', 'stale_receipt'):
+            unknown += 1
+        elif state == 'not_submitted':
+            not_submitted += 1
+        elif state == 'duplicate':
+            duplicate += 1
+            unknown += 1 if cost.get('manual_check_required') else 0
+    by_currency = {}
+    for currency, bucket in sorted(currencies.items()):
+        row = {key: _decimal_text(value) for key, value in bucket.items()}
+        row['known_total'] = _decimal_text(bucket['reconciled'] + bucket['estimated'])
+        by_currency[currency] = row
+    return {'attempts': len(rows), 'unknown_count': unknown, 'missing_count': missing,
+            'not_submitted': not_submitted, 'duplicate_count': duplicate, 'by_currency': by_currency}
+
+
+def _legacy_cost_groups(entries, label):
+    return [row for row in entries if isinstance(row, dict) and row.get('cost_only')
+            and row.get('legacy_label') == label]
+
+
+def _legacy_request_rows(entries, base):
+    return [row for row in entries
+            if isinstance(row, dict)
+            and (str(row.get('id') or '') == base or str(row.get('id') or '').startswith(base + ':'))]
+
+
+def _workspace_ledger_entries(root, workspace, errors):
+    """只读云端工作集自己的旧台账；不用 RequestLedger.load，避免读视图产生备份写入。"""
+    path = pet_llm.request_ledger_path(workspace)
+    if not path.is_file():
+        return []
+    try:
+        data = read_json(path)
+    except (OSError, ValueError):
+        errors.append('请求台账无法读取：' + _relative(root, path))
+        return []
+    entries = data.get('entries') if isinstance(data, dict) else None
+    if not isinstance(entries, list) or any(not isinstance(row, dict) for row in entries):
+        errors.append('请求台账格式无效：' + _relative(root, path))
+        return []
+    return entries
+
+
+def _attempt_request_rows(entries, costs, version, sid, workspace_name, workspace_entries):
+    """返回 (台账行, 登记请求号是否缺失, duplicate 主请求号)；不在跨工作集间猜旧键。"""
+    base = 'video:%s:v%s' % (sid, version.get('version'))
+    groups = _legacy_cost_groups(entries, workspace_name + ' / ' + base)
+    request_id = version.get('money_request_id')
+    if request_id:
+        row = costs.get(str(request_id))
+        if row is not None:
+            return [row], False, _duplicate_owner(entries, row)
+        if groups:
+            return groups, False, None
+        return [], True, None
+    if groups:
+        return groups, False, None
+    return _legacy_request_rows(workspace_entries, base), False, None
+
+
+def _duplicate_owner(entries, row):
+    """找同一远端任务号的非重复账单主行；旧重复行无远端号时只认台账写下的主请求号。"""
+    if row.get('state') != 'duplicate':
+        return None
+    remote = row.get('remote_task_id')
+    if remote:
+        for candidate in entries:
+            if candidate is row or not isinstance(candidate, dict):
+                continue
+            if candidate.get('remote_task_id') == remote and candidate.get('state') != 'duplicate':
+                return str(candidate.get('id') or '') or None
+    note = str(row.get('note') or '')
+    prefix = '同一远端任务已由请求 '
+    if note.startswith(prefix) and ' 记账' in note:
+        return note[len(prefix):].split(' 记账', 1)[0] or None
+    return None
+
+
+def video_attempt_costs(project, ledger=None, delivery_evidence=None):
+    """逐尝试关联视频版本、请求台账与采用版本；只读，缺证据一律显示未知。"""
+    root = Path(project).resolve()
+    adoption = adopted_video_versions(root, delivery_evidence)
+    errors = list(adoption['issues'])
+    if ledger is not None:
+        entries = list(getattr(ledger, 'entries', []) or [])
+    else:
+        entries = _workspace_ledger_entries(root, root, errors)
+    costs = {str(row.get('id')): row for row in entries if isinstance(row, dict) and row.get('id')}
+    rows = []
+    workspace_ledgers = {}
+    paths = []
+    local_state = root / 'data' / 'state.json'
+    if local_state.is_file():
+        paths.append(local_state)
+    cloud = root / 'cloud_video'
+    if cloud.is_dir():
+        paths.extend(sorted(cloud.glob('*/data/state.json')))
+    for path in paths:
+        try:
+            data = read_json(path)
+        except (OSError, ValueError):
+            errors.append('视频任务台账无法读取：' + _relative(root, path))
+            continue
+        shots = data.get('shots') if isinstance(data, dict) else None
+        if not isinstance(shots, dict):
+            errors.append('视频任务台账格式无效：' + _relative(root, path))
+            continue
+        workspace = root if path == local_state else path.parent.parent
+        for sid in sorted(shots, key=str):
+            versions = shots[sid]
+            if not isinstance(versions, list):
+                errors.append('视频版本列表格式无效：' + str(sid))
+                continue
+            for version in versions:
+                if not isinstance(version, dict):
+                    errors.append('视频版本记录格式无效：' + str(sid))
+                    continue
+                workspace_name = _relative(root, workspace)
+                if workspace_name not in workspace_ledgers:
+                    workspace_ledgers[workspace_name] = (entries if workspace_name == '.' else
+                                                         _workspace_ledger_entries(root, workspace, errors))
+                request_rows, missing, duplicate_of = _attempt_request_rows(
+                    entries, costs, version, sid, workspace_name, workspace_ledgers[workspace_name])
+                cost = _attempt_cost_fact(request_rows, missing=missing,
+                                          not_submitted=version.get('not_submitted') is True,
+                                          duplicate_of=duplicate_of)
+                marker = adoption['rows'].get(str(sid))
+                adopted = None
+                conflict = False
+                if marker is not None:
+                    adopted = _same_version(marker.get('version'), version.get('version'))
+                    digest = marker.get('sha256')
+                    if adopted and digest and version.get('sha256') and digest != version.get('sha256'):
+                        adopted = False
+                        conflict = True
+                if conflict:
+                    errors.append('视频采用清单与任务版本摘要不一致：%s v%s' % (sid, version.get('version')))
+                rows.append({'shot': str(sid), 'version': version.get('version'),
+                             'state': str(version.get('state') or 'unknown'),
+                             'retry_reason': str(version.get('retry_reason') or '历史未登记'),
+                             'charged': version.get('charged') is not False,
+                             'not_submitted': version.get('not_submitted') is True,
+                             'remote_task_id': version.get('task_id'),
+                             'request_ids': [str(row.get('id')) for row in request_rows if row.get('id')],
+                             'cost': cost, 'adopted': adopted,
+                             'workspace': _relative(root, workspace),
+                             'seconds': version.get('seconds')})
+    workspaces = {}
+    for row in rows:
+        workspaces.setdefault(row['shot'], set()).add(row.get('workspace') or '.')
+    ambiguous = sorted(shot for shot, places in workspaces.items() if len(places) > 1)
+    for row in rows:
+        if row['shot'] in ambiguous:
+            row['adopted'] = None
+    if ambiguous:
+        errors.append('同一镜头号出现在多个视频工作集，采用版本无法自动对应：' + '、'.join(ambiguous))
+    return {'rows': rows, 'totals': _video_attempt_totals(rows), 'errors': errors,
+            'adoption_basis': adoption['basis']}
+
+
 def cost_per_minute(project, duration_seconds, price_table, overheads=None, *, human_minutes=None):
     """按已录入用量及费率估算，费用缺项单列，绝不补零。非供应商对账账单。"""
     duration = _number(duration_seconds)
@@ -231,6 +572,7 @@ def summarize(project, budget=None):
         _add(total, event)
         for table, key in keys:
             _add(table.setdefault(key, _blank()), event)
+    ledger = None
     try:
         ledger = pet_llm.RequestLedger(project).load()
         ledger_report = ledger.report()
@@ -244,16 +586,33 @@ def summarize(project, budget=None):
               'skipped_files': skipped, 'not_submitted': not_submitted, 'budget': budget, 'requests': ledger_report,
               'untracked_comfy': untracked}
     profile = Path(project) / 'cost_profile.json'
+    evidence = None
     if profile.is_file():
         try:
             config = read_json(profile)
             evidence = delivery_duration(project, config['delivery_outputs']) if 'delivery_outputs' in config else None
-            duration = evidence['duration_seconds'] if evidence else config['duration_seconds']
+            if evidence:
+                duration = evidence['duration_seconds']
+            elif 'duration_seconds' not in config:
+                raise ValueError('缺交付时长：请填写成片秒数，或绑定已确认的交付文件')
+            else:
+                duration = config['duration_seconds']
             result['cost'] = cost_per_minute(project, duration, config['price_table'], config.get('overheads'),
                                            human_minutes=config.get('human_minutes'))
             result['cost']['delivery_evidence'] = evidence
         except (OSError, ValueError, TypeError, KeyError) as error:
             result['cost_error'] = '成本配置无法核算：' + str(error)
+    ledger_for_attempts = ledger
+    if ledger_for_attempts is None:
+        try:
+            ledger_for_attempts = pet_llm.RequestLedger(project).load()
+        except (OSError, ValueError, TypeError):
+            ledger_for_attempts = None
+    try:
+        result['video_attempts'] = video_attempt_costs(project, ledger_for_attempts, evidence)
+    except (OSError, ValueError, TypeError) as error:
+        result['video_attempts'] = {'rows': [], 'totals': _video_attempt_totals([]), 'errors': [str(error)],
+                                    'adoption_basis': 'none'}
     return result
 
 
@@ -268,7 +627,8 @@ def _line(name, bucket):
 
 def report_text(summary):
     total = summary['total']
-    if not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error', 'not_submitted', 'untracked_comfy')):
+    if (not total['calls'] and not any(summary.get(key) for key in ('requests', 'budget', 'cost', 'cost_error', 'not_submitted', 'untracked_comfy'))
+            and not (summary.get('video_attempts') or {}).get('rows')):
         return '本项目还没有可汇总的模型调用记录。'
     lines = ['模型调用总览', _line('合计', total), '']
     if summary.get('untracked_comfy'):
@@ -302,6 +662,45 @@ def report_text(summary):
                 lines.append('  %s：已结算 %g，预留 %g，未知 %d 笔，共 %d 笔' % (
                     kind, bucket['settled'], bucket['reserved'], bucket['unknown'], bucket['count']))
         lines.append('')
+    video = summary.get('video_attempts') or {}
+    attempts = video.get('rows') or []
+    if attempts or video.get('errors'):
+        lines.append('视频逐尝试费用（含失败与重试；采用版本优先取已确认交付旁的剪辑来源，缺失时取视频阶段清单）')
+        basis = video.get('adoption_basis')
+        if basis == 'none':
+            lines.append('  采用版本：未知（没有已确认剪辑来源或视频阶段清单）')
+        elif basis == 'video_stage_manifest':
+            lines.append('  采用版本依据：视频阶段清单；交付确认证据缺失时仅作阶段事实，不替代交付门禁')
+        for row in attempts:
+            cost = row.get('cost') or {}
+            if cost.get('bill_state') == 'not_submitted':
+                money = '不产生远端费用（未发送）'
+            elif cost.get('bill_state') == 'duplicate':
+                money = '不重复计列'
+            elif cost.get('amount') is None:
+                money = '未知'
+            else:
+                money = '%s %s' % (cost['amount'], cost.get('currency') or '币种未配置')
+            adopted = '采用' if row.get('adopted') is True else '未采用' if row.get('adopted') is False else '采用未知'
+            requests = '、'.join(row.get('request_ids') or []) or '未登记'
+            lines.append('  %s v%s：%s；%s；费用 %s（%s）；请求 %s；远端任务 %s；重试原因 %s；工作集 %s' % (
+                row.get('shot'), row.get('version'), row.get('state'), adopted, money,
+                cost.get('label') or '账单状态未知', requests,
+                row.get('remote_task_id') or '未登记', row.get('retry_reason') or '历史未登记',
+                row.get('workspace') or '.'))
+        totals = video.get('totals') or {}
+        for currency, bucket in (totals.get('by_currency') or {}).items():
+            lines.append('  合计（%s）：可确定支出 %s（人工已核对 %s＋冻结费率估算 %s）；预留或未知金额 %s 未计入总支出' % (
+                currency, bucket.get('known_total') or '0', bucket.get('reconciled') or '0',
+                bucket.get('estimated') or '0', bucket.get('held_or_unknown') or '0'))
+        missing = totals.get('missing_count') or 0
+        unknown = totals.get('unknown_count') or 0
+        if missing or unknown:
+            lines.append('  需人工核对：台账或费率缺失 %d 次，供应商结果／凭据未知 %d 次；路径：设置→预算→费用核对。未知不记为 0，确认无费用须核对为 0。' % (
+                missing, unknown))
+        for warning in video.get('errors') or []:
+            lines.append('  费用关联警告：' + warning)
+        lines.append('')
     if summary.get('skipped_files'):
         lines.append('有 %d 个事件文件损坏或格式不对，已跳过。' % summary['skipped_files'])
     if summary.get('cost_error'):lines.append(summary['cost_error'])
@@ -321,5 +720,5 @@ def report_text(summary):
         full = cost.get('including_human_per_minute')
         lines.append('含人工全成本：' + ('未知（制作费用或人工金额未齐全）' if full is None else
             '%g %s／成片分钟（按已录入金额核算）' % (full, cost['currency'] or '币种未配置')))
-    lines.append('说明：只统计已落盘的调用事件；金额需配价格表后由请求台账折算，这里不估算。')
+    lines.append('说明：只统计已落盘的调用事件与请求台账；金额为冻结费率估算或人工核对值，未核对前不冒称供应商最终账单。')
     return '\n'.join(lines).strip()

@@ -110,6 +110,9 @@ try:
         splash=None
     def step(index):
         if splash:splash.step(index)
+    # L5 组合根：把 L4 的 SKILL 工具适配器注入 L3；编排器本身不反向依赖 UI。
+    import ui.skill_tools as skill_tools
+    skill_tools.install_executor()
     from desktop import Desktop
     step(1)
     desk=Desktop(window,root=program,require_login=True)

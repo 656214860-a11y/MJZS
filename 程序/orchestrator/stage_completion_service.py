@@ -295,84 +295,30 @@ def publish_imported_media(target, source, validate, kind):
     return result
 
 
-def _commercial_inventory(root, scope, outputs):
-    """只预填可追溯文件，不推断授权，也不扫描无关项目文件。"""
-    from agent.core import file_hash, read
+def _commercial_script(root, scope):
+    """采用分镜的剧本来源；返回 (路径, 待填警告, 核验错误)。"""
+    from agent.core import read
     from domain.storyboard_catalog_service import board_source_script
     from orchestrator.project_context_factory import project_context
     root = Path(root).resolve()
-    categories = {key: {'items': [], 'unused_reason': ''} for key in COMMERCIAL_CATEGORIES}
-    warnings, seen = [], set()
-
-    def add(category, path, expected=None):
-        path = Path(path).resolve()
-        if not path.is_relative_to(root) or not path.is_file() or not path.stat().st_size:
-            warnings.append('来源缺失、为空或越出项目：' + str(path))
-            return
-        digest = file_hash(path)
-        if expected is not None and expected != digest:
-            warnings.append('来源版本已改变：' + str(path))
-        key = (category, path)
-        if key in seen:
-            return
-        seen.add(key)
-        origin = ''
-        receipt_path = path.with_name(path.name + '.source.json')
-        if receipt_path.is_file():
-            receipt = read(receipt_path)
-            if (not isinstance(receipt, dict) or receipt.get('sha256') != digest
-                    or receipt.get('imported_file') != path.name):
-                warnings.append('导入来源记录与当前素材不一致：' + str(path))
-            elif isinstance(receipt.get('source'), str):
-                origin = '外部导入：' + receipt['source']
-        categories[category]['items'].append({
-            'path': path.relative_to(root).as_posix(), 'sha256': digest,
-            'source': origin, 'rights_holder': '', 'license': '',
-            'commercial_allowed': False, 'derivative_allowed': False, 'obligations_fulfilled': False,
-            'authorization': {'path': '', 'sha256': ''}})
-
     board = root / scope['source']
     link = read(board).get('source_script')
-    if link and isinstance(link, str):
-        script = board_source_script(project_context(root), board)
-        if script is not None:
-            add('script', script)
-        else:
-            warnings.append('采用分镜的剧本来源无法解析')
-    elif link is None or link == '':
-        add('script', board)
-    else:
-        warnings.append('采用分镜的剧本来源格式无效')
-    for output in outputs:
-        path = (root / output['path']).resolve()
-        add('video', path, output['sha256'])
-        bundle_path = path.parent / 'edit_bundle.json'
-        if not bundle_path.is_file():
-            warnings.append('成片无来源清单，须人工补齐镜头及其他采用素材：' + output['path'])
-            continue
-        bundle = read(bundle_path)
-        if not isinstance(bundle, dict):
-            warnings.append('成片来源清单格式无效：' + output['path'])
-            continue
-        for field, category in (('manifest', 'video'), ('fonts', 'font'), ('references', 'reference'),
-                                ('music', 'music')):
-            rows = bundle.get(field, [])
-            if not isinstance(rows, list):
-                warnings.append('来源清单格式无效：' + field)
-                continue
-            for row in rows:
-                source = row.get('source' if field == 'manifest' else 'path') if isinstance(row, dict) else None
-                if not isinstance(source, str) or not source.strip():
-                    warnings.append('来源清单缺少路径，须人工补齐：' + field)
-                    continue
-                row_category = row.get('category', 'reference') if field == 'references' else category
-                if field == 'references' and row_category not in ('reference', 'image'):
-                    warnings.append('参考来源类别无效')
-                    continue
-                add(row_category, path.parent / source, row.get('sha256'))
-        if (path.parent / 'font.ttc').is_file():
-            add('font', path.parent / 'font.ttc')
-    return categories, warnings
+    if link is not None and not isinstance(link, str):
+        return None, '采用分镜的剧本来源格式无效', '采用分镜的剧本来源无效，请补齐来源'
+    script = board_source_script(project_context(root), board) if link else board
+    if (script is not None and script.is_relative_to(root)
+            and script.is_file() and script.stat().st_size):
+        return script.resolve(), '', ''
+    if link:
+        return None, '采用分镜的剧本来源无法解析', '采用分镜的剧本来源缺失或不在项目内'
+    return None, '', '采用分镜的剧本来源缺失或不在项目内'
+
+
+def _commercial_inventory(root, scope, outputs):
+    """只盘点已登记来源边，不推断授权，也不扫描无关项目文件。"""
+    from domain.commercial_inventory_service import collect_inventory
+    script, warning, _error = _commercial_script(root, scope)
+    return collect_inventory(root, scope, outputs, script_path=script, script_warning=warning)
 
 
 def commercial_template(root):
@@ -381,10 +327,12 @@ def commercial_template(root):
     scope = media_scope(root)
     data = read(media_manifest_path(root, 'delivery', scope))
     _validate_media_completion(root, 'delivery', data)
-    categories, warnings = _commercial_inventory(root, scope, data['outputs'])
+    inventory = _commercial_inventory(root, scope, data['outputs'])
     return {'schema': 1, 'scope': scope, 'outputs': data['outputs'],
             'inventory_reviewer': '', 'inventory_complete': False,
-            'categories': categories, 'inventory_warnings': warnings,
+            'categories': inventory['categories'], 'inventory_warnings': inventory['warnings'],
+            'inventory_trace': {'requirements': inventory['requirements'],
+                                'trace_gaps': inventory['trace_gaps']},
             'content_review': {key: {'status': 'pending', 'reviewer': '', 'evidence': ''}
                                for key in ('infringement', 'nsfw', 'sensitive')}}
 
@@ -409,13 +357,31 @@ def validate_commercial_evidence(root, evidence):
         if not path.is_relative_to(root) or not path.is_file() or not path.stat().st_size:
             raise ValueError('授权资料或素材必须位于本项目且非空')
         if file_hash(path) != item.get('sha256'):
-            raise ValueError('授权资料或素材摘要不一致，请重新审查')
+            raise ValueError('授权凭据或素材摘要不一致，请重新审查')
         receipt_path = path.with_name(path.name + '.source.json')
+        snapshot = item.get('source_receipt')
+        if isinstance(snapshot, dict) and nonempty(snapshot.get('path')):
+            expected_receipt = (root / snapshot['path']).resolve()
+            if expected_receipt != receipt_path or not expected_receipt.is_relative_to(root):
+                raise ValueError('导入来源记录路径无效，请恢复导入版本或重新导入')
+            if not expected_receipt.is_file():
+                raise ValueError('导入来源记录缺失，请恢复导入版本或重新导入')
+            if file_hash(expected_receipt) != snapshot.get('sha256'):
+                raise ValueError('导入来源记录已改变，请恢复导入版本或重新导入')
         if receipt_path.is_file():
-            receipt = read(receipt_path)
+            try:
+                receipt = read(receipt_path)
+            except (OSError, ValueError, TypeError):
+                raise ValueError('导入来源记录无法读取，请恢复导入版本或重新导入') from None
             if (not isinstance(receipt, dict) or receipt.get('sha256') != item.get('sha256')
                     or receipt.get('imported_file') != path.name):
                 raise ValueError('导入来源记录与素材不一致，请恢复导入版本或重新导入')
+            declared_source = item.get('source')
+            if (nonempty(declared_source) and declared_source.startswith('外部导入：')
+                    and declared_source != '外部导入：' + str(receipt.get('source') or '')):
+                raise ValueError('导入来源记录已改变，请恢复导入版本或重新导入')
+        elif nonempty(item.get('source')) and item['source'].startswith('外部导入：'):
+            raise ValueError('导入来源记录缺失，请恢复导入版本或重新导入')
     if evidence.get('inventory_complete') is not True or not nonempty(evidence.get('inventory_reviewer')):
         raise ValueError('需由审核人确认清单覆盖成片全部采用素材和参考来源')
     categories = evidence.get('categories')
@@ -435,94 +401,14 @@ def validate_commercial_evidence(root, evidence):
                 raise ValueError('授权范围或履约记录不完整：' + category)
             frozen_file(item.get('authorization'))
     # 来源剧本沿用分镜目录的解析规则；不能拿其他作品的授权代替。
-    from domain.storyboard_catalog_service import board_source_script
-    from orchestrator.project_context_factory import project_context
-    board_path = root / scope['source']
-    source_value = read(board_path).get('source_script')
-    if source_value is not None and not isinstance(source_value, str):
-        raise ValueError('采用分镜的剧本来源无效，请补齐来源')
-    script_path = board_source_script(project_context(root), board_path) if source_value else board_path
-    if (script_path is None or not script_path.is_relative_to(root)
-            or not script_path.is_file() or not script_path.stat().st_size):
-        raise ValueError('采用分镜的剧本来源缺失或不在项目内')
+    script_path, _script_warning, script_error = _commercial_script(root, scope)
+    if script_error:
+        raise ValueError(script_error)
     scripts = {(root / item['path']).resolve(): item['sha256']
                for item in categories['script']['items']}
     if scripts.get(script_path) != file_hash(script_path):
         raise ValueError('剧本授权清单未覆盖当前分镜实际来源')
-    declared = {(root / item['path']).resolve(): item['sha256']
-                for item in categories['video']['items']}
-    known_hashes = set(declared.values())
-    for output in data['outputs']:
-        path = (root / output['path']).resolve()
-        if declared.get(path) != output['sha256']:
-            raise ValueError('视频授权清单未覆盖实际交付成片')
-        bundle_path = path.parent / 'edit_bundle.json'
-        if bundle_path.exists():
-            bundle = read(bundle_path)
-            if (not isinstance(bundle, dict) or bundle.get('master') != path.name
-                    or bundle.get('master_sha256') != output['sha256']):
-                raise ValueError('成片来源清单与交付文件不一致')
-            rows = bundle.get('manifest')
-            if not isinstance(rows, list) or not rows:
-                raise ValueError('成片来源清单为空或无效')
-            if any(not isinstance(row, dict) or not row.get('sha256')
-                   or row['sha256'] not in known_hashes for row in rows):
-                raise ValueError('授权清单未覆盖成片已登记的镜头来源')
-            for row in rows:
-                if 'source' not in row:  # 旧版清单仅有摘要，仍限定视频类别。
-                    continue
-                if not isinstance(row['source'], str) or not row['source'].strip():
-                    raise ValueError('成片镜头来源路径无效')
-                source = (path.parent / row['source']).resolve()
-                if (not source.is_relative_to(root) or not source.is_file()
-                        or declared.get(source) != row['sha256']
-                        or file_hash(source) != row['sha256']):
-                    raise ValueError('视频授权未覆盖成片实际镜头来源版本')
-            references = bundle.get('references', [])
-            if not isinstance(references, list):
-                raise ValueError('成片参考来源清单无效')
-            for reference in references:
-                if (not isinstance(reference, dict) or not isinstance(reference.get('path'), str)
-                        or not reference['path'].strip()):
-                    raise ValueError('成片参考来源清单无效')
-                category = reference.get('category', 'reference')
-                if category not in ('reference', 'image'):
-                    raise ValueError('成片参考来源类别无效')
-                declared_references = {(root / item['path']).resolve(): item['sha256']
-                                       for item in categories[category]['items']}
-                reference_path = (path.parent / reference['path']).resolve()
-                if (not reference_path.is_relative_to(root) or not reference_path.is_file()
-                        or declared_references.get(reference_path) != reference.get('sha256')
-                        or file_hash(reference_path) != reference.get('sha256')):
-                    raise ValueError('参考授权未覆盖镜头生成时采用的素材版本')
-            music = bundle.get('music', [])
-            if not isinstance(music, list):
-                raise ValueError('成片配乐来源清单无效')
-            declared_music = {(root / item['path']).resolve(): item['sha256']
-                              for item in categories['music']['items']}
-            for row in music:
-                music_path = (path.parent / row['path']).resolve() if isinstance(row, dict) and isinstance(
-                    row.get('path'), str) else None
-                if (music_path is None or not music_path.is_file() or declared_music.get(music_path) != row.get('sha256')
-                        or file_hash(music_path) != row.get('sha256')):
-                    raise ValueError('音乐授权未覆盖成片实际使用的背景音乐版本')
-            fonts = bundle.get('fonts', [])
-            if not isinstance(fonts, list):
-                raise ValueError('成片字体来源清单无效')
-            # 兼容旧成片：已有叠字字体副本也不能声明为未使用。
-            local_font = path.parent / 'font.ttc'
-            if local_font.is_file():
-                fonts = [*fonts, {'path': 'font.ttc', 'sha256': file_hash(local_font)}]
-            declared_fonts = {(root / item['path']).resolve(): item['sha256']
-                              for item in categories['font']['items']}
-            for font in fonts:
-                if not isinstance(font, dict) or not isinstance(font.get('path'), str):
-                    raise ValueError('成片字体来源清单无效')
-                font_path = (path.parent / font['path']).resolve()
-                if (not font_path.is_relative_to(path.parent) or not font_path.is_file()
-                        or declared_fonts.get(font_path) != font.get('sha256')
-                        or file_hash(font_path) != font.get('sha256')):
-                    raise ValueError('字体授权未覆盖成片实际使用的字体版本')
+    _validate_commercial_coverage(root, scope, data, categories, script_path)
     reviews = evidence.get('content_review')
     if not isinstance(reviews, dict):
         raise ValueError('缺少内容审查记录')
@@ -532,6 +418,75 @@ def validate_commercial_evidence(root, evidence):
                 or not nonempty(review.get('reviewer')) or not nonempty(review.get('evidence'))):
             raise ValueError('内容风险未完成审核：' + key)
     return True
+
+
+def _commercial_declared(root, categories):
+    return {category: {(root / item['path']).resolve(): item['sha256']
+                       for item in group['items']}
+            for category, group in categories.items()}
+
+
+def _commercial_requirement_path(root, value):
+    path = Path(value)
+    return path.resolve() if path.is_absolute() else (root / path).resolve()
+
+
+def _commercial_requirement_error(requirement):
+    """缺项提示必须落到可行动的文件、摘要或来源边；保留原类别提示作前缀。"""
+    error = requirement.get('error') or '授权清单未覆盖实际采用素材'
+    path = str(requirement.get('path') or '')
+    if path:
+        return error + '：' + path
+    sha256 = str(requirement.get('sha256') or '')
+    edge = str(requirement.get('edge') or '')
+    if sha256:
+        detail = 'sha256 ' + sha256[:12]
+        if edge:
+            detail += '（' + edge + '）'
+        return error + '：' + detail
+    if edge:
+        return error + '：' + edge
+    return error
+
+
+def _validate_commercial_requirement(root, requirement, declared):
+    from agent.core import file_hash
+    root = Path(root).resolve()
+    kind = requirement.get('kind')
+    error = _commercial_requirement_error(requirement)
+    if kind == 'structural' or str(kind).startswith('invalid_'):
+        raise ValueError(error)
+    category = requirement.get('category')
+    sha256 = str(requirement.get('sha256') or '')
+    rows = declared.get(category, {})
+    if kind == 'shot_hash':
+        if not sha256 or sha256 not in rows.values():
+            raise ValueError(error)
+        return
+    if not requirement.get('path'):
+        raise ValueError(error)
+    path = _commercial_requirement_path(root, requirement['path'])
+    base = _commercial_requirement_path(root, requirement['base']) if requirement.get('base') else root
+    if (not path.is_relative_to(root) or not path.is_relative_to(base) or not path.is_file()
+            or rows.get(path) != sha256 or file_hash(path) != sha256):
+        raise ValueError(error)
+
+
+def _validate_commercial_coverage(root, scope, data, categories, script_path):
+    """按同一份递归盘点 requirements 核验；多项缺失一次列出，不用首项吞掉其余缺项。"""
+    from domain.commercial_inventory_service import collect_inventory
+    inventory = collect_inventory(root, scope, data['outputs'], script_path=script_path)
+    declared = _commercial_declared(root, categories)
+    errors = []
+    for requirement in inventory['requirements']:
+        try:
+            _validate_commercial_requirement(root, requirement, declared)
+        except ValueError as exc:
+            message = str(exc)
+            if message not in errors:
+                errors.append(message)
+    if errors:
+        raise ValueError('；'.join(errors))
 
 
 def commercial_evidence_path(root):
@@ -570,6 +525,34 @@ def commercial_status(root):
         return 'none', '商用状态：尚未确认交付成片'
     ok, text = commercial_delivery_status(root)
     return ('verified', text) if ok else ('pending', text)
+
+
+def commercial_trace_summary(root):
+    """交付页只读盘点提示：对已有待填/已核验资料比对当前文件，不写盘。"""
+    from agent.core import read
+    root = Path(root).resolve()
+    try:
+        scope = media_scope(root)
+        data = read(media_manifest_path(root, 'delivery', scope))
+        _validate_media_completion(root, 'delivery', data)
+    except (ValueError, OSError, KeyError, TypeError):
+        return '商用素材盘点：确认交付成片后，生成待填资料以显示遗漏、来源变更与人工补录'
+    final = commercial_evidence_path(root)
+    candidates = (final.with_suffix('.pending.json'), final)
+    evidence = None
+    for candidate in candidates:
+        if candidate.is_file():
+            try:
+                evidence = read(candidate)
+            except (OSError, ValueError, TypeError) as exc:
+                return '商用素材盘点：资料文件无法读取，请保留原文件并人工核对：' + candidate.name
+            break
+    if not isinstance(evidence, dict):
+        return '商用素材盘点：生成商用待填资料后显示遗漏、来源变更与人工补录'
+    script, warning, _error = _commercial_script(root, scope)
+    from domain.commercial_inventory_service import collect_inventory, review_inventory, review_text
+    inventory = collect_inventory(root, scope, data['outputs'], script_path=script, script_warning=warning)
+    return review_text(review_inventory(root, inventory, evidence))
 
 
 def commercial_delivery_status(root):

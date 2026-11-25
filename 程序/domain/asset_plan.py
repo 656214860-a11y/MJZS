@@ -342,8 +342,8 @@ def asset_impact(project, aid, *, episode_dir=''):
             'variants': [{'state_id': row['state_id'], 'name': row['name']} for row in state_variants(entry)],
             'references': references, 'files': sorted(set(files)),
             'videos': sorted(sid for sid in shots if sid in generated),
-            # 同一现算函数（video_staleness / stale_video_shots）给出的过期镜头，供「使用情况」展示。
-            'stale_videos': sorted(stale_videos)}
+            # 同一现算函数给出的过期镜头，限定到本资产引用镜头，供「使用情况」展示。
+            'stale_videos': sorted(stale_videos & shots)}
 
 
 def deletion_references(project, aid, *, episode_dir=''):
@@ -377,10 +377,26 @@ def _usage_frame_status(path, shot, frame_problem_fn):
     return 'latest', ''
 
 
-def asset_usage(project, aid, *, episode_dir='', frame_problem_fn=None):
-    """只读使用情况：逐镜首帧最新／过期／缺失与视频已生成／未生成（DES-S05-51）。
+def _usage_video_status(path, shot, records):
+    """单镜视频使用情况状态；对外沿用 ``generated``，``current`` 只是过期判定内部名。"""
+    if not records:
+        return 'none', '', None
+    downloaded = [(root, version) for root, version in records
+                  if version.get('state') == 'downloaded']
+    if not downloaded:
+        return 'generating', '', None
+    root, version = downloaded[-1]
+    from domain import video_staleness
+    status = video_staleness.version_status(path, shot, version, root)
+    if status == video_staleness.STATUS_CURRENT:
+        status = 'generated'
+    return status, '', int(version.get('version') or 0) if str(version.get('version') or '').isdigit() else version.get('version')
 
-    不写盘。读分镜或校验抛错时该镜头按 ``stale`` 处理；本函数本身不向外抛。
+
+def asset_usage(project, aid, *, episode_dir='', frame_problem_fn=None):
+    """只读使用情况：逐镜首帧最新／过期／缺失与视频成品状态（DES-S05-51／DOC-D9-3）。
+
+    不写盘。读分镜或校验抛错时该镜头首帧按 ``stale`` 处理；本函数本身不向外抛。
     ``frame_problem_fn`` 由 L3 注入（避免同层未登记依赖 ``keyframe_evidence``）；
     未注入时有文件的首帧一律按 ``stale`` 并写明原因。
     """
@@ -388,7 +404,8 @@ def asset_usage(project, aid, *, episode_dir='', frame_problem_fn=None):
         impact = asset_impact(project, aid, episode_dir=episode_dir)
     except Exception:
         return {'aid': str(aid or '').strip(), 'orphan': True, 'rows': [], 'videos': []}
-    generated = set(impact.get('videos') or [])
+    from domain.storyboard_catalog_service import generated_video_workspaces
+    video_records = generated_video_workspaces(project)
     by_shot = {}
     for episode, path, shot in _adopted_storyboard_shots(project):
         sid = str(shot.get('id') or '')
@@ -397,13 +414,16 @@ def asset_usage(project, aid, *, episode_dir='', frame_problem_fn=None):
     rows = []
     for ref in impact.get('references') or []:
         episode, sid = ref.get('episode'), ref.get('shot')
-        video = 'generated' if sid in generated else 'none'
+        video, video_reason, video_version = 'none', '', None
         try:
             path, shot = by_shot[(episode, sid)]
             frame_status, frame_reason = _usage_frame_status(path, shot, frame_problem_fn)
+            video, video_reason, video_version = _usage_video_status(path, shot, video_records.get(sid, []))
         except Exception as exc:
             frame_status, frame_reason = 'stale', str(exc) or '读不出分镜或校验失败'
         rows.append({'episode': episode, 'shot': sid, 'frame': frame_status,
-                     'frame_reason': frame_reason, 'video': video})
+                     'frame_reason': frame_reason, 'video': video,
+                     'video_reason': video_reason, 'video_version': video_version})
     return {'aid': impact['aid'], 'orphan': bool(impact.get('orphan')),
-            'rows': rows, 'videos': list(impact.get('videos') or [])}
+            'rows': rows, 'videos': list(impact.get('videos') or []),
+            'stale_videos': list(impact.get('stale_videos') or [])}

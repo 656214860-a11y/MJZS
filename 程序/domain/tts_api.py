@@ -110,6 +110,9 @@ def save_key(base_url, model, voice, key, voices=None, speeds=None, *, gateway=N
             raise ValueError("角色语速映射必须为 JSON 对象，例如 {'CHAR_001': 1.2}")
         data["speeds"] = {k: coerce_speed(v) for k, v in speeds.items()}
     import infra.model_pool as model_pool
+    from uuid import uuid4
+    if not data.get('key_account') or secret != load_key():
+        data['key_account'] = uuid4().hex
     model_pool.save_named_key(KEY_ENV, secret)
     write_settings(data, gateway=gateway)
 
@@ -220,7 +223,7 @@ def voice_snapshot(settings=None):
 
 
 
-LINE_IDENTITY_FIELDS = ("shot_id", "text", "voice", "speed", "model", "endpoint")
+LINE_IDENTITY_FIELDS = ("shot_id", "text", "voice", "speed", "model", "endpoint", "key_account")
 
 
 def request_identity(settings, voice="", speed=1.0):
@@ -229,20 +232,28 @@ def request_identity(settings, voice="", speed=1.0):
     O12：缓存身份不能再只看台词／音色／语速——换了模型或换了服务商就是另一份缓存。
     """
     settings = settings if isinstance(settings, dict) else {}
-    return {"endpoint": str(settings.get("base_url") or "").strip().rstrip("/"),
-            "model": str(settings.get("model") or "").strip(),
-            "voice": str(voice or "").strip(),
-            "speed": coerce_speed(speed)}
+    identity = {"endpoint": str(settings.get("base_url") or "").strip().rstrip("/"),
+                "model": str(settings.get("model") or "").strip(),
+                "voice": str(voice or "").strip(),
+                "speed": coerce_speed(speed)}
+    account = str(settings.get("key_account") or "").strip()
+    if account:
+        identity["key_account"] = account
+    return identity
 
 
 def batch_identity(lines):
     """这一批清单用哪套配置（不含密钥）：端点、模型，以及逐句用到的音色与语速。"""
     def collect(key, coerce):
         return sorted({coerce(line.get(key)) for line in lines or ()})
-    return {"endpoints": collect("endpoint", str),
-            "models": collect("model", str),
-            "voices": collect("voice", str),
-            "speeds": collect("speed", coerce_speed)}
+    identity = {"endpoints": collect("endpoint", str),
+                "models": collect("model", str),
+                "voices": collect("voice", str),
+                "speeds": collect("speed", coerce_speed)}
+    accounts = sorted({str(line.get("key_account")) for line in lines or () if line.get("key_account")})
+    if accounts:
+        identity["key_accounts"] = accounts
+    return identity
 
 
 def freeze_settings(lines, settings=None):
@@ -449,6 +460,11 @@ def resume_folder(root, lines, episode=None):
     if not base.is_dir():
         return None
     signature = batch_signature(lines, episode)
+    unmarked = [{key: value for key, value in line.items() if key != 'key_account'}
+                if isinstance(line, dict) else line for line in lines or ()]
+    legacy_signature = batch_signature(unmarked, episode)
+    current_accounts = {str(line.get('key_account')) for line in lines or ()
+                        if isinstance(line, dict) and line.get('key_account')}
     latest = None
     for record in sorted(base.glob("*/批次.json"), reverse=True):
         data = read_json(record)
@@ -456,6 +472,11 @@ def resume_folder(root, lines, episode=None):
             continue
         if data.get("signature") == signature:
             return record.parent
+        if data.get("signature") == legacy_signature:
+            identity = data.get('identity') if isinstance(data.get('identity'), dict) else {}
+            stored_accounts = {str(value) for value in identity.get('key_accounts') or ()}
+            if not stored_accounts or stored_accounts == current_accounts:
+                return record.parent
         if latest is None and episode and str(data.get("episode") or "") == str(episode):
             latest = record.parent
     return latest
@@ -468,6 +489,16 @@ def line_name(index, line):
     return f'{index:03}_{shot}_{safe}_{float(line.get("start") or 0):.1f}s.mp3'
 
 
+def line_attempt_fields(index, line, request_id, run_id=None):
+    from contract.platform_tools import execution_metadata
+    task = '%s#%03d' % (str(line.get('shot_id') or 'line'), int(index))
+    execution = execution_metadata('audio', task, attempt=request_id)
+    if run_id:
+        execution['run_id'] = str(run_id)
+    return {'request_id': str(request_id), 'cost_request_id': str(request_id),
+            'execution': execution}
+
+
 def _line_file_path(folder, name):
     """清单登记文件的定位：相对本批目录优先；指向旧批次的相对路径（相对「配音分句」目录）退回父目录解析。"""
     path = Path(folder) / str(name)
@@ -478,9 +509,17 @@ def _line_file_path(folder, name):
 
 
 def _identity(entry, line):
-    """句子身份（LINE_IDENTITY_FIELDS：镜头、文本、音色、语速、模型、端点）逐项相同——
-    不含位置与起止时间：挪位置、改时长不算换句。"""
-    return isinstance(entry, dict) and all(entry.get(key) == line.get(key) for key in LINE_IDENTITY_FIELDS)
+    """句子身份（LINE_IDENTITY_FIELDS：镜头、文本、音色、语速、模型、端点、账号标记）逐项相同——
+    不含位置与起止时间：挪位置、改时长不算换句；无账号标记的历史条目不因升级自动重发，
+    两边都有标记且不同时才算换账号。"""
+    if not isinstance(entry, dict):
+        return False
+    for key in LINE_IDENTITY_FIELDS:
+        if key == 'key_account' and (not entry.get(key) or not line.get(key)):
+            continue
+        if entry.get(key) != line.get(key):
+            return False
+    return True
 
 
 def line_done(entry, folder):
@@ -532,6 +571,10 @@ def _line_needs_review(entry):
     # 旧版把 HTTP 408 写成明确失败。按本程序生成的错误前缀识别，避免自动重发旧请求。
     return (entry.get("state") == "failed" and not entry.get("released_at")
             and str(entry.get("error") or "").startswith("TTS 请求失败（HTTP 408）"))
+
+
+def line_needs_review(entry):
+    return _line_needs_review(entry)
 
 
 def _line_verdicts(lines, manifest, folder):
@@ -689,6 +732,9 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
     folder = Path(folder)
     # 批次一开始就把配置冻结下来：长批次中途改设置，这一批仍按开批时那一套跑，不混用两套（O12）。
     frozen = freeze_settings(lines, settings)
+    from contract.platform_tools import current_execution
+    control = current_execution()
+    batch_run_id = control.run_id if control is not None else uuid4().hex
     if project is not None:
         quote = batch_cost_preview(project, lines, folder, frozen)
         if report:report(quote['text'])
@@ -741,7 +787,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
                       quantities={'characters': len(text)}) if project is not None else nullcontext())
             with meter:
                 if project is not None:
-                    pending = {**line, 'state': 'sending', 'file': '', 'request_id': request_id}
+                    pending = {**line, 'state': 'sending', 'file': '', **line_attempt_fields(index, line, request_id, batch_run_id)}
                     if index <= len(manifest):manifest[index - 1] = pending
                     else:manifest.append(pending)
                     _save(folder / '时间轴.json', manifest, gateway=publish)
@@ -749,15 +795,16 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
                 raw = generate(text, speed=line.get("speed", 1.0), voice=line.get("voice") or None)
                 if not raw:raise ValueError('TTS 未返回音频')
                 paid = True
-            entry = publish_line(folder, manifest, index, {**line, **({'request_id': request_id} if project is not None else {})}, raw, gateway=publish)
+            entry = publish_line(folder, manifest, index, {**line, **line_attempt_fields(index, line, request_id, batch_run_id)}, raw, gateway=publish)
             ok += 1
             if on_line is not None:
                 on_line(index, line, entry)
         except Exception as exc:
             state, error, not_submitted = _line_outcome(exc, started, paid, project)
-            entry = {**line, "file": "", "state": state, "error": _line_error_text(state, error)}
+            entry = {**line, "file": "", "state": state, "error": _line_error_text(state, error),
+                     **line_attempt_fields(index, line, request_id, batch_run_id)}
             if project is not None:
-                entry.update(request_id=request_id, not_submitted=not_submitted)
+                entry.update(not_submitted=not_submitted)
             failed += 1
             if index <= len(manifest):
                 manifest[index - 1] = entry

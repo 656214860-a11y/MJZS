@@ -54,19 +54,19 @@ def library_dir(project=None, fallback=None, *, context=None):
 
 
 def active_source(project=None, storyboard=None, fallback=None, *, context=None):
-    # Source resolution is catalog domain logic; depend on the headless service
-    # rather than the legacy catalog facade to keep assets out of that cycle.
-    from domain.storyboard_catalog_service import resolve_source, default_source
+    # Source resolution is storage-level read-only logic; depending on the full catalog
+    # service would pull video staleness back into the asset dependency cycle.
+    from domain.storyboard_storage import resolve_source, default_source
     project=_project_root(project, context=context)
     prefs=read(project/'ui_settings.json') if (project/'ui_settings.json').is_file() else {}
     record=library_dir(project,fallback, context=context)/'assets/资产清单/来源.json'
     remembered=read(record).get('storyboard') if record.is_file() else None
     value=storyboard or prefs.get('frame_json') or remembered
     if value:
-        path=resolve_source(context,value)
+        path=resolve_source(project,value)
         if not path.is_file():raise ValueError('当前分镜JSON已移动或删除，请重新采用分镜：'+str(path))
         return path
-    for path in (default_source(context),library_dir(project,fallback, context=context)/'episode.json'):
+    for path in (default_source(project),library_dir(project,fallback, context=context)/'episode.json'):
         if path.is_file():return path.resolve()
     raise ValueError('尚未采用分镜JSON，请先在'+pet_bus.stage_step('storyboard')+'点「手动采用分镜」')
 

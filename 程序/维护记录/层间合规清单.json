@@ -10,9 +10,9 @@
         "tests/architecture/test_layer_relations.py"
       ],
       "metric": "上行依赖边数（importer 层 < imported 层，静态＋动态字面量，alias-aware）",
-      "violations": 17,
-      "baseline": 17,
-      "note": "18 条存量豁免（importer 属 L1 已 0，I3 归零）；I2–I5 迁移继续下调。"
+      "violations": 16,
+      "baseline": 16,
+      "note": "18 条存量豁免（importer 属 L1 已 0，I3 归零）；C 卡移除 skill_orchestrator→skill_tools 上行边后 17→16；I2–I5 迁移继续下调。"
     },
     {
       "id": "LR-02",
@@ -23,9 +23,9 @@
         "tests/architecture/test_layer_relations.py"
       ],
       "metric": "循环依赖连通分量数（静态 KNOWN_STATIC_CYCLES＋动态 KNOWN_DYNAMIC_CYCLES）",
-      "violations": 6,
-      "baseline": 6,
-      "note": "静态 1 环 {core,file_cache,publication}；动态 5 环（含同源 {core,file_cache,publication} 与 keyframe_evidence→…→white_model_ref 大环）。"
+      "violations": 4,
+      "baseline": 4,
+      "note": "静态 1 环 {core,file_cache,publication}；动态 3 环（stage_models↔workflow_settings、同源 {core,file_cache,publication}、keyframe_evidence→…→white_model_ref 大环）。C 卡移除 skill_orchestrator→skill_tools 后，local_video/skill_orchestrator/skill_tools/stage_execution_service 动态环登记已删除。"
     },
     {
       "id": "LR-03",
@@ -37,7 +37,7 @@
       "metric": "未登记同层边数＋同层互依赖对数",
       "violations": 4,
       "baseline": 4,
-      "note": "764 条同层边已全部登记 SAME_LAYER_EDGES（I1 基线 763，I6 新增 infra_errors→error_codes 1 条）；互依赖 5 对：L1 {core↔file_cache, file_cache↔publication, diagnostic_capture↔request_ledger}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随 I3/I4/I5 模块迁移收口。；I17 登记 766 条"
+      "note": "同层边按 SAME_LAYER_EDGES 逐条登记；A/C 卡新增 task_center_service→tts_api 已补登记，未登记边归零。当前互依赖 4 对：L1 {core↔file_cache, file_cache↔publication}、L3 {stage_models↔workflow_settings}、L4 {white_model↔white_model_ref}，随后续模块迁移只降不升。"
     },
     {
       "id": "LR-04",

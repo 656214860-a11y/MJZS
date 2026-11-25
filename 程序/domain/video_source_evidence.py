@@ -43,3 +43,17 @@ def submitted_sources(preview, frame, white=None, assets=None):
             raise ValueError('实际提交白模缺少来源路径')
         result['white_model_reference'] = record(white['path'], white_digest, 'reference')
     return result
+
+
+def input_signature_record(episode_path, shot, backend, reference_rows=None, frame_sha256=None):
+    """视频版本要持久化的输入指纹字段；不改变旧 payload/graph ``signature`` 的语义。"""
+    from domain import video_staleness
+    return {video_staleness.INPUT_SIGNATURE_FIELD: video_staleness.input_signature(
+        episode_path, shot, backend, reference_rows, frame_sha256)}
+
+
+def media_input_signature_record(episode_path, shot, backend, media_sources):
+    """按已上传素材回执生成版本输入指纹字段；缺首帧回执时退回当前首帧事实。"""
+    assets = (media_sources or {}).get('assets', [])
+    frame = ((media_sources or {}).get('first_frame') or {}).get('sha256')
+    return input_signature_record(episode_path, shot, backend, assets, frame)

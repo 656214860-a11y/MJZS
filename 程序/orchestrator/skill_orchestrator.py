@@ -21,17 +21,19 @@ import time
 from pathlib import Path
 
 import contract.pet_bus as pet_bus
+import contract.service_contract as service_contract
 import infra.pet_llm as pet_llm
 import orchestrator.skill_budget as skill_budget
 import orchestrator.skill_registry as skill_registry
 import orchestrator.skill_templates as skill_templates
-import ui.skill_tools as skill_tools
 import orchestrator.stage_parallel as stage_parallel
 from infra.file_cache import read_json
 from infra.model_router import spend_kind
 
-DONE, PAGE, INPUT, PENDING, BUDGET, FAILED, MISSING = ('done', 'page', 'input', 'pending',
-                                                      'budget', 'failed', 'missing')
+DONE, PAGE, INPUT, FAILED, MISSING = (service_contract.TOOL_DONE, service_contract.TOOL_PAGE,
+                                      service_contract.TOOL_INPUT, service_contract.TOOL_FAILED,
+                                      service_contract.TOOL_MISSING)
+PENDING, BUDGET = 'pending', 'budget'
 BLOCKED = 'blocked'
 STATUSES = (DONE, PAGE, INPUT, PENDING, BUDGET, FAILED, MISSING, BLOCKED)
 # 不算失败的几种收场：得回页面按、还缺用户手上的文件、等用户为付费点头、额度不够先停下。
@@ -43,6 +45,43 @@ PROJECT_STATUS_FILE = 'sanhu_project_status.json'
 # O43：检查点格式版本。旧检查点没有 version，一律当「需人工核实」处理，不假设它和
 # 现在的步骤／技能集对得上；版本只在检查点结构变化时 +1。
 CHECKPOINT_VERSION = 2
+
+_TOOL_EXECUTOR = None
+
+
+def install_tool_executor(executor):
+    """L5/L4 组合根登记工具执行器；返回原执行器，便于自检恢复。
+
+    执行器约定为 ``executor(tool, context) -> ToolResult``。登记 ``None``
+    表示撤销绑定；编排器本身不导入任何 UI 工具表。
+    """
+    global _TOOL_EXECUTOR
+    if executor is not None and not callable(executor):
+        raise TypeError('工具执行器必须可调用')
+    previous = _TOOL_EXECUTOR
+    _TOOL_EXECUTOR = executor
+    return previous
+
+
+def installed_tool_executor():
+    return _TOOL_EXECUTOR
+
+
+def _context_tools_executor(tool, context):
+    """无组合根时的最小执行器：只认 context['tools'] 注入替身。"""
+    custom = (context or {}).get('tools')
+    if isinstance(custom, dict) and tool in custom:
+        func = custom[tool]
+        value = func(context or {}) if callable(func) else func
+        return service_contract.coerce_tool_result(value, tool=tool)
+    return service_contract.tool_missing('未绑定工具执行器：%s' % tool, tool=tool)
+
+
+def _invoke_tool(executor, tool, context):
+    try:
+        return service_contract.coerce_tool_result(executor(tool, context), tool=tool)
+    except Exception as exc:
+        return service_contract.tool_failed(str(exc), tool=tool)
 
 
 def verified_stage_output(project, stage):
@@ -160,6 +199,16 @@ def retryable_skills(run):
     return names
 
 
+def _resume_token(run, pending):
+    """同一批付费确认的幂等键；老式手工行没有确认号时退回本轮对象身份。"""
+    tokens = []
+    for row in list(pending or []):
+        token = row.get('confirmation_id') if isinstance(row, dict) else None
+        skill = row.get('skill') if isinstance(row, dict) else ''
+        tokens.append(str(token or ('%x:%s' % (id(run), skill))))
+    return tuple(sorted(tokens)) or ('empty', str(id(run)))
+
+
 class Run(dict):
     """一次 run 的结果：本身就是个字典（好存好传），另外挂上「只重试失败项」这个动作。"""
 
@@ -185,6 +234,8 @@ class Orchestrator:
     def __init__(self, registry=None, budget=None, router=None, bus=None, errors=None, clock=time.time,
                  trigger='manual', governor=None, project=None, status=None):
         self.registry = registry or skill_registry.default_registry(project=project)
+        self.tool_executor = None
+        self._resume_receipts = {}
         self.budget = budget if budget is not None else skill_budget.Budget(clock=clock)
         self.router = router
         self.bus = bus
@@ -355,7 +406,9 @@ class Orchestrator:
 
     def _queue(self, item, context):
         quiet = self.quiet_now(context.get('at'))
+        import uuid
         row = {'skill': item.name, 'name': item.displayName, 'paid': True, 'queued': quiet,
+               'confirmation_id': uuid.uuid4().hex,
                'at': context.get('at') or self.clock(), 'text': self.confirm_text(item, quiet)}
         if not any(other['skill'] == item.name for other in self.confirmations):
             self.confirmations.append(row)
@@ -572,7 +625,8 @@ class Orchestrator:
         if item.paid and not self._confirmed(item, context):
             row = self._queue(item, context)
             return self._result(item.name, PENDING, False, detail=row['text'], paid=True,
-                                queued=row['queued'], name=item.displayName)
+                                queued=row['queued'], name=item.displayName,
+                                confirmation_id=row['confirmation_id'])
         kind = spend_kind(item)
         enough, note = self.budget.check(kind, 1)
         if not enough:
@@ -594,7 +648,7 @@ class Orchestrator:
             self.errors.append((item.name + '.checkpoint', str(exc)))
             return self._result(item.name, FAILED, False, detail='检查点写入失败：%s' % exc,
                                 name=item.displayName)
-        rows, errors, page, page_title, need = [], [], '', '', ''
+        rows, errors, page, page_title, need = [], [], None, '', ''
         import uuid
         reservation_id = uuid.uuid4().hex
         try:
@@ -612,27 +666,30 @@ class Orchestrator:
                               skill=item.name, trigger=self.trigger)
             pet_bus.emit_safe(self.bus, self.errors, 'stage.started', stage=item.stage,
                               skill=item.name, run=run or None)
+        executor = self.tool_executor or installed_tool_executor() or _context_tools_executor
         for tool in item.tools:
-            try:
-                out = skill_tools.call(tool, context)
-                rows.append({'tool': tool, 'status': DONE, 'detail': self._brief(out)})
-            except skill_tools.ToolNeedsPage as exc:
-                page = page or exc.page
-                page_title = page_title or exc.title()
-                rows.append({'tool': tool, 'status': PAGE, 'page': exc.page,
-                             'pageTitle': exc.title(), 'hint': exc.hint})
-            except skill_tools.ToolNeedsInput as exc:
-                need = need or str(exc)
-                rows.append({'tool': tool, 'status': INPUT, 'detail': str(exc)})
-            except skill_tools.ToolMissing as exc:
-                errors.append('%s：%s' % (tool, exc))
-                rows.append({'tool': tool, 'status': MISSING, 'detail': str(exc)})
-            except Exception as exc:
-                errors.append('%s：%s' % (tool, exc))
-                rows.append({'tool': tool, 'status': FAILED, 'detail': str(exc)})
+            result = _invoke_tool(executor, tool, context)
+            if result.status == DONE:
+                data = result.data if result.data is not None else result.detail
+                rows.append({'tool': tool, 'status': DONE, 'detail': self._brief(data)})
+            elif result.status == PAGE:
+                if page is None:
+                    page = result.page
+                page_title = page_title or result.page_title
+                rows.append({'tool': tool, 'status': PAGE, 'page': result.page,
+                             'pageTitle': result.page_title, 'hint': result.hint,
+                             'detail': result.detail})
+            elif result.status == INPUT:
+                need = need or result.detail
+                rows.append({'tool': tool, 'status': INPUT, 'detail': result.detail})
+            else:
+                errors.append('%s：%s' % (tool, result.detail))
+                rows.append({'tool': tool, 'status': result.status, 'detail': result.detail})
         if errors:
-            status, detail = FAILED, '；'.join(errors)[:200]
-        elif page:
+            # 混合结果里真正的执行失败优先；只有缺工具时保持 MISSING，重试口径不变。
+            outcome = FAILED if any(row['status'] == FAILED for row in rows) else MISSING
+            status, detail = outcome, '；'.join(errors)[:200]
+        elif any(row['status'] == PAGE for row in rows):
             status, detail = PAGE, '这一步得回「%s」页面上按' % (page_title or page)
         elif need:
             status, detail = INPUT, need
@@ -690,7 +747,8 @@ class Orchestrator:
 
     def run_stage_with_template(self, stage_id, context=None, names=None, mode='manual', wait_for_user=None,
                                 broadcast=None, execute_action=None, start_step=1):
-        runner = _StageTemplateRun(self, stage_id, mode, wait_for_user, broadcast, execute_action)
+        runner = skill_templates.StageTemplateRun(self, stage_id, mode, wait_for_user, broadcast,
+                                                  execute_action, Run)
         return runner.run(context, names, start_step)
 
     # ── 五、按层跑完一批 ────────────────────────────────────────────────────
@@ -825,11 +883,17 @@ class Orchestrator:
         return combined
 
     def resume_confirmed(self, run, pending, context):
-        """继续已确认项及其后继，保留同批其他分支的最终结果。"""
+        """继续已确认项及其后继；同一份确认重复送达时直接复用首次结果。"""
         self.trigger = 'auto'
+        token = _resume_token(run, pending)
+        if token in self._resume_receipts:
+            return self._resume_receipts[token]
         if hasattr(run, 'resume_template'):
-            return run.resume_template(context)
-        return self._resume(run, [row['skill'] for row in pending], context)
+            result = run.resume_template(context)
+        else:
+            result = self._resume(run, [row['skill'] for row in pending], context)
+        self._resume_receipts[token] = result
+        return result
 
     # ── 六、说人话 ──────────────────────────────────────────────────────────
     def describe(self, run):
@@ -867,122 +931,14 @@ class Orchestrator:
         return '\n'.join(lines)
 
 
-class _StageTemplateRun:
-    def __init__(self, orchestrator, stage_id, mode, wait_for_user, broadcast, execute_action):
-        self.orchestrator = orchestrator
-        self.template = skill_templates.load_template(stage_id)
-        self.manual = mode != 'auto'
-        self.wait_for_user = wait_for_user
-        self.emit = broadcast if callable(broadcast) else (lambda text: None)
-        self.execute_action = execute_action
 
-    def run(self, context, names, start_step, _prior=None):
-        orch = self.orchestrator
-        template = self.template
-        context = dict(context or {})
-        emit = self.emit
-        manual = self.manual
-        start_step = skill_templates.resume_index(start_step, len(template.steps))
-        # R2905：names=None 才表示「没指定」→ 该阶段全部已启用 SKILL；显式空表
-        # 是「一个都没勾」，绝不能回退成全跑——那会让取消勾选形同虚设。
-        selected = [item for item in (names if names is not None
-                                      else [row.name for row in orch.registry.getByStage(template.stage_id)])
-                    if orch.skill(item) is not None and orch.skill(item).stage == template.stage_id]
-        if not callable(self.execute_action) and not selected:
-            message = '【阻塞】%s 未启用可执行 SKILL' % template.name
-            emit(message)
-            return Run({'ok': False, 'results': [], 'failed': [], 'errors': [message], 'text': message})
-        stage_number = list(pet_bus.STAGES).index(template.stage_id) + 1
-        emit('【阶段 %d/%d】%s' % (stage_number, len(pet_bus.STAGES), template.name))
-        if not callable(self.execute_action):
-            dag = orch.buildDAG(selected)
-            if dag['problems']:
-                message = '【阻塞】' + '；'.join(dag['problems'])
-                emit(message)
-                return Run({'ok': False, 'results': [], 'failed': [], 'errors': dag['problems'], 'text': message})
-            selected = dag['order']
-        groups = skill_templates.step_groups(selected, len(template.steps))
-        if not callable(self.execute_action):
-            completed = {row['skill'] for row in (_prior or {}).get('results', [])
-                         if row.get('status') == DONE and row.get('skill')}
-            remaining = [name for group in groups[start_step-1:] for name in group if name not in completed]
-            check = orch.validate(remaining, context)
-            for item in check['missing_deps']:
-                dep = item['missing']
-                if dep not in selected and orch.skill(dep).stage == template.stage_id:
-                    check['errors'].append('%s 缺少已启用的前置步骤 %s' % (item['skill'], dep))
-            if check['errors']:
-                message = '【阻塞】' + '；'.join(check['errors'])
-                emit(message)
-                return Run({'ok': False, 'results': [], 'failed': [], 'errors': check['errors'],
-                            'outcome': BUDGET if check['over_budget'] else 'invalid', 'text': message})
-        results = [row for row in (_prior or {}).get('results', []) if row.get('status') == DONE]
-        skipped = list((_prior or {}).get('skipped', []))
-        failed = []
-        skipped_skills = {name for step, group in zip(template.steps, groups) if step.name in skipped
-                          for name in group}
-        for step, group in zip(template.steps, groups):
-            if step.index < start_step:
-                continue
-            emit('【步骤 %d/%d】%s' % (step.index, len(template.steps), step.name))
-            if step.needs_confirmation and manual and not (_prior and step.index == start_step):
-                question = step.question.format(count=context.get('count', 0))
-                emit('【门禁】%s' % question)
-                answer = str(self.wait_for_user(question) if callable(self.wait_for_user) else '').strip()
-                if answer not in ('确认', '需要', '继续', '是', 'yes', 'YES', 'Yes'):
-                    skipped.append(step.name)
-                    skipped_skills.update(group)
-                    emit('【警告】未确认，已跳过%s' % step.name)
-                    continue
-            try:
-                orch.before_step(template.stage_id, step, [str(name) for name in group])
-                step_context = dict(context, _template_step=step)
-                if callable(self.execute_action):
-                    outcome = self.execute_action(step.action, step_context)
-                    rows = [outcome]
-                else:
-                    rows = []
-                    for name in group:
-                        if name in completed:
-                            continue
-                        unmet = skipped_skills.intersection(orch._deps(name))
-                        row = (orch._result(name, BLOCKED, False, detail='未确认前置步骤：' + '、'.join(sorted(unmet)))
-                               if unmet else orch.execute(name, step_context))
-                        rows.append(row)
-                        if row['status'] != DONE:
-                            break
-            except (OSError, TypeError, ValueError) as exc:
-                rows = [orch._result(step.action, FAILED, False, detail=str(exc))]
-            results.extend(rows)
-            bad = [row for row in rows if isinstance(row, dict)
-                   and (not row.get('ok', False) or row.get('status', DONE) != DONE)]
-            if bad:
-                failed.extend(bad)
-                detail = skill_templates.step_summary(bad)
-                emit('【阻塞】%s：%s' % (step.name, detail))
-                break
-            emit('【完成】%s：%s' % (step.name, skill_templates.step_summary(rows)))
-        ok = not failed and not skipped
-        text = ('%s已完成' % template.name) if ok else ('%s未完成' % template.name)
-        if ok:
-            orch.clear_checkpoint(template.stage_id)
-            emit('【完成】%s' % text)
-        run = Run({'ok': ok, 'results': results, 'failed': failed, 'skipped': skipped,
-                   'errors': [row.get('detail', '') for row in failed], 'text': text,
-                   'template': str(template.path)})
-        run.orchestrator, run.context = orch, context
-        run['pending'] = [row for row in failed if row.get('status') == PENDING]
-        if run['pending'] and not callable(self.execute_action):
-            def resume(approved_context):
-                return self.run(approved_context, selected, step.index, run)
-            run.resume_template = resume
-        return run
-
-
-def default_orchestrator(program=None, bus=None, errors=None, project=None, router=None, clock=time.time):
+def default_orchestrator(program=None, bus=None, errors=None, project=None, router=None, clock=time.time,
+                         tool_executor=None):
     """进程里共用的一套编排器（注册表是单例，预算挂在本项目上）。"""
     # 第 44 期：额度取「设置 → 预算」那一份（配置/宠物/配置.json），不写死模块默认值。
     budget = skill_budget.for_project(project, program=program, clock=clock)
-    return Orchestrator(registry=skill_registry.default_registry(program, project=project),
-                        budget=budget, router=router, bus=bus, errors=errors, clock=clock,
-                        project=project)
+    orchestrator = Orchestrator(registry=skill_registry.default_registry(program, project=project),
+                                budget=budget, router=router, bus=bus, errors=errors, clock=clock,
+                                project=project)
+    orchestrator.tool_executor = tool_executor
+    return orchestrator

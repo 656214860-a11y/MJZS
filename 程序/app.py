@@ -19,7 +19,7 @@ from local_video import open_studio,LocalStudio,settings_window
 from orchestrator.engine import review_label
 from domain.project_naming import dated_path
 from domain.video_task_state import assert_prompt_editable,prompt_locked,poll_delay,elapsed_text,submission_block_reason
-from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,LABELS,status_detail
+from ui.video_progress import snapshot as shared_video_snapshot,display as progress_display,summary as progress_summary,status_detail,video_display_state
 import infra.project_settings as project_settings
 import ui.asset_thumbs as asset_thumbs
 import infra.ui_plugin_registry as ui_plugin_registry
@@ -328,7 +328,7 @@ class App:
 
             第 39 期第 2 条起分成两条 FlowBar：第一行「手动制作视频」→「播放视频」→
             其余常用动作（R2942：原「阶段配置」按钮已删）；第二行「通过」→ 目录与任务 →
-            「需修改」→「批量生成勾选镜头」→ 验收备注。
+            「需修改」→「批量需修改」→「批量生成勾选镜头」→ 验收备注。
             """
             button=(PrimaryButton if primary else SecondaryButton)(bar,text=title,
                               width=16 if primary else 0,
@@ -353,12 +353,13 @@ class App:
         if isinstance(self.studio,LocalStudio):
             add(controls,'本地设置',self.settings)
         # 第 39 期第 2 条：第二行的次序（用户指定）——「通过」落在主动作正下面，接着是目录与任务，
-        # 「需修改」后面是「批量生成勾选镜头」与验收备注；「批量通过勾选」与「自动剪辑勾选镜头」删掉。
+        # 「需修改」后面是「批量需修改」「批量生成勾选镜头」与验收备注；「批量通过勾选」与「自动剪辑勾选镜头」删掉。
         add(secondary,'通过',lambda:self.review('pass'))
         add(secondary,'打开素材目录',lambda:open_path(self.studio.episode_dir))
         add(secondary,'恢复任务编号',self.attach)
         add(secondary,'打开视频目录',self.versions)
         add(secondary,'需修改',lambda:self.review('revise'))
+        add(secondary,'批量需修改',self.review_checked_revise)
         self.generate_checked_button=add(secondary,'批量生成勾选镜头',self.generate_checked)
         # 第 46 期第 9 条：批量删除与它成对——都只认勾选行，逐个删除走内容框的右键菜单。
         self.delete_checked_button=add(secondary,'删除勾选镜头',self.delete_checked_shots)
@@ -815,8 +816,7 @@ class App:
             if s.get('video_deleted'):continue
             vs=st['shots'][s['id']];v=vs[-1] if vs else {}
             ready=self.studio.frame(s,required=False).is_file() and not s.get('frame_deleted')
-            state_label=LABELS.get(v.get('state'),'未提交')
-            if v.get('state')=='downloaded' and (not v.get('file') or not (self.root/v['file']).is_file()):state_label='视频文件缺失'
+            state_label=video_display_state(self.studio.episode_path,self.root,s,v)
             # 第 54 期第 3 条：「首帧」那一格盖得上缩略图就只留图——那句「图与字叠着多余」的活
             # 第 55 期第 3 条起由盖图那一层自己做（盖上收走、撤掉写回）；这里照旧写「已就绪」／
             # 「请回05准备」——原来为了判这一点逐镜解一遍首帧，白解。
@@ -1171,6 +1171,10 @@ class App:
         self.write(sid + ' 提示词已自动保存（切换镜头前）。')
     def review(self,value):
         self.studio.review(self.sid(),value,self.note.get());self.refresh()
+    def review_checked_revise(self):
+        ids,how=work_targets(self)
+        from orchestrator.media_page_controller import checked_revise_text;text=checked_revise_text(self.studio,ids,how,self.note.get())
+        self.refresh();self.write(text)
     def fit_shot_columns(self):
         fit_columns_by_content(self.tree, {'white_model': lambda w: w + self.edit_icons[0].width() + 8})
     def check_prompt_record(self,record):

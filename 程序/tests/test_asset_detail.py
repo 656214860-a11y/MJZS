@@ -26,6 +26,7 @@ os.chdir(HERE)
 import contract.asset_contract as ac
 import asset_detail
 import asset_plan
+import ui_tokens
 from ui_tokens import COLORS
 from domain import confirm_gates
 from stage_execution_service import apply_asset_plan_gate_choice as apply_gate_choice
@@ -825,6 +826,8 @@ class UsageBlockTests(_Harness):
         from types import SimpleNamespace
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
+        was = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, was)
         win = self.tk.Tk(); win.withdraw()
         self.addCleanup(win.destroy)
         content = self.ttk.Frame(win)
@@ -837,22 +840,6 @@ class UsageBlockTests(_Harness):
             {'episode': 'EP01', 'shot': 'SH003', 'frame': 'missing',
              'frame_reason': '', 'video': 'generated'},
         ]
-        d = SimpleNamespace(content=content, root=Path('.'),
-                            asset_base=lambda: Path('.'),
-                            safe=lambda callback: callback())
-        with mock.patch('stage_execution_service.asset_usage',
-                        return_value={'aid': 'CHAR_001', 'orphan': False,
-                                      'rows': rows, 'videos': ['SH001', 'SH003']}):
-            asset_detail._usage_block(d, 'CHAR_001', {})
-        win.update_idletasks()
-
-        def labels_containing(needle):
-            found = []
-            for widget in widget_list(content, (self.ttk.Label, self.tk.Label)):
-                if needle in str(widget.cget('text')):
-                    found.append(widget)
-            return found
-
         expected = [
             ('首帧：最新', 'success_text'),
             ('首帧：过期', 'warning_text'),
@@ -860,16 +847,71 @@ class UsageBlockTests(_Harness):
             ('视频：已生成', 'success_text'),
             ('视频：未生成', 'text_muted'),
         ]
-        for needle, key in expected:
-            matches = labels_containing(needle)
-            self.assertTrue(matches, needle)
-            for widget in matches:
-                self.assertEqual(str(widget.cget('foreground')), COLORS[key],
-                                 '%s 应用 COLORS[%s]' % (needle, key))
+
+        def labels_containing(host, needle):
+            found = []
+            for widget in widget_list(host, (self.ttk.Label, self.tk.Label)):
+                if needle in str(widget.cget('text')):
+                    found.append(widget)
+            return found
+
+        def build_and_assert(theme):
+            ui_tokens.set_theme(theme)
+            host = self.ttk.Frame(content)
+            host.pack()
+            d = SimpleNamespace(content=host, root=Path('.'),
+                                asset_base=lambda: Path('.'),
+                                safe=lambda callback: callback())
+            with mock.patch('stage_execution_service.asset_usage',
+                            return_value={'aid': 'CHAR_001', 'orphan': False,
+                                          'rows': rows, 'videos': ['SH001', 'SH003']}):
+                asset_detail._usage_block(d, 'CHAR_001', {})
+            win.update_idletasks()
+            for needle, key in expected:
+                matches = labels_containing(host, needle)
+                self.assertTrue(matches, needle)
+                for widget in matches:
+                    self.assertEqual(str(widget.cget('foreground')), COLORS[key],
+                                     '%s 应用 COLORS[%s]' % (needle, key))
+            texts = self.texts(host)
+            for shot in ('SH001', 'SH002', 'SH003'):
+                self.assertTrue(any(shot in text for text in texts), shot)
+            self.assertTrue(any('提示词已变' in text for text in texts))
+
+        for theme in ('day', 'night'):
+            with self.subTest(theme=theme):
+                build_and_assert(theme)
+
+    def test_usage_block_shows_video_stale_legacy_missing_and_affected_list(self):
+        """DOC-D9-3：视频过期、历史无签名与文件缺失在资产详情页各自可见。"""
+        from types import SimpleNamespace
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        win = self.tk.Tk(); win.withdraw()
+        self.addCleanup(win.destroy)
+        content = self.ttk.Frame(win)
+        content.pack()
+        rows = [
+            {'episode': 'EP01', 'shot': 'SH001', 'frame': 'latest', 'frame_reason': '',
+             'video': 'stale', 'video_version': 2},
+            {'episode': 'EP01', 'shot': 'SH002', 'frame': 'latest', 'frame_reason': '',
+             'video': 'legacy_unknown', 'video_version': 1},
+            {'episode': 'EP01', 'shot': 'SH003', 'frame': 'latest', 'frame_reason': '',
+             'video': 'missing', 'video_version': 1},
+        ]
+        d = SimpleNamespace(content=content, root=Path('.'),
+                            asset_base=lambda: Path('.'),
+                            safe=lambda callback: callback())
+        with mock.patch('stage_execution_service.asset_usage',
+                        return_value={'aid': 'CHAR_001', 'orphan': False, 'rows': rows,
+                                      'videos': ['SH001', 'SH002', 'SH003'],
+                                      'stale_videos': ['SH001']}):
+            asset_detail._usage_block(d, 'CHAR_001', {})
+        win.update_idletasks()
         texts = self.texts(content)
-        for shot in ('SH001', 'SH002', 'SH003'):
-            self.assertTrue(any(shot in text for text in texts), shot)
-        self.assertTrue(any('提示词已变' in text for text in texts))
+        for needle in ('视频：已过期（v002）', '视频：历史版本无法判定', '视频：文件缺失',
+                       '输入已变化的镜头视频：SH001', '不会自动重做'):
+            self.assertTrue(any(needle in text for text in texts), needle)
 
 
 def _record_change(d, aid, count):

@@ -832,13 +832,14 @@ def _model_ids(desktop, stage):
     return ids
 
 
-def build_orchestrator(desktop, project):
+def build_orchestrator(desktop, project, tool_executor=None):
     import orchestrator.skill_orchestrator as skill_orchestrator
     errors = getattr(desktop, 'errors', None)
     if not isinstance(errors, list): errors = []
     return skill_orchestrator.default_orchestrator(
         bus=getattr(desktop, 'bus', None), errors=errors, project=project,
-        router=model_router.ModelRouter(budget=skill_budget.for_project(project), program=program_of(desktop)))
+        router=model_router.ModelRouter(budget=skill_budget.for_project(project), program=program_of(desktop)),
+        tool_executor=tool_executor)
 
 
 def stage_context(desktop, stage, function=None, extra=None):

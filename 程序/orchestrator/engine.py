@@ -459,6 +459,7 @@ class Studio:
         with self.lock():
             if not self.cfg['live_enabled']: raise ValueError('当前为离线模式；请在设置中开启联网操作')
             st=self.state(); versions=st['shots'][sid]; shot=self.shot(sid)
+            source_shot=shot
             from domain.video_task_state import submission_block_reason
             blocked=submission_block_reason(versions)
             if blocked:raise ValueError(blocked)
@@ -476,14 +477,13 @@ class Studio:
                     return 'sha256:'+hashlib.sha256(base64.b64decode(value.split(',',1)[1])).hexdigest()
                 return value
             preview=redact(payload)
-            from domain.video_source_evidence import submitted_sources
+            from domain.video_source_evidence import submitted_sources, media_input_signature_record
             media_sources = submitted_sources(preview, frame, shot.get('_white_model_reference'), shot['_asset_references'])
             v={'version':len(versions)+1,'state':'submitting','seconds':shot['duration'],'charged':True,
-               'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex}
+               'signature':fingerprint(payload),'review':'pending','created':time.time(),'local_request':uuid.uuid4().hex,'generate_audio':bool(shot.get('generate_audio',True)),**media_input_signature_record(self.episode_path,source_shot,'cloud',media_sources)}
             from contract.platform_tools import execution_metadata
             v['execution'] = execution_metadata('video', sid, attempt=v['local_request'])
             v['retry_reason'] = 'explicit_after_' + str(versions[-1].get('state', 'unknown')) if versions else 'initial'
-            v['generate_audio']=bool(shot.get('generate_audio',True))
             if is_cloud_workspace(self.root):
                 import re
                 model=re.sub(r'[^A-Za-z0-9_-]','_',self.cfg['model'])
