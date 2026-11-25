@@ -1,0 +1,15 @@
+{
+  "round": 4439,
+  "commit_base": "b565161b5",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k subtitle_export subtitle_calibration media_page_controller",
+    "exit": 0,
+    "passed": 74,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T10:02:00"
+}
