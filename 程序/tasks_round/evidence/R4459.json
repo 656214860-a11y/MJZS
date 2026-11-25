@@ -1,0 +1,15 @@
+{
+  "round": 4459,
+  "commit_base": "1abd6d878",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k static_hygiene silent_exception_ratchet unification_ratchet json_io_boundary round_baselines lane_flow_gates",
+    "exit": 0,
+    "passed": 26,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T14:28:44"
+}
