@@ -224,5 +224,69 @@ class ShutdownTests(ExecutorCase):
         release.set()
 
 
+class ConcurrencyRobustnessTests(ExecutorCase):
+    """REF-L1-1 回归：闸门等待期取消、拆闸唤醒等待者、关闭后不再扩容。"""
+
+    def _hold_gate(self, vendor):
+        started = threading.Event()
+        release = threading.Event()
+
+        def blocker():
+            started.set()
+            release.wait(timeout=30)
+
+        held = executors.submit('network', blocker, vendor=vendor)
+        self.assertTrue(started.wait(timeout=5))
+        return held, release
+
+    def _wait_until_blocked(self, future):
+        # 旧实现出队后 running() 变 True；修复后等闸时停在 PENDING。
+        # 1 秒兜底足够让 worker 出队并进入 gate.acquire 等待。
+        deadline = time.monotonic() + 1
+        while not (future.running() or future.done()) \
+                and time.monotonic() < deadline:
+            time.sleep(0.01)
+
+    def test_cancel_during_gate_wait_cancels_future(self):
+        executors.set_vendor_limit('cancel-vendor', 1)
+        held, release = self._hold_gate('cancel-vendor')
+        try:
+            flag = executors.CancelFlag()
+            waiting = executors.submit('network', lambda: 'never', cancel=flag,
+                                       vendor='cancel-vendor')
+            self._wait_until_blocked(waiting)
+            flag.cancel()
+            deadline = time.monotonic() + 5
+            while not waiting.done() and time.monotonic() < deadline:
+                time.sleep(0.01)
+            self.assertTrue(waiting.done())
+            self.assertTrue(waiting.cancelled())
+        finally:
+            release.set()
+        held.result(timeout=5)
+
+    def test_vendor_limit_removal_wakes_waiters(self):
+        executors.set_vendor_limit('wake-vendor', 1)
+        held, release = self._hold_gate('wake-vendor')
+        try:
+            waiter = executors.submit('network', lambda: 'ran',
+                                      vendor='wake-vendor')
+            self._wait_until_blocked(waiter)
+            executors.set_vendor_limit('wake-vendor', 0)
+            self.assertEqual(waiter.result(timeout=5), 'ran')
+        finally:
+            release.set()
+        held.result(timeout=5)
+
+    def test_scale_workers_after_closing_spawns_none(self):
+        executors.set_vendor_limit('scale-vendor', 1)
+        pool = executors._pool('network')
+        executors.shutdown(wait=0.2)
+        self.assertTrue(pool._closing)
+        before = len(pool._workers)
+        executors.set_vendor_limit('scale-vendor', before + 4)
+        self.assertEqual(len(pool._workers), before)
+
+
 if __name__ == '__main__':
     unittest.main()
