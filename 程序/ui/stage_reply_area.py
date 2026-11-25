@@ -225,7 +225,7 @@ class StageReplyArea(ttk.Frame):
 
     # ------------------------------------------------------------------ 记录与加载
 
-    def note(self, kind, stage, text='', **fields):
+    def note(self, kind, stage, text='', *, expand=False, **fields):
         """薄接线的记录入口：落盘＋刷新摘要/正文；任何失败静默返回 ``None``。"""
         try:
             root = getattr(self.desktop, 'root', None)
@@ -243,8 +243,11 @@ class StageReplyArea(ttk.Frame):
             if str(stage or '') == self.stage:
                 self.records.append(stored)
                 self._refresh_summary()
-                if self.expanded:
+                if expand and self.stage and not self.expanded:
+                    self.set_expanded(True)
+                elif self.expanded:
                     self._render_record(len(self.records) - 1, stored)
+                if self.expanded:
                     try:
                         self.text.see('end')
                     except tk.TclError:

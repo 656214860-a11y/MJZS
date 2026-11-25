@@ -2,6 +2,51 @@
 """初步分镜直连 API 的界面胶水（L4，REQ-S03-53）：起后台作业，进度经队列回到 Tk 主线程播报。"""
 import queue
 from pathlib import Path
+import infra.app_logging as app_logging
+
+
+def _expand_reply(host, stage='storyboard'):
+    """兼容仅提供 reply_area 或旧 3 参 reply_note 桩的宿主：仅命中目标阶段时展开。"""
+    area = getattr(host, 'reply_area', None)
+    if area is None or not callable(getattr(area, 'set_expanded', None)):
+        return
+    current = getattr(area, 'stage', None)
+    if isinstance(current, str) and current != stage:
+        return
+    try:
+        area.set_expanded(True)
+    except Exception:
+        app_logging.swallowed()
+
+
+def _reply_note(host, kind, text, *, expand=False, **fields):
+    """向宿主回话区记一条记录；兼容无 reply_note 或仅收 3 参的测试桩。"""
+    note = getattr(host, 'reply_note', None)
+    expanded = False
+    if callable(note):
+        kwargs = dict(fields)
+        if expand:
+            kwargs['expand'] = True
+        try:
+            note(kind, 'storyboard', text, **kwargs)
+            expanded = bool(expand)
+        except TypeError:
+            try:
+                if fields:
+                    note(kind, 'storyboard', text, **fields)
+                else:
+                    note(kind, 'storyboard', text)
+            except TypeError:
+                try:
+                    note(kind, 'storyboard', text)
+                except Exception:
+                    app_logging.swallowed()
+            except Exception:
+                app_logging.swallowed()
+        except Exception:
+            app_logging.swallowed()
+    if expand and not expanded:
+        _expand_reply(host, 'storyboard')
 
 
 def _reason_text(result):
@@ -39,6 +84,7 @@ def run_storyboard_direct(host, config):
             try:text=messages.get_nowait()
             except queue.Empty:break
             host.status.set(text)
+            _reply_note(host, 'progress', text)
             if hasattr(host,'pet_report'):host.pet_report('storyboard',text)
         job=state.get('job')
         if job is not None and job.is_alive():host.win.after(500,drain)
@@ -47,15 +93,28 @@ def run_storyboard_direct(host, config):
         failed=[r for r in job.results if not r['ok'] and not r.get('stopped')]
         done=[r for r in job.results if r['ok']]
         if any(r.get('stopped') for r in job.results) and not done:
-            host.status.set('初步分镜直连已停止，未写入文件。');return
-        host.status.set(summary_text(job.results))
+            stopped_text = '初步分镜直连已停止，未写入文件。'
+            host.status.set(stopped_text)
+            _reply_note(host, 'notice', stopped_text)
+            return
+        summary = summary_text(job.results)
+        host.status.set(summary)
         if done:
+            for item in done:
+                path = str(item.get('path') or '')
+                if path:
+                    title = Path(path).name
+                    _reply_note(host, 'artifact', title, path=path, title=title)
             panel = getattr(host, 'files_panel', None)
             if panel is not None and callable(getattr(panel, 'fill_script_list', None)):
                 panel.fill_script_list()
             page = getattr(host, 'storyboard_editor_page', None)
             if page is not None and callable(getattr(page, 'refresh', None)):
                 page.refresh()
+        if failed:
+            _reply_note(host, 'error', summary, expand=True)
+        else:
+            _reply_note(host, 'reply', summary)
         notifier=getattr(host,'notifier',None)
         if failed and notifier is not None:
             notifier.error('；'.join(_reason_text(r) for r in failed), title='初步分镜未完成')
@@ -68,5 +127,7 @@ def run_storyboard_direct(host, config):
                         scripts=scripts,existing=boards,
                         request_text=req_text,
                         report=messages.put)
-    host.status.set('正在直连 API 制作初步分镜（后台进行，可点「强制停止制作」中断）…')
+    start_text = '正在直连 API 制作初步分镜（后台进行，可点「强制停止制作」中断）…'
+    host.status.set(start_text)
+    _reply_note(host, 'progress', start_text, expand=True)
     host.win.after(500,drain)

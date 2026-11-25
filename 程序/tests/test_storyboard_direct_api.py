@@ -355,5 +355,148 @@ class StageFileDirectApiTests(unittest.TestCase):
         self.assertIn('多给男主眼神特写', request)
 
 
+class StoryboardDirectReplyAreaTests(unittest.TestCase):
+    """FIX-S03-UX-POLISH：run_storyboard_direct 全链路接入 reply_note 并在启动/失败时自动展开。"""
+
+    def setUp(self):
+        temp = tempfile.TemporaryDirectory()
+        self.addCleanup(temp.cleanup)
+        self.project = Path(temp.name).resolve() / '项目'
+        self.script = self.project / '02剧本结构' / 'EP001_雨夜.md'
+        self.script.parent.mkdir(parents=True)
+        self.script.write_text('第一场 街头\n雨夜行人。\n', encoding='utf-8')
+        self.board = self.project / '03初步分镜' / '分镜拆分' / 'EP001_雨夜_分镜.json'
+        self.board.parent.mkdir(parents=True)
+        self.board.write_text('{}', encoding='utf-8')
+        self.config = {'engine': 'qwen', 'model': 'deepseek-v4-pro', 'program': ''}
+
+    def _make_host(self, *, reply_note=None, reply_area=None, with_reply_attrs=True):
+        from types import SimpleNamespace
+        scheduled = []
+        statuses = []
+
+        class _Status:
+            def set(self, text):
+                statuses.append(str(text))
+
+        host = SimpleNamespace(
+            root=self.project,
+            status=_Status(),
+            win=SimpleNamespace(after=lambda _ms, fn: scheduled.append(fn)),
+            pet_reports=[],
+            files_panel=SimpleNamespace(fill_script_list=Mock()),
+            storyboard_editor_page=SimpleNamespace(refresh=Mock()),
+            notifier=SimpleNamespace(error=Mock()),
+            pet=None,
+        )
+        host.pet_report = lambda stage, text: host.pet_reports.append((stage, text))
+        if with_reply_attrs:
+            host.reply_note = reply_note
+            host.reply_area = reply_area
+        return host, scheduled, statuses
+
+    def _run_direct(self, host, scheduled, *, progress_messages=(), results=()):
+        from ui.desktop_storyboard_direct import run_storyboard_direct
+        alive = [True]
+
+        class _FakeJob:
+            def __init__(self, res):
+                self.results = list(res)
+
+            def is_alive(self):
+                return alive[0]
+
+        def fake_launch(_root, _config, _prompt, **kwargs):
+            report = kwargs['report']
+            for msg in progress_messages:
+                report(msg)
+            return _FakeJob(results)
+
+        with patch('orchestrator.storyboard_direct_api.launch', side_effect=fake_launch), \
+                patch('orchestrator.storyboard_selection.selected_many', return_value=[self.script]), \
+                patch('orchestrator.workflow_settings.skill_prompt', return_value='SKILL'):
+            run_storyboard_direct(host, self.config)
+            self.assertEqual(len(scheduled), 1)
+            drain = scheduled.pop(0)
+            drain()
+            self.assertEqual(len(scheduled), 1)
+            alive[0] = False
+            scheduled.pop(0)()
+
+    def test_run_storyboard_direct_writes_start_progress_artifact_and_summary(self):
+        notes = []
+        host, scheduled, _statuses = self._make_host(
+            reply_note=lambda kind, stage, text='', **kw: notes.append((kind, stage, text, kw)))
+        self._run_direct(
+            host, scheduled,
+            progress_messages=['EP001 分镜已生成：EP001_雨夜_分镜.json（1 镜）'],
+            results=[{'source': str(self.script), 'ok': True, 'stopped': False,
+                      'path': str(self.board), 'error': '', 'code': ''}])
+        self.assertGreaterEqual(len(notes), 4)
+        self.assertEqual(notes[0][0], 'progress')
+        self.assertEqual(notes[0][1], 'storyboard')
+        self.assertIn('正在直连 API', notes[0][2])
+        self.assertIs(notes[0][3].get('expand'), True)
+        self.assertTrue(any(k == 'progress' and s == 'storyboard' and 'EP001 分镜已生成' in t
+                            for k, s, t, _kw in notes))
+        artifacts = [n for n in notes if n[0] == 'artifact']
+        self.assertEqual(len(artifacts), 1)
+        self.assertEqual(artifacts[0][1], 'storyboard')
+        self.assertEqual(artifacts[0][3].get('path'), str(self.board))
+        self.assertEqual(artifacts[0][3].get('title'), self.board.name)
+        self.assertTrue(any('成功 1 集' in t for _k, s, t, _kw in notes if s == 'storyboard'))
+
+    def test_run_storyboard_direct_failure_expands_and_supports_legacy_3arg_stub(self):
+        from types import SimpleNamespace
+        notes = []
+        host, scheduled, _statuses = self._make_host(
+            reply_note=lambda kind, stage, text='', **kw: notes.append((kind, stage, text, kw)))
+        self._run_direct(
+            host, scheduled,
+            progress_messages=['EP001_雨夜.md 的分镜没有生成：[E-AUTH-REJECTED] 401'],
+            results=[{'source': str(self.script), 'ok': False, 'stopped': False,
+                      'path': '', 'error': '[E-AUTH-REJECTED] 401', 'code': 'E-AUTH-REJECTED'}])
+        errors = [n for n in notes if n[0] == 'error']
+        self.assertEqual(len(errors), 1)
+        self.assertEqual(errors[0][1], 'storyboard')
+        self.assertIn('[E-AUTH-REJECTED]', errors[0][2])
+        self.assertIs(errors[0][3].get('expand'), True)
+
+        legacy_notes = []
+        expanded = []
+        area = SimpleNamespace(stage='storyboard', set_expanded=lambda flag: expanded.append(bool(flag)))
+        host2, scheduled2, _statuses2 = self._make_host(
+            reply_note=lambda kind, stage, text: legacy_notes.append((kind, stage, text)),
+            reply_area=area)
+        self._run_direct(
+            host2, scheduled2,
+            results=[{'source': str(self.script), 'ok': False, 'stopped': False,
+                      'path': '', 'error': '[E-AUTH-REJECTED] 401', 'code': 'E-AUTH-REJECTED'}])
+        self.assertTrue(any(k == 'progress' and '正在直连 API' in t for k, _s, t in legacy_notes))
+        self.assertTrue(any(k == 'error' and '[E-AUTH-REJECTED]' in t for k, _s, t in legacy_notes))
+        self.assertGreaterEqual(expanded.count(True), 2)
+
+    def test_run_storyboard_direct_stopped_writes_notice_and_legacy_host_safe(self):
+        notes = []
+        host, scheduled, _statuses = self._make_host(
+            reply_note=lambda kind, stage, text='', **kw: notes.append((kind, stage, text, kw)))
+        self._run_direct(
+            host, scheduled,
+            results=[{'source': str(self.script), 'ok': False, 'stopped': True,
+                      'path': '', 'error': '已停止', 'code': ''}])
+        notices = [n for n in notes if n[0] == 'notice']
+        self.assertEqual(len(notices), 1)
+        self.assertEqual(notices[0][1], 'storyboard')
+        self.assertIn('已停止', notices[0][2])
+
+        plain_host, scheduled2, statuses2 = self._make_host(with_reply_attrs=False)
+        self._run_direct(
+            plain_host, scheduled2,
+            progress_messages=['EP001 分镜已生成：EP001_雨夜_分镜.json（1 镜）'],
+            results=[{'source': str(self.script), 'ok': True, 'stopped': False,
+                      'path': str(self.board), 'error': '', 'code': ''}])
+        self.assertTrue(any('成功 1 集' in text for text in statuses2))
+
+
 if __name__ == '__main__':
     unittest.main()
