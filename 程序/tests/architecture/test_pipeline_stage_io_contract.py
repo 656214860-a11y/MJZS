@@ -75,9 +75,13 @@ class PipelineStageIoContractTests(unittest.TestCase):
             row = stage_layout.stage_dir(folder)
             self.assertIn(filename, row[5])
             self.assertNotIn(row[0], stage_layout.LEGACY_STAGE_ALIASES)
-            owner = self.skills[producer]
+            if script_contract.is_stage_producer(producer):
+                owner_stage = script_contract.producer_stage_key(producer)
+                self.assertIn(owner_stage, self.stage_index, producer)
+            else:
+                owner_stage = self.skills[producer].stage
             semantic_output = _camel_from_manifest(filename)
             producer_pipeline = next(skill for skill in self.skills.values()
                                      if skill.name.startswith('pipeline-')
-                                     and skill.stage == owner.stage)
+                                     and skill.stage == owner_stage)
             self.assertIn(semantic_output, producer_pipeline.output)

@@ -26,14 +26,14 @@ STRUCTURE_STAGE = '02剧本结构'
 STORYBOARD_STAGE = '03初步分镜'
 
 
-# manifest 文件名 → (产出它的 SKILL, 这份产物落在哪个阶段目录 output/)
+# manifest 文件名 → (产出者, 这份产物落在哪个阶段目录 output/)
 PRODUCERS = {
     'character_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
     'scene_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
     'prop_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
     'scene_breakdown.json': ('storyboard-scene-breakdown', STORYBOARD_STAGE),
-    'emotion_curve.json': ('pipeline-script-preparation', STAGE)}
-PRODUCER_SKILLS = tuple(sorted({skill for skill, _folder in PRODUCERS.values()}))
+    'emotion_curve.json': ('stage:script', STAGE)}
+# 'stage:<阶段键>' 显式阶段产出者的常量、辅助函数与 PRODUCER_SKILLS 定义在文件底部。
 
 # ── 编号口径（任务 7）────────────────────────────────────────────────────────
 # 角色／场景／道具沿用资产清单那一套（CHAR_／LOC_／PROP_），场次拆分与情绪节拍各给一套。
@@ -394,3 +394,37 @@ def completeness(folder):
         else:
             rows.append((name, '已产出', '%d 条，编号唯一' % len(items)))
     return tuple(rows)
+
+
+# ── 阶段产出者（RET-PIPELINE-COMPAT-L0）───────────────────────────────────
+# PRODUCERS 的产出者是在册 SKILL 名，或 'stage:<阶段键>' 显式阶段产出者——后者不挂在
+# 某个 SKILL 上，表示该阶段整体产出（emotion_curve.json 由剧本准备阶段产出）。
+# 旧产出者 ID pipeline-script-preparation 经 LEGACY_STAGE_PRODUCERS 只读映射，
+# 不改写用户已有 manifest 文件。
+STAGE_PRODUCER_PREFIX = 'stage:'
+LEGACY_STAGE_PRODUCERS = {'pipeline-script-preparation': 'stage:script'}
+
+
+def is_stage_producer(producer):
+    """产出者是否为 'stage:<阶段键>' 显式阶段产出者（去空白后前缀命中且阶段键非空）。"""
+    text = str(producer or '').strip()
+    return (text.startswith(STAGE_PRODUCER_PREFIX)
+            and bool(text[len(STAGE_PRODUCER_PREFIX):].strip()))
+
+
+def normalize_producer(producer):
+    """产出者规范化（只读）：命中旧 ID 映射表返回规范阶段产出者，否则返回去空白原串。"""
+    text = str(producer or '').strip()
+    return LEGACY_STAGE_PRODUCERS.get(text, text)
+
+
+def producer_stage_key(producer):
+    """规范化后是阶段产出者则返回其阶段键（如 'script'），否则返回 ''。"""
+    text = normalize_producer(producer)
+    return (text[len(STAGE_PRODUCER_PREFIX):].strip()
+            if is_stage_producer(text) else '')
+
+
+# 只含实际在册的产出技能：阶段产出者不算 SKILL，从 PRODUCER_SKILLS 中排除。
+PRODUCER_SKILLS = tuple(sorted({skill for skill, _folder in PRODUCERS.values()
+                                if not is_stage_producer(skill)}))
