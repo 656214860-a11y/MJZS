@@ -16,6 +16,8 @@ from ui_edges_support import (
     adopt_storyboard_fixture,
     keep_storyboard_fresh,
     make_adopted_project,
+    make_populated_project,
+    real_png,
 )
 
 class UiEdgeControlsTests(UiEdgeCase):
@@ -64,17 +66,24 @@ class UiEdgeControlsTests(UiEdgeCase):
                 win.destroy()
 
     def test_file_table_click_rules(self):
-        """初步分镜页内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。"""
+        """镜头内容框点击：文本格单击勾选、再点取消；带链接的格子先勾选再打开，已勾选只打开不取消。
+
+        R4380：03 初步分镜页改版成单编辑器、不再摆文件表，这条用例挪到仍在用同一套点击
+        契约（bind_row_toggle＋CellHover＋CellImages）的 04 首帧页。差异一处：「图片文件」
+        格盖着缩略图，单击只点亮、双击才走「未勾先勾＋打开」同一条路（第 60／64 期契约）。
+        """
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         from tkinter import ttk
         import desktop as desktop_module
+        import ui.prompt_window as prompt_window
         original = desktop_module.Desktop.choose_project
         desktop_module.Desktop.choose_project = lambda self: None  # 关掉自动打开上次项目，避免切走项目
         self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
         with tempfile.TemporaryDirectory() as td:
-            proj = make_adopted_project(td)
-            win = self.tk.Tk(); win.geometry("1000x700+40+40")
+            proj = make_populated_project(td)
+            (storyboard_stage(proj) / "frames" / "SH001.png").write_bytes(real_png(90, 60))
+            win = self.tk.Tk(); win.geometry("1180x760+40+40")
             def quiet_destroy():
                 try:
                     win.destroy()
@@ -86,7 +95,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
+            d.show(PAGE["keyframe"]); win.update()
             trees = []
             def walk(w):
                 if isinstance(w, ttk.Treeview):
@@ -94,36 +103,60 @@ class UiEdgeControlsTests(UiEdgeCase):
                 for child in w.winfo_children():
                     walk(child)
             walk(d.content)
-            storyboard_tables = [t for t in trees if 'status' in list(t['columns'])]
-            self.assertEqual(len(storyboard_tables), 2, '初稿与 JSON 定稿各有一张状态表')
-            for status_table in storyboard_tables:
-                for item in status_table.get_children():
-                    self.assertEqual(list(status_table.item(item, 'tags')), [],
-                                     '03 初步分镜不应用整行已制作／已采用高亮')
-            table = [t for t in trees if t.get_children()][0]
-            row = table.get_children()[0]
+            tables = [t for t in trees
+                      if getattr(t, "cell_images", None) is not None
+                      and list(t["columns"]) == ["id", "title", "duration", "status", "file", "prompt"]]
+            self.assertEqual(len(tables), 1, "04 首帧页只有一张镜头状态表")
+            table = tables[0]
+            row = "SH001"
+            self.assertEqual(list(table.item(row, "tags")), ["completed"],
+                             "已导入首帧的镜头行带着 completed 高亮（04 页现行契约）")
+            covered = table.cell_images.refresh()
+            self.assertIn((row, "#5"), covered, "用例前提：「图片文件」格要真盖上缩略图")
+            cover = table.cell_images.labels[(row, "#5")]
             on, off = str(d.win._tick_images[1]), str(d.win._tick_images[0])
             opened = []
             real_startfile = os.startfile
             os.startfile = lambda path, *a, **k: opened.append(str(path))
             self.addCleanup(setattr, os, "startfile", real_startfile)
+            prompts = []
+            real_show = prompt_window.show
+            prompt_window.show = lambda *a, **k: prompts.append(a)
+            self.addCleanup(setattr, prompt_window, "show", real_show)
             def click(column):
-                x, y, width, height = table.bbox(row, column)
+                box = table.bbox(row, column)
+                self.assertTrue(box, "要点的这一格得真摆出来：" + column)
+                x, y, width, height = box
                 table.event_generate("<Button-1>", x=int(x + width // 2), y=int(y + height // 2))
                 win.update()
-            self.assertEqual(table.item(row, "image")[0], off)
-            click("#1")                                            # 文本格
+            self.assertEqual(table.item(row, "image")[0], off,
+                             "首帧已就位的镜头默认不勾（建行时已自动取消勾选）")
+            click("#2")                                            # 「内容」文本格
             self.assertEqual(table.item(row, "image")[0], on)      # 单击：勾选本行
-            click("#1")
+            click("#2")
             self.assertEqual(table.item(row, "image")[0], off)     # 再次单击：取消勾选
-            click("#5")
-            self.assertEqual(table.item(row, "image")[0], on)      # 另一文本格同样可勾选
-            click("#3")                                            # 带链接的「文件内容」格
+            cover.event_generate("<Button-1>"); win.update()       # 盖图格单击：只点亮，不勾不开
+            self.assertEqual(table.item(row, "image")[0], off)
+            self.assertEqual(opened, [])
+            # 盖图格双击走 cell_images.view()（event_generate 造不出 Double 事件；
+            # 双击与右键「查看」本来就是调这一条）
+            table.cell_images.view((row, "#5")); win.update()
             self.assertEqual(table.item(row, "image")[0], on)      # 未勾选 → 先勾选
-            self.assertEqual(len(opened), 1)                       # 再打开对应文件
-            click("#3")
+            self.assertEqual(len(opened), 1)                       # 再打开对应图片
+            table.cell_images.view((row, "#5")); win.update()
             self.assertEqual(table.item(row, "image")[0], on)      # 已勾选 → 不取消
             self.assertEqual(len(opened), 2)                       # 直接打开
+            table.xview_moveto(1.0); win.update()                  # 提示词列在最右，先横滚到位
+            click("#6")                                            # 「提示词」链接格
+            self.assertEqual(table.item(row, "image")[0], on)      # 已勾选 → 不取消
+            self.assertEqual(len(prompts), 1)                      # 只打开提示词窗口
+            table.xview_moveto(0.0); win.update()
+            click("#2")
+            self.assertEqual(table.item(row, "image")[0], off)     # 文本格取消勾选
+            table.xview_moveto(1.0); win.update()
+            click("#6")
+            self.assertEqual(table.item(row, "image")[0], on)      # 未勾选 → 先勾选
+            self.assertEqual(len(prompts), 2)                      # 再打开提示词窗口
 
     def test_launch_comfy_does_not_block_on_a_starting_service(self):
         """ComfyUI 正在启动（端口已开、还没应答）时启动判断立刻返回，也不再索要桌面程序路径。"""
@@ -699,15 +732,10 @@ class UiEdgeControlsTests(UiEdgeCase):
             d.root = proj
             d.studio = open_studio(proj)
             show_catalog_page_ready(d, PAGE["storyboard"]); win.update()
-            buttons = []
-            def walk(widget):
-                if isinstance(widget, ttk.Button):
-                    buttons.append(widget)
-                for child in widget.winfo_children():
-                    walk(child)
-            walk(d.content)
-            button = [w for w in buttons if str(w.cget("text")) == "重排镜头编号"]
-            self.assertEqual(len(button), 1)
+            # R4380：顶部「重排镜头编号」按钮已撤，动作收进编辑器右键菜单，
+            # 菜单项调用的就是页面方法 renumber_shots()。
+            page = d.storyboard_editor_page
+            self.assertIsNotNone(page, "初步分镜页实例应挂在 desktop.storyboard_editor_page")
             asked = []
             import storyboard_files
             original_ask = storyboard_files.confirm
@@ -717,7 +745,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             d.async_ = lambda fn, done=None: done(fn()) if done else fn()
             self.addCleanup(setattr, d, "async_", original_async)
             self.assertIn("重排镜头编号", d.shot_numbering_hint())   # 采用后/重排前都能被提示到
-            button[0].invoke(); win.update()
+            page.renumber_shots(); win.update()
             self.assertEqual(len(asked), 1)
             self.assertIn("镜头编号", asked[0][1])
             ids = json.loads((folder / "EP002.json").read_text(encoding="utf-8"))["shots"]
@@ -730,7 +758,7 @@ class UiEdgeControlsTests(UiEdgeCase):
             self.assertEqual(d.shot_numbering_hint(), "")          # 修好后不再提示
             # 编号已经连续：不再弹确认框，也不动文件
             asked.clear()
-            button[0].invoke(); win.update()
+            page.renumber_shots(); win.update()
             self.assertEqual(asked, [])
             self.assertIn("无需重排", d.status.get())
 

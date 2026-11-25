@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4456（R4455 合并轮：合入 FIX-FULLSAFE-UI-CONTRACTS-A(R4451)：清零主干5个测试文件既有红（S02 select登记/Ctrl+S快捷键/折叠图元/停止逐句配音契约同步与批量窗定时器按控件归属核对；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。上一轮：R4453 合并轮：合入 RET-PIPELINE-COMPAT-L0(R4448)：L0 契约轮，emotion_curve.json 产出者改 stage:script 显式阶段产出者、PRODUCER_SKILLS 仅留实际在册技能与旧 ID 只读兼容函数（独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4458（R4457 合并轮：合入 FIX-FULLSAFE-S03-AND-AUDIO-TESTS(R4452)：清零ui_edges_autopilot/controls/tables 7条红（R4346/R4380契约同步与ui/desktop_page_nav.py共享框窄宽竞态修复；独立cpa verify 2/2全绿）；断言未动；未跑全量。上一轮：R4455 合并轮：合入 FIX-FULLSAFE-UI-CONTRACTS-A(R4451)：清零主干5个测试文件既有红（S02 select登记/Ctrl+S快捷键/折叠图元/停止逐句配音契约同步与批量窗定时器按控件归属核对；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

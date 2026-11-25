@@ -665,6 +665,9 @@ class StoryboardRowLayoutTests(unittest.TestCase):
         return found
 
     def test_the_action_row_stays_inside_the_visible_canvas(self):
+        """动作行整个落在画布可见区：R4380 后 03 页不再有动作行，改用仍在用同款
+        「贴底动作行＋内容框让高」布局的 04 首帧页（target_row/actions_row 先 pack 贴底，
+        内容框最后填充——窗口放不下时按钮也不许被挤出可视区）。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import desktop as desktop_module
@@ -672,16 +675,11 @@ class StoryboardRowLayoutTests(unittest.TestCase):
         from local_video import open_studio
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
-            folder = storyboard_stage(proj) / "分镜文档"
-            body = (folder / "episode.json").read_text(encoding="utf-8")
-            listed = ["03初步分镜/分镜文档/episode.json"]
-            for index in range(2, 8):          # 堆到足够多：表格一定超高
-                name = "episode_%d.json" % index
-                (folder / name).write_text(body, encoding="utf-8")
-                listed.append("03初步分镜/分镜文档/" + name)
-            prefs = json.loads((proj / "ui_settings.json").read_text(encoding="utf-8"))
-            prefs["storyboard_files"] = listed
-            (proj / "ui_settings.json").write_text(json.dumps(prefs, ensure_ascii=False), encoding="utf-8")
+            frame_json = storyboard_stage(proj) / "分镜文档" / "episode.json"
+            data = json.loads(frame_json.read_text(encoding="utf-8"))
+            base = data["shots"][0]
+            data["shots"] = [dict(base, id="SH%03d" % index) for index in range(1, 17)]
+            frame_json.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
             keep_storyboard_fresh(proj)
             original = desktop_module.Desktop.choose_project
             desktop_module.Desktop.choose_project = lambda self: None
@@ -696,11 +694,11 @@ class StoryboardRowLayoutTests(unittest.TestCase):
             d = Desktop(win, root=PROGRAM)
             d.root = proj
             d.studio = open_studio(proj)
-            show_catalog_page_ready(d, PAGE["storyboard"])
+            d.show(PAGE["keyframe"])
             for _ in range(10):
                 win.update()
-            row = [b for b in self.buttons(d.content) if b.cget("text") == "手动采用分镜"]
-            self.assertTrue(row, "初步分镜页该有「手动采用分镜」")
+            row = [b for b in self.buttons(d.content) if b.cget("text") == "手动制作首帧"]
+            self.assertTrue(row, "首帧页该有「手动制作首帧」")
             top = row[0].winfo_rooty() - d.canvas.winfo_rooty()
             bottom = top + row[0].winfo_height()
             self.assertGreaterEqual(top, 0, "按钮行不许被顶到画布上边去")
@@ -849,10 +847,15 @@ class GrowableScopeTests(unittest.TestCase):
         self.assertEqual(target, req - self.extra(30))
 
     def test_a_real_page_keeps_its_height_after_the_storyboard_page_is_put_away(self):
-        """真实界面：大窗口里看过初步分镜（整页缓存），换到结构剧本再把窗口拉矮。
+        """真实界面：大窗口里看过初步分镜（整页缓存），换到分镜定稿再把窗口拉矮。
 
         收起来的初步分镜页不再跟着窗口改行数，它的表格一直留着大窗口时的那么多行；这些行要是从
-        结构剧本页的高度里扣，结构剧本页就被定得比自己的内容矮、底下一截看不到也滚不到。
+        当前页的高度里扣，当前页就被定得比自己的内容矮、底下一截看不到也滚不到。
+
+        R4380：初步分镜页改版成单编辑器、不再带 growable 表格；两个整页缓存页
+        （初步分镜／结构剧本）现在都没有可伸缩表格。为保持「收起来的页里那张表格不许
+        算进当前页高度」这条不变量的真实路径验证，在收进缓存的初步分镜页里登记一张
+        真实表格（与 auto_height 同一 register_growable 口径），断言它不从定稿页扣高。
         """
         import desktop as desktop_module
         import tk_test_support
@@ -860,16 +863,6 @@ class GrowableScopeTests(unittest.TestCase):
         from local_video import open_studio
         with tempfile.TemporaryDirectory() as td:
             proj = make_adopted_project(td)
-            folder = storyboard_stage(proj) / "分镜文档"
-            body = (folder / "episode.json").read_text(encoding="utf-8")
-            listed = ["03初步分镜/分镜文档/episode.json"]
-            for index in range(2, 8):          # 分镜文件够多：大窗口里表格会长到好几行
-                name = "episode_%d.json" % index
-                (folder / name).write_text(body, encoding="utf-8")
-                listed.append("03初步分镜/分镜文档/" + name)
-            prefs = json.loads((proj / "ui_settings.json").read_text(encoding="utf-8"))
-            prefs["storyboard_files"] = listed
-            (proj / "ui_settings.json").write_text(json.dumps(prefs, ensure_ascii=False), encoding="utf-8")
             keep_storyboard_fresh(proj)
             original = desktop_module.Desktop.choose_project
             desktop_module.Desktop.choose_project = lambda self: None
@@ -884,14 +877,15 @@ class GrowableScopeTests(unittest.TestCase):
             show_catalog_page_ready(d, PAGE["storyboard"])
             tk_test_support.pump(win, .8)
             storyboard = d.content
-            d.go_page(PAGE["script_structure"])      # 侧栏换页：初步分镜页整页收进缓存
+            self.table(storyboard, 30)          # 收起来的那一页里带一张登记过的表格
+            d.go_page(PAGE["final"])            # 侧栏换页：初步分镜页整页收进缓存
             tk_test_support.pump(win, 1.2)
             win.geometry("1008x700+40+40")
             tk_test_support.pump(win, 1.2)
-            self.assertEqual(d.page_index, PAGE["script_structure"])
+            self.assertEqual(d.page_index, PAGE["final"])
             self.assertTrue(storyboard.winfo_exists() and d.content is not storyboard, '用例前提：初步分镜页收在缓存里')
             self.assertGreater(self.ui.growable_extra(storyboard), 0, '用例前提：收着的那一页里表格还留着多出来的行')
             needed = d.content.winfo_reqheight() - self.ui.growable_extra(d.content)
             self.assertGreater(needed, d.canvas.winfo_height(), '用例前提：窗口拉矮后这一页比窗口高')
             region = [int(float(value)) for value in str(d.canvas.cget('scrollregion')).split()]
-            self.assertEqual(region[3], needed, '结构剧本页被定矮了：收着的初步分镜页的表格不该从这一页的高度里扣')
+            self.assertEqual(region[3], needed, '分镜定稿页被定矮了：收着的初步分镜页的表格不该从这一页的高度里扣')

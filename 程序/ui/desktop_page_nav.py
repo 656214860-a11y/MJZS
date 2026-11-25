@@ -344,6 +344,25 @@ class PageNavMixin:
                 except Exception:app_logging.swallowed()
         # R3060：宿主是画布列底部的 input_dock（与聊天框同宽），状态栏在 body 另一层，不再用 before。
         shared.pack(side='top',fill='x')
+        # 行高自适应按显示行数量，排在 after_idle：换页这一刻输入框的真实宽度可能还
+        # 没传下来（首建时 width=1，提示语折出满档行数），dock 高度跟着漂——同一页两次
+        # 重建量出不同 dock 高，已存的滚动位置随后被长大的视口夹走。宽度未定就撤掉
+        # 这波排队的刷新；宽度一落定（<Configure>）补一轮合并刷新，按真宽收口。
+        box=getattr(shared,'input',None)
+        try:narrow=box is not None and box.winfo_width()<=40
+        except tk.TclError:narrow=False
+        if narrow:
+            cancel=getattr(shared,'_cancel_pending_refresh',None)
+            if callable(cancel):cancel()
+        if box is not None and not getattr(shared,'_refit_on_width_bound',False):
+            shared._refit_on_width_bound=True
+            def _refit_on_width(_event=None):
+                try:
+                    if box.winfo_width()<=40:return
+                except tk.TclError:return
+                schedule=getattr(shared,'_schedule_refresh',None)
+                if callable(schedule):schedule()
+            box.bind('<Configure>',_refit_on_width,add='+')
 
     def shot_numbering_hint(self):
         """编号与剧本顺序不一致时返回一句提示。只提示不自动改名：重排会改写项目里的文件名与
