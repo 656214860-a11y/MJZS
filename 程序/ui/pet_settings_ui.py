@@ -25,9 +25,10 @@ import domain.usage_overview as usage_overview
 import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
-from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
+from ui.ui_icons import IconLoader
+from ui_tokens import CHAR_WIDTH, FONTS, NAV_SECONDARY_ICON_SIZE, SPACING, TEXT_DESC, TEXT_HINT
 from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox,
-                        ask_confirmation)
+                        Tooltip, ask_confirmation)
 
 HUB_TITLE = '设置'
 # 齿轮是无参调用：没指定落在哪一格时，默认与分页行第一项「基础功能」一致。
@@ -35,31 +36,37 @@ DEFAULT_TAB = TABS[0][0]
 HUB_GEOMETRY = '880x620'
 # 内容型设置窗不允许被系统压成 1×1；下限保住底部动作区与首行表单。
 HUB_MIN = (760, 560)
-# 免打扰时段是两位整点，宽度只占 3 个字符；Token 预览是等宽正文区。
-DND_FIELD_WIDTH = 3
-TOKEN_FIELD_WIDTH = 14
+# 免打扰时段是两位整点；数值与短标识只按输入语义占位，Token 预览仍是等宽正文区。
+DND_FIELD_WIDTH = CHAR_WIDTH['xs']
+TOKEN_FIELD_WIDTH = CHAR_WIDTH['lg']
+TOKEN_TEXT_WIDTH = CHAR_WIDTH['3xl']
+TOKEN_CHOICE_WIDTH = CHAR_WIDTH['md']
 TOKEN_PREVIEW_COLUMNS = 92
 TOKEN_PREVIEW_LINES = 11
 # 费用核对的请求下拉要同时显示请求 id、类型和模型名，比普通下拉宽。
 COST_CHOICE_WIDTH = 75
-# 预算数字输入框的起步宽度（字符）；实际宽度由输入列伸缩。
-BUDGET_FIELD_WIDTH = 16
+BUDGET_FIELD_WIDTH = CHAR_WIDTH['lg']
+TOKEN_ENTRY_WIDTHS = {'model_context_window': TOKEN_FIELD_WIDTH,
+                      'model_auto_compact_token_limit': TOKEN_FIELD_WIDTH,
+                      'subagent_model': TOKEN_TEXT_WIDTH,
+                      'max_thinking_tokens': TOKEN_FIELD_WIDTH,
+                      'subagent_limit': CHAR_WIDTH['xs']}
 # 第 66 期：新加的那一格叫「Token 节省」——附件《Token 节省完整命令清单》全收在这儿。
 TOKEN_TITLE = 'Token 节省'
+# 左栏图标复用主导航的 Fluent PNG 语义名；没有对应资产时保留文字回退。
+TAB_ICONS = {'basic': 'settings', 'model': 'sites', 'level': 'animatic', 'token': 'structure',
+             'budget': 'delivery', 'skills': 'library', 'dev': 'account'}
 # 分页次序＝用户要的次序：基础功能、模型配置、自动化等级、Token 节省、预算、SKILL 管理、开发信息。
 # 第 46 期第 6 条：第二格改名「三虎模型配置」（用户点名要的名字）。
-NOTE_HUB = ('三虎的设置都收在这里：基础功能、三虎模型配置、自动化等级、Token 节省、预算、'
-            'SKILL 管理、开发信息。改完立刻生效，不用重启。')
-NOTE_BASIC = '名字、贴片动画、免打扰、开机自启——改完立刻生效，同时写进全局配置。'
-NOTE_LEVEL = '这一档决定三虎「自己动手还是等您点头」；写进配置，下次开机照这一档来。'
-NOTE_BUDGET = ('硬限制：Token 按天算，其余按项目累计。越线即暂停那一步并报一声——'
-               '宁可少做，也不偷偷花钱。')
-NAME_NOTE = '名字按规格定死：界面、通知、日志、气泡一律用「三虎」。'
+NOTE_HUB = '集中管理基础功能、模型、自动化、Token 节省、预算、SKILL 与开发信息。'
+NOTE_BASIC = '基础选项即改即存；主题切换后部分页面重开生效。'
+NOTE_LEVEL = '选择即保存，决定哪些步骤需要你确认。'
+NOTE_BUDGET = 'Token 按天统计，其他用量按项目累计。达到上限后暂停。'
+NAME_NOTE = '界面、通知、日志一律用「三虎」。'
 # REQ-UI-THEME-1：界面主题三选——跟随系统（默认）／日间／夜间；选择经既有设置
 # 发布入口写进 desktop_settings.json 的 theme 键。
 THEME_LABELS = {'system': '跟随系统', 'day': '日间', 'night': '夜间'}
 THEME_KEYS = {label: key for key, label in THEME_LABELS.items()}
-THEME_CHOICE_WIDTH = 8
 
 
 def saved_theme(pet):
@@ -116,8 +123,7 @@ DEV_TITLE = '开发信息'
 APP_TITLE = APP_NAME
 DEVELOPER_NAME = 'Bill Lai'
 DEVELOPER_MAIL = '2748350153@qq.com'
-NOTE_DEV = ('这一格是出身说明：应用叫什么、这一版是第几版、谁做的、怎么联系。'
-            '版本号与窗口左上角那一行同源（desktop.VERSION），界面里只有这一份。')
+NOTE_DEV = '应用版本、开发者与联系方式。'
 # 预算五类（与 pet_agent.BUDGET_NAMES 同一套机器名）：Token 按天，其余按项目。
 BUDGET_FIELDS = (('tokens', 'Token（每天）'), ('image', '生图（每项目）'), ('firstframe', '首帧（每项目）'),
                  ('video', '视频（每项目）'), ('voice', '配音（每项目）'))
@@ -235,9 +241,9 @@ def open_hub(pet, tab=None):
     save_button.state(['disabled'])
     close_button = SecondaryButton(footer, text='关闭', command=lambda: request_close(win))
     close_button.pack(side='right', padx=(SPACING['none'], SPACING['sm']))
-    ttk.Label(body, text=HUB_TITLE, font=FONTS['title']).pack(anchor='w')
-    ttk.Label(body, text=NOTE_HUB, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
-        anchor='w', pady=(SPACING['xs'], SPACING['sm']))
+    heading = ttk.Label(body, text=HUB_TITLE, font=FONTS['title'])
+    heading.pack(anchor='w')
+    Tooltip(heading, NOTE_HUB)
     # REQ-UI-L5-1：分类收进左侧一列，竖分隔线右边放内容区；「API统一配置」照旧紧跟
     # 「三虎模型配置」分类下面（原来是分页按钮行的同一排）。当前那一格用 Selected
     # 样式亮着，点一下就切。
@@ -251,15 +257,42 @@ def open_hub(pet, tab=None):
     stack.pack(side='left', fill='both', expand=True)
     tabs = {}
     manager_button = None
+
+    def step_selection(delta):
+        keys = [key for key, _title in TABS]
+        try:
+            index = keys.index(current(win) or DEFAULT_TAB)
+        except ValueError:
+            index = 0
+        select(win, keys[(index + delta) % len(keys)])
+        return 'break'
+
     for key, title in TABS:
-        button = SecondaryButton(nav, text=title, command=lambda k=key: select(win, k))
+        icon_name = TAB_ICONS.get(key)
+        image = IconLoader.nav_icon(win._root(), icon_name, size=NAV_SECONDARY_ICON_SIZE)
+        button = SecondaryButton(nav, text=title, image=image,
+                                 compound='left' if image is not None else 'text', width=0,
+                                 style='Nav.TButton', command=lambda k=key: select(win, k))
+        button._nav_icon_name = icon_name
+        button.bind('<Up>', lambda _event: step_selection(-1), add='+')
+        button.bind('<Down>', lambda _event: step_selection(1), add='+')
         button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         tabs[key] = button
         if key == 'model':
-            # 第 51 期第 1 条：与同列的分类按钮同一格式（原来一个人用琥珀色的 Highlight）。
+            # 打开模型管理是动作不是分类：保留次按钮样式，避免被误读成另一页。
             manager_button = SecondaryButton(nav, text=pet_models_ui.MANAGER_BUTTON,
                                              command=lambda: pet.open_model_manager())
+            manager_button.bind('<Up>', lambda _event: step_selection(-1), add='+')
+            manager_button.bind('<Down>', lambda _event: step_selection(1), add='+')
             manager_button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+    # 选中态和普通态的横向内边距不同，先给最长分类留出两种状态所需的宽度。
+    nav_width = nav.winfo_reqwidth()
+    for button in tabs.values():
+        button.configure(style='Selected.Nav.TButton')
+        nav_width = max(nav_width, button.winfo_reqwidth())
+        button.configure(style='Nav.TButton')
+    nav.configure(width=max(nav_width, manager_button.winfo_reqwidth()))
+    nav.pack_propagate(False)
     pages = {}
     for key, title in TABS:
         pages[key] = ttk.Frame(stack, padding=SPACING['md'])
@@ -299,7 +332,7 @@ def select(win, tab=None):
             else:
                 frame.pack_forget()
         for key, button in tabs.items():
-            button.configure(style='Tokens.Primary.TButton' if key == tab else 'Tokens.Secondary.TButton')
+            button.configure(style='Selected.Nav.TButton' if key == tab else 'Nav.TButton')
         win._pet_tab = tab
         save_button = getattr(win, '_pet_save', None)
         if save_button is not None:
@@ -307,6 +340,9 @@ def select(win, tab=None):
             # 禁用字色由 PrimaryButton 的 disabled 映射取 disabled_text 令牌。
             handler = save_handler((getattr(win, '_pet_seams', None) or {}).get(tab))
             save_button.state(['!disabled'] if handler else ['disabled'])
+        picked = tabs.get(tab)
+        if picked is not None:
+            picked.focus_set()
     except Exception:
         return None
     return pages[tab]
@@ -326,19 +362,20 @@ def page_title(frame, text, note):
 
 def basic_page(frame, pet, width=None):
     """基础功能：名字（只读）、贴片动画、免打扰时段、立刻安静、开机自启。"""
-    page_title(frame, '基础功能', NOTE_BASIC)
+    heading = ttk.Label(frame, text='基础功能', font=FONTS['title'])
+    heading.pack(anchor='w', pady=(0, SPACING['sm']))
+    Tooltip(heading, NOTE_BASIC)
     now = pet.pet_settings()
-    hint = tk.StringVar(value='改完立刻生效，同时写进全局配置。')
+    hint = tk.StringVar(value='')
     grid = ttk.Frame(frame)
     grid.pack(fill='x', anchor='w')
     grid.columnconfigure(0, minsize=width or pet_models_ui.form_column_width(FORM_LABELS))
     grid.columnconfigure(1, weight=1)
     row = 0
     ttk.Label(grid, text='宠物名字').grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
-    ttk.Label(grid, text=now['name']).grid(row=row, column=1, sticky='w')
-    row += 1
-    ttk.Label(grid, text=NAME_NOTE, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
-        row=row, column=1, sticky='w', pady=(SPACING['none'], SPACING['sm']))
+    name = ttk.Label(grid, text=now['name'])
+    name.grid(row=row, column=1, sticky='w')
+    name.tooltip = Tooltip(name, NAME_NOTE)
     row += 1
 
     anim = tk.BooleanVar(value=bool(now['anim']))
@@ -349,7 +386,7 @@ def basic_page(frame, pet, width=None):
         hint.set('贴片动画已%s。' % ('打开' if state else '关掉'))
         return state
 
-    ttk.Checkbutton(grid, text='贴片动画（关掉更省 CPU）', variable=anim,
+    ttk.Checkbutton(grid, text='贴片动画', variable=anim,
                     command=apply_anim).grid(row=row, column=1, sticky='w', pady=(SPACING['none'], SPACING['sm']))
     row += 1
     ttk.Label(grid, text='免打扰时段').grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
@@ -357,10 +394,12 @@ def basic_page(frame, pet, width=None):
     window.grid(row=row, column=1, sticky='w')
     start = tk.StringVar(value='%02d' % int(now['dnd'][0]))
     end = tk.StringVar(value='%02d' % int(now['dnd'][1]))
-    ttk.Spinbox(window, from_=0, to=23, width=DND_FIELD_WIDTH, textvariable=start).pack(side='left')
-    ttk.Label(window, text='点到').pack(side='left', padx=SPACING['xs'])
-    ttk.Spinbox(window, from_=0, to=23, width=DND_FIELD_WIDTH, textvariable=end).pack(side='left')
-    ttk.Label(window, text='点（这段时间只记账，不打扰）').pack(side='left', padx=SPACING['xs'])
+    start_box = ttk.Spinbox(window, from_=0, to=23, width=DND_FIELD_WIDTH, textvariable=start)
+    start_box.pack(side='left')
+    ttk.Label(window, text='时 至').pack(side='left', padx=SPACING['xs'])
+    end_box = ttk.Spinbox(window, from_=0, to=23, width=DND_FIELD_WIDTH, textvariable=end)
+    end_box.pack(side='left')
+    ttk.Label(window, text='时').pack(side='left', padx=SPACING['xs'])
 
     def save_dnd():
         try:
@@ -376,7 +415,7 @@ def basic_page(frame, pet, width=None):
         hint.set('免打扰时段已改成 %02d:00 - %02d:00。' % pair)
         return pair
 
-    SecondaryButton(window, text='保存时段', command=save_dnd).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(window, text='保存时段', width=0, command=save_dnd).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     row += 1
     ttk.Label(grid, text='立刻安静').grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
     snooze = tk.StringVar(value=pet.snooze_label())
@@ -403,8 +442,7 @@ def basic_page(frame, pet, width=None):
                     command=apply_autostart).grid(row=row, column=1, sticky='w')
     row += 1
     ttk.Label(grid, text='界面主题').grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
-    theme_box = SelectBox(grid, values=list(THEME_LABELS.values()), state='readonly',
-                          width=THEME_CHOICE_WIDTH)
+    theme_box = SelectBox(grid, values=list(THEME_LABELS.values()), state='readonly', fit=True)
     theme_box.set(theme_label(saved_theme(pet)))
     theme_box.grid(row=row, column=1, sticky='w')
 
@@ -431,8 +469,8 @@ def basic_page(frame, pet, width=None):
         row=row, column=0, columnspan=2, sticky='w', pady=(SPACING['md'], SPACING['none']))
     seams = {'hint': hint, 'anim': anim, 'start': start, 'end': end, 'autostart': auto,
              'snooze': snooze, 'apply_anim': apply_anim, 'save_dnd': save_dnd,
-             'apply_autostart': apply_autostart,
-             'theme_var': theme_box, 'theme_apply': pick_theme}
+             'apply_autostart': apply_autostart, 'start_box': start_box, 'end_box': end_box,
+             'theme_var': theme_box, 'theme_box': theme_box, 'theme_apply': pick_theme}
     return seams
 
 
@@ -460,7 +498,7 @@ def level_page(frame, pet, width=None):
         picked.set(pet_agent.DEFAULT_LEVEL)
         return apply()
 
-    SecondaryButton(frame, text='回到出厂那一档', command=restore).pack(anchor='w', pady=(SPACING['md'], SPACING['none']))
+    SecondaryButton(frame, text='恢复默认', command=restore).pack(anchor='w', pady=(SPACING['md'], SPACING['none']))
     return {'hint': hint, 'picked': picked, 'apply': apply, 'restore': restore}
 
 
@@ -554,11 +592,14 @@ def budget_page(frame, pet, width=None, show_save=True):
         tuple(label for _kind, label in BUDGET_FIELDS)))
     grid.columnconfigure(1, weight=1)
     fields = {}
+    field_widgets = {}
     for row, (kind, label) in enumerate(BUDGET_FIELDS):
         ttk.Label(grid, text=label).grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
         var = tk.StringVar(value=str(limits.get(kind, '')))
         fields[kind] = var
-        LineInput(grid, textvariable=var, width=BUDGET_FIELD_WIDTH).grid(row=row, column=1, sticky='ew')
+        entry = LineInput(grid, textvariable=var, width=BUDGET_FIELD_WIDTH)
+        entry.grid(row=row, column=1, sticky='w')
+        field_widgets[kind] = entry
         ttk.Label(grid, text='已用 %d %s' % (used.get(kind, 0), UNIT_OF.get(kind, '')),
                   style='Muted.TLabel').grid(row=row, column=2, sticky='w', padx=(SPACING['md'], SPACING['none']))
 
@@ -616,16 +657,14 @@ def budget_page(frame, pet, width=None, show_save=True):
     SecondaryButton(bar, text='费用核对', command=reconcile_usage).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
         anchor='w', pady=(SPACING['md'], SPACING['none']))
-    ttk.Label(frame, text='SKILL 那本账（阶段编排）读的就是这几档：%s。' % skill_budget_sentence(),
+    ttk.Label(frame, text='阶段预算：%s' % skill_budget_sentence(),
               style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
         anchor='w', pady=(SPACING['sm'], SPACING['none']))
-    return {'hint': hint, 'fields': fields, 'save': save, 'restore': restore, 'read': read, 'show_usage': show_usage,
-            'reconcile_usage': reconcile_usage}
+    return {'hint': hint, 'fields': fields, 'field_widgets': field_widgets, 'save': save, 'restore': restore,
+            'read': read, 'show_usage': show_usage, 'reconcile_usage': reconcile_usage}
 
 
-NOTE_TOKEN = ('附件那六条通用优化都在这儿：固定前缀在前、推理降档、子 Agent 用 fast、压缩阈值降到 70%、'
-              'AGENTS.md 只回结论、.codexignore 少扫。「保存」记住这几档，「写入项目」与「写入全局」'
-              '把配置落到盘上。')
+NOTE_TOKEN = '保存偏好后，可写入当前项目或全局配置。'
 TOKEN_ROWS = (('model_reasoning_effort', '推理强度', token_saver.REASONING_EFFORTS),
               ('model_reasoning_summary', '推理摘要', token_saver.SUMMARIES),
               ('model_verbosity', '输出冗长度', token_saver.VERBOSITIES))
@@ -669,19 +708,25 @@ def token_page(frame, pet, width=None, show_save=True):
         tuple(label for _key, label, _choices in TOKEN_ROWS) + tuple(label for _key, label in TOKEN_ENTRIES)))
     grid.columnconfigure(1, weight=1)
     fields = {}
+    field_widgets = {}
     row = 0
     for key, label, choices in TOKEN_ROWS:
         ttk.Label(grid, text=label).grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
         var = tk.StringVar(value=str(now[key]))
         fields[key] = var
-        ttk.OptionMenu(grid, var, str(now[key]), *[str(item) for item in choices]).grid(
-            row=row, column=1, sticky='ew')
+        box = ttk.OptionMenu(grid, var, str(now[key]), *[str(item) for item in choices])
+        box.configure(width=TOKEN_CHOICE_WIDTH)
+        box.grid(row=row, column=1, sticky='w')
+        field_widgets[key] = box
         row += 1
     for key, label in TOKEN_ENTRIES:
         ttk.Label(grid, text=label).grid(row=row, column=0, sticky='w', pady=SPACING['xs'])
         var = tk.StringVar(value=str(now[key]))
         fields[key] = var
-        LineInput(grid, textvariable=var, width=TOKEN_FIELD_WIDTH).grid(row=row, column=1, sticky='ew')
+        entry = LineInput(grid, textvariable=var,
+                          width=TOKEN_ENTRY_WIDTHS.get(key, TOKEN_FIELD_WIDTH))
+        entry.grid(row=row, column=1, sticky='w')
+        field_widgets[key] = entry
         row += 1
     note = tk.StringVar(value=token_saver.REASONING_SAVING.get(now['model_reasoning_effort'], ''))
     ttk.Label(grid, textvariable=note, style='Muted.TLabel').grid(
@@ -762,8 +807,8 @@ def token_page(frame, pet, width=None, show_save=True):
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel',
               wraplength=TEXT_DESC['wraplength']).pack(anchor='w', pady=(SPACING['sm'], SPACING['none']))
     refresh()
-    return {'hint': hint, 'fields': fields, 'values': read, 'save': save, 'restore': restore,
-            'write_project': write_project, 'write_global': write_global, 'refresh': refresh,
+    return {'hint': hint, 'fields': fields, 'field_widgets': field_widgets, 'values': read, 'save': save,
+            'restore': restore, 'write_project': write_project, 'write_global': write_global, 'refresh': refresh,
             'note': note, 'text': text, 'state': state, 'seed': now}
 
 
@@ -820,10 +865,6 @@ def dev_page(frame, pet, width=None):
     SecondaryButton(bar, text='环境自检', command=check_environment).pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     ttk.Label(frame, textvariable=hint, style='PaleGreenHint.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
         anchor='w', pady=(SPACING['md'], SPACING['none']))
-    ttk.Label(frame, text='用着不顺、要加功能、发现有错，都发这个邮箱；版本号、开发者与联系方式只在'
-                          '「设置 → 开发信息」这一格维护。',
-              style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
-        anchor='w', pady=(SPACING['sm'], SPACING['none']))
     return {'version': version, 'mail': DEVELOPER_MAIL, 'developer': DEVELOPER_NAME,
             'runtime': runtime_sentence(), 'hint': hint, 'copy_mail': copy_mail,
             'check_environment': check_environment}

@@ -21,6 +21,7 @@ sys.path.insert(0, str(PROGRAM))
 import infra.pet_state as pet_state  # noqa: E402
 import desktop as desktop_module  # noqa: E402
 import desktop_script_pages as script_pages  # noqa: E402,F401  （--affected desktop_script_pages 的消费者）
+import ui_tokens  # noqa: E402
 
 NATURAL = "第 1 集\n\n场景 1：旧站台\n\n阿远：我回来了。\n"
 REMOVED_BUTTON_TEXTS = ("采用选中剧本", "手动制作结构剧本", "大纲", "编辑", "退出", "删除")
@@ -140,6 +141,48 @@ class ScriptPageLayoutTests(unittest.TestCase):
             self.assertTrue(index, "空状态文字应能定位")
             self.assertIsNotNone(preview.bbox(index),
                                  "空状态文字应实际显示在文本框里")
+            box = desktop.script_structure_editor_preview_content_box
+            self.assertFalse(box.close_button.winfo_ismapped(), "无当前文件时关闭×应隐藏")
+
+    def test_t5_outline_gutter_and_close_button_stay_on_left_or_top_right(self):
+        """大纲打开后位于行号左侧，行号贴正文左缘；关闭×浮在编辑器内部右上角并可聚焦。"""
+        with tempfile.TemporaryDirectory() as td:
+            project = _make_project(td)
+            win, desktop = self._open(project, "1280x800+20+20")
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
+            box.select_document(project / "writing" / "script_raw.md")
+            _settle(win)
+            box.aids.toggle_outline()
+            _settle(win)
+            self.assertEqual(box.outline.winfo_manager(), "grid")
+            self.assertLess(box.outline.winfo_rootx(), box.gutter.winfo_rootx(),
+                            "场次大纲应移到行号左侧")
+            self.assertLess(box.gutter.winfo_rootx(), preview.winfo_rootx(),
+                            "行号槽应留在正文左侧")
+            button = box.close_button
+            area = button.master
+            self.assertTrue(button.winfo_ismapped(), "有当前文件时关闭×应可见")
+            self.assertEqual(str(button.cget("text")), "×")
+            self.assertNotEqual(str(button.cget("takefocus")), "0", "关闭×须可键盘聚焦")
+            self.assertTrue(button.bind("<Return>"), "关闭×须有回车激活绑定")
+            self.assertGreater(button.winfo_rootx(), area.winfo_rootx() + area.winfo_width() // 2,
+                               "关闭×应在编辑器右半区")
+            self.assertLessEqual(button.winfo_rootx() + button.winfo_width(),
+                                 area.winfo_rootx() + area.winfo_width(),
+                                 "关闭×不得超出编辑器右缘")
+            self.assertLessEqual(button.winfo_rooty() - area.winfo_rooty(), ui_tokens.SPACING["lg"],
+                                 "关闭×应贴在编辑器内部上沿")
+            self.assertTrue((project / "writing" / "script_raw.md").is_file())
+            button.invoke()
+            _settle(win)
+            self.assertIsNone(box.active["path"])
+            self.assertFalse(button.winfo_ismapped())
+            self.assertTrue((project / "writing" / "script_raw.md").is_file(), "关闭视图不得删除项目文件")
+            box.select_document(project / "writing" / "script_raw.md")
+            _settle(win)
+            self.assertEqual(box.active["path"], (project / "writing" / "script_raw.md").resolve())
+            self.assertTrue(button.winfo_ismapped(), "重新打开文件后关闭×应恢复可见")
 
 
 if __name__ == "__main__":

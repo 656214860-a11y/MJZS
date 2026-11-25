@@ -1,6 +1,7 @@
 # -*- coding: utf-8 -*-
 """提示浮层不当对话框（R1976）；R2946 起兼管图标下方的无边框选择浮层 Flyout。"""
 import tkinter as tk
+import weakref
 
 import infra.app_logging as app_logging
 from ui_tokens import COLORS, SPACING
@@ -160,3 +161,44 @@ def monitor_bounds(window, x=None, y=None):
     except (AttributeError, OSError, ValueError, TypeError):
         pass
     return 0, 0, int(window.winfo_screenwidth()), int(window.winfo_screenheight())
+
+
+_MENU_TYPE = tk.Menu
+_MENUS = weakref.WeakSet()
+
+
+def apply_menu_style(menu):
+    """把右键/下拉菜单套进当前主题；平台不支持的单个菜单选项跳过。"""
+    options = {
+        'background': COLORS['background_card'],
+        'foreground': COLORS['text_primary'],
+        'activebackground': COLORS['selection_bg'],
+        'activeforeground': COLORS['selection_text'],
+        'disabledforeground': COLORS['disabled_text'],
+        'selectcolor': COLORS['text_primary'],
+    }
+    for name, value in options.items():
+        try:
+            menu.configure(**{name: value})
+        except tk.TclError:
+            continue
+
+
+def register_menu(menu):
+    """登记 ContextMenu 创建的持久 Tk 菜单；主题切换时统一重染。"""
+    if not isinstance(menu, _MENU_TYPE):
+        return menu
+    apply_menu_style(menu)
+    _MENUS.add(menu)
+    return menu
+
+
+def refresh_menus():
+    for menu in list(_MENUS):
+        try:
+            if menu.winfo_exists():
+                apply_menu_style(menu)
+            else:
+                _MENUS.discard(menu)
+        except tk.TclError:
+            _MENUS.discard(menu)

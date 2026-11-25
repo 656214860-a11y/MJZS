@@ -47,6 +47,7 @@ import ui.pet_ui as pet_ui
 import selftest_sandbox
 selftest_sandbox.isolate(pet_ui)
 from orchestrator import skill_budget
+from ui_tokens import CHAR_WIDTH
 
 
 def make_project(td):
@@ -381,7 +382,51 @@ class SettingsWindowTests(SettingsCase):
         self.assertEqual(shown, ['budget'])
         for key, button in win._pet_tabs.items():
             self.assertEqual(str(button.cget('style')),
-                             'Tokens.Primary.TButton' if key == 'budget' else 'Tokens.Secondary.TButton')
+                             'Selected.Nav.TButton' if key == 'budget' else 'Nav.TButton')
+
+    def test_left_categories_reuse_the_main_nav_icons_and_keep_text_accessible(self):
+        """左栏沿用主界面 Fluent PNG 图标轨；文字仍保留，键盘与读屏不依赖猜图标。"""
+        win = self.hub('basic')
+        for key, button in win._pet_tabs.items():
+            self.assertEqual(button._nav_icon_name, pet_settings_ui.TAB_ICONS[key])
+            self.assertEqual(str(button.cget('text')), dict(pet_settings_ui.TABS)[key])
+            self.assertEqual(str(button.cget('compound')), 'left')
+            self.assertTrue(str(button.cget('image')), '%s 应拿到主导航图标位图' % key)
+
+    def test_opening_and_arrow_keys_keep_focus_on_the_selected_category(self):
+        """设置窗是 chrome=False 的旧外壳，不会自动聚焦；这里钉住左栏键盘入口。"""
+        self.win.deiconify()
+        self.win.update()
+        win = self.hub('basic')
+        win.deiconify()
+        win.update()
+        win.focus_force()
+        pet_settings_ui.select(win, 'basic')
+        win.update()
+        basic = win._pet_tabs['basic']
+        self.assertEqual(str(win.focus_get()), str(basic), '打开后焦点落在当前分类')
+        basic.event_generate('<Down>')
+        win.update()
+        self.assertEqual(pet_settings_ui.current(win), 'model')
+        self.assertEqual(str(win.focus_get()), str(win._pet_tabs['model']),
+                         '方向键切页后焦点不丢，也不需要鼠标重新点')
+        win._pet_tabs['model'].event_generate('<Up>')
+        win.update()
+        self.assertEqual(pet_settings_ui.current(win), 'basic')
+        self.assertEqual(str(win.focus_get()), str(basic))
+
+    def test_token_controls_use_widths_chosen_by_value_kind(self):
+        """枚举用短固定宽；数字短一些，模型名长一些，并行数很短；输入框不再被输入列拉满。"""
+        win = self.hub('token')
+        widgets = win._pet_seams['token']['field_widgets']
+        for key in ('model_reasoning_effort', 'model_reasoning_summary', 'model_verbosity'):
+            self.assertEqual(int(widgets[key].cget('width')), CHAR_WIDTH['md'], key)
+            self.assertNotIn('e', str(widgets[key].grid_info()['sticky']), key)
+        for key in ('model_context_window', 'model_auto_compact_token_limit', 'max_thinking_tokens'):
+            self.assertEqual(int(widgets[key].cget('width')), CHAR_WIDTH['lg'], key)
+            self.assertNotIn('e', str(widgets[key].grid_info()['sticky']), key)
+        self.assertEqual(int(widgets['subagent_model'].cget('width')), CHAR_WIDTH['3xl'])
+        self.assertEqual(int(widgets['subagent_limit'].cget('width')), CHAR_WIDTH['xs'])
 
     def test_the_standalone_window_still_offers_the_api_button(self):
         """它自己单独开一扇窗时（没有上一级）那颗键照旧在这一页里。"""
@@ -578,8 +623,17 @@ class BasicPageTests(SettingsCase):
                   if 'text' in widget.keys()]
         self.assertEqual(self.pet.pet_settings()['name'], '三虎')
         self.assertIn('三虎', labels)
-        self.assertIn('一律用「三虎」', ' '.join(labels))
+        name = next(widget for widget in self.walk(win, self.ttk.Label) if widget.cget('text') == '三虎')
+        self.assertIn('一律用「三虎」', name.tooltip.text)
         self.assertEqual(seams['anim'].get(), self.pet.animation_enabled())
+
+    def test_basic_inputs_keep_widths_matched_to_their_values(self):
+        """两位小时用短框；主题是固定枚举，宽度按最长选项测出，不借输入列拉满。"""
+        _win, seams = self.page()
+        self.assertEqual(int(seams['start_box'].cget('width')), CHAR_WIDTH['xs'])
+        self.assertEqual(int(seams['end_box'].cget('width')), CHAR_WIDTH['xs'])
+        self.assertLessEqual(int(seams['theme_box'].cget('width')), CHAR_WIDTH['xl'])
+        self.assertGreaterEqual(int(seams['theme_box'].cget('width')), CHAR_WIDTH['xs'])
 
     def test_the_animation_switch_is_written_down_and_takes_effect_at_once(self):
         _win, seams = self.page()
@@ -743,6 +797,15 @@ class BudgetPageTests(SettingsCase):
         self.assertEqual(sorted(fields), sorted(pet_agent.BUDGET_KINDS))
         self.assertEqual(fields['tokens'].get(), str(pet_agent.DEFAULT_BUDGET['tokens']))
         self.assertIn('2000000', fields['tokens'].get())
+
+    def test_budget_number_fields_do_not_stretch_across_the_form(self):
+        """额度是数字：给可预期字符宽并左对齐，输入列仍可把剩余空间留给单位与用量说明。"""
+        win = self.hub('budget')
+        widgets = win._pet_seams['budget']['field_widgets']
+        for kind in pet_agent.BUDGET_KINDS:
+            self.assertEqual(int(widgets[kind].cget('width')), CHAR_WIDTH['lg'], kind)
+            self.assertIn('w', str(widgets[kind].grid_info()['sticky']), kind)
+            self.assertNotIn('e', str(widgets[kind].grid_info()['sticky']), kind)
 
     def test_saving_writes_the_limits_and_applies_them(self):
         win = self.hub('budget')

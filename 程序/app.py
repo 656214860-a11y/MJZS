@@ -248,7 +248,7 @@ class App:
         self.prompt_box=prompt_box      # 第 58 期第 1 条：量高度要用它的位置与高度
         prompt_scroll=ttk.Scrollbar(prompt_box,orient='vertical')
         prompt_scroll.pack(side='right',fill='y')
-        self.prompt=TextArea(prompt_box,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
+        self.prompt=TextArea(prompt_box,bg=COLORS['background_card'],fg=COLORS['text_primary'],
                             height=self.PROMPT_ROWS_MIN,wrap='word',font=FONTS['body'],
                             padx=SPACING['sm'],pady=SPACING['sm'],spacing1=SPACING['xs'],spacing3=SPACING['xs'],
                             undo=True,autoseparators=True,maxundo=100,

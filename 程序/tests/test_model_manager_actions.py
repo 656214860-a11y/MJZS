@@ -38,12 +38,12 @@ class ProviderChoicesTests(Batch7Case):
         self.assertEqual(values, sorted(values, key=str.casefold))
         self.assertEqual(win._pet_provider.get(), '自定义')
 
-    def test_paired_boxes_share_one_width_and_right_labels_hug_their_box(self):
+    def test_paired_boxes_use_content_widths_and_right_labels_hug_their_box(self):
         win = self._show(pet_models_ui.open_manager(self.pet))
         win.update_idletasks()
         form = win._pet_provider_box.master
-        # 调用方式已移到左上角页签，不再是表单下拉；成对字段（Provider｜功能、模型 ID｜显示名、
-        # 密钥名｜协议）仍是 col1/col3 两列等宽、右标签靠右。
+        # 成对字段（Provider｜功能、模型 ID｜显示名、密钥名｜协议）仍落在 col1/col3 两条输入竖线上，
+        # 但每格按自身内容取宽，不再把短下拉框拉成半行。
         pairs = []
         for slave in form.grid_slaves():
             info = slave.grid_info()
@@ -53,8 +53,13 @@ class ProviderChoicesTests(Batch7Case):
                     pairs.append((slave, other[0]))
         self.assertGreaterEqual(len(pairs), 3)
         for left, right in pairs:
-            self.assertAlmostEqual(left.winfo_width(), right.winfo_width(), delta=1)
             self.assertGreater(right.winfo_rootx() - left.winfo_rootx() - left.winfo_width(), 0)
+        key_env = win._pet_entries['key_env']
+        wire = form.grid_slaves(row=key_env.grid_info()['row'], column=3)[0]
+        self.assertGreater(wire.winfo_width(), key_env.winfo_width(),
+                           '协议长选项按内容更宽，密钥名保持紧凑')
+        self.assertLess(win._pet_modality_box.winfo_width(), wire.winfo_width(),
+                        '短功能下拉不得被拉成长协议同宽')
         label = form.grid_slaves(row=0, column=2)[0]
         self.assertEqual(str(label.grid_info()['sticky']), 'e')
 

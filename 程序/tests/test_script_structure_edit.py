@@ -121,6 +121,13 @@ class ScriptStructureEditSessionTests(unittest.TestCase):
                 self.assertFalse(hasattr(session, 'delete_document'),
                                  '删除已收进文件面板右键菜单（REQ-S02-37）')
 
+    def test_begin_edit_moves_keyboard_focus_into_preview(self):
+        win, preview, page, target = self._setup()
+        focused = []
+        preview.focus_set = lambda: focused.append(preview)
+        page.box_edit_session.toggle_edit()
+        self.assertEqual(focused, [preview])
+
     def test_exit_flushes_pending_save_without_confirm(self):
         """R2724：退出编辑先把未落盘内容写回再退出，全程不再询问「放弃修改」。"""
         win, preview, page, target = self._setup()

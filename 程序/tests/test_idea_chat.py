@@ -1961,27 +1961,32 @@ class ScriptHandoffTests(_Harness):
 
 
 class ProjectRemovalWarningTests(_Harness):
-    """最后剧本的删除确认必须是红色破坏性提示，默认不删除。"""
+    """最后剧本的删除确认必须经统一危险确认窗，默认不删除。"""
 
-    def test_last_script_removal_uses_red_explicit_confirmation(self):
+    def test_last_script_removal_uses_shared_danger_confirmation(self):
         import desktop as desktop_module
+        from ui_widgets import ConfirmDialog
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             _d, win = self.desktop(proj)
             found = []; colors = []; styles = []
             def click_cancel():
-                def walk(widget):
-                    if 'text' in widget.keys() and str(widget.cget('text')) == '取消':
-                        found.append(widget)
-                        colors.append(widget.master.master.master.cget('bg'))
-                        styles.append(str(widget.cget('style')))
-                        widget.invoke();return True
-                    return any(walk(child) for child in widget.winfo_children())
-                walk(win)
+                dialog = next(child for child in win.winfo_children()
+                              if isinstance(child, ConfirmDialog))
+                label = dialog.content.winfo_children()[0]
+                cancel = next(child for child in dialog.actions.winfo_children()
+                              if str(child.cget('text')) == '取消')
+                found.append(cancel)
+                style_name = str(label.cget('style'))
+                style = ttk.Style(win)
+                colors.append((style_name, str(style.lookup(style_name, 'background')),
+                               str(style.lookup(style_name, 'foreground'))))
+                styles.append(str(cancel.cget('style')))
+                cancel.invoke()
             win.after(30, click_cancel)
             self.assertFalse(desktop_module.confirm_project_removal_from_last_script(win, ['最后一份.md']))
             self.assertEqual(len(found), 1)
-            self.assertEqual([c.lower() for c in colors], [COLORS['danger'].lower()])
+            self.assertEqual(colors, [('Tokens.Dialog.Danger.TLabel', COLORS['danger_subtle'], COLORS['danger_text'])])
             self.assertEqual(styles, ['Tokens.Secondary.TButton'])
 
     def test_only_explicit_recycle_accepts_and_close_paths_cancel(self):

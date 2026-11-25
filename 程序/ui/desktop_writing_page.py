@@ -255,7 +255,7 @@ class _WritingPage:
             # R3060：附件卡片行已撤——附件以「@原名」行内文本落在输入框顶部。
         else:
             self.input_box=TextArea(self.talk,bg=COLORS['background_card'],fg=COLORS['text_primary'],
-                              insertbackground=COLORS['primary'],height=COMPOSER_MIN_LINES,wrap='word',
+                              height=COMPOSER_MIN_LINES,wrap='word',
                               font=FONTS['body'],relief='flat',bd=0,highlightthickness=0,
                               padx=SPACING['xs'],pady=SPACING['xs'],undo=True)
             self.input_box.pack(side='bottom',fill='x',pady=(SPACING['none'],SPACING['xs']))
@@ -269,8 +269,8 @@ class _WritingPage:
         self.page.build_idea_model_bar(self.dialog)  # 聊天气泡框左上角的模型目录条（先隐藏）
         dialog_scroll=ttk.Scrollbar(self.dialog,orient='vertical')
         dialog_scroll.pack(side='right',fill='y')
-        self.box=TextArea(self.dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],
-                    selectbackground=COLORS['primary'],inactiveselectbackground=COLORS['primary'],selectforeground=COLORS['background_card'],height=TALK_MIN_LINES,wrap='word',
+        self.box=TextArea(self.dialog,bg=COLORS['background_card'],fg=COLORS['text_primary'],
+                    height=TALK_MIN_LINES,wrap='word',
                     font=FONTS['body'],relief='flat',padx=SPACING['xl'],pady=SPACING['sm'],yscrollcommand=dialog_scroll.set)
         self.box.pack(side='left',fill='both',expand=True)
         dialog_scroll.configure(command=self.box.yview)

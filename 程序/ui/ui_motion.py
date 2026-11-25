@@ -206,3 +206,33 @@ class EmptyState(ttk.Frame):
             self.lift()
         else:
             self.place_forget()
+
+
+class BusyState:
+    """共享主任务的忙碌／加载态（状态文字、转圈、锁住的控件），不拥有后台任务或取消语义。"""
+
+    def __init__(self, status, *, spinner=None):
+        self.status = status
+        self.spinner = spinner  # 可选 ui_motion.Spinner：忙碌时显示并转圈
+        self.busy = False
+        self._controls = ()
+
+    def set_busy(self, busy, *, message=None, controls=()):
+        """成对切换状态、转圈与可选控件；重复调用安全。"""
+        if busy:
+            self.busy = True
+            self._controls = tuple(controls)
+            for control in self._controls:
+                control.state(['disabled'])
+            if message and callable(getattr(self.status, 'set', None)):
+                self.status.set(message)
+            if self.spinner is not None:
+                self.spinner.start()
+            return True
+        if self.spinner is not None:
+            self.spinner.stop()
+        for control in self._controls:
+            control.state(['!disabled'])
+        self._controls = ()
+        self.busy = False
+        return False

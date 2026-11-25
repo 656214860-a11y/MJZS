@@ -27,8 +27,8 @@ import ui_tokens
 from ui_tokens import (COLORS, COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_WIDTH, TEXT_DESC, TEXT_HINT,
                        TEXT_PROGRESS)
-from ui_widgets import (DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
-                        SecondaryButton, setup_styles)
+from ui_widgets import (ContextMenu, DescriptionBlock, HintLabel, PrimaryButton, ProgressLabel,
+                        SecondaryButton, TextArea, setup_styles)
 
 
 class TickIndicatorTests(unittest.TestCase):
@@ -446,6 +446,9 @@ class ThemePaletteTests(unittest.TestCase):
         self.assertEqual(ui_tokens.COLORS['background_card'], ui_tokens.TOOLTIP_BACKGROUND)
         self.assertEqual(ui_tokens.COLORS['text_secondary'], ui_tokens.TEXT_HINT['foreground'])
         self.assertEqual(ui_tokens.COLORS['primary_text'], ui_tokens.TEXT_PROGRESS['foreground'])
+        self.assertEqual(ui_tokens.COLORS['focus'], ui_tokens.INPUT_FOCUS_BORDER)
+        self.assertEqual(ui_tokens.COLORS['border_input'], ui_tokens.SCROLLBAR_THUMB)
+        self.assertEqual(ui_tokens.COLORS['border_input_hover'], ui_tokens.SCROLLBAR_THUMB_ACTIVE)
         ui_tokens.set_theme('day')
         self.assertEqual(ui_tokens.COLORS['text_secondary'], ui_tokens.TEXT_HINT['foreground'])
 
@@ -587,6 +590,40 @@ class ThemeRefreshTests(unittest.TestCase):
                              f'Drama.RoundedFade1.{name}.RailIcon_TButton')
             self.assertEqual(style.layout('TCheckbutton')[0][1]['children'][0][0],
                              f'DramaTick.indicator.{name}')
+
+    def test_text_body_selection_cursor_and_script_tags_round_trip(self):
+        import ui.script_view_style as script_style
+        ui_theme.apply(self.win)
+        area = TextArea(self.win)
+        area.insert('1.0', '林小满：把旧怀表交给我。\n')
+        script_style.apply_tags(area, area.get('1.0', 'end-1c'), 'natural')
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(str(area.cget('bg')).lower(), COLORS['background_card'].lower())
+                self.assertEqual(str(area.cget('fg')).lower(), COLORS['text_primary'].lower())
+                self.assertEqual(str(area.cget('insertbackground')).lower(), COLORS['text_primary'].lower())
+                self.assertEqual(str(area.cget('selectbackground')).lower(), COLORS['selection_bg'].lower())
+                self.assertEqual(str(area.cget('selectforeground')).lower(), COLORS['selection_text'].lower())
+                self.assertEqual(str(area.tag_cget(script_style.BODY, 'foreground')).lower(),
+                                 COLORS['text_primary'].lower())
+                self.assertEqual(str(area.tag_cget(script_style.SPEAKER, 'foreground')).lower(),
+                                 COLORS['primary_text'].lower())
+
+    def test_context_menu_tracks_live_theme_switch(self):
+        menu = ContextMenu(self.win).menu
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(str(menu.cget('background')).lower(), COLORS['background_card'].lower())
+                self.assertEqual(str(menu.cget('foreground')).lower(), COLORS['text_primary'].lower())
+                self.assertEqual(str(menu.cget('activebackground')).lower(), COLORS['selection_bg'].lower())
+                self.assertEqual(str(menu.cget('activeforeground')).lower(), COLORS['selection_text'].lower())
+                self.assertEqual(str(menu.cget('disabledforeground')).lower(), COLORS['disabled_text'].lower())
 
     def test_night_theme_syncs_pet_ui_reexported_tokens(self):
         from ui import pet_ui, pet_ui_support, pet_ui_view

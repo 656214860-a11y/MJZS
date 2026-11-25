@@ -311,18 +311,30 @@ class FormAlignmentTests(Batch7Case):
         right = {entries['label'].winfo_rootx(), win._pet_modality_box.winfo_rootx()}
         self.assertEqual(len(right), 1, '右半边的功能、显示名必须落在同一竖线：%r' % right)
 
-    def test_manager_pairs_selects_on_equal_widths_and_taller_boxes(self):
+    def test_manager_fields_use_content_widths_and_keep_pair_alignment(self):
+        """紧凑表单契约：普通字段不再拉满半行；长地址才横跨弹性列，左右输入竖线仍对齐。"""
         win = self._manager_window()
         win.update()
         entries = win._pet_entries
-        # 两列等分剩余宽度，总宽为奇数像素时差 1px，属 Tk 整数取整，不可见。
-        self.assertLessEqual(abs(win._pet_provider_box.winfo_width() - win._pet_modality_box.winfo_width()), 1,
-                             'Provider 与功能两个下拉框等宽')
+        edges = {entries[key].winfo_rootx() for key in ('model', 'base_url', 'key_env')}
+        edges.add(win._pet_provider_box.winfo_rootx())
+        self.assertEqual(len(edges), 1, '左输入列必须落在同一竖线：%r' % edges)
+        right = {entries['label'].winfo_rootx(), win._pet_modality_box.winfo_rootx()}
+        self.assertEqual(len(right), 1, '右输入列必须落在同一竖线：%r' % right)
+        quarter = max(1, win.winfo_width() // 4)
+        for key in ('model', 'label', 'key_env', 'note'):
+            self.assertLess(entries[key].winfo_width(), quarter,
+                            '%s 是普通内容宽字段，不得拉满半行' % key)
+        self.assertLess(entries['timeout'].winfo_width(), entries['note'].winfo_width(),
+                        '短数值字段要比文本备注更窄')
+        self.assertGreater(entries['base_url'].winfo_width(), entries['model'].winfo_width(),
+                           'API 根地址是长值字段，应使用弹性跨列宽度')
         wire = next(child for child in win._pet_provider_box.master.winfo_children()
                     if child.winfo_class() == 'TCombobox'
                     and int(child.grid_info().get('row', -1)) == int(entries['key_env'].grid_info()['row']))
         self.assertEqual(wire.winfo_rootx(), win._pet_modality_box.winfo_rootx(), '协议与右半边同一竖线')
-        self.assertLessEqual(abs(wire.winfo_width() - win._pet_provider_box.winfo_width()), 1, '密钥名与协议并列且等宽')
+        self.assertLess(wire.winfo_width(), win.winfo_width() // 2,
+                        '协议下拉按内容取宽，不得独占半行')
         style = ttk.Style(win)
         style.configure('Flat.Tokens.Combobox.TCombobox', padding=(0, 0))
         flat = ttk.Combobox(wire.master, style='Flat.Tokens.Combobox.TCombobox', width=14)
@@ -331,6 +343,37 @@ class FormAlignmentTests(Batch7Case):
         grow = wire.winfo_height() - flat.winfo_height()   # 目标约三分之一，像素取整后允许 25%～45%
         self.assertGreaterEqual(grow * 4, flat.winfo_height(), '下拉框比零内边距时高出约三分之一')
         self.assertLessEqual(grow * 20, flat.winfo_height() * 9, '但不过分增高')
+
+    def test_manager_long_values_remain_editable_and_inside_narrow_widths(self):
+        """窄屏回归：长根地址／程序路径仍是可编辑输入框，可见控件不越过表单右缘。"""
+        win = self._manager_window()
+        entries = win._pet_entries
+        long_url = 'https://api.example.test/' + 'very-long-path/' * 8 + 'v1'
+        entries['base_url'].insert(0, long_url)
+        self.assertEqual(entries['base_url'].get(), long_url)
+        self.assertNotIn('readonly', entries['base_url'].state(), '长 API 根地址必须仍可编辑')
+        win._pet_mode.set('Desktop')
+        win.update()
+        long_path = 'C:/Apps/' + 'deep-folder/' * 10 + 'Tool.exe'
+        entries['program'].insert(0, long_path)
+        self.assertEqual(entries['program'].get(), long_path)
+        self.assertNotIn('readonly', entries['program'].state(), '长程序路径必须仍可编辑')
+
+        def assert_inside_form(mode):
+            win._pet_mode.set(mode)
+            for width in (pet_models_ui.MANAGER_MIN[0], 990, 1180):
+                win.geometry('%dx%d' % (width, pet_models_ui.MANAGER_MIN[1]))
+                win.update()
+                form = entries['model'].master
+                edge = form.winfo_rootx() + form.winfo_width()
+                for widget in _descendants(form):
+                    if not widget.winfo_ismapped():
+                        continue
+                    self.assertLessEqual(widget.winfo_rootx() + widget.winfo_width(), edge + 1,
+                                         (mode, width, widget, widget.winfo_rootx() + widget.winfo_width(), edge))
+
+        assert_inside_form('Desktop')
+        assert_inside_form('API')
 
     def test_label_columns_use_the_same_token_width(self):
         """标签列宽来自 ui_tokens.FORM_LABEL_WIDTH（加上中文实测），不是各页手写值。"""
@@ -445,6 +488,59 @@ class ModelManagerUxTests(Batch7Case):
         self.assertTrue(win._pet_entries[key].bind('<KeyRelease>'),
                         '%s 输入框缺少 <KeyRelease> 未保存改动绑定' % key)
         win._pet_modality_box.event_generate('<<ComboboxSelected>>')
+
+    def test_mode_segments_are_compact_and_keyboard_accessible(self):
+        """API／Desktop／CLI 不再是 Notebook 大页签：小型分段按钮可聚焦、可用方向键与回车切换。"""
+        win = self._manager_window()
+        win.update()
+        control = win._pet_mode_control
+        buttons = win._pet_mode_buttons
+        self.assertIsInstance(control, pet_models_ui.ModeSegmentedControl)
+        self.assertEqual(tuple(buttons), pet_models_ui.MODES)
+        self.assertFalse([child for child in _descendants(win) if isinstance(child, ttk.Notebook)],
+                         '模型管理不再使用 Notebook 大页签')
+        save = _button(win, '保存')
+        for mode, button in buttons.items():
+            expected = (pet_models_ui.MODE_SEGMENT_SELECTED_STYLE if mode == win._pet_mode.get()
+                        else pet_models_ui.MODE_SEGMENT_STYLE)
+            self.assertEqual(str(button.cget('style')), expected, mode)
+            self.assertLess(button.winfo_height(), save.winfo_height(),
+                            '%s 分段按钮必须小于普通动作按钮' % mode)
+            self.assertTrue(button.bind('<Return>'), '%s 缺少回车切换绑定' % mode)
+            self.assertTrue(button.bind('<space>'), '%s 缺少空格切换绑定' % mode)
+        buttons['API'].focus_force()
+        win.update()
+        self.assertEqual(str(win.focus_get()), str(buttons['API']), '分段按钮必须能拿到键盘焦点')
+        self.assertTrue(buttons['API'].bind('<Right>'), '分段按钮缺少方向键绑定')
+        buttons['API'].event_generate('<Right>')
+        win.update()
+        self.assertEqual(win._pet_mode.get(), 'Desktop', '右方向键应切到下一段')
+        self.assertEqual(str(win.focus_get()), str(buttons['Desktop']), '方向键切换后焦点跟着走')
+        self.assertEqual(str(buttons['Desktop'].cget('style')), pet_models_ui.MODE_SEGMENT_SELECTED_STYLE)
+        self.assertEqual(str(buttons['API'].cget('style')), pet_models_ui.MODE_SEGMENT_STYLE)
+        buttons['API'].focus_set()
+        buttons['API'].event_generate('<Return>')
+        win.update()
+        self.assertEqual(win._pet_mode.get(), 'API', '回车应切回聚焦的分段')
+
+    def test_mode_segment_click_preserves_unsaved_changes_guard(self):
+        """分段切换仍走未保存改动确认；拒绝时回到原段，表单内容不被覆盖。"""
+        win = self._manager_window()
+        buttons = win._pet_mode_buttons
+        self._type(win, 'note', '未保存改动')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=False) as confirm:
+            buttons['Desktop'].invoke()
+            win.update()
+        self.assertTrue(confirm.called)
+        self.assertEqual(win._pet_mode.get(), 'API')
+        self.assertEqual(win._pet_mode_control.current(), 'API', '拒绝后分段高亮必须弹回 API')
+        self.assertEqual(str(buttons['API'].cget('style')), pet_models_ui.MODE_SEGMENT_SELECTED_STYLE)
+        self.assertEqual(win._pet_entries['note'].get(), '未保存改动')
+        with mock.patch.object(self.pet, 'confirm_start', return_value=True):
+            buttons['Desktop'].invoke()
+            win.update()
+        self.assertEqual(win._pet_mode.get(), 'Desktop')
+        self.assertEqual(win._pet_mode_control.current(), 'Desktop')
 
     def test_new_entry_prefills_mainstream_defaults(self):
         win = self._manager_window()

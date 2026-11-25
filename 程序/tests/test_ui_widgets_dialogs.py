@@ -13,7 +13,9 @@ import tkinter as tk
 import unittest
 from tkinter import ttk
 
-from ui_widgets import BaseDialog, ConfirmDialog, FormDialog, ask_confirmation
+from ui_tokens import COLORS
+from ui_popup import Flyout
+from ui_widgets import BaseDialog, ConfirmDialog, FormDialog, NoticeDialog, StringDialog, ask_confirmation
 
 
 class DialogWidgetTests(unittest.TestCase):
@@ -90,6 +92,48 @@ class DialogWidgetTests(unittest.TestCase):
             lambda: next(child for child in self.root.winfo_children()
                          if isinstance(child, ConfirmDialog))._confirm())
         self.assertTrue(ask_confirmation(self.root, '确认', '继续执行？'))
+
+    @staticmethod
+    def _captured_focus(dialog):
+        seen = []
+        for widget in dialog._descendants(dialog):
+            if hasattr(widget, 'focus_set'):
+                widget.focus_set = lambda widget=widget: seen.append(widget)
+        dialog._focus_first_interactive()
+        return seen
+
+    def test_string_dialog_initially_focuses_its_entry(self):
+        dialog = StringDialog(self.root, '命名', '输入名称')
+        seen = self._captured_focus(dialog)
+        self.assertEqual(seen, [dialog.entry])
+        dialog.close()
+
+    def test_notice_dialog_initially_focuses_primary_action(self):
+        dialog = NoticeDialog(self.root, '完成', '已经处理完成。')
+        seen = self._captured_focus(dialog)
+        buttons = dialog.actions.winfo_children()
+        self.assertEqual(seen, [buttons[0]])
+        self.assertEqual(str(buttons[0].cget('text')), '知道了')
+        dialog.close()
+
+    def test_confirm_focus_is_primary_but_dangerous_confirm_starts_on_cancel(self):
+        normal = ConfirmDialog(self.root, '确认', '继续执行？')
+        normal_focus = self._captured_focus(normal)
+        normal_buttons = {str(button.cget('text')): button for button in normal.actions.winfo_children()}
+        self.assertEqual(normal_focus, [normal_buttons['确认']])
+        normal.close()
+
+        dangerous = ConfirmDialog(self.root, '危险操作', '确认删除？', dangerous=True)
+        dangerous_focus = self._captured_focus(dangerous)
+        dangerous_buttons = {str(button.cget('text')): button for button in dangerous.actions.winfo_children()}
+        self.assertEqual(dangerous_focus, [dangerous_buttons['取消']])
+        dangerous.close()
+
+    def test_flyout_uses_shared_popup_surface(self):
+        popup = Flyout(self.root)
+        self.assertEqual(str(popup.cget('bg')).lower(), COLORS['border_default'].lower())
+        self.assertEqual(str(popup.body.cget('bg')).lower(), COLORS['background_primary'].lower())
+        popup.destroy()
 
     def test_escape_closes_and_releases_modal_grab(self):
         dialog = BaseDialog(self.root, '关闭测试')

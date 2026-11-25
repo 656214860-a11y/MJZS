@@ -196,7 +196,7 @@ INPUT_PLACEHOLDER_FOREGROUND = COLORS["text_secondary"]
 INPUT_BACKGROUND = COLORS["background_card"]
 INPUT_BORDER = COLORS["border_input"]
 INPUT_BORDER_HOVER = COLORS["border_input_hover"]
-INPUT_FOCUS_BORDER = COLORS["primary"]
+INPUT_FOCUS_BORDER = COLORS["focus"]
 INPUT_ERROR_BORDER = COLORS["danger"]
 INPUT_PADDING_X = SPACING["lg"]
 INPUT_PADDING_Y = SPACING["sm"]
@@ -248,8 +248,8 @@ TOOLTIP_WRAPLENGTH = 480
 
 # TScrollbar 的视觉只由 ui_widgets.setup_styles() 消费（从 ui_theme 迁入）；
 # 页面只建立标准 ttk.Scrollbar。细条：无箭头，厚度走 arrowsize。
-SCROLLBAR_THUMB = "#C4CCD2"
-SCROLLBAR_THUMB_ACTIVE = "#A8B3BC"
+SCROLLBAR_THUMB = COLORS["border_input"]
+SCROLLBAR_THUMB_ACTIVE = COLORS["border_input_hover"]
 SCROLLBAR_TROUGH = COLORS["background_primary"]
 SCROLLBAR_BORDER_WIDTH = 0
 SCROLLBAR_WIDTH = SPACING["sm"]
@@ -567,12 +567,14 @@ _DERIVED_SOURCES = {
     'INPUT_BACKGROUND': 'background_card',
     'INPUT_BORDER': 'border_input',
     'INPUT_BORDER_HOVER': 'border_input_hover',
-    'INPUT_FOCUS_BORDER': 'primary',
+    'INPUT_FOCUS_BORDER': 'focus',
     'INPUT_ERROR_BORDER': 'danger',
     'CONTROL_CORNER_SURFACE': 'background_primary',
     'TOOLTIP_FOREGROUND': 'text_primary',
     'TOOLTIP_BACKGROUND': 'background_card',
     'TOOLTIP_BORDER': 'border_default',
+    'SCROLLBAR_THUMB': 'border_input',
+    'SCROLLBAR_THUMB_ACTIVE': 'border_input_hover',
     'SCROLLBAR_TROUGH': 'background_primary',
 }
 

@@ -27,9 +27,10 @@ from ui_tokens import (
     COLORS,
     SCRIPT_VIEW_FONT,
     SCRIPT_VIEW_PADDING,
+    SCROLLBAR_WIDTH,
     SPACING,
 )
-from ui_widgets import TextArea, ask_string
+from ui_widgets import SecondaryButton, TextArea, Tooltip, ask_string
 from ui.desktop_script_edit_session import (
     _install_script_edit_controls,
     _reset_preview_text,
@@ -734,13 +735,20 @@ class _ContentBox:
             box, text=_HINT_READ_EDITABLE, style='SidebarProjectMuted.TLabel', anchor='w')
         self.shortcut_hint.pack(side='bottom', fill='x', pady=(SPACING['xs'] // 2, SPACING['none']))
         preview_area = ttk.Frame(box); preview_area.pack(fill='both', expand=True)
-        # 网格两行：查找条（默认隐藏）／正文行（正文＋右侧大纲栏，默认折叠）。
-        preview_area.columnconfigure(0, weight=1)
+        # 网格两行：查找条（默认隐藏）／正文行。大纲栏放到正文左侧，
+        # 行号槽仍贴在正文左缘；右半区不再放目录。
+        preview_area.columnconfigure(1, weight=1)
         preview_area.rowconfigure(1, weight=1)
         self.active = {'path': self.active_path}
         text_area = ttk.Frame(preview_area)
-        text_area.grid(row=1, column=0, sticky='nsew')
+        text_area.grid(row=1, column=1, sticky='nsew')
         self.preview, self.horizontal, self.gutter = _build_script_preview(text_area)
+        self.close_button = SecondaryButton(
+            text_area, text='×', width=0, style='Tokens.Secondary.TButton', takefocus=True,
+            command=lambda: self.owner.page.safe(self.close_document))
+        Tooltip(self.close_button, '关闭当前文件（项目文件保留）')
+        for sequence in ('<Return>', '<space>'):
+            self.close_button.bind(sequence, lambda _e: (self.close_button.invoke(), 'break')[1], add='+')
         self.preview_ticket = {'value': 0}
         self.loaded = {'raw': ''}
         self.zoom_delta = 0
@@ -759,10 +767,10 @@ class _ContentBox:
             headings=self.aids.heading_lines,
             reveal=self.aids.ensure_line_visible,
         )
-        self.find_bar.grid(row=0, column=0, sticky='ew')
+        self.find_bar.grid(row=0, column=1, sticky='ew')
         self.find_bar.grid_remove()
         self.outline = OutlinePanel(preview_area, self.preview)
-        self.outline.grid(row=0, column=1, rowspan=2, sticky='ns')
+        self.outline.grid(row=0, column=0, rowspan=2, sticky='ns')
         self.outline.grid_remove()
         # REQ-S02-40：行号槽折叠标记数据源与点击回调。
         self.gutter.set_fold_support(self.aids.fold_marks, self.aids.toggle_fold)
@@ -786,6 +794,37 @@ class _ContentBox:
         setattr(self.owner.page, self.attribute, self.preview)
         setattr(self.owner.page, self.attribute + '_content_box', self)
         return box
+
+    def _set_close_visible(self, visible):
+        """关闭×只在有当前文件时浮在正文右上角；不挤压正文布局。"""
+        button = getattr(self, 'close_button', None)
+        if button is None:
+            return
+        if visible:
+            button.place(relx=1.0, x=-(SCROLLBAR_WIDTH + SPACING['xs']),
+                         y=SPACING['xs'], anchor='ne')
+            button.lift()
+        else:
+            button.place_forget()
+
+    def close_document(self):
+        """关闭当前显示的文件视图；文件本身保留，保存失败时不丢编辑现场。"""
+        if self.active['path'] is None:
+            return False
+        session = getattr(self, 'edit_session', None)
+        if session is not None and session.editing:
+            try:
+                session.exit_edit()
+            except (OSError, ValueError) as exc:
+                self.owner.page.status.set('保存失败，未关闭' + self.title + '：' + str(exc))
+                return False
+        self.active['path'] = None
+        self._sync_role(None)
+        self.load_preview(None)
+        if self.find_bar.visible:
+            self.find_bar.hide()
+        self.owner.page.status.set('已关闭当前文档；项目文件保留')
+        return True
 
     def update_shortcut_hint(self, editing=None):
         """根据当前是否处于编辑态及是否可编辑，实时提示可用快捷键。"""
@@ -916,6 +955,7 @@ class _ContentBox:
             session.kind = self.kind
             session.editable = self.editable
             session.title = self.title
+        self._set_close_visible(path is not None)
         self.owner._update_status_note(path)
         self.update_shortcut_hint()
 

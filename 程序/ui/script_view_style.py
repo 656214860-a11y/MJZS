@@ -186,7 +186,6 @@ def _configure_tags(widget):
     widget.tag_configure(
         BODY,
         font=SCRIPT_VIEW_FONT,
-        foreground=COLORS["text_primary"],
         spacing1=SPACING["none"],
         spacing2=SCRIPT_VIEW_LINE_SPACING,
         spacing3=SCRIPT_VIEW_PARAGRAPH_SPACING,
@@ -203,7 +202,6 @@ def _configure_tags(widget):
         widget.tag_configure(
             tag,
             font=FONTS["heading_%d" % level],
-            foreground=COLORS["text_heading"],
             spacing1=before,
             spacing2=SPACING["none"],
             spacing3=after,
@@ -211,50 +209,58 @@ def _configure_tags(widget):
     widget.tag_configure(
         EPISODE,
         font=FONTS["heading_2"],
-        foreground=COLORS["text_heading"],
         spacing1=SPACING["md"],
         spacing3=SPACING["sm"],
     )
     widget.tag_configure(
         SCENE,
         font=FONTS["body_bold"],
-        foreground=COLORS["text_heading"],
         spacing1=SPACING["sm"],
         spacing3=SPACING["xs"],
     )
-    widget.tag_configure(SPEAKER, font=FONTS["body_bold"], foreground=COLORS["primary"])
-    widget.tag_configure(ANNOTATION, foreground=COLORS["text_secondary"])
+    widget.tag_configure(SPEAKER, font=FONTS["body_bold"])
     widget.tag_configure(
         FIELD,
         font=FONTS["body_bold"],
-        foreground=COLORS["text_heading"],
     )
     widget.tag_configure(
         QUOTE,
-        foreground=COLORS["text_secondary"],
         lmargin1=SCRIPT_VIEW_QUOTE_INDENT,
         lmargin2=SCRIPT_VIEW_QUOTE_INDENT,
     )
-    widget.tag_configure(TABLE, font=FONTS["code"], foreground=COLORS["text_primary"])
-    widget.tag_configure(TABLE_SEPARATOR, font=FONTS["code"], foreground=COLORS["text_muted"])
+    widget.tag_configure(TABLE, font=FONTS["code"])
+    widget.tag_configure(TABLE_SEPARATOR, font=FONTS["code"])
     widget.tag_configure(
         CODE,
         font=FONTS["code"],
-        foreground=COLORS["text_primary"],
-        background=COLORS["code_background"],
         lmargin1=SPACING["xs"],
         lmargin2=SPACING["xs"],
         spacing2=SPACING["none"],
         spacing3=SPACING["none"],
     )
-    widget.tag_configure(FENCE, font=FONTS["code"], foreground=COLORS["text_muted"])
+    widget.tag_configure(FENCE, font=FONTS["code"])
     widget.tag_configure(
         SEPARATOR,
-        foreground=COLORS["border_strong"],
         spacing1=SPACING["sm"],
         spacing3=SPACING["sm"],
     )
-    widget.tag_configure(MARKER, foreground=COLORS["text_muted"])
+    widget._refresh_tag_colors = refresh_tags
+    refresh_tags(widget)
+
+
+def refresh_tags(widget):
+    """重配文字与代码块颜色，保留当前字号、折叠状态和选区。"""
+    for token, tags in (
+        ('text_primary', (BODY, TABLE, CODE)),
+        ('text_heading', (*HEADING_TAGS.values(), EPISODE, SCENE, FIELD)),
+        ('primary_text', (SPEAKER,)),
+        ('text_secondary', (ANNOTATION, QUOTE)),
+        ('text_muted', (TABLE_SEPARATOR, FENCE, MARKER)),
+        ('border_strong', (SEPARATOR,)),
+    ):
+        for tag in tags:
+            widget.tag_configure(tag, foreground=COLORS[token])
+    widget.tag_configure(CODE, background=COLORS['code_background'])
 
 
 def apply_tags(widget, text, kind="natural"):

@@ -2,6 +2,7 @@
 
 import infra.app_logging as app_logging
 import tkinter as tk
+from ui.ui_popup import refresh_menus
 from tkinter import ttk
 from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS, SPACING
 from responsive_ui import row_height_for,font_linespace
@@ -14,21 +15,27 @@ INK=COLORS['text_primary']
 
 ACCENT=COLORS['primary']
 
-
-
 def apply(win):
 
     win.configure(bg=BG)
 
     for pattern,value in {'*Text.background':COLORS['background_card'],'*Text.foreground':INK,
 
-                          '*Text.insertBackground':ACCENT,'*Text.selectBackground':ACCENT,
+                          '*Text.insertBackground':INK,'*Text.selectBackground':COLORS['selection_bg'],
 
-                          '*Text.selectForeground':COLORS['background_card'],'*Text.inactiveSelectBackground':ACCENT,
+                          '*Text.selectForeground':COLORS['selection_text'],'*Text.inactiveSelectBackground':COLORS['selection_bg'],
 
                           '*Toplevel.background':BG,'*Menu.background':COLORS['background_card'],
 
-                          '*Menu.foreground':INK}.items():win.option_add(pattern,value)
+                          '*Menu.foreground':INK,'*Menu.activeBackground':COLORS['selection_bg'],
+
+                          '*Menu.activeForeground':COLORS['selection_text'],'*Menu.disabledForeground':COLORS['disabled_text'],
+
+                          '*Menu.selectColor':INK,'*Listbox.background':COLORS['background_card'],
+
+                          '*Listbox.foreground':INK,'*Listbox.selectBackground':COLORS['selection_bg'],
+
+                          '*Listbox.selectForeground':COLORS['selection_text']}.items():win.option_add(pattern,value)
 
     s=ttk.Style(win);s.theme_use('clam')
 
@@ -475,6 +482,23 @@ def _recolor_canvas(canvas, mapping):
                 continue
 
 
+def _recolor_text_tags(text, mapping):
+    try:
+        tags = text.tag_names()
+    except tk.TclError:
+        return
+    for tag in tags:
+        if tag == 'sel':  # Tk mirrors this tag to the selection widget options.
+            continue
+        for option in ('foreground', 'background'):
+            try:
+                target = mapping.get(str(text.tag_cget(tag, option)).lower())
+                if target is not None:
+                    text.tag_configure(tag, **{option: target})
+            except tk.TclError:
+                continue
+
+
 def recolor_tree(root, old, new):
     """递归换色；返回处理过的控件数以便测试。"""
     mapping = color_map(old, new)
@@ -490,9 +514,21 @@ def recolor_tree(root, old, new):
             continue
         if isinstance(widget, ttk.Widget):
             continue
+        if isinstance(widget, tk.Text):
+            # 夜间正文与选区文字可以同色；按选项的语义映射才能正确切回日间。
+            for option, token in (('selectforeground', 'selection_text'),
+                                  ('selectbackground', 'selection_bg'),
+                                  ('inactiveselectbackground', 'selection_bg'),
+                                  ('insertbackground', 'text_primary')):
+                _recolor_options(widget, (option,), {old[token].lower(): new[token]})
         _recolor_options(widget, _WIDGET_OPTIONS, mapping)
         if isinstance(widget, tk.Canvas):
             _recolor_canvas(widget, mapping)
+        if isinstance(widget, tk.Text):
+            _recolor_text_tags(widget, mapping)
+            refresh = getattr(widget, "_refresh_tag_colors", None)
+            if refresh is not None:
+                refresh(widget)
         touched += 1
     return touched
 
@@ -502,4 +538,5 @@ def refresh_native_widgets(win):
     import ui_tokens
     from ui.ui_icons import retint_nav_icons
     recolor_tree(win, ui_tokens.previous_palette(), COLORS)
+    refresh_menus()
     retint_nav_icons()

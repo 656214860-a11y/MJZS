@@ -307,7 +307,7 @@ class StageModelPicker(ttk.Frame):
         # ✓ 常渲染、非当前项用底色藏起：列宽恒定且不写数字 width（token 棘轮门禁）。
         tk.Label(row, text='✓', anchor='w',
                  bg=COLORS['background_primary'],
-                 fg=COLORS['primary'] if spec['current'] else COLORS['background_primary'],
+                 fg=COLORS['primary_text'] if spec['current'] else COLORS['background_primary'],
                  font=FONTS['hint'], pady=SPACING['xs']).pack(side='left')
         # R3060：模型名不再 expand，徽标紧跟其后——「模型名 推理·档位」视觉上一体，
         # 卡片宽度由最宽行自然决定，不再把左右两端拉开。
@@ -332,7 +332,7 @@ class StageModelPicker(ttk.Frame):
         for value, label, current in spec['levels']:
             chip = tk.Label(chips, text=label, cursor='hand2',
                             bg=COLORS['primary_subtle'] if current else COLORS['background_primary'],
-                            fg=COLORS['primary'] if current else COLORS['text_secondary'],
+                            fg=COLORS['primary_text'] if current else COLORS['text_secondary'],
                             font=FONTS['hint'], padx=SPACING['sm'], pady=SPACING['xs'])
             chip.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
             chip.bind('<Button-1>', lambda _e, level=value: self.choose_reasoning(level))

@@ -201,14 +201,17 @@ class InputFocusTests(unittest.TestCase):
         ui_theme.apply(self.root)
         self.style = ttk.Style(self.root)
 
-    def test_line_input_focus_border_maps_to_primary(self):
+    def test_line_input_focus_border_maps_to_focus_token(self):
         self.assertEqual(str(self.style.lookup("Tokens.LineInput.TEntry", "bordercolor",
-                                               ("focus",))), COLORS["primary"])
+                                               ("focus",))), COLORS["focus"])
 
-    def test_text_area_focus_highlight_is_primary(self):
+    def test_text_area_focus_highlight_uses_focus_token(self):
         area = ui_widgets.TextArea(self.root, placeholder="梗概")
-        self.assertEqual(str(area.cget("highlightcolor")), COLORS["primary"])
+        self.assertEqual(str(area.cget("highlightcolor")), COLORS["focus"])
         self.assertEqual(str(area.cget("highlightbackground")), COLORS["border_input"])
+        self.assertEqual(str(area.cget("insertbackground")), COLORS["text_primary"])
+        self.assertEqual(str(area.cget("selectbackground")), COLORS["selection_bg"])
+        self.assertEqual(str(area.cget("selectforeground")), COLORS["selection_text"])
 
     def test_single_line_controls_keep_36px_height(self):
         widgets = {

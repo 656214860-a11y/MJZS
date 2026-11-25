@@ -61,7 +61,7 @@
 | 生效机制 | `ui_tokens.set_theme(name)` 原地替换 `COLORS` 并同步派生 token 与已绑定常量；`current_theme()` 读当前主题；非法名字返回 `None` 不动现状 |
 | 取值解析 | `resolve_theme(saved)`：`day`／`night` 直用；`system`、缺失或认不出跟随系统；`system_theme()` 读注册表 `AppsUseLightTheme`（0=夜间），读不到回落日间 |
 | 持久化 | 设置页「基础功能」的「界面主题」下拉（跟随系统／日间／夜间）经 `stage_execution_service.publish_desktop_preferences` 写 `desktop_settings.json` 的 `theme` 键，不直写文件 |
-| 切换生效 | 保存后立即 `set_theme`＋`Desktop.refresh_ui_theme()` 重挂样式与选项库；已建成页面里按旧色画好的控件保留原色，**部分页面需重新打开后完全生效**（保守口径） |
+| 切换生效 | 保存后立即 `set_theme`＋`Desktop.refresh_ui_theme()` 重挂样式与选项库；`refresh_native_widgets()` 同步重染已建原生控件、画布图元、脚本正文标签与已登记菜单，日夜切换不要求重开页面 |
 | 新 token | `on.accent`（实心按钮字色）、`primary.text`（主色作文字）两套都必须登记；实心按钮字色一律用 `on.accent`，不得再借 `background.card` 当字色 |
 
 夜间板取值（`ui_tokens._NIGHT_COLORS`，与日间板同键集）：
@@ -212,7 +212,7 @@
 | `combobox.field.background` | `color.background.card` | 可编辑与只读字段背景 |
 | `combobox.foreground` | `color.text.primary` | 正常文字 |
 | `combobox.arrow.color` | `color.text.secondary` | 下拉箭头；主题不支持时安全回退系统箭头 |
-| `combobox.list.selection` | `color.primary` + `color.background.card` | 弹出列表选中项前景／背景 |
+| `combobox.list.selection` | `color.selection.bg` + `color.selection.text` | 弹出列表选中项背景／前景 |
 | `combobox.focus` | `color.focus` | 字段获得焦点时的边框色 |
 
 `SelectBox` 固定使用 `Tokens.Combobox.TCombobox`（`COMBOBOX_CONTROL_PADDING = (space.sm, CONTROL_PADDING_Y)`）；旧 `TCombobox` 基样式保留 `COMBOBOX_PADDING` 供默认继承，页面不得直接构造裸 `ttk.Combobox`。
@@ -230,7 +230,9 @@
 | `input.border` | `color.border.input` | 默认 1px 边框 |
 | `input.border.hover` | `color.border.input.hover` | 悬停边框 |
 | `input.error.border` | `color.danger` | 校验失败边框 |
-| `input.focus.border` | `color.focus`（＝`color.primary`） | 获得焦点时的描边（LineInput／SelectBox）；TextArea 用 `highlightcolor` 表达同一主色 |
+| `input.focus.border` | `color.focus` | 获得焦点时的描边（LineInput／SelectBox）；TextArea 用 `highlightcolor` 表达同一焦点色 |
+| `input.text.selection` | `color.selection.bg` + `color.selection.text` | Tk Text/Listbox 与下拉弹出列表的选区背景／文字 |
+| `input.text.cursor` | `color.text.primary` | Tk Text 插入光标，日夜两套都对输入底色可读 |
 | `input.padding` | `space.lg` × `CONTROL_PADDING_Y`（8px） | 水平／垂直内边距；垂直值使单行控件落在 36±2px |
 
 输入框保持矩形（ttk.Entry／TCombobox 的图元改造会破坏占位、只读、错误态或下拉行为，故不为圆角牺牲既有行为）。
@@ -270,7 +272,7 @@ Tooltip 仅由 `ui_widgets.Tooltip` 建立；页面不得自行创建无边框 `
 
 ### 滚动条
 
-标准 `ttk.Scrollbar` 的轨道、滑块和悬停色仅由 `ui_widgets.setup_styles()` 读取 `ui_tokens.py` 的 `SCROLLBAR_*` token 设置（本轮从 `ui_theme.apply()` 迁入）；业务页面不得为单个滚动条内联颜色、边框或另建 Style。横向和纵向使用同一视觉与 active 反馈：无箭头、厚度 `SCROLLBAR_WIDTH`（8px）、滑块常态浅灰悬停加深、轨道与背景同色。
+标准 `ttk.Scrollbar` 的轨道、滑块和悬停色仅由 `ui_widgets.setup_styles()` 读取 `ui_tokens.py` 的 `SCROLLBAR_*` token 设置（本轮从 `ui_theme.apply()` 迁入）；业务页面不得为单个滚动条内联颜色、边框或另建 Style。横向和纵向使用同一视觉与 active 反馈：无箭头、厚度 `SCROLLBAR_WIDTH`（8px）、滑块常态取 `color.border.input`、悬停取 `color.border.input.hover`、轨道与背景同色；日夜两套语义一致。
 
 | Token | 值 | 用途 |
 | --- | --- | --- |

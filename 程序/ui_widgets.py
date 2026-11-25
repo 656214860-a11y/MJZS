@@ -4,7 +4,8 @@ import os
 import tkinter as tk
 from tkinter import messagebox, ttk
 
-from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
+from ui.ui_icons import IconLoader
+from ui_tokens import (COLORS, NAV_SECONDARY_ICON_SIZE, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        COMBOBOX_FIELD_BACKGROUND, COMBOBOX_FONT,
                        COMBOBOX_FOREGROUND, COMBOBOX_PADDING,
                        COMBOBOX_PLACEHOLDER, COMBOBOX_PLACEHOLDER_COLOR,
@@ -20,14 +21,14 @@ from ui_tokens import (COLORS, COMBOBOX_ARROW_COLOR, COMBOBOX_CONTROL_PADDING,
                        ICON_FONT, BUTTON_RADIUS, CONTROL_CORNER_SURFACE, ROUND_TILE_BUTTON, ROUND_TILE_CARD,
                        NAV_SUB_PADDING_X,
                        SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
-from ui.ui_motion import bind_row_hover, empty_icon
+from ui.ui_motion import BusyState, bind_row_hover, empty_icon
 from ui.ui_hover_fade import install_hover_fade
 from ui.ui_composer_style import install_composer_styles
-from ui.ui_popup import text_units_width
+from ui.ui_popup import register_menu, text_units_width
 from ui.ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
 from ui.ui_splash import Splash  # noqa: F401  转出，旧导入路径不变
-from ui.ui_tooltip import Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
+from ui.ui_tooltip import EllipsisLabel, Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
 from ui.ui_status_bus import deliver_notice  # R3056：通知分级逻辑迁至 ui_status_bus，本模块守住行数棘轮
 
 
@@ -221,8 +222,8 @@ def _install_input_styles(style, root):
     root.option_add("*TCombobox*Listbox.font", COMBOBOX_FONT)
     root.option_add("*TCombobox*Listbox.background", COMBOBOX_FIELD_BACKGROUND)
     root.option_add("*TCombobox*Listbox.foreground", COMBOBOX_FOREGROUND)
-    root.option_add("*TCombobox*Listbox.selectBackground", COLORS["primary"])
-    root.option_add("*TCombobox*Listbox.selectForeground", COLORS["on_accent"])
+    root.option_add("*TCombobox*Listbox.selectBackground", COLORS["selection_bg"])
+    root.option_add("*TCombobox*Listbox.selectForeground", COLORS["selection_text"])
     root.option_add("*TCombobox.width", COMBOBOX_WIDTH)
 
 
@@ -267,6 +268,9 @@ def setup_styles(root):
                     foreground=COLORS["text_primary"])
     style.configure("Tokens.Dialog.Title.TLabel", font=DIALOG_TITLE_FONT,
                     foreground=COLORS["text_primary"])
+    style.configure("Tokens.Dialog.Danger.TLabel", font=FONTS["body"],
+                    foreground=COLORS["danger_text"], background=COLORS["danger_subtle"],
+                    padding=(SPACING["md"], SPACING["sm"]))
     style.configure("Tokens.DataTable.Treeview", font=TABLE_ROW_FONT,
                     rowheight=TABLE_ROW_HEIGHT,
                     background=COLORS["background_card"],
@@ -450,7 +454,7 @@ class SelectBox(ttk.Combobox):
             listbox = '%s.f.l' % self.tk.call('ttk::combobox::PopdownWindow', self)
             for index, value in enumerate(self.cget('values')):
                 if value in self.accent_values:
-                    self.tk.call(listbox, 'itemconfigure', index, '-foreground', COLORS['primary'])
+                    self.tk.call(listbox, 'itemconfigure', index, '-foreground', COLORS['primary_text'])
         except tk.TclError:
             pass
 
@@ -561,7 +565,10 @@ class TextArea(tk.Text):
         options = {
             "bg": INPUT_BACKGROUND,
             "fg": INPUT_FOREGROUND,
-            "insertbackground": COLORS["primary"],
+            "insertbackground": COLORS["text_primary"],
+            "selectbackground": COLORS["selection_bg"],
+            "selectforeground": COLORS["selection_text"],
+            "inactiveselectbackground": COLORS["selection_bg"],
             "font": INPUT_FONT,
             "relief": "flat",
             "bd": 0,
@@ -716,41 +723,12 @@ def notify(parent, message, *, level="info", title=None, modal=True, status=None
         message, level=level, title=title, modal=modal)
 
 
-class BusyState:
-    """共享主任务的忙碌／加载态（状态文字、转圈、锁住的控件），不拥有后台任务或取消语义。"""
-
-    def __init__(self, status, *, spinner=None):
-        self.status = status
-        self.spinner = spinner  # 可选 ui_motion.Spinner：忙碌时显示并转圈
-        self.busy = False
-        self._controls = ()
-
-    def set_busy(self, busy, *, message=None, controls=()):
-        """成对切换状态、转圈与可选控件；重复调用安全。"""
-        if busy:
-            self.busy = True
-            self._controls = tuple(controls)
-            for control in self._controls:
-                control.state(['disabled'])
-            if message and callable(getattr(self.status, 'set', None)):
-                self.status.set(message)
-            if self.spinner is not None:
-                self.spinner.start()
-            return True
-        if self.spinner is not None:
-            self.spinner.stop()
-        for control in self._controls:
-            control.state(['!disabled'])
-        self._controls = ()
-        self.busy = False
-        return False
-
-
 class ContextMenu:
     """右键菜单的唯一构建、定位和抓取释放入口。"""
 
     def __init__(self, owner, menu_factory=tk.Menu):
         self.menu = menu_factory(owner, tearoff=False)
+        register_menu(self.menu)
 
     def __getattr__(self, name):
         """兼容仍需读取 Tk 菜单状态的旧调用与测试。"""
@@ -777,6 +755,7 @@ class ContextMenu:
         """创建受统一入口管理的子菜单。"""
         child = self.__class__.__new__(self.__class__)
         child.menu = tk.Menu(self.menu, tearoff=False)
+        register_menu(child.menu)
         return child
 
     def cascade(self, label, submenu):
@@ -841,9 +820,12 @@ class Card(ttk.Frame):
 class BaseDialog(tk.Toplevel):
     """统一的模态弹窗骨架；业务页面不可再直接创建 ``tk.Toplevel``。"""
 
+    icon_name = "project_files"
+
     def __init__(self, parent, title, *, geometry=None, minsize=None, modal=True,
                  on_close=None, chrome=True):
         super().__init__(parent)
+        self.configure(bg=COLORS["background_primary"])
         setup_styles(self)
         self._closed = False
         self._modal = modal
@@ -861,7 +843,8 @@ class BaseDialog(tk.Toplevel):
                                                     DIALOG_CONTENT_PADDING,
                                                     DIALOG_CONTENT_PADDING, 0))
             self.header.pack(fill="x")
-            ttk.Label(self.header, text=title,
+            icon = IconLoader.nav_icon(self._root(), self.icon_name, size=NAV_SECONDARY_ICON_SIZE)
+            ttk.Label(self.header, text=title, image=icon, compound="left",
                       style="Tokens.Dialog.Title.TLabel").pack(anchor="w")
             self.content = ttk.Frame(self, padding=DIALOG_CONTENT_PADDING)
             self.content.pack(fill="both", expand=True)
@@ -893,14 +876,45 @@ class BaseDialog(tk.Toplevel):
         return "break"
 
     def _focus_first_interactive(self):
-        for widget in self._descendants(self.content):
-            if isinstance(widget, (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox, ttk.Button, tk.Button)):
-                try:
-                    if "disabled" not in widget.state() if isinstance(widget, ttk.Widget) else str(widget.cget("state")) != "disabled":
-                        widget.focus_set()
-                        return
-                except tk.TclError:
+        input_types = (tk.Entry, tk.Text, ttk.Entry, ttk.Combobox)
+        button_types = (ttk.Button, tk.Button)
+        interactive_types = input_types + button_types + (
+            ttk.Checkbutton, ttk.Radiobutton, tk.Checkbutton, tk.Radiobutton,
+            tk.Listbox, ttk.Treeview)
+        content = list(self._descendants(self.content))
+        for widget in content:
+            if isinstance(widget, input_types) and self._enabled(widget):
+                widget.focus_set()
+                return
+        for widget in content:
+            if isinstance(widget, interactive_types) and self._enabled(widget):
+                widget.focus_set()
+                return
+        if self.actions is None:
+            return
+        buttons = [widget for widget in self._descendants(self.actions)
+                   if isinstance(widget, button_types) and self._enabled(widget)]
+        for preferred in (True, False):
+            for widget in buttons:
+                primary = bool(getattr(widget, "_dialog_primary", False))
+                dangerous = bool(getattr(widget, "_dialog_dangerous", False))
+                if preferred and primary and not dangerous:
+                    widget.focus_set()
                     return
+                if not preferred and not primary and not dangerous:
+                    widget.focus_set()
+                    return
+        if buttons:
+            buttons[0].focus_set()
+
+    @staticmethod
+    def _enabled(widget):
+        try:
+            if isinstance(widget, ttk.Widget):
+                return "disabled" not in widget.state()
+            return str(widget.cget("state")) != "disabled"
+        except tk.TclError:
+            return False
 
     @staticmethod
     def _descendants(widget):
@@ -913,12 +927,14 @@ class BaseDialog(tk.Toplevel):
         if self.actions is None:
             raise RuntimeError("无 chrome 的 BaseDialog 没有统一动作区")
         if dangerous:
-            button = ttk.Button(self.actions, text=text, command=command,
-                                style="Tokens.Danger.TButton")
+            button = PrimaryButton(self.actions, text=text, command=command,
+                                   style="Tokens.Danger.TButton")
         elif primary:
             button = PrimaryButton(self.actions, text=text, command=command)
         else:
             button = SecondaryButton(self.actions, text=text, command=command)
+        button._dialog_primary = bool(primary)
+        button._dialog_dangerous = bool(dangerous)
         button.pack(side="right", padx=(DIALOG_ACTION_GAP, 0))
         return button
 
@@ -955,6 +971,8 @@ class BaseDialog(tk.Toplevel):
 class FormDialog(BaseDialog):
     """承载字段编辑的标准弹窗，统一提交／取消按钮与关闭语义。"""
 
+    icon_name = "edit"
+
     def add_form_actions(self, submit_text, on_submit, cancel_text="取消"):
         self.add_action(cancel_text, self.close)
         return self.add_action(submit_text, on_submit, primary=True)
@@ -963,13 +981,20 @@ class FormDialog(BaseDialog):
 class ConfirmDialog(BaseDialog):
     """询问或危险确认的标准弹窗；结果通过 ``result`` 和回调给调用方。"""
 
-    def __init__(self, parent, title, message, *, dangerous=False, on_result=None, **kwargs):
+    icon_name = "lock"
+
+    def __init__(self, parent, title, message, *, dangerous=False, on_result=None,
+                 confirm_text="确认", cancel_text="取消", **kwargs):
         self.result = None
         self._on_result = on_result
         super().__init__(parent, title, **kwargs)
-        DescriptionBlock(self.content, text=message).pack(fill="x")
-        self.add_action("取消", self._cancel)
-        self.add_action("确认", self._confirm, primary=not dangerous, dangerous=dangerous)
+        if dangerous:
+            ttk.Label(self.content, text=message, style="Tokens.Dialog.Danger.TLabel",
+                      wraplength=TEXT_DESC["wraplength"], justify="left").pack(fill="x")
+        else:
+            DescriptionBlock(self.content, text=message).pack(fill="x")
+        self.add_action(cancel_text, self._cancel)
+        self.add_action(confirm_text, self._confirm, primary=not dangerous, dangerous=dangerous)
 
     def _confirm(self):
         self.result = True
@@ -1000,14 +1025,15 @@ class NoticeDialog(BaseDialog):
         self.add_action("知道了", self.close, primary=True)
 
 
-def ask_confirmation(parent, title, message, *, dangerous=False):
+def ask_confirmation(parent, title, message, *, dangerous=False, confirm_text="确认", cancel_text="取消"):
     """以统一确认窗提供旧式同步布尔语义。
 
     业务确认过去大多依赖 ``messagebox.askyesno`` 的同步返回值；在调用点
     尚未全部改为回调前，使用此入口可统一弹窗外观并保留 ``True``／``False``
     语义。关闭、Esc 与取消都稳定返回 ``False``。
     """
-    dialog = ConfirmDialog(parent, title, message, dangerous=dangerous)
+    dialog = ConfirmDialog(parent, title, message, dangerous=dangerous,
+                           confirm_text=confirm_text, cancel_text=cancel_text)
     try:
         dialog.wait_window()
     except tk.TclError:
@@ -1057,35 +1083,6 @@ def ask_string(parent, title, prompt, *, initialvalue=""):
         # 父窗口在确认期间已销毁时，按“未确认”处理，绝不继续后续写入。
         return None
     return dialog.result
-
-
-class EllipsisLabel(ttk.Label):
-    """单行摘要按实际宽度省略，鼠标和键盘焦点说明保留全文。"""
-
-    def __init__(self, master, *, text='', **kwargs):
-        super().__init__(master, text='', width=1, **{'anchor': 'w', **kwargs})
-        self.full_text = str(text)
-        self.tooltip = Tooltip(self, self.full_text)
-        self.bind('<Configure>', self._render, add='+')
-
-    def set_text(self, text):
-        self.full_text = str(text)
-        self.tooltip.text = self.full_text
-        self._render()
-
-    def _render(self, _event=None):
-        from tkinter.font import Font
-        font = Font(root=self, font=self.cget('font') or ttk.Style(self).lookup(self.cget('style') or 'TLabel', 'font'))
-        room = max(0, self.winfo_width() - SPACING['xs'])
-        text = self.full_text
-        if font.measure(text) > room:
-            lo, hi = 0, len(text)
-            while lo < hi:
-                mid = (lo + hi + 1) // 2
-                if font.measure(text[:mid] + '…') <= room:lo = mid
-                else:hi = mid - 1
-            text = text[:lo] + '…' if font.measure('…') <= room else ''
-        if self.cget('text') != text:self.configure(text=text)
 
 
 class _TextLabel(ttk.Label):
