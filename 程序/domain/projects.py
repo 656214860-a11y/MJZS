@@ -1,5 +1,5 @@
 """One application, isolated data-only projects."""
-import uuid, re, time, copy, os, logging
+import uuid, re, time, copy, os, logging, shutil
 from functools import wraps
 from datetime import datetime
 from pathlib import Path
@@ -551,3 +551,53 @@ class Projects:
         info=copy.deepcopy(self.info);info['projects']=projects;info['active']=active
         self._publish_json(self.registry,info);self.info=info
         return {'kept':kept,'dropped':dropped,'added':added,'changed':True}
+    @_project_write_result
+    def import_archive(self,zip_path,*,new_name=None):
+        """从用户级 zip 备份包导入一个新项目；不覆盖、不移动任何既有项目文件。"""
+        from domain import project_archive
+        source=Path(zip_path)
+        if not source.is_file():raise ValueError('备份包不存在：'+str(zip_path))
+        manifest=project_archive.inspect_archive(source)
+        total=int(manifest.get('total_bytes') or 0)
+        free=shutil.disk_usage(self.base).free
+        if total and free<total*1.2:
+            raise ValueError('磁盘剩余空间不足：导入该备份需要约 %.1f GB，当前可用 %.1f GB。'
+                             %(total*1.2/(1024**3),free/(1024**3)))
+        tmp=self.base/('._import_'+uuid.uuid4().hex[:8])
+        try:
+            extracted=project_archive.extract_archive(source,tmp)
+            if not recognizable_project_dir(extracted,self.base):
+                raise ValueError('备份包内容不像一个项目目录（没有项目配置文件或阶段目录）。')
+            display=(new_name or str(manifest.get('name') or '')).strip() or _slug(manifest.get('original_root') or tmp)
+            slug=re.sub(r'[<>:"/\\|?*\x00-\x1f]','_',display)[:50].rstrip('. ') or '导入项目'
+            day=datetime.now().strftime('%Y%m%d')
+            taken={x.get('path') for x in self.info.get('projects',[])}
+            dst=self.base/(slug+'_'+day);serial=2
+            while dst.exists() or str(dst) in taken:
+                dst=self.base/(slug+'_'+day+'_'+str(serial));serial+=1
+            os.rename(extracted,dst)
+        except BaseException:
+            project_archive.remove_scratch_dir(tmp)
+            raise
+        info=copy.deepcopy(self.info)
+        info['projects'].append({'name':display,'path':str(dst),'created_at':dst.stat().st_mtime})
+        if not info.get('active'):info['active']=str(dst)
+        old=Path(manifest.get('original_root') or '')
+        try:
+            self._write_transaction([w for w in self._live_path_writes(old,dst,info) if w[0]!=self.registry])
+            self.organize(dst)
+        except BaseException:
+            try:os.rename(dst,tmp)
+            except OSError:pass
+            project_archive.remove_scratch_dir(tmp)
+            raise
+        try:
+            self._publish_json(self.registry,info)
+        except OSError as exc:
+            try:os.rename(dst,tmp)
+            except OSError:pass
+            exc.ui_message=('项目登记未能保存：备份内容已解包到 '+str(tmp)
+                            +'，可检查磁盘或文件占用后重试导入；该目录也可手动放回项目库。')
+            raise
+        self.info=info
+        return str(dst)

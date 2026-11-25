@@ -8,6 +8,7 @@
    "animatic_sketch_backends": "domain/animatic_sketch_backends.py",
    "animatic_timeline": "domain/animatic_timeline.py",
    "asset_versions": "domain/asset_versions.py",
+   "project_archive": "domain/project_archive.py",
    "stage_reply_log": "domain/stage_reply_log.py",
    "skill_residue_service": "domain/skill_residue_service.py",
    "voice_emotion_check": "domain/voice_emotion_check.py"
@@ -51,6 +52,7 @@
    "domain.hitl",
    "domain_events",
    "offline_asr_setup",
+   "project_archive",
    "script_structure_edit_controller",
    "writing_stream",
    "stage_reply_log"
