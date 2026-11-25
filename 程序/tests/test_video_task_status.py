@@ -7,7 +7,8 @@ from pathlib import Path
 
 from video_progress import (task_status, status_label, status_next, status_detail,
                             error_kind, ERROR_LABELS)
-from video_task_state import submission_block_reason
+from video_task_state import submission_block_reason, VIDEO_FAILURE_TO_CODE
+from contract.error_codes import describe
 
 
 class TaskStatusTests(unittest.TestCase):
@@ -64,11 +65,17 @@ class TaskStatusTests(unittest.TestCase):
         self.assertIn('重做', status_next({'state': 'failed'}))
 
     def test_detail_adds_error_class_and_action(self):
-        self.assertIn('鉴权', status_detail({'state': 'failed', 'error': '401 invalid api key'}))
-        self.assertIn('补配置', status_detail({'state': 'failed', 'error': '401 invalid api key'}))
-        self.assertIn('模型协议', status_detail({'state': 'failed', 'error': '400 invalid_request_error'}))
-        self.assertIn('重做', status_detail({'state': 'failed', 'error': '400 invalid_request_error'}))
-        self.assertIn('本机磁盘', status_detail({'state': 'failed', 'error': 'No space left on device'}))
+        # EC-5B：错误分类经 VIDEO_FAILURE_TO_CODE→describe() 统一出口，动作指引保留原文。
+        detail = status_detail({'state': 'failed', 'error': '401 invalid api key'})
+        self.assertIn(describe(VIDEO_FAILURE_TO_CODE['auth']), detail)
+        self.assertIn('[E-', detail)
+        self.assertIn('（建议：', detail)
+        self.assertIn('补配置', detail)
+        detail = status_detail({'state': 'failed', 'error': '400 invalid_request_error'})
+        self.assertIn(describe(VIDEO_FAILURE_TO_CODE['protocol']), detail)
+        self.assertIn('重做', detail)
+        self.assertIn(describe(VIDEO_FAILURE_TO_CODE['disk']),
+                      status_detail({'state': 'failed', 'error': 'No space left on device'}))
         self.assertIn('不要重投', status_detail({'state': 'unknown'}))
         self.assertEqual(status_detail({}), '未开始；点击生成按钮才会提交')
 

@@ -23,6 +23,8 @@ sys.path.insert(0, str(Path(__file__).resolve().parent))
 import infra.config_snapshot as config_snapshot
 import infra.diagnostic_capture as subject
 from contract.diagnostics import Diagnostic, Severity, StartupPhase
+from contract.error_codes import describe
+from contract.selfcheck import SELFCHECK_TO_CODE
 from ui.ui_status_bus import StatusBus
 
 LAUNCHER = REPO / '启动漫剧制作助手.pyw'
@@ -556,15 +558,29 @@ class StartupAnnounceTests(unittest.TestCase):
         self.assertEqual(len(messages), 1)
         text = messages[0].text
         self.assertTrue(text.startswith('【警告】'))
-        self.assertIn('disk-space-low', text)
-        self.assertIn('model-pool-empty', text)
+        # EC-5B：逐项经 SELFCHECK_TO_CODE→describe() 统一出口，自检 code 不再上屏。
+        self.assertIn(describe(SELFCHECK_TO_CODE['disk-space-low']), text)
+        self.assertIn(describe(SELFCHECK_TO_CODE['model-pool-empty']), text)
         self.assertEqual(messages[0].level, 'warning')
+
+    def test_items_render_via_error_code_registry(self):
+        """EC-5B：输出含 [E- 与 （建议： 的登记表文案；未进表的码兜底 E-UNKNOWN。"""
+        messages = self._announce([self._diag('disk-space-low', '磁盘不足'),
+                                   self._diag('app-log-unavailable', '日志装不上')])
+        self.assertEqual(len(messages), 1)
+        text = messages[0].text
+        self.assertTrue(text.startswith('【警告】启动自检：'))
+        self.assertIn('[E-', text)
+        self.assertIn('（建议：', text)
+        self.assertIn(describe('E-IO-WRITE'), text)
+        self.assertIn(describe('E-UNKNOWN'), text)
+        self.assertNotIn('app-log-unavailable', text)
 
     def test_same_code_is_announced_once_per_launch(self):
         messages = self._announce([self._diag('disk-space-low', '第一次'),
                                    self._diag('disk-space-low', '重复')])
         self.assertEqual(len(messages), 1)
-        self.assertEqual(messages[0].text.count('disk-space-low'), 1)
+        self.assertEqual(messages[0].text.count(describe('E-IO-WRITE')), 1)
 
     def test_empty_and_none_items_are_silent(self):
         self.assertEqual(self._announce([]), [])
@@ -755,6 +771,12 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 diagnostics = _load_real('contract.diagnostics',
                                          program_dir + '/contract/diagnostics.py')
                 contract_pkg.diagnostics = diagnostics
+                # EC-5B：状态栏逐项查 SELFCHECK_TO_CODE→error_codes.describe()，
+                # 两张表同挂真实源码，否则 publish_startup_warnings 内 import 被吞、总线为空。
+                contract_pkg.error_codes = _load_real(
+                    'contract.error_codes', program_dir + '/contract/error_codes.py')
+                contract_pkg.selfcheck = _load_real(
+                    'contract.selfcheck', program_dir + '/contract/selfcheck.py')
 
                 infra_pkg = _mod('infra')
                 infra_pkg.__path__ = []
@@ -898,9 +920,9 @@ class AppLogInstallFailureTests(unittest.TestCase):
         recorded = [code for codes in results['selfcheck_records'] for code in codes]
         self.assertIn('app-log-unavailable', recorded)
         self.assertIn('app-log-unavailable', results['window_degraded'])
-        self.assertTrue(any(text.startswith('【警告】') and 'app-log-unavailable' in text
+        self.assertTrue(any(text.startswith('【警告】') and describe('E-UNKNOWN') in text
                             for text in results['bus']),
-                        '状态栏应有一条含 app-log-unavailable 的【警告】：%r' % results['bus'])
+                        '状态栏应有一条含 [E-UNKNOWN] 的【警告】：%r' % results['bus'])
 
     def test_install_retry_success_stays_silent(self):
         """第一次失败、建窗后重试成功：最终已生效，不算降级，不误报。"""
@@ -911,7 +933,8 @@ class AppLogInstallFailureTests(unittest.TestCase):
         recorded = [code for codes in results['selfcheck_records'] for code in codes]
         self.assertNotIn('app-log-unavailable', recorded)
         self.assertNotIn('app-log-unavailable', results['window_degraded'])
-        self.assertFalse(any('app-log-unavailable' in text for text in results['bus']))
+        self.assertFalse(any(text.startswith('【警告】启动自检：')
+                             for text in results['bus']))
 
 
 class FatalManufactureTests(unittest.TestCase):
