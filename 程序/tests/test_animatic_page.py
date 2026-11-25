@@ -215,11 +215,11 @@ def _labels(widget):
 
 
 def _menu_labels(menu):
-    labels = []
     last = menu.index('end')
-    for index in range(0, (last or -1) + 1):
-        labels.append(str(menu.entrycget(index, 'label')))
-    return labels
+    if last is None:
+        return []
+    return [str(menu.entrycget(index, 'label'))
+            for index in range(0, last + 1)]
 
 
 class ParseCommandTests(unittest.TestCase):
@@ -415,6 +415,9 @@ class SendCommandTests(_PageCase):
         self.assertTrue(accepted)
         run.assert_called_once()
         self.assertEqual(self.project, run.call_args[0][0])
+        self.assertEqual(self.source, run.call_args.kwargs['source'],
+                         '整片合成应带当前分镜源，不能让网关猜最近采用')
+        self.assertEqual({}, run.call_args.kwargs['settings'])
 
     def test_typed_redo_only_regenerates_that_shot(self):
         self.show()
@@ -422,7 +425,7 @@ class SendCommandTests(_PageCase):
         with patch('stage_execution_service.regenerate_animatic_shot') as redo:
             accepted = self.page.shared_input.stage_action('animatic')()
         self.assertTrue(accepted)
-        redo.assert_called_once_with(self.project, 'SH001')
+        redo.assert_called_once_with(self.project, 'SH001', settings={})
 
     def test_redo_unknown_shot_stays_local(self):
         self.show()
@@ -461,7 +464,7 @@ class ShotMenuTests(_PageCase):
                  '查看提示词与所用参考图', '写批注'],
                 _menu_labels(menu))
             menu.invoke(0)
-        redo.assert_called_once_with(self.project, 'SH001')
+        redo.assert_called_once_with(self.project, 'SH001', settings={})
 
     def test_replace_image_uses_gateway(self):
         self.show()
@@ -540,6 +543,8 @@ class FilesPanelHookTests(_PageCase):
             result = handler([image, audio, clip])
         refs.assert_called_once()
         self.assertEqual([image], list(refs.call_args[0][1]))
+        self.assertEqual({'characters': [], 'locations': ['LOC_01']}, refs.call_args[1],
+                         '参考图导入必须带分镜角色/场景名，否则全部误归 风格/')
         audio_import.assert_called_once_with(self.project, audio)
         into.assert_called_once()
         self.assertEqual([clip], list(into.call_args[0][2]))
@@ -664,8 +669,10 @@ class PlayAreaTests(_PageCase):
     def test_video_menu_has_external_open(self):
         self.show()
         state = self.state
-        menu = animatic_page.video_context_menu(self.page, state)
-        self.assertIn('用外部播放器打开', _menu_labels(menu))
+        labels = _menu_labels(animatic_page.video_context_menu(self.page, state))
+        self.assertIn('用外部播放器打开', labels)
+        self.assertIn('重新合成新版本', labels)
+        self.assertIn('本地生成参考草图', labels, '播放区右键应常驻草图入口')
 
 
 class TimelineTrackTests(_PageCase):
@@ -688,6 +695,369 @@ class TimelineTrackTests(_PageCase):
                    return_value={'duration': 3.0}):
             animatic_page._render_timeline(self.page, state)
         self.assertNotIn('对白超长', _labels(state['timeline_box']))
+
+    def test_dialogue_within_tolerance_not_marked(self):
+        """REQ-S04-75：超出镜头时长不足容差不算超长。"""
+        self.show()
+        state = self.state
+        state['timeline']['shots'][0]['dialogue_audio'] = '声音/对白/SH001.mp3'
+        with patch('ui.animatic_page.asset_thumbs.media_info',
+                   return_value={'duration': 5.05}):
+            animatic_page._render_timeline(self.page, state)
+        self.assertNotIn('对白超长', _labels(state['timeline_box']))
+
+
+def _shot_row(sid, seconds, **fields):
+    row = {'id': sid, 'title': '镜', 'duration': seconds, 'characters': [],
+           'location': 'LOC_01', 'frame': 'frames/%s.png' % sid,
+           'video_prompt': '提示词' + sid, 'dialogue': []}
+    row.update(fields)
+    return row
+
+
+def _storyboard_named(root, name, shots):
+    """再写一份已采用分镜（文件名与镜头字段可定制），追加进采用清单。"""
+    board = {'episode_id': 'EP001', 'title': '集', 'shots': shots}
+    source = root / '03初步分镜' / '分镜拆分' / name
+    source.parent.mkdir(parents=True, exist_ok=True)
+    source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+    settings_path = root / 'ui_settings.json'
+    try:
+        prefs = json.loads(settings_path.read_text(encoding='utf-8'))
+    except (OSError, ValueError):
+        prefs = {}
+    adopted = list(prefs.get('adopted_storyboards') or [])
+    adopted.append(source.relative_to(root).as_posix())
+    prefs['adopted_storyboards'] = adopted
+    settings_path.write_text(json.dumps(prefs, ensure_ascii=False), encoding='utf-8')
+    return source
+
+
+def _wav(path):
+    """最小合法 WAV：1 秒 8 kHz 单声道静音。"""
+    import struct
+    pcm = b'\0\0' * 8000
+    path.write_bytes(b'RIFF' + struct.pack('<I', 36 + len(pcm)) + b'WAVEfmt '
+                    + struct.pack('<IHHIIHH', 16, 1, 1, 8000, 16000, 2, 16)
+                    + b'data' + struct.pack('<I', len(pcm)) + pcm)
+    return path
+
+
+def _copy_publish(target, source):
+    """不依赖 FFmpeg 的导入发布替身；本组只验证路由与归类，校验链另有专项。"""
+    Path(target).parent.mkdir(parents=True, exist_ok=True)
+    Path(target).write_bytes(Path(source).read_bytes())
+
+
+class ReferenceImportRoutingTests(_PageCase):
+    """P1-1（REQ-S04-71/96）：参考图导入必须带分镜角色/场景名，不能全误归 风格/。"""
+
+    def test_import_lands_character_location_and_style_dirs(self):
+        _storyboard_named(self.project, 'ep_cast.json', [
+            _shot_row('SH007', 6, characters=['林夏'], location='客厅')])
+        self.show()
+        state = self.state
+        for name in ('林夏.png', '客厅.png', '风格.png'):
+            (self.project / name).write_bytes(b'png-' + name.encode('utf-8'))
+        state['import_fn']([self.project / '林夏.png',
+                            self.project / '客厅.png',
+                            self.project / '风格.png'])
+        from contract.stage_path_service import shared_reference_dir
+        folder = shared_reference_dir(self.project)
+        self.assertTrue((folder / '角色' / '林夏.png').is_file(),
+                        '角色名图应进 角色/，导入必须带分镜 characters')
+        self.assertTrue((folder / '场景' / '客厅.png').is_file(),
+                        '场景名图应进 场景/，导入必须带分镜 location')
+        self.assertTrue((folder / '风格' / '风格.png').is_file())
+
+
+class SketchEntryTests(_PageCase):
+    """P1-2（REQ-S04-99/96）：空参考图、无视频时「本地生成参考草图」依然可触达。"""
+
+    def test_video_menu_without_video_offers_sketch_and_generate(self):
+        self.show()
+        labels = _menu_labels(animatic_page.video_context_menu(self.page, self.state))
+        self.assertIn('本地生成参考草图', labels)
+        self.assertIn('生成分镜预演', labels)
+        self.assertNotIn('用外部播放器打开', labels)
+
+    def test_empty_player_binds_context_menu(self):
+        self.show()
+        box = self.state['player_box']
+        self.assertTrue(box.bind('<Button-3>'), '无视频态播放容器应绑右键菜单')
+        self.assertTrue(any(child.bind('<Button-3>') for child in box.winfo_children()),
+                        '无视频态占位控件应绑右键菜单')
+
+    def test_panel_hook_offers_sketch_for_non_reference_file(self):
+        self.show()
+        self.page.settings['animatic_reference_model'] = 'model.safetensors'
+        hook = self.page.files_panel.menus['animatic']
+        menu = ContextMenu(self.win)
+        hook(menu, self.project / 'ui_settings.json')
+        labels = _menu_labels(menu)
+        self.assertIn('本地生成参考草图', labels)
+        self.assertNotIn('修改参考图分类', labels,
+                         '非共享参考图目录内文件不得出现改分类')
+        menu.invoke(labels.index('本地生成参考草图'))
+        entry = next((w for w in _walk(self.page.content) if isinstance(w, LineInput)), None)
+        self.assertIsNotNone(entry, '草图菜单项应展开页内输入条')
+
+
+class RefreshLifecycleTests(_PageCase):
+    """P1-3（REQ-S04-84/98）：重合成后状态不陈旧；切页后迟到回调静默。"""
+
+    with_bundle = True
+
+    def _recompose_v2(self, confirmed=False):
+        """把清单改写成 v002 口径（真实 manifest 形态）。"""
+        from domain.animatic_service import CONFIRMATIONS, MANIFEST, digest
+        folder = self._animatic_bundle
+        manifest = json.loads((folder / MANIFEST).read_text(encoding='utf-8'))
+        (folder / '版本' / 'animatic_v002.mp4').write_bytes(b'video-v2')
+        manifest['video'] = '版本/animatic_v002.mp4'
+        manifest['files'].pop('版本/animatic_v001.mp4', None)
+        manifest['files']['版本/animatic_v002.mp4'] = digest(b'video-v2')
+        manifest['confirmed'] = dict.fromkeys(CONFIRMATIONS, confirmed)
+        (folder / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False),
+                                      encoding='utf-8')
+
+    def test_refresh_after_recompose_resets_version_and_checks(self):
+        self.show()
+        state = self.state
+        for var in state['checks'].values():
+            var.set(True)
+        state['confirmed'] = True  # 模拟 v001 已锁定的旧态
+        self._recompose_v2()
+        animatic_page._refresh(self.page, state)
+        self.assertEqual('animatic_v002', state['version_tag'])
+        self.assertEqual('animatic_v002.mp4', Path(state['video']).name)
+        self.assertFalse(state['confirmed'])
+        self.assertTrue(all(not var.get() for var in state['checks'].values()),
+                        '新版本落地应复位三项确认勾选')
+        segment = self.page.segments['animatic_note'][0]
+        self.assertIn('animatic_v002', segment)
+        self.assertIn('未确认', segment)
+
+    def test_stale_page_refresh_stays_quiet(self):
+        self.show()
+        state = self.state
+        self.page.page_index = 5  # 用户已切到别的页
+        self._recompose_v2()
+        self.page.segments.clear()
+        animatic_page._refresh(self.page, state)
+        self.assertNotIn('animatic_note', self.page.segments,
+                         '切页后迟到回调不得再写状态段')
+        self.assertEqual('animatic_v001', state['version_tag'],
+                         '切页后的回调不得改写本页状态')
+
+
+class StaleCallbackTests(_PageCase):
+    """P1-3：页面失效后异步回调不得再操作界面、写状态段或误建别的页。"""
+
+    def test_dead_frame_callbacks_do_not_raise_or_write(self):
+        frame = self.show()
+        state = self.state
+        frame.destroy()
+        tk_test_support.pump(self.win, .1)
+        self.page.segments.clear()
+        animatic_page._refresh(self.page, state)
+        animatic_page._after_sketch(self.page, state, None)
+        animatic_page._locked(self.page, state)
+        self.assertNotIn('animatic_note', self.page.segments)
+        self.assertEqual([], self.page.reported, '页面已销毁不得上报 pet_report')
+
+    def test_stale_page_never_rebuilds_other_index(self):
+        self.show()
+        state = self.state
+        calls = []
+        self.page.show = lambda index=None: calls.append(index)
+        self.page.page_index = 5  # 页码已切走
+        _animatic_bundle(self.project, state['timeline'])
+        animatic_page._refresh(self.page, state)
+        self.assertEqual([], calls, '页码不匹配不得按旧回调重建任何页')
+
+    def test_live_page_first_version_rebuilds_self(self):
+        self.show()
+        state = self.state
+        calls = []
+        self.page.show = lambda index=None: calls.append(index)
+        _animatic_bundle(self.project, state['timeline'])
+        animatic_page._refresh(self.page, state)
+        self.assertEqual([3], calls, '首个版本落地应重建本页补确认条')
+
+    def test_locked_reports_only_when_project_matches(self):
+        self.show()
+        state = self.state
+        self.page.root = Path(self._temp.name) / 'other'
+        animatic_page._locked(self.page, state)
+        self.assertEqual([], self.page.reported,
+                         '项目已切换不得把别项目页面上报到 pet_report')
+        self.assertTrue(state['confirmed'])
+
+    def test_destroy_releases_without_shared_input(self):
+        self.page.shared_input = None
+        frame = self.show()
+        frame.destroy()
+        tk_test_support.pump(self.win, .1)
+        self.assertEqual('', self.page.segments['animatic_note'][0],
+                         '无共享输入框时销毁也要清状态段')
+        self.assertNotIn('animatic', self.page.files_panel.imports)
+        self.assertNotIn(self.page.page_index, self.page.files_panel.select)
+
+    def test_destroy_after_page_switch_releases_own_handlers(self):
+        frame = self.show()
+        self.page.page_index = 5  # 先切页再销毁：释放仍按建页登记的页码
+        frame.destroy()
+        tk_test_support.pump(self.win, .1)
+        self.assertNotIn(3, self.page.files_panel.select,
+                         '切页后销毁应释放建页时登记的页码，不是按新页码')
+        self.assertNotIn('animatic', self.page.files_panel.imports)
+
+    def test_on_send_delegates_after_stage_switch(self):
+        self.show()
+        shared = self.page.shared_input
+        shared.stage = 'video'  # 共享框已被别的阶段接管
+        with patch('stage_execution_service.regenerate_animatic_shot') as redo:
+            accepted = shared.on_send('只重做 SH001', None)
+        self.assertTrue(accepted)
+        self.assertFalse(redo.called,
+                         '共享框已切到别阶段时，本页 wrapped 应放行给原发送链')
+
+
+class SettingsPassthroughTests(_PageCase):
+    """P1-4（REQ-S04-78）：合成与单镜重做必须透传设置与当前分镜源；worker 忙拒重入。"""
+
+    def test_generate_passes_settings_and_current_source(self):
+        self.show()
+        self.page.settings.update({'animatic_sketch_backend': 'backend_x',
+                                   'animatic_allow_paid_sketch': True,
+                                   'comfy_url': 'http://127.0.0.1:9',
+                                   'ffmpeg': 'f', 'ffprobe': 'p'})
+        with patch('stage_execution_service.run_animatic_timeline') as run:
+            accepted = animatic_page.run_command(self.page, self.state, '')
+        self.assertTrue(accepted)
+        run.assert_called_once()
+        kwargs = run.call_args.kwargs
+        self.assertEqual(self.source, kwargs['source'])
+        settings = kwargs['settings']
+        self.assertEqual('backend_x', settings['animatic_sketch_backend'])
+        self.assertTrue(settings['animatic_allow_paid_sketch'])
+        self.assertEqual('f', settings['ffmpeg'])
+        self.assertEqual('p', settings['ffprobe'])
+        self.assertEqual('http://127.0.0.1:9', settings['url'],
+                         'comfy_url 应映射为网关约定的 url 键')
+
+    def test_redo_passes_settings(self):
+        self.show()
+        self.page.settings.update({'animatic_sketch_backend': 'backend_x',
+                                   'comfy_url': 'http://c:1'})
+        with patch('stage_execution_service.regenerate_animatic_shot') as redo:
+            accepted = animatic_page.run_command(self.page, self.state, '只重做 SH001')
+        self.assertTrue(accepted)
+        kwargs = redo.call_args.kwargs
+        self.assertEqual('backend_x', kwargs['settings']['animatic_sketch_backend'])
+        self.assertEqual('http://c:1', kwargs['settings']['url'])
+
+    def test_worker_busy_rejects_run(self):
+        self.show()
+        self.page.worker = True
+        with patch('stage_execution_service.run_animatic_timeline') as run:
+            accepted = animatic_page.run_command(self.page, self.state, '')
+        self.assertFalse(accepted)
+        self.assertFalse(run.called)
+        self.assertTrue(any('等待' in message for message in self.page.status.messages),
+                        'worker 占用时应提示等待而不是再派一单')
+
+    def test_worker_busy_rejects_redo(self):
+        self.show()
+        self.page.worker = True
+        with patch('stage_execution_service.regenerate_animatic_shot') as redo:
+            accepted = animatic_page.run_command(self.page, self.state, '只重做 SH001')
+        self.assertFalse(accepted)
+        self.assertFalse(redo.called)
+
+
+class BoardSwitchTests(_PageCase):
+    """P1-5：切换已采用分镜后 source/board/版本事实全部同步到新分镜。"""
+
+    def test_select_board_swaps_source_board_and_import_routing(self):
+        self.show()
+        state = self.state
+        source_b = _storyboard_named(self.project, 'ep_b.json', [
+            _shot_row('SH009', 4, characters=['丙丁'], location='书房',
+                      video_prompt='分镜B提示词')])
+        state['select_fn'](source_b)
+        self.assertEqual('03初步分镜/分镜拆分/ep_b.json', state['source'],
+                         '切分镜后 source 必须跟着换，否则合成与导入还用旧板')
+        animatic_page._show_shot_info(self.page, state, state['timeline']['shots'][0])
+        self.assertIn('分镜B提示词', str(state['info_label'].cget('text')))
+        (self.project / '丙丁.png').write_bytes(b'png-b')
+        state['import_fn']([self.project / '丙丁.png'])
+        from contract.stage_path_service import shared_reference_dir
+        self.assertTrue((shared_reference_dir(self.project) / '角色' / '丙丁.png').is_file(),
+                        '切分镜后导入应按新分镜角色归位')
+
+
+class AudioImportRouteTests(_PageCase):
+    """P1-6（REQ-S04-74/76/96）：整轨优先；面板音频落在合成实际读取的子目录。"""
+
+    def test_track_audio_lands_in_track_dir_and_sets_mode(self):
+        self.show()
+        state = self.state
+        with patch('orchestrator.stage_animatic_gateways.media_import_publisher',
+                   return_value=_copy_publish):
+            state['import_fn']([_wav(self.project / 'voice.wav')])
+        from contract.stage_path_service import write_dir
+        folder = write_dir(self.project, 'animatic')
+        self.assertEqual(1, len(list((folder / '声音' / '整轨').glob('*.wav'))),
+                         '面板导入整轨音频必须落 声音/整轨/ 才会被合成读取')
+        self.assertEqual('整轨', animatic_page._audio_mode(state))
+
+    def test_music_audio_lands_in_music_dir(self):
+        self.show()
+        state = self.state
+        with patch('orchestrator.stage_animatic_gateways.media_import_publisher',
+                   return_value=_copy_publish):
+            state['import_fn']([_wav(self.project / 'bgm.wav')])
+        from contract.stage_path_service import write_dir
+        folder = write_dir(self.project, 'animatic')
+        self.assertEqual(1, len(list((folder / '声音' / '音乐').glob('*.wav'))),
+                         'bgm/音乐 文件名应落 声音/音乐/')
+        self.assertEqual('已导入', animatic_page._music_text(state))
+        self.assertEqual('静音', animatic_page._audio_mode(state),
+                         '只有音乐不该误报为整轨')
+
+    def test_explicit_track_param_routes(self):
+        import stage_execution_service
+        with patch('orchestrator.stage_animatic_gateways.media_import_publisher',
+                   return_value=_copy_publish):
+            result = stage_execution_service.import_animatic_audio(
+                self.project, _wav(self.project / 'voice.wav'), track='music')
+        from contract.stage_path_service import write_dir
+        self.assertTrue(result.ok)
+        self.assertTrue(Path(result.data).is_relative_to(
+            write_dir(self.project, 'animatic') / '声音' / '音乐'),
+            'track= music 必须落 声音/音乐/')
+
+    def test_track_dir_beats_dialogue_audio(self):
+        self.show()
+        state = self.state
+        from contract.stage_path_service import write_dir
+        folder = write_dir(self.project, 'animatic') / '声音' / '整轨'
+        folder.mkdir(parents=True)
+        (folder / 'v.wav').write_bytes(b'x')
+        state['timeline']['shots'][0]['dialogue_audio'] = '声音/对白/a.mp3'
+        self.assertEqual('整轨', animatic_page._audio_mode(state),
+                         '整轨目录有文件时必须优先于逐镜 TTS')
+
+    def test_music_dir_is_not_reported_as_track(self):
+        self.show()
+        state = self.state
+        from contract.stage_path_service import write_dir
+        folder = write_dir(self.project, 'animatic') / '声音' / '音乐'
+        folder.mkdir(parents=True)
+        (folder / 'b.wav').write_bytes(b'x')
+        self.assertEqual('静音', animatic_page._audio_mode(state))
 
 
 if __name__ == '__main__':

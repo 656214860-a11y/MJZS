@@ -75,14 +75,35 @@ def _safe_call(page, work):
 
 
 def _run_async(page, work, done=None, label=None):
-    """统一经宿主 ``async_`` 后台执行；孤立假宿主没有时退化为同步。"""
+    """统一经宿主 ``async_`` 后台执行；worker 占用拒绝重入。返回是否已受理。"""
+    if getattr(page, 'worker', None):
+        page.status.set('请等待当前任务完成')
+        return False
     runner = getattr(page, 'async_', None)
     if callable(runner):
         runner(work, done, label=label)
-        return
+        return True
     result = _safe_call(page, work)
     if callable(done):
         done(result)
+    return True
+
+
+def _animatic_settings(page):
+    """页面设置浅拷贝：comfy_url 映射为网关约定的 url，其余键原样透传。"""
+    settings = dict(getattr(page, 'settings', None) or {})
+    if 'comfy_url' in settings and 'url' not in settings:
+        settings['url'] = settings['comfy_url']
+    return settings
+
+
+def _is_alive(page, state):
+    """页面框还在且仍是当前页码才允许写界面——切页后迟到的回调一律静默。"""
+    frame = state.get('frame')
+    if frame is None or not _quiet(frame.winfo_exists, False):
+        return False
+    index = state.get('page_index')
+    return index is None or getattr(page, 'page_index', None) == index
 
 
 # ── 页面状态：分镜板、版本、清单、镜头图版本 ─────────────────────────────────
@@ -148,15 +169,29 @@ def _shot_image(state, shot_id, version):
     return fallback
 
 
+def _board_names(board):
+    """分镜表里去重的角色与场景名，供参考图导入自动归类。"""
+    characters, locations = [], []
+    for row in (board or {}).values():
+        if not isinstance(row, dict):
+            continue
+        for name in row.get('characters') or ():
+            if name and name not in characters:
+                characters.append(name)
+        location = row.get('location')
+        if location and location not in locations:
+            locations.append(location)
+    return characters, locations
+
+
 def _audio_mode(state):
     shots = (state.get('timeline') or {}).get('shots') or []
+    root = write_dir(state['project'], 'animatic')
+    track = root / animatic_audio.SUBDIRS['track']
+    if track.is_dir() and any(track.iterdir()):
+        return '整轨'
     if any(isinstance(row, dict) and row.get('dialogue_audio') for row in shots):
         return '逐镜 TTS'
-    root = write_dir(state['project'], 'animatic')
-    for key in ('track', 'music'):
-        folder = root / animatic_audio.SUBDIRS[key]
-        if folder.is_dir() and any(folder.iterdir()):
-            return '整轨'
     if (state.get('manifest') or {}).get('audio'):
         return '整轨'
     return '静音'
@@ -181,7 +216,7 @@ def _build_confirm_bar(page, state):
     bar = ttk.Frame(state['frame'])
     bar.pack(side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none']))
     for key, label in _CHECK_LABELS:
-        var = BooleanVar(value=False)
+        var = BooleanVar(value=bool(state.get('confirmed')))
         ttk.Checkbutton(bar, text=label, variable=var).pack(
             side='left', padx=(SPACING['none'], SPACING['sm']))
         state['checks'][key] = var
@@ -194,6 +229,7 @@ def _build_player(page, state):
     box = ttk.Frame(state['frame'])
     box.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
     state['player_box'] = box
+    box.bind('<Button-3>', lambda event: video_context_menu(page, state).popup(event))
     if state['video'] is not None:
         cover = asset_thumbs.media_thumbnail(box, state['video'], size=160)
         if cover is not None:
@@ -222,6 +258,9 @@ def _build_player(page, state):
         view.pack(anchor='w')
     else:
         ttk.Label(box, text='尚未生成分镜预演；底栏发送键直接合成').pack(anchor='w')
+    for widget in box.winfo_children():
+        widget.bind('<Button-3>',
+                    lambda event: video_context_menu(page, state).popup(event))
 
 
 def _build_tracks(page, state):
@@ -291,7 +330,7 @@ def _dialogue_cell(state, bar, row):
     info = asset_thumbs.media_info(Path(state['project']) / clip)
     duration = float((info or {}).get('duration') or 0)
     ttk.Label(bar, text='%s 对白 %.1f 秒' % (sid, duration)).pack(side='left')
-    if duration > float(row.get('seconds') or 0):
+    if duration > float(row.get('seconds') or 0) + animatic_audio.OVERLONG_TOLERANCE_SECONDS:
         HintLabel(bar, text='对白超长').pack(side='left')
 
 
@@ -335,18 +374,23 @@ def _open_inline_edit(page, state, label, initial, apply):
 # ── 动作：发送键指令、单镜操作、锁定、外部播放 ────────────────────────────────
 
 def _refresh(page, state):
-    """网关落盘之后刷新页面事实：时间线重载、时间线与摘要重画。"""
+    """网关落盘之后刷新页面事实：页面失效即静默；版本变化时重建本页。"""
+    if not _is_alive(page, state):
+        return
     fresh = _safe_call(
         page, lambda: stage_execution_service.load_or_sync_animatic_timeline(state['project']))
     if isinstance(fresh, dict):
         state['timeline'] = fresh
-    video = _playable_video(state['project'])
-    if video is not None and state.get('video') is None:
-        state['video'] = video
-        reopen = getattr(page, 'show', None)
-        if callable(reopen):  # 首个版本出来要补确认条：真宿主整页重建
-            reopen(getattr(page, 'page_index', None))
-            return
+    previous = state.get('video')
+    state['video'] = _playable_video(state['project'])
+    state['manifest'] = _manifest(state['project'])
+    state['version_tag'] = _version_tag(state['video'], state['manifest'])
+    state['confirmed'] = _confirmed(state['manifest'])
+    for var in state['checks'].values():
+        var.set(bool(state['confirmed']))
+    if state['video'] != previous and callable(getattr(page, 'show', None)):
+        page.show(state.get('page_index'))  # 版本变化要换确认条：真宿主整页重建
+        return
     _render_timeline(page, state)
     _update_summary(page, state)
 
@@ -363,9 +407,10 @@ def _update_summary(page, state):
 
 
 def _redo_shot(page, state, shot_id):
-    _run_async(
+    return _run_async(
         page,
-        lambda: stage_execution_service.regenerate_animatic_shot(state['project'], shot_id),
+        lambda: stage_execution_service.regenerate_animatic_shot(
+            state['project'], shot_id, settings=_animatic_settings(page)),
         lambda _result: _refresh(page, state), label='正在重做 %s' % shot_id)
 
 
@@ -420,15 +465,16 @@ def _apply_sketch(page, state, value):
         page.status.set('请先在设置里配置参考图模型名')
         return False
     url = settings.get('comfy_url')
-    _run_async(
+    return _run_async(
         page,
         lambda: stage_execution_service.generate_animatic_reference(
             state['project'], prompt, model, {'url': url} if url else {}),
         lambda result: _after_sketch(page, state, result), label='正在生成参考草图…')
-    return True
 
 
 def _after_sketch(page, state, result):
+    if not _is_alive(page, state):
+        return
     ok = getattr(result, 'ok', result is not None)
     if ok:
         page.status.set('已生成共享参考草图')
@@ -461,9 +507,11 @@ def _lock(page, state):
 
 
 def _locked(page, state):
+    if not _is_alive(page, state):
+        return
     page.status.set('分镜预演已锁定，可以进入资产管理')
     report = getattr(page, 'pet_report', None)
-    if callable(report):
+    if getattr(page, 'root', None) == state['project'] and callable(report):
         report('animatic', '节奏、时长与对白同步均已确认')
     state['confirmed'] = True
     _update_summary(page, state)
@@ -487,13 +535,13 @@ def run_command(page, state, text):
         if not any(str(row.get('id')) == shot_id for row in shots):
             page.status.set('时间线没有此镜头：%s' % shot_id)
             return False
-        _redo_shot(page, state, shot_id)
-        return True
-    _run_async(
+        return _redo_shot(page, state, shot_id)
+    source = Path(state['project']) / state['source'] if state.get('source') else None
+    return _run_async(
         page,
-        lambda: stage_execution_service.run_animatic_timeline(state['project']),
+        lambda: stage_execution_service.run_animatic_timeline(
+            state['project'], source=source, settings=_animatic_settings(page)),
         lambda _result: _refresh(page, state), label='正在合成分镜预演…')
-    return True
 
 
 # ── 右键菜单：镜头格六项＋播放区一项＋参考图挂钩 ──────────────────────────────
@@ -520,10 +568,15 @@ def shot_context_menu(page, state, row):
 
 
 def video_context_menu(page, state):
-    """播放区右键：「用外部播放器打开」（REQ-S04-96）＋「重新合成新版本」（REQ-S04-84）。"""
+    """播放区右键：草图入口常驻（REQ-S04-99）；按有无版本给播放或生成项。"""
     menu = ContextMenu(page.win)
-    menu.command('用外部播放器打开', lambda: state['open_video']())
-    menu.command('重新合成新版本', lambda: run_command(page, state, '重新合成'))
+    if state.get('video') is not None:
+        menu.command('用外部播放器打开', lambda: state['open_video']())
+        menu.command('重新合成新版本', lambda: run_command(page, state, '重新合成'))
+    else:
+        menu.command('生成分镜预演', lambda: run_command(page, state, ''))
+    menu.command('本地生成参考草图', lambda: _open_inline_edit(
+        page, state, '草图描述', '', lambda value: _apply_sketch(page, state, value)))
     return menu
 
 
@@ -535,7 +588,7 @@ def _reclassify(page, state, path, category):
 
 
 def _reference_menu_hook(page, state):
-    """DES-S04-25：参考图右键挂钩；只认共享参考图目录里的图片。"""
+    """DES-S04-25：参考图右键挂钩；草图常驻，改分类只认共享参考图目录里的图片。"""
     def hook(menu, ref):
         path = Path(ref)
         try:
@@ -543,13 +596,12 @@ def _reference_menu_hook(page, state):
                 shared_reference_dir(state['project']).resolve())
         except (OSError, ValueError):
             inside = False
-        if not inside or path.suffix.lower() not in file_index.IMAGE_SUFFIXES:
-            return
-        submenu = menu.submenu()
-        for category in CATEGORIES:
-            submenu.command(category, lambda pick=category:
-                            _reclassify(page, state, path, pick))
-        menu.cascade('修改参考图分类', submenu)
+        if inside and path.suffix.lower() in file_index.IMAGE_SUFFIXES:
+            submenu = menu.submenu()
+            for category in CATEGORIES:
+                submenu.command(category, lambda pick=category:
+                                _reclassify(page, state, path, pick))
+            menu.cascade('修改参考图分类', submenu)
         menu.command('本地生成参考草图', lambda: _open_inline_edit(
             page, state, '草图描述', '', lambda value: _apply_sketch(page, state, value)))
     return hook
@@ -571,9 +623,10 @@ def _import_files(page, state, paths):
             rest.append(path)
     result = {'imported': [], 'skipped': [], 'rejected': []}
     if images:
+        characters, locations = _board_names(state.get('board'))
         imported = _safe_call(
             page, lambda: stage_execution_service.import_animatic_reference_library(
-                state['project'], images))
+                state['project'], images, characters=characters, locations=locations))
         result['imported'].extend(imported or ())
     for audio in audios:
         outcome = _safe_call(
@@ -602,6 +655,14 @@ def _select_board(page, state, path):
             state['project'], target))
     if isinstance(fresh, dict):
         state['timeline'] = fresh
+        state['source'] = str(fresh.get('source') or '')
+        state['board'] = _load_board(state['project'], state['source'])
+        state['video'] = _playable_video(state['project'])
+        state['manifest'] = _manifest(state['project'])
+        state['version_tag'] = _version_tag(state['video'], state['manifest'])
+        state['confirmed'] = _confirmed(state['manifest'])
+        for var in state['checks'].values():
+            var.set(bool(state['confirmed']))
         _render_timeline(page, state)
         _update_summary(page, state)
 
@@ -622,7 +683,7 @@ def _release_panel(page, state):
     panel = getattr(page, 'files_panel', None)
     if panel is None:
         return
-    index = getattr(page, 'page_index', None)
+    index = state.get('page_index')
     if _registered_select(panel, index, state.get('select_fn')):
         setter = getattr(panel, 'set_select_handler', None)
         if callable(setter):
@@ -662,29 +723,29 @@ def _register_send_key(page, state):
     """底栏发送键：空＝生成；自由文本＝本地指令；斜杠命令交还原发送链。"""
     shared = getattr(page, 'shared_input', None)
     register = getattr(shared, 'set_stage_action', None)
-    if not callable(register):
-        return
+    action, wrapped, previous = None, None, None
+    if callable(register):
+        def action():
+            return run_command(page, state, shared.text())
+        register('animatic', action)
+        previous = getattr(shared, 'on_send', None)
 
-    def action():
-        return run_command(page, state, shared.text())
+        def wrapped(value, parsed):
+            ours = getattr(shared, 'stage', 'animatic') == 'animatic'
+            if str(value or '').strip().startswith('/') or not ours:
+                return previous(value, parsed) if callable(previous) else True
+            accepted = run_command(page, state, value)
+            if accepted:
+                shared.end_request()
+            return accepted
 
-    register('animatic', action)
-    previous = getattr(shared, 'on_send', None)
-
-    def wrapped(value, parsed):
-        if str(value or '').strip().startswith('/'):
-            return previous(value, parsed) if callable(previous) else True
-        accepted = run_command(page, state, value)
-        if accepted:
-            shared.end_request()
-        return accepted
-
-    shared.on_send = wrapped
+        shared.on_send = wrapped
 
     def release(_event=None):
-        if getattr(shared, 'on_send', None) is wrapped:
+        if wrapped is not None and getattr(shared, 'on_send', None) is wrapped:
             shared.on_send = previous
-        if getattr(shared, 'stage_action', lambda _s: None)('animatic') is action:
+        if callable(register) and getattr(
+                shared, 'stage_action', lambda _s: None)('animatic') is action:
             register('animatic', None)
         setter = getattr(page, 'set_status_segment', None)
         if callable(setter):
@@ -700,6 +761,7 @@ def _new_state(page, frame, project, timeline):
     video = _playable_video(project)
     manifest = _manifest(project)
     state = {'page': page, 'frame': frame, 'project': project,
+             'page_index': getattr(page, 'page_index', None),
              'source': str(timeline.get('source') or ''),
              'timeline': timeline, 'board': {}, 'video': video,
              'manifest': manifest,

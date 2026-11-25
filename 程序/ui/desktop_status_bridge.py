@@ -77,6 +77,6 @@ class StatusBridgeMixin:
 
     def clear_page_segments(self):
         """换页时清空页面专用段并解除其 StringVar 绑定（page/path/用量指示器为全局常驻）。"""
-        for key in ('usage','script_note','storyboard','video_model','video'):
+        for key in ('usage','script_note','storyboard','video_model','video','animatic_note'):
             self.status_bar.clear_segment(key)
             self._unbind_status_segment(key)
