@@ -1256,7 +1256,9 @@ class BriefTintTests(unittest.TestCase):
         self.assertEqual(str(box.cget("fg")), COLORS['text_primary'], "用户输入始终使用正文颜色")
 
 class ContentBoxFitTests(unittest.TestCase):
-    """第 65 期任务 7：点内容框先看到全部内容——框子按文字撑开，只长不缩。"""
+    """第 65 期任务 7：点内容框先看到全部内容——框子按文字撑开。
+    R4396（UX-INPUT-FLOW／REQ-S01-107）：共享输入框按内容在 TEXT_ROWS['sm']→['xl']
+    间自动伸缩，超限部分框内滚动，不丢内容。"""
 
     @classmethod
     def setUpClass(cls):
@@ -1292,14 +1294,15 @@ class ContentBoxFitTests(unittest.TestCase):
         win.update()
 
     def test_a_long_creative_box_grows_when_clicked(self):
-        # R2923：共享输入框固定行数，长内容在框内滚动，不再按内容撑高。
+        # R4396 契约同步（上游 UX-INPUT-FLOW／REQ-S01-107）：共享输入框按内容自动撑高，
+        # 上限 TEXT_ROWS['xl']，超出部分框内滚动；保留不变量——短内容保持最小行数、内容不丢。
         from ui_tokens import TEXT_ROWS
         win, d = self.build()
         box = d.idea_input
-        before = int(box.cget("height"))
+        self.assertEqual(int(box.cget("height")), TEXT_ROWS["sm"], "空框保持最小行数")
         self.fill(win, box, 30)
-        self.assertEqual(int(box.cget("height")), before, "共享输入框不随内容撑高")
-        self.assertEqual(before, TEXT_ROWS["sm"])
+        self.assertEqual(int(box.cget("height")), TEXT_ROWS["xl"],
+                         "长内容撑高到上限后框内滚动")
         self.assertIn("第30行 内容", str(box.get("1.0", "end-1c")), "内容全部保留在框内")
 
     def test_a_short_box_keeps_its_height(self):
@@ -1310,7 +1313,9 @@ class ContentBoxFitTests(unittest.TestCase):
         self.assertEqual(int(box.cget("height")), TEXT_ROWS["sm"], "字少的框不缩水")
 
     def test_a_very_long_composer_stays_within_the_responsive_limit(self):
-        """长创意不能再把发送操作和文件表挤出当前窗口：共享框固定行数。"""
+        """长创意不能再把发送操作和文件表挤出当前窗口：共享框自动撑高但以 TEXT_ROWS['xl'] 封顶。
+
+        R4396（UX-INPUT-FLOW／REQ-S01-107）契约同步；保留不变量——有上限、不丢内容。"""
         from ui_tokens import TEXT_ROWS
         win, d = self.build()
         box = d.idea_input
@@ -1318,7 +1323,9 @@ class ContentBoxFitTests(unittest.TestCase):
         d._fit_composer()
         win.update()
         fitted_height = int(box.cget("height"))
-        self.assertLessEqual(fitted_height, TEXT_ROWS["sm"])
+        self.assertLessEqual(fitted_height, TEXT_ROWS["xl"])
+        self.assertGreater(fitted_height, TEXT_ROWS["sm"],
+                           "长内容把共享输入框撑高到接近上限")
         self.assertIn("第200行 内容", str(box.get("1.0", "end-1c")),
                       "高度受限不许丢失用户已经输入的长内容")
 
@@ -1390,19 +1397,23 @@ class TalkBoxFitTests(unittest.TestCase):
             self.assertTrue(shared.send_button.winfo_ismapped(), geometry + " 「发送」得真摆在画面上")
 
     def test_a_shrunk_box_grows_back_only_up_to_the_window(self):
-        """R2923 契约：剧本页输入框=共享实例，固定行数，内容只在框内保留。"""
+        """R4396 契约同步（上游 UX-INPUT-FLOW／REQ-S01-107）：剧本页输入框=共享实例，
+        按内容在 TEXT_ROWS['sm']→['xl'] 间自动伸缩，删短回落最小行数；
+        保留不变量——共享实例同一性、不丢内容。"""
         from ui_tokens import TEXT_ROWS
         win, d = self.build("1100x760+40+40")
         box = d.idea_input
         self.assertIs(box, d.shared_input.input, "剧本页输入框就是共享实例")
         self.assertTrue(d.shared_input.winfo_ismapped(), "剧本准备页显示共享输入框")
-        tall = int(box.cget("height"))
-        self.assertEqual(tall, TEXT_ROWS["sm"])
+        self.assertEqual(int(box.cget("height")), TEXT_ROWS["sm"], "短内容保持最小行数")
         box.insert("end", "\n" + "\n".join("第%d 行的想法" % i for i in range(1, 26)))
         win.update(); d._fit_talk(); win.update()
-        self.assertEqual(int(box.cget("height")), tall, "内容多了共享输入框不撑高（框内滚动）")
+        grown = int(box.cget("height"))
+        self.assertGreater(grown, TEXT_ROWS["sm"], "内容多了共享输入框自动撑高")
+        self.assertLessEqual(grown, TEXT_ROWS["xl"], "增高以 xl 封顶，其余框内滚动")
         box.delete("1.0", "end"); box.insert("1.0", "一句话的创意")
         win.update(); d._fit_talk(); win.update()
+        self.assertEqual(int(box.cget("height")), TEXT_ROWS["sm"], "删短后回落最小行数")
         self.assertIn("一句话的创意", str(box.get("1.0", "end-1c")))
 
 class PageHintTests(unittest.TestCase):

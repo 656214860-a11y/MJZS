@@ -1135,9 +1135,12 @@ class SendMessageTests(_Harness):
             tree = d.script_tree
             self.assertEqual(tree.heading('name')['text'], '文件名')
             self.assertTrue(tree.winfo_ismapped())
-            # 根目录的说明文件不属于剧本准备阶段，所以这里的列表是真的空：空态提示不能盖住表头和对话区。
+            # 根目录的说明文件不属于剧本准备阶段，所以这里的列表是真的空。
+            # R4386 契约同步：空阶段展示「当前阶段暂无文件」空态（文案由
+            # test_files_panel_stages 守护）；保留的不变量——表头行区判定与聊天区可见性不变。
             self.assertEqual(tree.get_children(), (), '剧本准备阶段没有用户文件时列表为空')
-            self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '空态不能遮住标题栏')
+            self.assertTrue(tree._data_table.empty_label.winfo_ismapped(), '空阶段要显示空态')
+            self.assertEqual(str(tree._data_table.empty_label.cget('text')), '当前阶段暂无文件')
             self.assertEqual(tree.identify_region(4, 4), 'heading', '列表为空时表头仍显示在表格顶部')
             assert_chat_usable()
             # 「全部阶段」索引项目内可见文件；没有剧本不等于索引没有任何行。
@@ -1554,6 +1557,31 @@ class SendMessageTests(_Harness):
             self.assertFalse(archived.exists())
             self.assertEqual(self.attachment_ref_lines(d), [])
             self.assertIn('原始文件未删除', d.status.get())
+
+    def test_clearing_references_keeps_user_typed_lines(self):
+        # REQ-S01-107：清空引用只移除同步写入的「@名」行；
+        # 用户手写正文与手打 @ 行（未带 idea_ref 标签）必须原样保留。
+        from stage_execution_service import archive_idea_attachments
+        from domain.idea_attachments import display_name
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_minimal_project(td)
+            source = Path(td) / '角色设定.txt'
+            source.write_text('角色设定', encoding='utf-8')
+            archived = archive_idea_attachments(proj, (source,))[0]
+            d, win = self.desktop(proj)
+            d.show(0); self.settle_script_page(win)
+            d.idea_attachment_paths = (archived,)
+            d.update_idea_attachment_status(); win.update()
+            d.idea_input.insert('end', '手写正文要留下\n@手打的引用行')
+            win.update()
+            d.idea_attachment_paths = ()
+            d.update_idea_attachment_status(); win.update()
+            self.assertNotIn('@' + display_name(archived),
+                             d.idea_input.get('1.0', 'end-1c'),
+                             '同步写入的 @ 行在清空引用后必须删除')
+            self.assertEqual(d.idea_input.get('1.0', 'end-1c'),
+                             '手写正文要留下\n@手打的引用行',
+                             '清空引用不得误删用户手写正文与其他 @ 行')
 
     def test_uploaded_attachments_are_ordered_and_openable(self):
         # REQ-S01-71（R3060 改版）：引用区按引用顺序每附件一行；右键 @ 行可打开原件、删项目副本。
