@@ -1,0 +1,15 @@
+{
+  "round": 4508,
+  "commit_base": "889fd7968",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_skills test_skill_templates test_skill_orchestrator_completion test_stage_exec test_script_autosave test_desktop_async_tasks",
+    "exit": 0,
+    "passed": 169,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T20:53:48"
+}

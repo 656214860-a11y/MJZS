@@ -689,116 +689,9 @@ class Orchestrator:
         return row
 
     def run_stage_with_template(self, stage_id, context=None, names=None, mode='manual', wait_for_user=None,
-                                broadcast=None, execute_action=None, start_step=1, _prior=None):
-        """载入阶段模板，以其业务步骤驱动已启用 SKILL 或注入的动作执行器。
-
-        ``execute_action`` 是给页面适配器和回归测试的明确动作边界；缺省时仍执行注册表中
-        该阶段已启用的全部 SKILL，不因四步业务模板而遗失第五项细粒度工作。
-        """
-        template = skill_templates.load_template(stage_id)
-        context = dict(context or {})
-        emit = broadcast if callable(broadcast) else (lambda text: None)
-        manual = mode != 'auto'
-        try:
-            start_step = int(start_step)
-        except (TypeError, ValueError):
-            start_step = 1
-        start_step = min(max(start_step, 1), len(template.steps) + 1)
-        # R2905：names=None 才表示「没指定」→ 该阶段全部已启用 SKILL；显式空表
-        # 是「一个都没勾」，绝不能回退成全跑——那会让取消勾选形同虚设。
-        selected = [item for item in (names if names is not None
-                                      else [row.name for row in self.registry.getByStage(template.stage_id)])
-                    if self.skill(item) is not None and self.skill(item).stage == template.stage_id]
-        if not callable(execute_action) and not selected:
-            message = '【阻塞】%s 未启用可执行 SKILL' % template.name
-            emit(message)
-            return Run({'ok': False, 'results': [], 'failed': [], 'errors': [message], 'text': message})
-        stage_number = list(pet_bus.STAGES).index(template.stage_id) + 1
-        emit('【阶段 %d/%d】%s' % (stage_number, len(pet_bus.STAGES), template.name))
-        if not callable(execute_action):
-            dag = self.buildDAG(selected)
-            if dag['problems']:
-                message = '【阻塞】' + '；'.join(dag['problems'])
-                emit(message)
-                return Run({'ok': False, 'results': [], 'failed': [], 'errors': dag['problems'], 'text': message})
-            selected = dag['order']
-        groups = skill_templates.step_groups(selected, len(template.steps))
-        if not callable(execute_action):
-            completed = {row['skill'] for row in (_prior or {}).get('results', [])
-                         if row.get('status') == DONE and row.get('skill')}
-            remaining = [name for group in groups[start_step-1:] for name in group if name not in completed]
-            check = self.validate(remaining, context)
-            for item in check['missing_deps']:
-                dep = item['missing']
-                if dep not in selected and self.skill(dep).stage == template.stage_id:
-                    check['errors'].append('%s 缺少已启用的前置步骤 %s' % (item['skill'], dep))
-            if check['errors']:
-                message = '【阻塞】' + '；'.join(check['errors'])
-                emit(message)
-                return Run({'ok': False, 'results': [], 'failed': [], 'errors': check['errors'],
-                            'outcome': BUDGET if check['over_budget'] else 'invalid', 'text': message})
-        results = [row for row in (_prior or {}).get('results', []) if row.get('status') == DONE]
-        skipped = list((_prior or {}).get('skipped', []))
-        failed = []
-        skipped_skills = {name for step, group in zip(template.steps, groups) if step.name in skipped
-                          for name in group}
-        for step, group in zip(template.steps, groups):
-            if step.index < start_step:
-                continue
-            emit('【步骤 %d/%d】%s' % (step.index, len(template.steps), step.name))
-            if step.needs_confirmation and manual and not (_prior and step.index == start_step):
-                question = step.question.format(count=context.get('count', 0))
-                emit('【门禁】%s' % question)
-                answer = str(wait_for_user(question) if callable(wait_for_user) else '').strip()
-                if answer not in ('确认', '需要', '继续', '是', 'yes', 'YES', 'Yes'):
-                    skipped.append(step.name)
-                    skipped_skills.update(group)
-                    emit('【警告】未确认，已跳过%s' % step.name)
-                    continue
-            try:
-                self.before_step(template.stage_id, step, [str(name) for name in group])
-                step_context = dict(context, _template_step=step)
-                if callable(execute_action):
-                    outcome = execute_action(step.action, step_context)
-                    rows = [outcome]
-                else:
-                    rows = []
-                    for name in group:
-                        if name in completed:
-                            continue
-                        unmet = skipped_skills.intersection(self._deps(name))
-                        row = (self._result(name, BLOCKED, False, detail='未确认前置步骤：' + '、'.join(sorted(unmet)))
-                               if unmet else self.execute(name, step_context))
-                        rows.append(row)
-                        if row['status'] != DONE:
-                            break
-            except (OSError, TypeError, ValueError) as exc:
-                rows = [self._result(step.action, FAILED, False, detail=str(exc))]
-            results.extend(rows)
-            bad = [row for row in rows if isinstance(row, dict)
-                   and (not row.get('ok', False) or row.get('status', DONE) != DONE)]
-            if bad:
-                failed.extend(bad)
-                detail = skill_templates.step_summary(bad)
-                emit('【阻塞】%s：%s' % (step.name, detail))
-                break
-            emit('【完成】%s：%s' % (step.name, skill_templates.step_summary(rows)))
-        ok = not failed and not skipped
-        text = ('%s已完成' % template.name) if ok else ('%s未完成' % template.name)
-        if ok:
-            self.clear_checkpoint(template.stage_id)
-            emit('【完成】%s' % text)
-        run = Run({'ok': ok, 'results': results, 'failed': failed, 'skipped': skipped,
-                   'errors': [row.get('detail', '') for row in failed], 'text': text,
-                   'template': str(template.path)})
-        run.orchestrator, run.context = self, context
-        run['pending'] = [row for row in failed if row.get('status') == PENDING]
-        if run['pending'] and not callable(execute_action):
-            def resume(approved_context):
-                return self.run_stage_with_template(stage_id, approved_context, selected, mode, wait_for_user,
-                                                    broadcast, start_step=step.index, _prior=run)
-            run.resume_template = resume
-        return run
+                                broadcast=None, execute_action=None, start_step=1):
+        runner = _StageTemplateRun(self, stage_id, mode, wait_for_user, broadcast, execute_action)
+        return runner.run(context, names, start_step)
 
     # ── 五、按层跑完一批 ────────────────────────────────────────────────────
     def run(self, ids, context=None, trigger=None):
@@ -972,6 +865,118 @@ class Orchestrator:
         if run.get('errors'):
             lines.append('还有几句要说：' + '；'.join(run['errors'])[:200])
         return '\n'.join(lines)
+
+
+class _StageTemplateRun:
+    def __init__(self, orchestrator, stage_id, mode, wait_for_user, broadcast, execute_action):
+        self.orchestrator = orchestrator
+        self.template = skill_templates.load_template(stage_id)
+        self.manual = mode != 'auto'
+        self.wait_for_user = wait_for_user
+        self.emit = broadcast if callable(broadcast) else (lambda text: None)
+        self.execute_action = execute_action
+
+    def run(self, context, names, start_step, _prior=None):
+        orch = self.orchestrator
+        template = self.template
+        context = dict(context or {})
+        emit = self.emit
+        manual = self.manual
+        start_step = skill_templates.resume_index(start_step, len(template.steps))
+        # R2905：names=None 才表示「没指定」→ 该阶段全部已启用 SKILL；显式空表
+        # 是「一个都没勾」，绝不能回退成全跑——那会让取消勾选形同虚设。
+        selected = [item for item in (names if names is not None
+                                      else [row.name for row in orch.registry.getByStage(template.stage_id)])
+                    if orch.skill(item) is not None and orch.skill(item).stage == template.stage_id]
+        if not callable(self.execute_action) and not selected:
+            message = '【阻塞】%s 未启用可执行 SKILL' % template.name
+            emit(message)
+            return Run({'ok': False, 'results': [], 'failed': [], 'errors': [message], 'text': message})
+        stage_number = list(pet_bus.STAGES).index(template.stage_id) + 1
+        emit('【阶段 %d/%d】%s' % (stage_number, len(pet_bus.STAGES), template.name))
+        if not callable(self.execute_action):
+            dag = orch.buildDAG(selected)
+            if dag['problems']:
+                message = '【阻塞】' + '；'.join(dag['problems'])
+                emit(message)
+                return Run({'ok': False, 'results': [], 'failed': [], 'errors': dag['problems'], 'text': message})
+            selected = dag['order']
+        groups = skill_templates.step_groups(selected, len(template.steps))
+        if not callable(self.execute_action):
+            completed = {row['skill'] for row in (_prior or {}).get('results', [])
+                         if row.get('status') == DONE and row.get('skill')}
+            remaining = [name for group in groups[start_step-1:] for name in group if name not in completed]
+            check = orch.validate(remaining, context)
+            for item in check['missing_deps']:
+                dep = item['missing']
+                if dep not in selected and orch.skill(dep).stage == template.stage_id:
+                    check['errors'].append('%s 缺少已启用的前置步骤 %s' % (item['skill'], dep))
+            if check['errors']:
+                message = '【阻塞】' + '；'.join(check['errors'])
+                emit(message)
+                return Run({'ok': False, 'results': [], 'failed': [], 'errors': check['errors'],
+                            'outcome': BUDGET if check['over_budget'] else 'invalid', 'text': message})
+        results = [row for row in (_prior or {}).get('results', []) if row.get('status') == DONE]
+        skipped = list((_prior or {}).get('skipped', []))
+        failed = []
+        skipped_skills = {name for step, group in zip(template.steps, groups) if step.name in skipped
+                          for name in group}
+        for step, group in zip(template.steps, groups):
+            if step.index < start_step:
+                continue
+            emit('【步骤 %d/%d】%s' % (step.index, len(template.steps), step.name))
+            if step.needs_confirmation and manual and not (_prior and step.index == start_step):
+                question = step.question.format(count=context.get('count', 0))
+                emit('【门禁】%s' % question)
+                answer = str(self.wait_for_user(question) if callable(self.wait_for_user) else '').strip()
+                if answer not in ('确认', '需要', '继续', '是', 'yes', 'YES', 'Yes'):
+                    skipped.append(step.name)
+                    skipped_skills.update(group)
+                    emit('【警告】未确认，已跳过%s' % step.name)
+                    continue
+            try:
+                orch.before_step(template.stage_id, step, [str(name) for name in group])
+                step_context = dict(context, _template_step=step)
+                if callable(self.execute_action):
+                    outcome = self.execute_action(step.action, step_context)
+                    rows = [outcome]
+                else:
+                    rows = []
+                    for name in group:
+                        if name in completed:
+                            continue
+                        unmet = skipped_skills.intersection(orch._deps(name))
+                        row = (orch._result(name, BLOCKED, False, detail='未确认前置步骤：' + '、'.join(sorted(unmet)))
+                               if unmet else orch.execute(name, step_context))
+                        rows.append(row)
+                        if row['status'] != DONE:
+                            break
+            except (OSError, TypeError, ValueError) as exc:
+                rows = [orch._result(step.action, FAILED, False, detail=str(exc))]
+            results.extend(rows)
+            bad = [row for row in rows if isinstance(row, dict)
+                   and (not row.get('ok', False) or row.get('status', DONE) != DONE)]
+            if bad:
+                failed.extend(bad)
+                detail = skill_templates.step_summary(bad)
+                emit('【阻塞】%s：%s' % (step.name, detail))
+                break
+            emit('【完成】%s：%s' % (step.name, skill_templates.step_summary(rows)))
+        ok = not failed and not skipped
+        text = ('%s已完成' % template.name) if ok else ('%s未完成' % template.name)
+        if ok:
+            orch.clear_checkpoint(template.stage_id)
+            emit('【完成】%s' % text)
+        run = Run({'ok': ok, 'results': results, 'failed': failed, 'skipped': skipped,
+                   'errors': [row.get('detail', '') for row in failed], 'text': text,
+                   'template': str(template.path)})
+        run.orchestrator, run.context = orch, context
+        run['pending'] = [row for row in failed if row.get('status') == PENDING]
+        if run['pending'] and not callable(self.execute_action):
+            def resume(approved_context):
+                return self.run(approved_context, selected, step.index, run)
+            run.resume_template = resume
+        return run
 
 
 def default_orchestrator(program=None, bus=None, errors=None, project=None, router=None, clock=time.time):

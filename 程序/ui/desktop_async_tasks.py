@@ -141,6 +141,9 @@ class AsyncTasksMixin:
                 self.status.set('后台任务已结束，界面结果回调失败。')
             finally:
                 try:
+                    # 恢复自动派发时，不能把另一项后台工作造成的
+                    # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
+                    # 仍由阶段注册器启动结构剧本。
                     if getattr(self, '_auto_structure_retry', False) and not self.worker:
                         self._auto_structure_retry=False
                         self.pet_start('script_structure')

@@ -654,9 +654,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         if not flush_script_editor(self):return
         self._closing=True
         self.flush_brief()
-        # 第 36 期第 5 条：原来这里会借三虎递一张日报／周报标签框、并把真关推迟几秒（标签框才有
-        # 时间渐入）。用户要「删除日报和周报的关闭前弹框逻辑」——关就是关；报表改由三虎在下午／
-        # 夜里活儿慢下来时自己递上来（见 pet_ui.Pet.report_hint）。
+        # 日报和周报由宠物主动提示，退出时同步关闭。
         self.finish_close()
 
     def load(self,path,*,defer_page=False):

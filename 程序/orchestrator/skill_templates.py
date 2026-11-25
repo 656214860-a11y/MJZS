@@ -108,3 +108,11 @@ def step_summary(rows):
         return '；'.join(str(row.get('detail') or row.get('skill') or '') for row in rows
                         if isinstance(row, dict))[:160] or '已执行'
     return str(rows or '已执行')[:160]
+
+
+def resume_index(step, count):
+    try:
+        step = int(step)
+    except (TypeError, ValueError):
+        return 1
+    return min(max(step, 1), count + 1)
