@@ -1,0 +1,15 @@
+{
+  "round": 4512,
+  "commit_base": "444b6a359",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k usage_indicator_ui ui_status_bar desktop_compact_layout hover_card_states",
+    "exit": 0,
+    "passed": 61,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T21:42:43"
+}

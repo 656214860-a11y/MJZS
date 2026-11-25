@@ -13,13 +13,14 @@ import tkinter as tk
 import infra.app_logging as app_logging
 from ui_tokens import COLORS, SPACING, STATUS_BAR_FONT
 from infra.usage_snapshot import abbr_number, get_snapshot, money_amount, money_text
+from ui.ui_usage_detail import UsageHoverCard
 
 _TOKEN_WARN = 500000     # ≥50 万：黄色
 _TOKEN_DANGER = 1500000  # ≥150 万：红色
 
 
 class UsageIndicator(tk.Frame):
-    """一行三个可点标签：Token／¥／余额；点击打开用量详情。"""
+    """一行三个标签：Token／¥／余额；悬停展示被动用量概览卡片，点击不弹窗。"""
 
     def __init__(self, master, desktop):
         super().__init__(master, bg=COLORS['background_primary'])
@@ -30,9 +31,8 @@ class UsageIndicator(tk.Frame):
             label = tk.Label(self, text='', bg=COLORS['background_primary'],
                              fg=COLORS['text_primary'], font=STATUS_BAR_FONT)
             label.pack_forget()
-            label.bind('<Button-1>', self._open_detail)
             self._labels[key] = label
-        self.bind('<Button-1>', self._open_detail)
+        self.hover_card = UsageHoverCard(self, desktop)
         self.refresh()
 
     # -- 数据 -----------------------------------------------------
@@ -79,6 +79,9 @@ class UsageIndicator(tk.Frame):
             # 整组两端不留白：它和左右两段之间的间距、分隔符由状态栏统一给
             label.pack(side='left', padx=(SPACING['sm'] if index else SPACING['none'],
                                          SPACING['none']))
+        hover = getattr(self, 'hover_card', None)
+        if hover is not None:
+            hover.refresh()
 
     # -- 事件总线 ---------------------------------------------------
     def sync_bus(self):
@@ -109,10 +112,12 @@ class UsageIndicator(tk.Frame):
         except Exception:
             app_logging.swallowed()
 
-    # -- 交互 -------------------------------------------------------
-    def _open_detail(self, _event=None):
-        try:
-            from ui.ui_usage_detail import UsageDetailDialog
-            UsageDetailDialog(self.winfo_toplevel(), self.desktop)
-        except Exception:
-            app_logging.swallowed()
+    # -- 生命周期 ---------------------------------------------------
+    def destroy(self):
+        hover = getattr(self, 'hover_card', None)
+        if hover is not None:
+            try:
+                hover.hide()
+            except Exception:
+                app_logging.swallowed()
+        super().destroy()
