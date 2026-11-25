@@ -15,13 +15,13 @@ from unittest import mock
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
 from orchestrator import account_controller
-import entitlement_service
+from tests.test_account_client import DID, KEYS, NOW, payload, sign
 from contract.service_contract import UserError, success
 
 
 class _Store:
     def __init__(self):
-        self.data = {'refresh_token': 'r1', 'lease': 'L1'}
+        self.data = {'refresh_token': 'r1', 'lease': sign(payload())}
         self.cleared = 0
 
     def load(self):
@@ -35,7 +35,7 @@ class _Store:
         self.data = {}
 
     def device_fingerprint(self):
-        return 'd'
+        return DID
 
 
 class _Server:
@@ -57,24 +57,23 @@ class _Server:
             return UserError('x', data={'code': 'session_invalid'})
         self.n += 1
         self.current = 'r%d' % self.n
-        return success({'refresh_token': self.current, 'lease': 'L%d' % self.n, 'server_time': 1})
+        return success({'refresh_token': self.current, 'lease': sign(payload(nonce=str(self.n))), 'server_time': 1})
 
     def devices(self, lease):
-        if lease == 'L1':
+        if lease == sign(payload()):
             return UserError('x', data={'code': 'session_invalid'})
         return success({'devices': []})
 
 
 class RenewConcurrencyTests(unittest.TestCase):
     def setUp(self):
-        patch = mock.patch.object(account_controller.entitlement_service, 'evaluate',
-                                  return_value=entitlement_service.Entitlement(entitlement_service.VALID, {'issued_at': 1}))
+        patch = mock.patch.object(account_controller.lease_verifier, 'PUBLIC_KEYS', KEYS)
         patch.start()
         self.addCleanup(patch.stop)
         self.store, self.server = _Store(), _Server(hold=True)
         self.results, self.threads = [], []
         self.ctl = account_controller.AccountController(
-            submit=self._submit, store=self.store, client=self.server, clock=lambda: 1000)
+            submit=self._submit, store=self.store, client=self.server, clock=lambda: NOW)
 
     def _submit(self, work, done, label):
         thread = threading.Thread(target=lambda: self.results.append((label, work())))

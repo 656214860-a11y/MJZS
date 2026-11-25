@@ -5,7 +5,8 @@
 包格式 ``ARCHIVE_FORMAT``：zip 根放 ``manifest.json``（app_version、original_root、
 file_count、逐文件 size/sha256/mtime、脱敏与跳过记录），项目文件统一放在 ``project/`` 前缀下。
 ``config.json``／``cloud_video/*/config.json``／``projects.json`` 中命中密钥
-字段的非空字符串写成 ``<已移除>`` 脱敏副本，命中记入 ``manifest.redacted``。
+字段的内容写成 ``<已移除>`` 脱敏副本，命中记入 ``manifest.redacted``。
+无法解析或缺少结构的配置会中止导出。
 """
 import hashlib
 import json
@@ -28,6 +29,8 @@ _ARCHIVE_MAJOR = int(ARCHIVE_FORMAT.rsplit('/', 1)[1])
 MAX_FILE_BYTES = 4 * 1024 ** 3
 REDACTED = '<已移除>'
 _SECRET_KEY = re.compile(r'(?i)(api[_-]?key|secret|token|password)')
+_CREDENTIAL_FIELD = re.compile(
+    r'(?i)(api[_-]?key|secret(?:[_-]?key)?|token|password|(?:^|[_-])pin(?:[_-]?code)?)(?:[_-]value)?$')
 _EXCLUDED_NAMES = frozenset({'__pycache__', '.thumbs', 'thumbs', '缩略图'})
 _EXCLUDED_SUFFIXES = frozenset({'.lock', '.pyc', '.tmp', '.part'})
 _PAYLOAD_PREFIX = 'project/'
@@ -56,6 +59,7 @@ def _is_link(path):
 
 
 def _secret_target(rel):
+    rel = rel.casefold()
     parts = rel.split('/')
     return rel in ('config.json', 'projects.json') or (
         len(parts) == 3 and parts[0] == 'cloud_video' and parts[2] == 'config.json')
@@ -94,11 +98,18 @@ def _walk_project(root, notes):
     return files, dirs
 
 
+def _contains_credential(key, value):
+    if isinstance(value, (str, list, dict)):
+        return bool(value) and bool(_SECRET_KEY.search(key) or _CREDENTIAL_FIELD.search(key))
+    # PIN 0 也可能是凭据；数值型 max_tokens 及布尔设置要按原类型恢复。
+    return type(value) in (int, float) and bool(_CREDENTIAL_FIELD.search(key))
+
+
 def _redact_value(value, hits, prefix=''):
     if isinstance(value, dict):
         out = {}
         for key, val in value.items():
-            if isinstance(val, str) and val and _SECRET_KEY.search(str(key)):
+            if _contains_credential(key, val):
                 hits.append(prefix + str(key))
                 out[key] = REDACTED
             else:
@@ -110,15 +121,13 @@ def _redact_value(value, hits, prefix=''):
 
 
 def _redact_file(path, rel, manifest):
-    """密钥防线：命中字段的值替换成脱敏副本；解析不了的文件按原样打包并记录。"""
-    raw = path.read_bytes()
+    """仅将已成功解析并完成字段脱敏的配置交给打包器。"""
     try:
         data = file_cache.read_json(path)
-    except (OSError, ValueError):
-        manifest['notes'].append('密钥字段未能解析，按原样打包：' + rel)
-        return raw
-    if not isinstance(data, dict):
-        return raw
+    except (OSError, ValueError, RecursionError):
+        raise ValueError('备份已中止，配置无法读取或解析，请修复后重试：' + rel) from None
+    if not isinstance(data, (dict, list)):
+        raise ValueError('备份已中止，配置须为 JSON 对象或数组，请检查：' + rel)
     hits = []
     redacted = _redact_value(data, hits)
     manifest['redacted'].extend(rel + '#' + key for key in hits)

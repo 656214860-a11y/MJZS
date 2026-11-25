@@ -1,0 +1,15 @@
+{
+  "round": 4500,
+  "commit_base": "d4295c273",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_tts test_account_client test_renew_concurrency test_project_archive",
+    "exit": 0,
+    "passed": 166,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T20:12:12"
+}

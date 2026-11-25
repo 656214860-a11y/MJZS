@@ -27,6 +27,10 @@ class TTSRejected(ValueError):
     """服务商明确拒绝（HTTP 4xx）：确定没成，可记 failed 并允许下次重发。"""
 
 
+class TTSAcceptanceUnknown(ValueError):
+    """服务商可能已受理这次 HTTP 请求；重复发送前需要核对。"""
+
+
 def settings_path():
     return Path(os.environ["LOCALAPPDATA"]) / "漫剧制作助手" / "tts_settings.json"
 
@@ -502,6 +506,16 @@ def line_done(entry, folder):
         return False
 
 
+def _line_needs_review(entry):
+    if not isinstance(entry, dict):
+        return False
+    if entry.get("state") in UNKNOWN_LINE_STATES:
+        return True
+    # 旧版把 HTTP 408 写成明确失败。按本程序生成的错误前缀识别，避免自动重发旧请求。
+    return (entry.get("state") == "failed" and not entry.get("released_at")
+            and str(entry.get("error") or "").startswith("TTS 请求失败（HTTP 408）："))
+
+
 def _line_verdicts(lines, manifest, folder):
     """逐句在旧清单里的续跑判定：沿用 {新句序号: 旧条目} 与待核实 {新句序号: 旧条目清单序号}。
 
@@ -520,7 +534,7 @@ def _line_verdicts(lines, manifest, folder):
             break
     blocked, claimed = {}, set()
     unknown = [pos for pos, entry in enumerate(entries, 1)
-               if isinstance(entry, dict) and entry.get("state") in UNKNOWN_LINE_STATES]
+               if _line_needs_review(entry)]
     for index, line in enumerate(lines, 1):
         if index in done:
             continue
@@ -610,7 +624,7 @@ def _send_outcome(exc):
     import socket
     import urllib.error
     reason = getattr(exc, 'reason', exc)
-    if isinstance(reason, (ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
+    if isinstance(reason, (TTSAcceptanceUnknown, ConnectionResetError, ConnectionAbortedError, BrokenPipeError,
                            TimeoutError, http.client.IncompleteRead)):
         return 'uncertain'
     if isinstance(reason, (ConnectionRefusedError, socket.gaierror)):
@@ -690,7 +704,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             if report:
                 report(f'{index}/{len(lines)} · {line.get("shot_id")}：沿用已生成的配音')
             continue
-        if project is not None and index in blocked:
+        if index in blocked:
             failed += 1
             if report:
                 report(f'{index}/{len(lines)}：上次配音结果未知，请核对请求 {manifest[index - 1].get("request_id", "")}，未重复发送')
@@ -777,6 +791,8 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
         if status:
             detail = str(data.get('error_body') or '')[:400]
             message = f"TTS 请求失败（HTTP {status}）：{detail}"
+            if data.get("acceptance") == "unknown":
+                raise TTSAcceptanceUnknown(message) from None
             if 400 <= int(status) <= 499:
                 raise TTSRejected(message) from None
             raise ValueError(message) from None
@@ -839,7 +855,7 @@ def release_unknown(folder, indexes, *, gateway=None):
         if not isinstance(index, int) or index < 1 or index > len(manifest):
             continue
         entry = manifest[index - 1]
-        if not isinstance(entry, dict) or entry.get('state') not in UNKNOWN_LINE_STATES:
+        if not _line_needs_review(entry):
             continue
         manifest[index - 1] = {**entry, 'state': 'failed', 'released_at': stamp, 'not_submitted': True}
         released.append(index)
