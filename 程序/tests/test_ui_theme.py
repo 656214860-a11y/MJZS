@@ -588,6 +588,71 @@ class ThemeRefreshTests(unittest.TestCase):
             self.assertEqual(style.layout('TCheckbutton')[0][1]['children'][0][0],
                              f'DramaTick.indicator.{name}')
 
+    def test_night_theme_syncs_pet_ui_reexported_tokens(self):
+        from ui import pet_ui, pet_ui_support, pet_ui_view
+
+        origin = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, origin)
+
+        ui_tokens.set_theme('night')
+        expected_gear = (COLORS['primary'], COLORS['primary_pressed'])
+        expected_hover = (COLORS['primary_hover'], COLORS['primary_pressed'])
+        expected_bg = COLORS['background_primary']
+        self.assertEqual(pet_ui.GEAR_COLOR, expected_gear)
+        self.assertEqual(pet_ui_support.GEAR_COLOR, expected_gear)
+        self.assertEqual(pet_ui.GEAR_HOVER, expected_hover)
+        self.assertEqual(pet_ui_support.GEAR_HOVER, expected_hover)
+        self.assertEqual(pet_ui.CANVAS_BG, expected_bg)
+        self.assertEqual(pet_ui_view.CANVAS_BG, expected_bg)
+        self.assertEqual(pet_ui_support.CANVAS_BG, expected_bg)
+
+        ui_tokens.set_theme(origin)
+        restored_gear = (COLORS['primary'], COLORS['primary_pressed'])
+        restored_hover = (COLORS['primary_hover'], COLORS['primary_pressed'])
+        restored_bg = COLORS['background_primary']
+        self.assertEqual(pet_ui.GEAR_COLOR, restored_gear)
+        self.assertEqual(pet_ui_support.GEAR_COLOR, restored_gear)
+        self.assertEqual(pet_ui.GEAR_HOVER, restored_hover)
+        self.assertEqual(pet_ui_support.GEAR_HOVER, restored_hover)
+        self.assertEqual(pet_ui.CANVAS_BG, restored_bg)
+        self.assertEqual(pet_ui_view.CANVAS_BG, restored_bg)
+        self.assertEqual(pet_ui_support.CANVAS_BG, restored_bg)
+
+    def test_night_theme_gear_button_uses_live_canvas_bg_and_gear_color(self):
+        from ui import pet_ui, pet_ui_support
+
+        origin = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, origin)
+
+        ui_tokens.set_theme('night')
+        gear = pet_ui_support.GearButton(self.win)
+        self.addCleanup(gear.destroy)
+        self.assertEqual(str(gear.canvas.cget('bg')).lower(),
+                         COLORS['background_primary'].lower())
+
+        original_image = gear._gear_image
+        gear._gear_image = lambda: None
+        try:
+            gear.draw()
+            body = gear.canvas.find_withtag('gear-body')[0]
+            self.assertEqual(str(gear.canvas.itemcget(body, 'fill')).lower(),
+                             pet_ui.GEAR_COLOR[0].lower())
+            hole = gear.canvas.find_withtag('gear-hole')[0]
+            self.assertEqual(str(gear.canvas.itemcget(hole, 'fill')).lower(),
+                             COLORS['background_primary'].lower())
+        finally:
+            gear._gear_image = original_image
+
+        custom_gear = pet_ui_support.GearButton(self.win, bg='#123456')
+        self.addCleanup(custom_gear.destroy)
+        self.assertEqual(str(custom_gear.canvas.cget('bg')).lower(), '#123456')
+
+        ui_tokens.set_theme(origin)
+        restored_gear = pet_ui_support.GearButton(self.win)
+        self.addCleanup(restored_gear.destroy)
+        self.assertEqual(str(restored_gear.canvas.cget('bg')).lower(),
+                         COLORS['background_primary'].lower())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
