@@ -798,6 +798,15 @@
       "targets": [
         "程序/scripts/seed_worktree_submodules.py"
       ]
+    },
+    "程序/tests/test_installer_script.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "安装脚本静态守卫与构建入口",
+      "targets": [
+        "程序/scripts/installer/漫剧制作助手.iss",
+        "程序/scripts/installer_build.py"
+      ]
     }
   },
   "packaging": {

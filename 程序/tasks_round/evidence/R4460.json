@@ -1,0 +1,15 @@
+{
+  "round": 4460,
+  "commit_base": "1abd6d878",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k installer_script distribution_build",
+    "exit": 0,
+    "passed": 29,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T14:28:54"
+}
