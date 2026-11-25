@@ -673,6 +673,8 @@ class MediaPagesMixin:
         if not result.ok:raise ValueError(result.reason)
         audio_dir,subtitle_dir=result.data
         self.note('可导入配音或音乐；按剧本对白时间导出整集SRT。字幕时间需在剪映中听校。')
+        from ui.desktop_audio_direct import render_recovery_focus
+        render_recovery_focus(self)
         # 对白读不出来时不要静默禁用按钮：把原因写在页面上，用户才知道该改哪里。
         has_dialogue,dialogue_reason=media_logic.dialogue_availability(self.dialogue_entries)
         if dialogue_reason:
@@ -889,8 +891,8 @@ class MediaPagesMixin:
             return button
         lines=media_logic.delivery_lines(self.root,self.studio,video_progress.LABELS,video_progress.status_next)
         box=self.text('\n'.join(lines),12);box.configure(state='disabled')
-        from orchestrator.stage_completion_service import commercial_status
-        self.note(commercial_status(self.root)[1])
+        from orchestrator.stage_completion_service import commercial_status, commercial_trace_summary
+        self.note(commercial_status(self.root)[1] + '；' + commercial_trace_summary(self.root))
         import_bar=_group_bar(self,'导入与确认');delivery_button(import_bar,'导入剪映最终成片',self.final_import,primary=True)
         delivery_button(import_bar,'校验并确认本阶段成果',lambda:self.confirm_stage_media('delivery'))
         commercial_bar=_group_bar(self,'商用资料');delivery_button(commercial_bar,'生成商用待填资料',lambda:self.safe(lambda:self.commercial_delivery_review(create=True)))

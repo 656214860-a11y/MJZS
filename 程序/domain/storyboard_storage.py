@@ -64,6 +64,36 @@ def working_roots(project):
     project = Path(project).resolve()
     return (storyboard(project) / '分镜拆分', project / 'storyboard' / '分镜拆分')
 
+
+def default_source(project):
+    """当前分镜来源的低层只读判定；不经过目录页或视频影响扫描。"""
+    project = Path(project).resolve()
+    prefs = read(project / 'ui_settings.json') if (project / 'ui_settings.json').is_file() else {}
+    value = prefs.get('storyboard_file') if isinstance(prefs, dict) else None
+    selected = (project / value).resolve() if value else None
+    if selected and selected.is_relative_to(project) and selected.suffix == '.json' and selected.is_file():
+        return selected
+    for root in working_roots(project):
+        candidates = sorted(root.glob('EP*_分镜.json'), key=lambda path: path.stat().st_mtime, reverse=True)
+        if candidates:
+            return candidates[0]
+    working = working_roots(project)[0]
+    for path in (working / 'episode.json', storyboard(project) / 'episode.json'):
+        if path.is_file():
+            return path
+    return working / 'episode.json'
+
+
+def resolve_source(project, path):
+    """按别名与旧 episode 占位解析当前分镜来源；只读，不经过目录服务。"""
+    project = Path(project).resolve()
+    path = resolved_alias(project, Path(path))
+    legacy_episode = project / 'storyboard' / 'episode.json'
+    if not path.exists() and path in (storyboard(project) / 'episode.json', legacy_episode):
+        return default_source(project).resolve()
+    return path
+
+
 def snapshot(path):
     data,raw,after=read_stable_json_snapshot(path)
     if not isinstance(data,dict) or not isinstance(data.get('shots'),list) or not data['shots']:raise ValueError('非分镜文件')

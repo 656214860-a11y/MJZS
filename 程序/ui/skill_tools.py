@@ -15,6 +15,7 @@ import json
 from pathlib import Path
 
 import line_endings
+import contract.service_contract as service_contract
 import contract.stage_layout as stage_layout
 from agent.core import read
 from contract.pet_bus import STAGES, STAGE_NAMES, stage_label
@@ -658,3 +659,50 @@ def call(name, context=None):
         page, hint = PAGES[tool]
         raise ToolNeedsPage(page, hint, tool)
     raise ToolMissing('没登记的工具：' + tool)
+
+
+# ── L4 执行器适配：异常与页面动作 → L0 ToolResult ───────────────────────────
+def execute_tool(name, context=None):
+    """以 L0 协议执行一件工具；本函数不依赖 Tk，可无界面运行。"""
+    tool = str(name or '')
+    try:
+        out = call(tool, context)
+    except ToolNeedsPage as exc:
+        return service_contract.tool_needs_page(exc.page, title=exc.title(), hint=exc.hint,
+                                                detail=str(exc), tool=tool)
+    except ToolNeedsInput as exc:
+        return service_contract.tool_needs_input(str(exc), tool=tool)
+    except ToolMissing as exc:
+        return service_contract.tool_missing(str(exc), tool=tool)
+    except Exception as exc:
+        return service_contract.tool_failed(str(exc), tool=tool)
+    return service_contract.tool_done(out, tool=tool)
+
+
+# 兼容直读名：executor(tool, context) 的简短别名。
+execute = execute_tool
+
+
+def install_executor():
+    """把本适配器登记给 L3 编排器；重复登记是幂等的替换。"""
+    import orchestrator.skill_orchestrator as skill_orchestrator
+    skill_orchestrator.install_tool_executor(execute_tool)
+    return execute_tool
+
+
+def _result_field(result, key, default=None):
+    if isinstance(result, dict):
+        return result.get(key, default)
+    return getattr(result, key, default)
+
+
+def open_page(desktop, result):
+    """按 ToolResult/编排结果行打开对应阶段页；不是页面结果时返回 False。"""
+    if _result_field(result, 'status') != service_contract.TOOL_PAGE:
+        return False
+    page = _result_field(result, 'page')
+    show = getattr(desktop, 'show', None)
+    if page in (None, '') or not callable(show):
+        return False
+    show(int(page))
+    return True

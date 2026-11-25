@@ -657,6 +657,7 @@ class OrchestratorTests(unittest.TestCase):
     def orchestrator(self, **kwargs):
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
+        kwargs.setdefault('tool_executor', skill_tools.execute_tool)
         return skill_orchestrator.default_orchestrator(project=holder.name, **kwargs)
 
     def test_expand_pulls_dependencies_in_stage_order(self):

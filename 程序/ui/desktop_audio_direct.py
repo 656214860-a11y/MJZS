@@ -46,6 +46,38 @@ def run_audio_direct(host, config):
     host.win.after(500, drain)
 
 
+def render_recovery_focus(page):
+    """把任务中心传来的配音句定位成页内说明；只定位与提示，绝不触发提交。"""
+    row = getattr(page, '_tts_recovery_focus', None)
+    if not isinstance(row, dict) or row.get('stage') != 'audio':
+        return
+    page._tts_recovery_focus = None
+    from tkinter import ttk
+    from ui_tokens import SPACING
+    from ui_widgets import Card, DescriptionBlock
+    box = Card(page.content)
+    box.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+    ttk.Label(box, text='任务中心定位的配音句').pack(anchor='w')
+    shot = row.get('task_id') or row.get('shot_id') or '未登记'
+    batch = row.get('batch') or row.get('version') or '未登记'
+    line = row.get('line_index') or '未知'
+    text = row.get('text_preview') or '未登记'
+    state = row.get('state') or 'unknown'
+    operation = row.get('operation') or row.get('recovery') or '未登记'
+    lines = ['批次/版本：%s；第 %s 句；镜头/任务：%s' % (batch, line, shot),
+             '台词：%s' % text,
+             '恢复状态：%s；请求号：%s；费用请求号：%s' % (
+                 state, row.get('attempt_id') or '未登记', row.get('cost_request_id') or '未登记'),
+             '下一步：%s' % operation,
+             '本次只是打开本页并定位这一句，没有发送任何配音请求。']
+    if state == 'reconcile':
+        lines.append('结果未知句在人工核对并明确放开前不会被重新提交；不要把它当作确定失败重发。')
+    elif state == 'recorded_ready':
+        lines.append('这句已有可沿用成品；恢复与续跑不会为它重复扣费。')
+    DescriptionBlock(box, text='\n'.join(lines)).pack(anchor='w')
+    page.status.set('已定位配音句：%s 第 %s 句；未发送任何请求' % (batch, line))
+
+
 def run_tts_per_line(page, quote_gate):
     """逐句配音：报价确认、句间停止控制、状态总线进度上屏与收尾按钮恢复。"""
     import domain.tts_api as tts_api

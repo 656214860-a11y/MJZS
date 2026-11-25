@@ -52,6 +52,7 @@ class DeliveryScopeTests(unittest.TestCase):
     def test_req_s13_28_commercial_status_is_shown_on_delivery_page(self):
         source = entity_file('desktop_media_pages').read_text(encoding='utf-8')
         self.assertIn('commercial_status', source)
+        self.assertIn('commercial_trace_summary', source)
 
     def test_req_s13_32_commercial_categories_are_the_seven_kinds(self):
         self.assertEqual(stage_completion_service.COMMERCIAL_CATEGORIES,

@@ -754,7 +754,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
             orch.confirm_all(False)
             return []
         orch.confirm_all(True)
-        again = orch.run([row['skill'] for row in pending], self.context())
+        again = orch.resume_confirmed(run, pending, self.context())
         run['retry'] = again
         run['text'] = str(run.get('text') or '') + '\n' + str(again.get('text') or '')
         return list(run['results'])

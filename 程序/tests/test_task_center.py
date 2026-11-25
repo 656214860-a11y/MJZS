@@ -213,7 +213,7 @@ class TaskCenterUiTests(unittest.TestCase):
         import tempfile
         from types import SimpleNamespace
         from agent.core import save
-        import stage_parallel
+        import orchestrator.stage_parallel as stage_parallel
         with tempfile.TemporaryDirectory() as tmp:
             project = Path(tmp)
             save(project/'config.json', {'project_id': 'project-test'})
@@ -236,8 +236,119 @@ class TaskCenterUiTests(unittest.TestCase):
                         continue
                 shown = next(w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)).get('1.0', 'end')
                 self.assertNotIn('S001', shown)
+                query.delete(0, 'end')
+                query.insert(0, 'S00')
+                for widget in dialog._descendants(dialog):
+                    try:
+                        if widget.cget('text') == '查询尝试': widget.invoke(); break
+                    except tk.TclError:
+                        continue
+                shown = next(w for w in dialog._descendants(dialog.content) if isinstance(w, tk.Text)).get('1.0', 'end')
+                self.assertIn('S001', shown)
             finally:
                 win.destroy()
+
+    def test_audio_focus_action_opens_audio_page_without_submission(self):
+        import tempfile
+        from types import SimpleNamespace
+        from agent.core import save
+        import orchestrator.stage_parallel as stage_parallel
+        from contract.project_stages import audio
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            batch = audio(project)/'配音分句'/'配音批次_20260101'
+            batch.mkdir(parents=True)
+            save(batch/'时间轴.json', [{'shot_id': 'S001', 'text': '超时句', 'state': 'failed',
+                                      'error': 'TTS 请求失败（HTTP 408）', 'file': '',
+                                      'request_id': 'tts:408'}])
+            win = tk.Tk()
+            win.withdraw()
+            try:
+                class Desk:
+                    def __init__(self):
+                        self.win = win
+                        self.root = project
+                        self.navigated = []
+                        self.submitted = False
+                    def page_of(self, stage):
+                        return 10 if stage == 'audio' else None
+                    def go(self, index):
+                        self.navigated.append(index)
+                    def generate_tts_per_line(self):
+                        self.submitted = True
+                desk = Desk()
+                with mock.patch.object(stage_parallel, 'evaluate', return_value={'ok': False, 'detail': '等待首帧'}):
+                    dialog = task_center_ui.show(desk)
+                from ui_widgets import LineInput
+                query = next(w for w in dialog._descendants(dialog.content) if isinstance(w, LineInput))
+                query.insert(0, 'tts:408')
+                button = next(w for w in dialog._descendants(dialog)
+                              if w.winfo_class() in ('Button', 'TButton') and w.cget('text') == '打开配音页定位')
+                button.invoke()
+                focus = getattr(desk, '_tts_recovery_focus', {})
+                self.assertEqual(focus.get('line_index'), 1)
+                self.assertEqual(focus.get('state'), 'reconcile')
+                self.assertEqual(focus.get('attempt_id'), 'tts:408')
+                self.assertEqual(desk.navigated, [10])
+                self.assertFalse(desk.submitted)
+            finally:
+                win.destroy()
+
+    def test_audio_focus_action_rejects_ambiguous_rows_without_navigation(self):
+        import tempfile
+        from types import SimpleNamespace
+        from agent.core import save
+        import orchestrator.stage_parallel as stage_parallel
+        from contract.project_stages import audio
+        with tempfile.TemporaryDirectory() as tmp:
+            project = Path(tmp)
+            batch = audio(project)/'配音分句'/'配音批次_20260101'
+            batch.mkdir(parents=True)
+            row = {'shot_id': 'S001', 'state': 'failed', 'error': 'TTS 请求失败（HTTP 408）', 'file': ''}
+            save(batch/'时间轴.json', [dict(row, text='一', request_id='tts:1'),
+                                      dict(row, text='二', request_id='tts:2')])
+            win = tk.Tk()
+            win.withdraw()
+            try:
+                desk = SimpleNamespace(win=win, root=project, navigated=[])
+                desk.page_of = lambda stage: 10 if stage == 'audio' else None
+                desk.go = desk.navigated.append
+                with mock.patch.object(stage_parallel, 'evaluate', return_value={'ok': False, 'detail': '等待首帧'}):
+                    dialog = task_center_ui.show(desk)
+                from ui_widgets import LineInput
+                query = next(w for w in dialog._descendants(dialog.content) if isinstance(w, LineInput))
+                button = next(w for w in dialog._descendants(dialog)
+                              if w.winfo_class() in ('Button', 'TButton') and w.cget('text') == '打开配音页定位')
+                button.invoke()
+                self.assertEqual(desk.navigated, [])
+                self.assertFalse(hasattr(desk, '_tts_recovery_focus'))
+                self.assertIn('缩小到一句', query.error_message)
+                dialog.close()
+            finally:
+                win.destroy()
+
+    def test_recovery_focus_render_warns_unknown_without_submitting(self):
+        from types import SimpleNamespace
+        from ui.desktop_audio_direct import render_recovery_focus
+        root = tk.Tk()
+        root.withdraw()
+        self.addCleanup(root.destroy)
+        page = SimpleNamespace(content=tk.Frame(root), status=SimpleNamespace(values=[]),
+                               _tts_recovery_focus={'stage': 'audio', 'state': 'reconcile',
+                                                    'task_id': 'S001#002', 'batch': '批一',
+                                                    'line_index': 2, 'text_preview': '超时句',
+                                                    'attempt_id': 'tts:408', 'cost_request_id': 'tts:408',
+                                                    'operation': '先人工核实'})
+        page.status.set = page.status.values.append
+        render_recovery_focus(page)
+        text = '\n'.join(str(widget.cget('text')) for widget in page.content.winfo_children()[0].winfo_children()
+                         if 'text' in widget.keys())
+        self.assertIn('批一', text)
+        self.assertIn('第 2 句', text)
+        self.assertIn('没有发送任何配音请求', text)
+        self.assertIn('不会被重新提交', text)
+        self.assertIsNone(getattr(page, '_tts_recovery_focus', None))
+        self.assertIn('未发送任何请求', page.status.values[-1])
 
     def test_cancel_pending_button_clears_queue(self):
         from desktop_automation_service import BackgroundTaskQueue

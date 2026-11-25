@@ -13,6 +13,7 @@ from pathlib import Path
 
 from tests.architecture._layers import LAYERS, SAME_LAYER_EDGES
 from tests.architecture._scan import ROOT, module_name, module_scan_files, parse, PACKAGE_NAMES
+from tests.architecture.test_no_circular_import import KNOWN_DYNAMIC_CYCLES, KNOWN_STATIC_CYCLES
 
 CHECKLIST = ROOT / '维护记录' / '层间合规清单.json'
 AGENT_CORE_DIR = ROOT / 'agent'
@@ -235,7 +236,7 @@ def _scan():
     missing_guards = [name for name, rel in CROSSCUT_GUARDS.items() if not (ROOT / rel).is_file()]
     return {
         'LR-01': len(upward),
-        'LR-02': 6,  # KNOWN_STATIC_CYCLES 1＋KNOWN_DYNAMIC_CYCLES 5，由 test_no_circular_import 细管
+        'LR-02': len(KNOWN_STATIC_CYCLES) + len(KNOWN_DYNAMIC_CYCLES),
         'LR-03': len(unregistered) + len(mutual),
         'LR-04': len(nonliteral_outside_registry) + len(dyn_upward) + registry_layer_violations,
         'LR-05': len(callbacks),

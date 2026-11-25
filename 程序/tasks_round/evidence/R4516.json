@@ -1,0 +1,15 @@
+{
+  "round": 4516,
+  "commit_base": "f2b00bc5e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_tts test_task_center test_runtime_projection test_usage_overview test_stage_completion_service test_tool_execution_protocol test_tool_result_contract test_skills test_skill_orchestrator_completion test_skill_templates test_video_staleness test_video_revision test_asset_impact test_asset_detail test_ui_theme test_asset_context test_video_source_evidence test_delivery_scope test_startup_selfcheck test_storyboard_storage",
+    "exit": 0,
+    "passed": 578,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T23:12:18"
+}

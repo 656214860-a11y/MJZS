@@ -184,6 +184,7 @@ class UsageOverviewTests(unittest.TestCase):
             'overheads': {'gpu': 0, 'storage': 0, 'bandwidth': 0}})
 
     def test_video_attempt_costs_link_retry_billing_adopted_version_and_total(self):
+        """REQ-S13-44：逐尝试关联账单、重试、采用版本与总支出。"""
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             self.write_video_fixture(root, [
@@ -221,6 +222,7 @@ class UsageOverviewTests(unittest.TestCase):
             self.assertIn('设置→预算→费用核对', text)
 
     def test_video_attempt_costs_distinguish_missing_evidence_and_confirmed_zero(self):
+        """REQ-S13-45：缺失凭据维持未知，已核对的零费用如实显示。"""
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)
             self.write_video_fixture(root, [

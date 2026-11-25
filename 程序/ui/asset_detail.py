@@ -496,10 +496,8 @@ def _bind_variant_image(desktop, aid, state_id):
 
 
 _FRAME_LABELS = {'latest': '最新', 'stale': '过期', 'missing': '缺失'}
-_FRAME_FOREGROUNDS = {'latest': COLORS['success_text'], 'stale': COLORS['warning_text'],
-                      'missing': COLORS['danger_text']}
-_VIDEO_LABELS = {'generated': '已生成', 'none': '未生成'}
-_VIDEO_FOREGROUNDS = {'generated': COLORS['success_text'], 'none': COLORS['text_muted']}
+_FRAME_FOREGROUND_TOKENS = {'latest': 'success_text', 'stale': 'warning_text',
+                            'missing': 'danger_text'}
 
 
 def _usage_label(parent, text, foreground):
@@ -534,27 +532,29 @@ def _usage_block(desktop, aid, asset=None):
     canvas.configure(yscrollcommand=scroll.set)
     canvas.pack(side='left', fill='both', expand=True, pady=(SPACING['xs'], SPACING['none']))
     scroll.pack(side='right', fill='y', pady=(SPACING['xs'], SPACING['none']))
+    from ui.video_progress import stale_videos_notice, usage_video_appearance
     for row in usage['rows']:
         frame_key = row.get('frame') if row.get('frame') in _FRAME_LABELS else 'stale'
         reason = str(row.get('frame_reason') or '').strip()
-        video_key = row.get('video') if row.get('video') in _VIDEO_LABELS else 'none'
         line = ttk.Frame(rows_host)
         line.pack(fill='x', anchor='w', pady=SPACING['xs'])
         _usage_label(line, '%s · %s' % (row.get('episode') or '', row.get('shot') or ''),
                      COLORS['text_secondary']).pack(side='left')
         _usage_label(line, '首帧：' + _FRAME_LABELS[frame_key],
-                     _FRAME_FOREGROUNDS[frame_key]).pack(
+                     COLORS[_FRAME_FOREGROUND_TOKENS[frame_key]]).pack(
                          side='left', padx=(SPACING['xs'], SPACING['none']))
         if reason:
             _usage_label(line, '（' + reason + '）', COLORS['text_secondary']).pack(side='left')
-        _usage_label(line, '视频：' + _VIDEO_LABELS[video_key],
-                     _VIDEO_FOREGROUNDS[video_key]).pack(
-                         side='left', padx=(SPACING['xs'], SPACING['none']))
+        video_text, color = usage_video_appearance(row.get('video'), row.get('video_version'))
+        _usage_label(line, video_text, color).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
     videos = usage.get('videos') or []
     if str(aid or '').startswith('CHAR_') and videos:
         DescriptionBlock(
             box, text='出现过的镜头视频：' + '、'.join(str(item) for item in videos)).pack(
                 anchor='w', pady=(SPACING['xs'], SPACING['none']))
+    notice = stale_videos_notice(usage.get('stale_videos'))
+    if notice:
+        DescriptionBlock(box, text=notice).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
     return box
 
 

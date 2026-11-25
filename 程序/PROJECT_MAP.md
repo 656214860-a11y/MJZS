@@ -33,6 +33,8 @@ R1247 数据边界（R2898 更新）：剧本聊天及回收站统一位于 `01�
 | 阶段基础设施 | `stage_layout.py`、`stage_path_service.py`、`project_context.py`、`orchestrator/project_context_factory.py`、`stage_execution_service.py`、`orchestrator/stage_parallel.py`、`domain/confirm_gates.py` | 13 阶段目录、唯一写入路径、L3 唯一工厂装配并注入的项目上下文、成果发布编排、并发限制、SG 门禁与确认门禁 |
 | 成本与运行保障 | `infra/token_saver.py`、`infra/tk_timers.py`、`infra/storage_maintenance.py`、`infra/temporary_sweep.py`、`infra/log_maintenance.py`、`infra/workspace_maintenance.py`、`infra/executors.py`（命名有界执行器 io/cpu/network/gpu/stream 五池＋供应商并发闸门，I10／L1-H8；I11 起 L2/L3 线程全经此边界）、`infra/metrics.py`（结构化指标 counter/observe/query：维度白名单＋project 哈希，raw JSONL＋sqlite 日汇总，后台保留期清理，I14／L1-H3）、`infra/resources.py`（资源感知：snapshot 内存/磁盘空间/磁盘IO/网络计数/可选显存，ensure_free 写前磁盘闸门原语，429＋Retry-After 限额学习取配置 rpm 较小值；psutil/nvidia-ml-py 惰性导入，I15／L1-Q12）、`infra/budget.py`（预算引擎机制：check_amount 超限判定／headroom 剩余量／reserve·settle·cancel 转 request_ledger，limits 越线抛 BudgetRejected／summary 按 kind·stage·provider 成本聚合，I16／L1-Q13）、`infra/artifact_index.py`（产物索引：每项目 data/artifact_index/<hash>.sqlite WAL，register/versions/set_state 四态机/duplicates/rebuild 走 executors io 池，回收落盘经 recycle_paths，I17／L1-H4）、`infra/job_store.py`（通用作业库：每项目 data/job_store/<hash>.sqlite WAL，enqueue 幂等键/六态机/attempt 退避/checkpoint/reconcile，running 崩溃降级 retrying，I19／L1-H5）、`infra/prefetch.py`（预测性预加载闸门：开关/内存/活跃三闸后投 executors io 池，warm_files 显式清单暖缓存，I22）＋`orchestrator/pet_budget.py`（pet 五类配额策略 L3：kind/别名/默认额度/90% 预警/会话计数，判定委托 infra.budget，I16／FL-13）、`domain/recycle_recovery_service.py`、`orchestrator/recycle_recovery_controller.py` | Token/媒体预算、Tk 回调回收、退出后保守清理与项目打开后遗留临时文件清扫；程序日志保留/轮转/容量帽；仓库级可再生卫生（__pycache__、超期 .selftmp、已并净 .wt 工作树）；回收清单的项目内／项目库受控恢复；线程工作经执行器提交（队列满 `QuotaError`、取消标记、限时关闭），L2/L3 直接建线程由 `test_thread_boundary` 棘轮守卫 |
 | 用量统计 | `infra/usage_snapshot.py`、`infra/usage_history.py`、`ui/ui_usage_indicator.py`、`ui/ui_usage_detail.py`；`infra/request_ledger.py` 结算挂接、`desktop.py` 右上角挂载 | 模型调用用量快照（今日明细＋项目累计 `usage_summary.json`＋跨天归档 `usage_history/YYYY-MM.json`）；金额只在有 `cost_profile.json` 价格表时由 `request_ledger.report(price_table)` 折算，全程 Decimal；结算后经 `pet_bus` `usage_updated` 事件刷新右上角指示器（Token/¥/余额，三档阈值色）与详情、今日明细弹窗（CSV 导出 UTF-8-SIG） |
+| 商用素材递归盘点 | `domain/commercial_inventory_service.py` | 交付商用状态的成品/素材递归盘点：收集血缘、文件摘要与缺失项；只读服务，不写项目产物。 |
+| 运行状况任务中心 | `domain/task_center_service.py`、`ui/task_center_ui.py` | 汇总后台任务生命周期、诊断降级、任务队列/重试票和项目阶段门禁快照，供只读「运行状况」弹窗及取消/重试入口使用。 |
 
 ### 日志维护归属
 
@@ -108,6 +110,8 @@ R1124 插入 Animatic 后，旧中文编号目录由 `stage_path_service.read_di
 | `test_workflow.py` | 模型选择、本机客户端、API 回退 |
 | `test_asset_thumbs.py` | 缩略图缓存、worker 回收、环境隔离 |
 | `test_video_ui.py`、`test_integration.py` | 视频链路、页面接力与交付 |
+| `test_tool_execution_protocol.py` | SKILL 工具执行协议：L4 适配器产出 L0 `ToolResult`，L3 编排器经注入执行器映射 done/page/input/failed/missing |
+| `tests/architecture/test_skill_orchestrator_boundary.py` | L3 SKILL 编排器不得静态或字面量动态导入 L4 UI 工具表 |
 | `tests/architecture/test_skip_hygiene.py` | skip 原因常量、恢复条件与源码／台账双向一致性 |
 
 ## 数据边界

@@ -1001,5 +1001,83 @@ class TtsRejectAndReleaseTests(unittest.TestCase):
             self.assertEqual(calls, ["第一句"])
 
 
+class TtsRecoveryIdentityTests(unittest.TestCase):
+    def test_run_lines_records_shared_run_attempt_and_cost_request(self):
+        lines = [{"shot_id": "S1", "text": "第一句", "speed": 1.0},
+                 {"shot_id": "S1", "text": "第二句", "speed": 1.0}]
+        with tempfile.TemporaryDirectory() as td:
+            folder = Path(td)
+            self.assertEqual(tts_api.run_lines(lines, folder, generate=lambda *a, **k: b"audio",
+                                               gateway=_gateway()), (2, 0, 0))
+            manifest = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))
+        self.assertEqual(len(manifest), 2)
+        runs = {entry["execution"]["run_id"] for entry in manifest}
+        self.assertEqual(len(runs), 1)
+        self.assertNotEqual(manifest[0]["execution"]["attempt_id"], manifest[1]["execution"]["attempt_id"])
+        for index, entry in enumerate(manifest, 1):
+            self.assertEqual(entry["execution"]["attempt_id"], entry["request_id"])
+            self.assertEqual(entry["cost_request_id"], entry["request_id"])
+            self.assertEqual(entry["execution"]["task_id"], "S1#%03d" % index)
+
+    def test_key_account_switch_invalidates_sentence_cache(self):
+        entries = [("S1", "CHAR_001", "你好", 1.0, 2.0)]
+        settings_a = {"base_url": "https://a.example/v1", "model": "tts-a", "voice": "alloy",
+                      "key_account": "account-a"}
+        settings_b = dict(settings_a, key_account="account-b")
+        lines_a = tts_api.build_lines(entries, {}, settings=settings_a)
+        lines_b = tts_api.build_lines(entries, {}, settings=settings_b)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "批一"
+            tts_api.run_lines(lines_a, folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
+            stored = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
+            self.assertEqual(stored["key_account"], "account-a")
+            self.assertEqual(tts_api.pending_lines(lines_a, folder), [])
+            self.assertEqual(tts_api.pending_lines(lines_b, folder), [1])
+            self.assertIsNone(tts_api.resume_folder(root, lines_b))
+
+    def test_unmarked_legacy_success_is_not_resent_after_account_marking(self):
+        entries = [("S1", "CHAR_001", "你好", 1.0, 2.0)]
+        settings_legacy = {"base_url": "https://a.example/v1", "model": "tts-a", "voice": "alloy"}
+        settings_marked = dict(settings_legacy, key_account="account-a")
+        legacy = tts_api.build_lines(entries, {}, settings=settings_legacy)
+        marked = tts_api.build_lines(entries, {}, settings=settings_marked)
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / "配音分句"
+            folder = root / "配音批次_20260101"
+            tts_api.run_lines(legacy, folder, generate=lambda *a, **k: b"audio", gateway=_gateway())
+            self.assertEqual(tts_api.resume_folder(root, marked), folder)
+            self.assertEqual(tts_api.pending_lines(marked, folder), [])
+            generate = Mock(return_value=b"audio")
+            self.assertEqual(tts_api.run_lines(marked, folder, generate=generate, gateway=_gateway()), (1, 1, 0))
+            generate.assert_not_called()
+
+    def test_save_key_keeps_random_account_only_for_same_key(self):
+        with tempfile.TemporaryDirectory() as td:
+            path = Path(td) / "tts_settings.json"
+            seen = []
+            with patch.object(tts_api, "settings_path", return_value=path), \
+                 patch.object(tts_api, "load_key", return_value=""), \
+                 patch("model_pool.save_named_key", lambda name, value: seen.append((name, value))):
+                tts_api.save_key("https://api.openai.com/v1", "tts-1", "alloy", "sk-one", gateway=_gateway())
+            first = json.loads(path.read_text(encoding="utf-8"))["key_account"]
+            with patch.object(tts_api, "settings_path", return_value=path), \
+                 patch.object(tts_api, "load_key", return_value="sk-one"), \
+                 patch("model_pool.save_named_key", lambda name, value: seen.append((name, value))):
+                tts_api.save_key("https://api.openai.com/v1", "tts-1", "alloy", "sk-one", gateway=_gateway())
+            same = json.loads(path.read_text(encoding="utf-8"))["key_account"]
+            with patch.object(tts_api, "settings_path", return_value=path), \
+                 patch.object(tts_api, "load_key", return_value="sk-one"), \
+                 patch("model_pool.save_named_key", lambda name, value: seen.append((name, value))):
+                tts_api.save_key("https://api.openai.com/v1", "tts-1", "alloy", "sk-two", gateway=_gateway())
+            stored_text = path.read_text(encoding="utf-8")
+            changed = json.loads(stored_text)["key_account"]
+        self.assertEqual(first, same)
+        self.assertNotEqual(first, changed)
+        self.assertNotIn("sk-one", stored_text)
+        self.assertNotIn("sk-two", stored_text)
+        self.assertEqual([key for key, _value in seen], [tts_api.KEY_ENV] * 3)
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=2)

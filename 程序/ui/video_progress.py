@@ -5,9 +5,48 @@ from infra.file_cache import read_json_shared as read_cached
 from domain.video_task_state import ACTIVE,elapsed_text,provider_failure_reason,VIDEO_FAILURE_TO_CODE
 from contract.storyboard_paths import config_listing,resolved_path
 from contract.error_codes import describe
+from ui_tokens import COLORS
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
         'succeeded':'下载中','downloaded':'已下载','failed':'失败','rejected':'被拒绝'}
+USAGE_VIDEO_LABELS={'generated':'已生成','none':'未生成','generating':'生成中',
+                    'stale':'已过期','legacy_unknown':'历史版本无法判定',
+                    'missing':'文件缺失','revise':'需修改'}
+USAGE_VIDEO_TOKENS={'generated':'success_text','none':'text_muted',
+                         'generating':'text_muted','stale':'warning_text',
+                         'legacy_unknown':'warning_text','missing':'danger_text',
+                         'revise':'warning_text'}
+
+
+def video_display_state(episode_path, root, shot, version):
+    """视频页状态列：在任务状态上叠加输入过期、历史无法判定与文件缺失。"""
+    label = LABELS.get(version.get('state'), '未提交') if version else '未提交'
+    if not version or version.get('state') != 'downloaded':
+        return label
+    from domain import video_staleness
+    try:
+        status = video_staleness.version_status(episode_path, shot, version, root)
+    except Exception:
+        return label
+    return {video_staleness.STATUS_MISSING: '视频文件缺失',
+            video_staleness.STATUS_STALE: '输入已过期',
+            video_staleness.STATUS_LEGACY_UNKNOWN: '历史版本无法判定'}.get(status, label)
+
+
+def usage_video_appearance(key, version):
+    """资产使用情况里的视频状态文字与前景色；未知状态按未生成降级。"""
+    key = key if key in USAGE_VIDEO_LABELS else 'none'
+    suffix = '（v%03d）' % version if isinstance(version, int) and version else ''
+    return '视频：' + USAGE_VIDEO_LABELS[key] + suffix, COLORS[USAGE_VIDEO_TOKENS[key]]
+
+
+def stale_videos_notice(stale):
+    """资产使用情况里受影响视频的一句说明；无受影响镜头时为空。"""
+    rows = [str(item) for item in stale or []]
+    if not rows:
+        return ''
+    return ('输入已变化的镜头视频：' + '、'.join(rows)
+            + '。不会自动重做；请在视频页逐镜或批量标「需修改」后再提交。')
 
 
 def latest(path):

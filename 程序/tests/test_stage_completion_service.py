@@ -247,6 +247,14 @@ class MediaCompletionTests(unittest.TestCase):
         item = commercial_template(self.root)['categories']['video']['items'][0]
         self.assertIn('external-editor', item['source'])
         self.assertFalse(item['commercial_allowed'])
+        video['source'] = item['source']
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        output_receipt = output.with_name(output.name + '.source.json')
+        original_receipt = read(output_receipt)
+        save(output_receipt, dict(original_receipt, source='changed-external-editor/master.mp4'))
+        with self.assertRaisesRegex(ValueError, '导入来源记录已改变'):
+            validate_commercial_evidence(self.root, evidence)
+        save(output_receipt, original_receipt)
         self.assertTrue(validate_commercial_evidence(self.root, evidence))
         audio = self.root / 'audio.wav'
         publish_imported_media(audio, output, lambda _: True, 'audio')
@@ -256,6 +264,39 @@ class MediaCompletionTests(unittest.TestCase):
         save(output.with_name(output.name + '.source.json'), dict(receipt, imported_file=output.name))
         with self.assertRaisesRegex(ValueError, '导入来源'):
             validate_commercial_evidence(self.root, evidence)
+
+    def test_commercial_source_receipt_snapshot_blocks_missing_or_modified_receipt(self):
+        """B 卡：待填资料冻结 .source.json 摘要；缺失或只改来源文字都不能静默通过。"""
+        from stage_completion_service import (commercial_evidence_path, commercial_template,
+            commercial_trace_summary, validate_commercial_evidence)
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        receipt_path = output.with_name(output.name + '.source.json')
+        receipt = {'schema': 1, 'kind': 'video', 'source': 'external-editor/master.mp4',
+                   'imported_file': output.name, 'sha256': video['sha256'], 'rights_status': 'unknown'}
+        save(receipt_path, receipt)
+        template_item = commercial_template(self.root)['categories']['video']['items'][0]
+        self.assertIn('source_receipt', template_item)
+        video['source'] = template_item['source']
+        video['source_receipt'] = template_item['source_receipt']
+        pending = commercial_evidence_path(self.root).with_suffix('.pending.json')
+        save(pending, evidence)
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        receipt_path.unlink()
+        with self.assertRaisesRegex(ValueError, '导入来源记录缺失'):
+            validate_commercial_evidence(self.root, evidence)
+        missing_summary = commercial_trace_summary(self.root)
+        self.assertIn('遗漏 1', missing_summary)
+        self.assertIn(receipt_path.name, missing_summary)
+        save(receipt_path, receipt)
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        save(receipt_path, dict(receipt, source='changed-external-editor/master.mp4'))
+        with self.assertRaisesRegex(ValueError, '导入来源记录已改变'):
+            validate_commercial_evidence(self.root, evidence)
+        changed_summary = commercial_trace_summary(self.root)
+        self.assertIn('来源变更 1', changed_summary)
+        self.assertIn(receipt_path.name, changed_summary)
 
     def test_commercial_template_prefills_known_sources_without_granting_rights(self):
         import os
@@ -385,6 +426,236 @@ class MediaCompletionTests(unittest.TestCase):
                 font.write_bytes(b'changed font fixture')
                 with self.assertRaisesRegex(ValueError, '摘要'):
                     validate_commercial_evidence(self.root, evidence)
+
+    def test_commercial_music_and_voice_gates_cover_registered_versions(self):
+        """B 卡：edit_bundle 登记的音乐与逐镜声音进入七类清单，替换任一采用版本都能区分。"""
+        import os
+        from copy import deepcopy
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        music = self.root / 'music.mp3'; music.write_bytes(b'original music')
+        voice = self.root / 'voice.wav'; voice.write_bytes(b'original voice')
+        save(output.parent / 'edit_bundle.json', {
+            'master': output.name, 'master_sha256': video['sha256'],
+            'manifest': [{'shot': 'S01', 'version': 1, 'sha256': video['sha256'],
+                          'audio': [{'path': os.path.relpath(voice, output.parent),
+                                     'sha256': file_hash(voice)}]}],
+            'music': [{'path': os.path.relpath(music, output.parent), 'sha256': file_hash(music)}]})
+        template = commercial_template(self.root)
+        self.assertEqual(template['categories']['music']['items'][0]['path'], 'music.mp3')
+        self.assertEqual(template['categories']['voice']['items'][0]['path'], 'voice.wav')
+        music_item = dict(video, path='music.mp3', sha256=file_hash(music))
+        voice_item = dict(video, path='voice.wav', sha256=file_hash(voice))
+        with self.assertRaises(ValueError) as both_missing:
+            validate_commercial_evidence(self.root, evidence)
+        both_text = str(both_missing.exception)
+        self.assertIn('音乐授权', both_text)
+        self.assertIn('music.mp3', both_text)
+        self.assertIn('声音授权', both_text)
+        self.assertIn('voice.wav', both_text)
+        voice_missing = deepcopy(evidence)
+        voice_missing['categories']['music']['items'] = [music_item]
+        with self.assertRaises(ValueError) as only_voice_missing:
+            validate_commercial_evidence(self.root, voice_missing)
+        voice_text = str(only_voice_missing.exception)
+        self.assertIn('声音授权', voice_text)
+        self.assertIn('voice.wav', voice_text)
+        self.assertNotIn('音乐授权', voice_text)
+        music_missing = deepcopy(evidence)
+        music_missing['categories']['voice']['items'] = [voice_item]
+        with self.assertRaises(ValueError) as only_music_missing:
+            validate_commercial_evidence(self.root, music_missing)
+        music_text = str(only_music_missing.exception)
+        self.assertIn('音乐授权', music_text)
+        self.assertIn('music.mp3', music_text)
+        self.assertNotIn('声音授权', music_text)
+        evidence['categories']['music']['items'] = [music_item]
+        evidence['categories']['voice']['items'] = [voice_item]
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        original_music = music.read_bytes()
+        music.write_bytes(b'changed music')
+        music_item['sha256'] = file_hash(music)
+        with self.assertRaisesRegex(ValueError, '音乐授权'):
+            validate_commercial_evidence(self.root, evidence)
+        music.write_bytes(original_music)
+        music_item['sha256'] = file_hash(music)
+        voice.write_bytes(b'changed voice')
+        voice_item['sha256'] = file_hash(voice)
+        with self.assertRaisesRegex(ValueError, '声音授权'):
+            validate_commercial_evidence(self.root, evidence)
+
+    def test_commercial_inventory_recurses_into_shot_assets_manifest(self):
+        """B 卡：旧 edit_bundle 未展开 references 时，仍沿镜头来源递归读取 assets_manifest。"""
+        import os
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        shot = self.root / 'data' / 'S01' / 'v001' / 'S01.mp4'
+        shot.parent.mkdir(parents=True)
+        shot.write_bytes(b'approved shot')
+        first = self.root / 'first.png'; first.write_bytes(b'first frame')
+        reference = self.root / 'reference.png'; reference.write_bytes(b'reference image')
+        save(shot.parent / 'assets_manifest.json', {
+            'mode': 'cloud', 'assets': [{'path': str(reference.resolve()), 'sha256': file_hash(reference),
+                                         'category': 'reference'}],
+            'first_frame': {'path': str(first.resolve()), 'sha256': file_hash(first), 'category': 'image'}})
+        save(output.parent / 'edit_bundle.json', {
+            'master': output.name, 'master_sha256': video['sha256'],
+            'manifest': [{'shot': 'S01', 'version': 1, 'source': os.path.relpath(shot, output.parent),
+                          'sha256': file_hash(shot)}]})
+        template = commercial_template(self.root)
+        self.assertEqual(template['categories']['image']['items'][0]['path'], 'first.png')
+        self.assertEqual(template['categories']['reference']['items'][0]['path'], 'reference.png')
+        with self.assertRaisesRegex(ValueError, '授权'):
+            validate_commercial_evidence(self.root, evidence)
+        evidence['categories']['image']['items'] = [dict(video, path='first.png', sha256=file_hash(first))]
+        evidence['categories']['reference']['items'] = [
+            dict(video, path='reference.png', sha256=file_hash(reference))]
+        evidence['categories']['video']['items'].append(
+            dict(video, path=shot.relative_to(self.root).as_posix(), sha256=file_hash(shot)))
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+
+    def test_commercial_assets_manifest_rejects_existing_source_outside_project(self):
+        """B 卡：镜头输入源即使真实存在，越出项目也只能按缺失/越界来源处理。"""
+        import os
+        from agent.core import file_hash
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        shot = self.root / 'data' / 'S01' / 'v001' / 'S01.mp4'
+        shot.parent.mkdir(parents=True)
+        shot.write_bytes(b'approved shot')
+        outside = self.root.parent / (self.root.name + '-outside-reference.png')
+        outside.write_bytes(b'outside reference')
+        self.addCleanup(lambda: outside.unlink(missing_ok=True))
+        save(shot.parent / 'assets_manifest.json', {
+            'mode': 'cloud', 'assets': [{'path': str(outside.resolve()), 'sha256': file_hash(outside),
+                                         'category': 'reference'}]})
+        save(output.parent / 'edit_bundle.json', {
+            'master': output.name, 'master_sha256': video['sha256'],
+            'manifest': [{'shot': 'S01', 'version': 1, 'source': os.path.relpath(shot, output.parent),
+                          'sha256': file_hash(shot)}]})
+        self.assertTrue(any('越出项目' in item for item in commercial_template(self.root)['inventory_warnings']))
+        evidence['categories']['video']['items'].append(
+            dict(video, path=shot.relative_to(self.root).as_posix(), sha256=file_hash(shot)))
+        with self.assertRaises(ValueError) as failure:
+            validate_commercial_evidence(self.root, evidence)
+        text = str(failure.exception)
+        self.assertIn('参考授权', text)
+        self.assertIn(str(outside.resolve()), text)
+
+    def test_commercial_inventory_recurses_through_artifact_lineage_scripts(self):
+        """B 卡：采用分镜←结构剧本←自然剧本的登记血缘递归进入 script 类。"""
+        from agent.core import file_hash
+        from contract.artifact_lineage import record
+        from stage_completion_service import commercial_template, validate_commercial_evidence
+        evidence, _ = self.commercial_fixture()
+        writing = self.root / 'writing'; writing.mkdir()
+        natural = writing / 'natural.md'; natural.write_text('natural script', encoding='utf-8')
+        structured = writing / 'structured.md'; structured.write_text('structured script', encoding='utf-8')
+        record(self.root, structured, natural, '结构剧本')
+        record(self.root, self.source, structured, 'final_storyboard')
+        template = commercial_template(self.root)
+        paths = [item['path'] for item in template['categories']['script']['items']]
+        self.assertEqual(paths, ['storyboard/episode.json', 'writing/structured.md', 'writing/natural.md'])
+        with self.assertRaisesRegex(ValueError, '剧本授权清单'):
+            validate_commercial_evidence(self.root, evidence)
+        base = evidence['categories']['script']['items'][0]
+        evidence['categories']['script']['items'].extend([
+            dict(base, path='writing/structured.md', sha256=file_hash(structured)),
+            dict(base, path='writing/natural.md', sha256=file_hash(natural))])
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+
+    def test_commercial_inventory_lineage_cycle_terminates_without_duplicate_items(self):
+        """B 卡：产物来源关系互相引用时按文件去重终止，不把循环扩成无限清单。"""
+        from contract.artifact_lineage import record
+        from stage_completion_service import commercial_template
+        self.commercial_fixture()
+        writing = self.root / 'writing'; writing.mkdir()
+        first = writing / 'cycle-a.md'; first.write_text('cycle a', encoding='utf-8')
+        second = writing / 'cycle-b.md'; second.write_text('cycle b', encoding='utf-8')
+        record(self.root, first, second, '循环草稿A')
+        record(self.root, second, first, '循环草稿B')
+        record(self.root, self.source, first, 'final_storyboard')
+        template = commercial_template(self.root)
+        paths = [item['path'] for item in template['categories']['script']['items']]
+        self.assertEqual(paths, ['storyboard/episode.json', 'writing/cycle-a.md', 'writing/cycle-b.md'])
+
+    def test_external_refinement_is_unknown_manual_supplement_and_preserved(self):
+        """B 卡：无 edit_bundle 的外部精修标未知；人工补录被展示且确认后原资料保留。"""
+        from agent.core import file_hash
+        from stage_completion_service import (commercial_evidence_path, commercial_template,
+            commercial_trace_summary, confirm_commercial_evidence, validate_commercial_evidence)
+        evidence, _ = self.commercial_fixture()
+        self.assertTrue(validate_commercial_evidence(self.root, evidence))
+        template = commercial_template(self.root)
+        self.assertTrue(any(row['kind'] == 'missing_edit_bundle'
+                            for row in template['inventory_trace']['trace_gaps']))
+        pending = commercial_evidence_path(self.root).with_suffix('.pending.json')
+        save(pending, evidence)
+        manual = self.root / 'external-refined.mp4'; manual.write_bytes(b'external refined source')
+        manual_item = dict(evidence['categories']['video']['items'][0],
+                           path='external-refined.mp4', sha256=file_hash(manual),
+                           source='外部精修：测试登记的原始文件')
+        evidence['categories']['video']['items'].append(manual_item)
+        evidence['manual_review_note'] = '外部精修来源由审核人人工登记'
+        save(pending, evidence)
+        summary = commercial_trace_summary(self.root)
+        self.assertIn('人工补录 1', summary)
+        self.assertIn('external-refined.mp4', summary)
+        self.assertIn('未登记或异常来源边 1', summary)
+        target = confirm_commercial_evidence(self.root, evidence)
+        confirmed = read(target)
+        self.assertEqual(confirmed['manual_review_note'], evidence['manual_review_note'])
+        self.assertIn(manual_item, confirmed['categories']['video']['items'])
+        self.assertTrue(manual.is_file())
+
+    def test_commercial_trace_summary_separates_missing_changed_and_manual(self):
+        """B 卡：交付页盘点文本分开报告遗漏、来源变更和人工补录。"""
+        import os
+        from agent.core import file_hash
+        from stage_completion_service import commercial_evidence_path, commercial_template, commercial_trace_summary
+        evidence, _ = self.commercial_fixture()
+        video = evidence['categories']['video']['items'][0]
+        output = self.root / video['path']
+        music = self.root / 'music.mp3'; music.write_bytes(b'original music')
+        save(output.parent / 'edit_bundle.json', {
+            'master': output.name, 'master_sha256': video['sha256'],
+            'manifest': [{'sha256': video['sha256']}],
+            'music': [{'path': os.path.relpath(music, output.parent), 'sha256': file_hash(music)}]})
+        template = commercial_template(self.root)
+        pending = commercial_evidence_path(self.root).with_suffix('.pending.json')
+        save(pending, template)
+        music_row = template['categories']['music']['items'][0]
+        template['categories']['music']['items'] = []
+        save(pending, template)
+        self.assertIn('遗漏 1', commercial_trace_summary(self.root))
+        template['categories']['music']['items'] = [music_row]
+        save(pending, template)
+        music.write_bytes(b'changed music')
+        self.assertIn('来源变更 1', commercial_trace_summary(self.root))
+        extra = self.root / 'external.txt'; extra.write_text('manual supplement', encoding='utf-8')
+        template['categories']['reference']['items'] = [
+            dict(music_row, path='external.txt', sha256=file_hash(extra))]
+        save(pending, template)
+        summary = commercial_trace_summary(self.root)
+        self.assertIn('来源变更 1', summary)
+        self.assertIn('人工补录 1', summary)
+        self.assertIn('external.txt', summary)
+
+    def test_commercial_authorization_credential_change_is_distinct(self):
+        """B 卡：授权凭据本身被改与采用素材版本被替换使用不同错误口径。"""
+        from stage_completion_service import validate_commercial_evidence
+        evidence, proof = self.commercial_fixture()
+        proof.write_text('changed authorization fixture')
+        with self.assertRaisesRegex(ValueError, '授权凭据'):
+            validate_commercial_evidence(self.root, evidence)
 
     def test_commercial_script_must_match_adopted_storyboard_source(self):
         from agent.core import file_hash

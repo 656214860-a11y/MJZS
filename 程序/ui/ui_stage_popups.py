@@ -2,6 +2,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+import contract.service_contract as service_contract
 import infra.app_logging as app_logging
 from orchestrator import stage_models
 from ui_tokens import BUTTON_GAP, SPACING, TEXT_ROWS, WRAPLENGTH
@@ -86,7 +87,22 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
             pass
         progress_label.configure(text=progress(result))
         retry.configure(state='normal' if handle['failures'] else 'disabled')
+        waiting = any(item.get('status') == service_contract.TOOL_PAGE
+                      for item in list(result.get('results') or []))
+        open_page.configure(state='normal' if waiting else 'disabled')
         return result
+
+    def open_waiting_page():
+        rows = list((handle['run'] or {}).get('results') or [])
+        row = next((item for item in rows if item.get('status') == service_contract.TOOL_PAGE), None)
+        if row is None:
+            return False
+        try:
+            import ui.skill_tools as skill_tools
+            return bool(skill_tools.open_page(desktop, row))
+        except Exception:
+            app_logging.swallowed()
+            return False
 
     def go_back():
         try:
@@ -98,11 +114,15 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
     retry = SecondaryButton(row, text='重试失败项', command=lambda: start(only=handle['failures']))
     retry.pack(side='left')
     retry.configure(state='disabled')
+    open_page = SecondaryButton(row, text='打开待办页面', command=open_waiting_page)
+    open_page.pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
+    open_page.configure(state='disabled')
     SecondaryButton(row, text='返回阶段页面', command=go_back).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     SecondaryButton(row, text='关闭', command=window.destroy).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     handle['retry'] = lambda: start(only=handle['failures'])
     handle['start'] = start
     handle['back'] = go_back
+    handle['open_page'] = open_waiting_page
     start()
     if standalone:
         window.mainloop()
@@ -159,8 +179,10 @@ def _show_stage_config(desktop, stage):
 
 
 def install_stage_presenters():
-    """在 L4 组合根登记阶段 UI 呈现器；依赖方向始终是 UI → 阶段。"""
+    """在 L4 组合根登记阶段 UI 呈现器与工具执行器；依赖方向始终是 UI → 阶段。"""
     from infra.ui_plugin_registry import module
+    import ui.skill_tools as skill_tools
+    skill_tools.install_executor()
     module('stage_exec').install_ui_presenters(_show_stage_execution, _show_manual_plan, ask_confirmation)
     stage_models.set_config_presenter(_show_stage_config)
 
