@@ -759,7 +759,7 @@
   {
    "module": "domain/asset_versions.py",
    "covered": 0,
-   "total": 282,
+   "total": 449,
    "percent": 0.0
   },
   {
@@ -1059,7 +1059,7 @@
   {
    "module": "domain/tts_api.py",
    "covered": 0,
-   "total": 604,
+   "total": 612,
    "percent": 0.0
   },
   {
@@ -2317,6 +2317,12 @@
    "percent": 0.0
   },
   {
+   "module": "ui/animatic_page.py",
+   "covered": 0,
+   "total": 529,
+   "percent": 0.0
+  },
+  {
    "module": "ui/asset_batch.py",
    "covered": 0,
    "total": 306,
@@ -2325,7 +2331,7 @@
   {
    "module": "ui/asset_detail.py",
    "covered": 0,
-   "total": 738,
+   "total": 743,
    "percent": 0.0
   },
   {
@@ -2445,7 +2451,7 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 627,
+   "total": 659,
    "percent": 0.0
   },
   {
@@ -2529,7 +2535,7 @@
   {
    "module": "ui/desktop_media_pages.py",
    "covered": 0,
-   "total": 778,
+   "total": 714,
    "percent": 0.0
   },
   {
@@ -2571,7 +2577,7 @@
   {
    "module": "ui/desktop_script_pages.py",
    "covered": 0,
-   "total": 714,
+   "total": 718,
    "percent": 0.0
   },
   {
@@ -2769,25 +2775,25 @@
   {
    "module": "ui/script_find_bar.py",
    "covered": 0,
-   "total": 165,
+   "total": 177,
    "percent": 0.0
   },
   {
    "module": "ui/script_line_numbers.py",
    "covered": 0,
-   "total": 65,
+   "total": 105,
    "percent": 0.0
   },
   {
    "module": "ui/script_outline.py",
    "covered": 0,
-   "total": 79,
+   "total": 93,
    "percent": 0.0
   },
   {
    "module": "ui/script_reading.py",
    "covered": 0,
-   "total": 95,
+   "total": 308,
    "percent": 0.0
   },
   {
@@ -3345,7 +3351,7 @@
   {
    "module": "orchestrator/stage_animatic_gateways.py",
    "covered": 43,
-   "total": 509,
+   "total": 511,
    "percent": 8.4
   },
   {
@@ -3383,6 +3389,12 @@
    "covered": 73,
    "total": 535,
    "percent": 13.6
+  },
+  {
+   "module": "agent/volcengine.py",
+   "covered": 17,
+   "total": 124,
+   "percent": 13.7
   },
   {
    "module": "contract/asset_contract.py",
@@ -3479,12 +3491,6 @@
    "covered": 34,
    "total": 203,
    "percent": 16.7
-  },
-  {
-   "module": "agent/volcengine.py",
-   "covered": 13,
-   "total": 77,
-   "percent": 16.9
   },
   {
    "module": "pet_agent.py",
@@ -4136,5 +4142,5 @@
   }
  ],
  "modules_covered": 133,
- "modules_total": 686
+ "modules_total": 687
 }

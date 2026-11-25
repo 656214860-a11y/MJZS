@@ -134,9 +134,9 @@ def animatic_reference_paths(project):
                                if path.is_file() and path.suffix.lower() in ('.png', '.jpg', '.jpeg', '.webp')))
 
 
-def import_animatic_audio(project, source):
+def import_animatic_audio(project, source, *, track=None):
     from domain.audio_import_service import import_audio
-    return import_audio(project, source, publish=media_import_publisher(project, 'audio'), stage='animatic')
+    return import_audio(project, source, **_animatic_audio_route(project, source, track))
 
 
 def animatic_video(project):
@@ -165,6 +165,16 @@ def generate_animatic_reference(project, prompt, model, settings=None):
     workspace = Path(tempfile.mkdtemp(prefix='reference-', dir=work_root))
     return prepare_reference(workspace, prompt, model, settings,
                              publish=lambda paths: import_animatic_references(project, paths))
+
+
+def _animatic_audio_route(project, source, track):
+    """整轨／音乐按用途落入 声音/ 对应子目录：显式 track 优先，否则按文件名归类。"""
+    from domain import animatic_audio
+    if track not in ('track', 'music'):
+        name = Path(source).name.lower()
+        track = 'music' if any(key in name for key in ('bgm', 'music', '音乐', '配乐')) else 'track'
+    return {'publish': media_import_publisher(project, 'audio'), 'stage': 'animatic',
+            'subdir': animatic_audio.SUBDIRS[track]}
 
 
 def animatic_preview_spec(project):

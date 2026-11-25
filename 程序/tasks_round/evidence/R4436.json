@@ -1,0 +1,15 @@
+{
+  "round": 4436,
+  "commit_base": "82ca5d1ea",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_page animatic_references animatic_audio animatic_sketch_backends animatic_timeline animatic_service animatic_scope req_s04_anchors copy_rules",
+    "exit": 0,
+    "passed": 188,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T09:53:49"
+}

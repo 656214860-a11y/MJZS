@@ -10,11 +10,12 @@ _SUFFIXES = {'.wav', '.mp3', '.m4a', '.aac'}
 LOGGER = logging.getLogger('audio_import_service')
 
 
-def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
+def import_audio(project, source, *, publish, stage='audio', kind='dialogue', subdir=None):
     """Copy one non-empty supported audio file into the authoritative stage directory.
 
     ``kind`` 标明音轨用途（对白／旁白／BGM／音效／整轨）：非对白音轨加可识别前缀，
-    完成核验据此判断「导入 BGM 不能算作对白已完成」。
+    完成核验据此判断「导入 BGM 不能算作对白已完成」。``subdir`` 仅对
+    ``stage=='animatic'`` 生效，且解析后必须仍在阶段目录内。
     """
     from contract.stage_path_service import write_dir
     from domain.tts_api import AUDIO_KINDS, AUDIO_KIND_PREFIXES
@@ -37,6 +38,11 @@ def import_audio(project, source, *, publish, stage='audio', kind='dialogue'):
         if stage == 'audio':
             from contract.project_stages import audio
             folder = audio(project)
+        if subdir is not None and stage == 'animatic':
+            target = (folder / subdir).resolve()
+            if not target.is_relative_to(folder.resolve()):
+                raise ValueError('音频导入目录越界')
+            folder = target
         folder.mkdir(parents=True, exist_ok=True)
         destination = folder / generate_existing('audio_import', prefix=AUDIO_KIND_PREFIXES.get(kind, ''),
                                                   stem=source.stem, token=uuid.uuid4().hex[:6], suffix=suffix)

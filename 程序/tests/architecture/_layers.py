@@ -157,6 +157,10 @@ _register(2, "domain_events")
 # 纯 L2 零同层边；ComfyUI 客户端由编排层注入，不反向/同层依赖 animatic_service。
 _register(2, "animatic_sketch_backends")
 
+# S04-PAGE-REDESIGN（REQ-S04-95…99／DES-S04-25）：预演页拆成独立 L4 模块；
+# desktop_media_pages.animatic_page 只做薄壳转发，业务全走 L3 网关。
+_register(4, "animatic_page")
+
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
     "blender_previs_template": "Blender 独立模板脚本，依赖 bpy，不在桌面产品运行期。",
@@ -194,13 +198,16 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('session_integrity', 'publication'),
     ('storage_maintenance', 'temporary_sweep'),
     ('agent_skill_sync', 'skill_registry'),
+    ('animatic_page', 'asset_thumbs'),
+    ('animatic_page', 'desktop_files_panel_filters'),
+    ('animatic_page', 'ui_widgets'),
+    ('animatic_service', 'edit_service'),
+    ('animatic_service', 'tts_api'),
     ('artifact_index', 'executors'),
     ('artifact_index', 'storage_maintenance'),
     ('prefetch', 'executors'),
     ('prefetch', 'file_cache'),
     ('prefetch', 'resources'),
-    ('animatic_service', 'edit_service'),
-    ('animatic_service', 'tts_api'),
     ('api_endpoints', 'app_logging'),
     ('api_endpoints', 'model_metering'),
     ('api_endpoints', 'model_secrets'),
@@ -409,6 +416,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('desktop_layout', 'ui_scroll'),
     ('desktop_lifecycle', 'asset_thumbs'),
     ('desktop_login_gate', 'desktop_page_registry'),
+    ('desktop_media_pages', 'animatic_page'),
     ('desktop_media_pages', 'app'),
     ('desktop_media_pages', 'desktop_audio_direct'),
     ('desktop_media_pages', 'desktop_page_support'),
