@@ -407,6 +407,8 @@ class AccountController:
             return SystemError('账号服务返回的授权无法验证，请稍后重试', data={'code': 'lease_unverified'})
         payload = checked.payload
         identity = _session_identity(previous) if previous else None
+        if previous is not None and identity is None:
+            return SystemError('原登录授权无法验证，请重新登录', data={'code': 'lease_unverified'})
         if identity and identity[:2] != (payload.get('uid'), payload.get('did')):
             return _session_changed()
         # 刷新可能签发新 sid，只有这次持锁验过的后继能继承代际。显式登录总是开始新代际。

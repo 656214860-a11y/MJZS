@@ -745,6 +745,15 @@ class AccountControllerTests(unittest.TestCase):
         self.assertTrue(pending.pop()().ok)
         self.assertEqual(client.calls, [('renew', ('r1', DID)), ('devices', (old,)), ('devices', (fresh,))])
 
+    def test_renewal_cannot_replace_unverifiable_previous_identity(self):
+        old = self._signed_in(kid='retired')
+        successor = sign(payload(uid='other', sid='successor'))
+        client = _Client(renew=success({'lease': successor, 'refresh_token': 'r2'}))
+        self.controller(client).renew(self.results.append)
+        self.assertFalse(self.results[-1].ok)
+        self.assertEqual(self.store.load()['lease'], old)
+        self.assertEqual(self.store.load()['refresh_token'], 'r1')
+
     def test_new_login_replaces_generation_even_if_signed_lease_is_reused(self):
         lease = sign(payload())
         client = _Client(password_login=success({'lease': lease, 'refresh_token': 'r1'}))

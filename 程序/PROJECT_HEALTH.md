@@ -42,3 +42,4 @@
 - **H1 配音**：本轮修复 408 受理未知时的接续重发；历史 408 失败记录也要求先核对。证据见 [TTS 回归](tests/test_tts.py)。
 - **H2 账号**：本轮修复旧请求在换号后使用新租约、覆盖或清除新会话、向新页面交付旧结果；同一登录的正常令牌轮换继续工作。证据见[账号回归](tests/test_account_client.py)与[续签并发测试](tests/test_renew_concurrency.py)。
 - **H3 备份**：本轮修复受保护配置解析失败仍导出原文；数组递归脱敏，不可处理时保留旧包。证据见[实际 ZIP 回归](tests/test_project_archive.py)。
+- **H2 补充验收**：旧租约签名无法验证时，续签保留原存储并要求重新登录，见 [R4501 回归](tasks_round/tasks_round_4501_result.md)。
