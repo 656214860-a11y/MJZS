@@ -88,6 +88,21 @@ class PasswordInputTests(unittest.TestCase):
         box.clear_error()
         self.assertFalse(box.error_message)
 
+    def test_password_toggle_uses_clean_text_and_email_suffix_is_compact(self):
+        """UX-LOGIN-CLEAN：密码显隐钮为无框文字按钮且不含 emoji；邮箱后缀框紧凑定宽 CHAR_WIDTH['xl']。"""
+        from ui_tokens import CHAR_WIDTH
+        box = PasswordInput(self.win, placeholder='密码')
+        self.addCleanup(box.destroy)
+        self.assertEqual(str(box.toggle_button.cget('style')), 'Tokens.Text.TButton')
+        for _ in range(2):
+            text = str(box.toggle_button.cget('text'))
+            self.assertTrue(text)
+            self.assertTrue(all(ord(ch) < 0x1F000 for ch in text), f'密码切换钮不应含 emoji：{text!r}')
+            box.toggle_button.invoke()
+        email = EmailInput(self.win)
+        self.addCleanup(email.destroy)
+        self.assertEqual(int(str(email.suffix.cget('width'))), CHAR_WIDTH['xl'])
+
 
 if __name__ == '__main__':
     unittest.main()

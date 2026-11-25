@@ -332,6 +332,27 @@ class AccountPageTests(unittest.TestCase):
         self.assertEqual(client.calls[0][1][:2],('a@b.cn','abc12345'))
         self.sign_out()
 
+    def test_signed_out_login_card_is_compact_and_segmented(self):
+        """UX-LOGIN-CLEAN：00 会员账户未登录态登录卡居中定宽不拉满整屏，验证码登录行内联排布。"""
+        from ui_tokens import DESKTOP_LAYOUT
+        d=self.signed_out_page(_Client())
+        card=d.account_email_input
+        while card is not None and str(card.cget('style') if hasattr(card,'cget') else '')!='Tokens.Card.TFrame':
+            parent_name=card.winfo_parent()
+            card=card.nametowidget(parent_name) if parent_name else None
+        self.assertIsNotNone(card,'登录表单应包在统一 Card 中')
+        self.assertGreater(card.winfo_width(),0)
+        self.assertLessEqual(card.winfo_width(),DESKTOP_LAYOUT['login_gate_width']+40,
+                             '未登录页登录卡应收束在定宽居中容器内，不拉满整个宽屏')
+        self.assertEqual(str(d.account_login_tab.cget('style')),'Selected.RailIcon.TButton')
+        self.assertEqual(str(d.account_register_tab.cget('style')),'RailIcon.TButton')
+        d.account_show_login_view('code');self.pump()
+        self.assertLessEqual(
+            abs(d.account_code_input.winfo_rooty()-d.account_send_button.winfo_rooty()),8,
+            '验证码登录视图验证码框与发码按钮应在同一水平行')
+        self.assertGreater(d.account_send_button.winfo_rootx(),d.account_code_input.winfo_rootx(),
+                           '验证码登录视图发码按钮应在验证码框右侧')
+
     def test_malformed_email_is_rejected_locally_with_error_style(self):
         client=_Client()
         d=self.signed_out_page(client)
