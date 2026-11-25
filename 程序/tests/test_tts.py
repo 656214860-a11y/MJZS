@@ -112,8 +112,7 @@ class TtsSynthesizeTests(unittest.TestCase):
         self.assertEqual(sent.get("authorization"), "Bearer sk-test")
         self.assertEqual(sent.get("content-type"), "application/json")
 
-    def test_synthesize_http_error_keeps_legacy_wording(self):
-        """HTTP 失败文案与直连时代一致：TTS 请求失败（HTTP <code>）：<detail≤400>。"""
+    def test_synthesize_http_error_exposes_only_status(self):
         calls = {}
         error = urllib.error.HTTPError("https://api.openai.com/v1/audio/speech", 500, "err", {},
                                        io.BytesIO(b'{"error": "upstream bad"}'))
@@ -121,8 +120,7 @@ class TtsSynthesizeTests(unittest.TestCase):
         with patches[0], patches[1], patches[2], patches[3]:
             with self.assertRaises(ValueError) as caught:
                 tts_api.synthesize("你好")
-        self.assertEqual(str(caught.exception),
-                         'TTS 请求失败（HTTP 500）：{"error": "upstream bad"}')
+        self.assertEqual(str(caught.exception), 'TTS 请求失败（HTTP 500）')
 
     def test_synthesize_empty_audio_rejected(self):
         calls = {}
@@ -716,8 +714,25 @@ class TtsRejectAndReleaseTests(unittest.TestCase):
             with self.assertRaises(tts_api.TTSRejected) as caught:
                 tts_api.synthesize("你好")
         self.assertIsInstance(caught.exception, ValueError)
-        self.assertEqual(str(caught.exception),
-                         'TTS 请求失败（HTTP 401）：{"error": "invalid key"}')
+        self.assertEqual(str(caught.exception), 'TTS 请求失败（HTTP 401）')
+
+    def test_upstream_details_never_reach_time_line_or_progress(self):
+        marker = 'synthetic-private-value'
+        errors = (urllib.error.HTTPError(_AUDIO_SETTINGS['base_url'], 408, 'timeout', {},
+                                         io.BytesIO(marker.encode())),
+                  urllib.error.URLError('connection refused ' + marker),
+                  TimeoutError('timed out ' + marker))
+        for error in errors:
+            with self.subTest(kind=type(error).__name__), tempfile.TemporaryDirectory() as td:
+                folder, progress = Path(td), []
+                patches = _synthesize_patches({}, error=error)
+                with patches[0], patches[1], patches[2], patches[3]:
+                    tts_api.run_lines([{'shot_id': 'S1', 'text': '甲'}], folder,
+                                      report=progress.append, gateway=_gateway())
+                timeline = (folder / '时间轴.json').read_text(encoding='utf-8')
+                self.assertNotIn(marker, timeline)
+                self.assertNotIn(marker, ''.join(progress))
+                self.assertTrue(json.loads(timeline)[0]['error'])
 
     def test_http_408_blocks_resume_without_sending_another_request(self):
         for metered in (True, False):
@@ -752,6 +767,7 @@ class TtsRejectAndReleaseTests(unittest.TestCase):
             self.assertEqual(tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=folder),
                              (0, 0, 1))
             gen.assert_not_called()
+            self.assertNotIn('：timeout', (folder / '时间轴.json').read_text(encoding='utf-8'))
             self.assertEqual(tts_api.release_unknown(folder, [1], gateway=_gateway()), [1])
             self.assertEqual(tts_api.run_lines(lines, folder, generate=gen, gateway=_gateway(), project=folder),
                              (1, 0, 0))
@@ -768,6 +784,7 @@ class TtsRejectAndReleaseTests(unittest.TestCase):
             entry = json.loads((folder / "时间轴.json").read_text(encoding="utf-8"))[0]
             self.assertEqual(entry["state"], "failed")
             self.assertTrue(entry.get("not_submitted"))
+            self.assertEqual(entry['error'], 'TTS 请求失败（HTTP 401）')
             generate.side_effect = None
             generate.return_value = b"audio"
             self.assertEqual(

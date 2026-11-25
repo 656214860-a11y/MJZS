@@ -9,6 +9,7 @@
 本模块不读写本机文件、不导入 Tk；令牌只在入参和返回值里，不写日志。
 """
 import base64
+import http.client
 import json
 import os
 import re
@@ -22,6 +23,7 @@ from contract.service_contract import SystemError, UserError, success
 
 BASE_URL = 'https://8.138.223.126'
 TIMEOUT = 15
+MAX_RESPONSE_BYTES = 8 * 1024 * 1024  # 账号导出也从这个 JSON 客户端读取。
 CLIENT_VERSION = VERSION.lstrip('Vv')
 TOS_VERSION = '2026-10'
 PRIVACY_VERSION = '2026-10'
@@ -208,8 +210,25 @@ def _failure(status, body):
 
 
 def _read_json(response):
+    from infra.http_client import read_limited
+    headers = getattr(response, 'headers', {}) or {}
+    declared = headers.get('Content-Length')
+    if declared is not None and not headers.get('Transfer-Encoding'):
+        try:
+            expected = int(declared)
+        except (ValueError, TypeError):
+            raise http.client.HTTPException('invalid content length') from None
+        if not 0 <= expected <= MAX_RESPONSE_BYTES:
+            raise http.client.HTTPException('invalid content length')
+    else:
+        expected = None
+    raw, overflow = read_limited(response, MAX_RESPONSE_BYTES)
+    if expected is not None and len(raw) != expected:
+        raise http.client.HTTPException('incomplete account response')
+    if overflow:
+        raise http.client.HTTPException('response too large')
     try:
-        data = json.loads(response.read().decode('utf-8') or '{}')
+        data = json.loads(raw.decode('utf-8') or '{}')
     except (ValueError, UnicodeError):
         return None
     return data if isinstance(data, dict) else None
@@ -238,14 +257,15 @@ def request(method, path, body=None, *, token='', opener=None):
         return SystemError('自检环境不联网（%s）' % SUPPRESS_NETWORK_ENV, data={'code': NETWORK, 'detail': 'suppressed'})
     opener = opener or platform_tools.open_https
     try:
-        with opener(BASE_URL + path, timeout=TIMEOUT, data=data, headers=headers,
-                    method=method, context=_ssl_context()) as response:
-            payload = _read_json(response)
-    except urllib.error.HTTPError as exc:
         try:
-            return _failure(exc.code, _read_json(exc))
-        finally:
-            exc.close()
+            with opener(BASE_URL + path, timeout=TIMEOUT, data=data, headers=headers,
+                        method=method, context=_ssl_context()) as response:
+                payload = _read_json(response)
+        except urllib.error.HTTPError as exc:
+            with exc:
+                return _failure(exc.code, _read_json(exc))
+    except http.client.HTTPException:
+        return SystemError('账号响应超限或传输不完整，请重试', data={'code': 'bad_response'})
     except (urllib.error.URLError, OSError, ValueError) as exc:
         code, message = _unreachable(exc)
         return SystemError(message, data={'code': code, 'detail': type(exc).__name__})

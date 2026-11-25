@@ -28,7 +28,7 @@ class ErrorCode:
     user_message: str
     remedy: str
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # severity 归一到 diagnostics.Severity 闭集：接受 'fatal'/'warn' 等
         # 字符串与枚举成员，'recoverable' 等非法值当场拒绝。
         object.__setattr__(self, 'severity', Severity(self.severity))

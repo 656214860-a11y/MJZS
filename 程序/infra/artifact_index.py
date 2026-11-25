@@ -12,6 +12,7 @@ from pathlib import Path
 
 from contract.infra_errors import ConfigError, StorageError
 from infra import executors
+from infra.file_cache import file_digest
 
 __all__ = ['open_index', 'index_path', 'ArtifactIndex',
            'CANDIDATE', 'ADOPTED', 'ARCHIVED', 'RECYCLED', 'STATES']
@@ -44,7 +45,7 @@ _SCHEMA = (
     ' state TEXT NOT NULL,'
     ' at REAL NOT NULL);'
     'CREATE TABLE IF NOT EXISTS parents('
-    ' child INTEGER NOT NULL, parent INTEGER NOT NULL,'
+    ' child INTEGER NOT NULL REFERENCES artifacts(id), parent INTEGER NOT NULL REFERENCES artifacts(id),'
     ' PRIMARY KEY(child, parent));'
 )
 
@@ -64,7 +65,7 @@ def index_path(project):
 
 def _digest_of(path):
     try:
-        return hashlib.sha256(Path(path).read_bytes()).hexdigest()
+        return file_digest(path)
     except OSError:
         return ''
 
@@ -81,6 +82,24 @@ def _scan_media(root):
     return found
 
 
+def _upgrade_lineage(conn):
+    """Migrate old indexes without guessing which file a missing parent represented."""
+    if conn.execute('PRAGMA foreign_key_list(parents)').fetchone():
+        return
+    conn.execute('ALTER TABLE parents RENAME TO legacy_parents')
+    conn.execute('CREATE TABLE parents(child INTEGER NOT NULL REFERENCES artifacts(id),'
+                 ' parent INTEGER NOT NULL REFERENCES artifacts(id), PRIMARY KEY(child,parent))')
+    conn.execute('INSERT INTO parents SELECT p.child,p.parent FROM legacy_parents p'
+                 ' JOIN artifacts c ON c.id=p.child JOIN artifacts a ON a.id=p.parent')
+    # Keep the unresolved pairs for inspection; active lineage contains only live references.
+    conn.execute('DELETE FROM legacy_parents WHERE (child,parent) IN (SELECT child,parent FROM parents)')
+    conn.execute('ALTER TABLE legacy_parents RENAME TO orphaned_parents')
+    conn.execute('CREATE TABLE orphaned_roots AS SELECT logical_id AS lost_id, MIN(id) AS surviving_id'
+                 ' FROM artifacts WHERE logical_id NOT IN (SELECT id FROM artifacts) GROUP BY logical_id')
+    conn.execute('UPDATE artifacts SET logical_id=(SELECT surviving_id FROM orphaned_roots'
+                 ' WHERE lost_id=artifacts.logical_id) WHERE logical_id IN (SELECT lost_id FROM orphaned_roots)')
+
+
 class ArtifactIndex:
     def __init__(self, project):
         self.project = Path(project).resolve()
@@ -89,9 +108,13 @@ class ArtifactIndex:
         self._lock = threading.Lock()
         self._conn = sqlite3.connect(str(self._path), check_same_thread=False)
         self._conn.execute('PRAGMA journal_mode=WAL')
+        self._conn.execute('PRAGMA foreign_keys=ON')
         self._conn.executescript(_SCHEMA)
+        with self._conn:
+            self._conn.execute('BEGIN IMMEDIATE')
+            _upgrade_lineage(self._conn)
         self._conn.execute(
-            'INSERT OR REPLACE INTO meta(key, value) VALUES (?, ?)',
+            'INSERT OR IGNORE INTO meta(key, value) VALUES (?, ?)',
             ('project_root', str(self.project)))
         self._conn.commit()
 
@@ -108,32 +131,34 @@ class ArtifactIndex:
     def register(self, path, *, stage, kind, parents=()):
         """Register an artifact file; returns its id (state 候选)."""
         target = Path(path).resolve()
-        with self._lock:
-            parent_ids = [int(item) for item in parents]
-            if parent_ids:
-                row = self._conn.execute(
-                    'SELECT logical_id FROM artifacts WHERE id=?',
-                    (parent_ids[0],)).fetchone()
-                logical = int(row[0]) if row else parent_ids[0]
-            else:
-                logical = 0
+        digest = _digest_of(target)
+        parent_ids = tuple(dict.fromkeys(int(pid) for pid in parents))
+        with self._lock, self._conn:
+            self._conn.execute('BEGIN IMMEDIATE')
+            existing = self._conn.execute('SELECT id FROM artifacts WHERE path=?', (str(target),)).fetchone()
+            if existing:
+                aid = existing[0]
+                if parent_ids:
+                    stored = self._conn.execute('SELECT parent FROM parents WHERE child=?', (aid,))
+                    if set(parent_ids) != {row[0] for row in stored}:
+                        raise ConfigError('同路径产物不能替换已有版本关系')
+                self._conn.execute('UPDATE artifacts SET stage=?,kind=?,digest=?,state=? WHERE id=?',
+                                   (str(stage), str(kind), digest, CANDIDATE, aid))
+                return aid
+            logical = self._row(parent_ids[0])['logical_id'] if parent_ids else 0
             cur = self._conn.execute(
-                'INSERT OR REPLACE INTO artifacts'
-                '(path, logical_id, stage, kind, digest, state, at)'
-                ' VALUES (?, ?, ?, ?, ?, ?, ?)',
-                (str(target), logical, str(stage), str(kind),
-                 _digest_of(target), CANDIDATE, time.time()))
-            artifact_id = int(cur.lastrowid)
-            if not parent_ids:
-                self._conn.execute(
-                    'UPDATE artifacts SET logical_id=? WHERE id=?',
-                    (artifact_id, artifact_id))
+                'INSERT INTO artifacts(path,logical_id,stage,kind,digest,state,at) VALUES (?,?,?,?,?,?,?)',
+                (str(target), logical, str(stage), str(kind), digest, CANDIDATE, time.time()))
+            aid = cur.lastrowid
+            if parent_ids:
+                try:
+                    self._conn.executemany('INSERT INTO parents(child,parent) VALUES (?,?)',
+                                           [(aid, pid) for pid in parent_ids])
+                except sqlite3.IntegrityError as exc:
+                    raise ConfigError('产物版本的父节点不存在') from exc
             else:
-                self._conn.executemany(
-                    'INSERT OR IGNORE INTO parents(child, parent) VALUES (?, ?)',
-                    [(artifact_id, pid) for pid in parent_ids])
-            self._conn.commit()
-            return artifact_id
+                self._conn.execute('UPDATE artifacts SET logical_id=? WHERE id=?', (aid, aid))
+            return aid
 
     def _row(self, artifact_id):
         row = self._conn.execute(
@@ -199,6 +224,9 @@ class ArtifactIndex:
             groups.setdefault(row[5], []).append(dict(zip(keys, row)))
         return list(groups.values())
 
+    def _revision(self):
+        return self._conn.total_changes, self._conn.execute('PRAGMA data_version').fetchone()[0]
+
     def rebuild(self, *, executor=None):
         """Re-derive the index from the project tree on an executor (I10).
 
@@ -206,23 +234,27 @@ class ArtifactIndex:
         候选 entry with itself as logical root. Returns the entries written.
         """
         submit = executor or executors.submit
-        future = submit('io', lambda: _scan_media(self.project))
-        paths = future.result()
         with self._lock:
+            revision = self._revision()
+        def scan():
+            return [(p.resolve(), _digest_of(p)) for p in _scan_media(self.project)]
+        media = submit('io', scan).result()
+        with self._lock, self._conn:
+            self._conn.execute('BEGIN IMMEDIATE')
+            if revision != self._revision():
+                raise StorageError('扫描期间产物索引已修改，请重试重建')
             self._conn.execute('DELETE FROM parents')
             self._conn.execute('DELETE FROM artifacts')
-            for path in paths:
-                target = path.resolve()
+            for target, digest in media:
                 cur = self._conn.execute(
                     'INSERT INTO artifacts'
                     '(path, logical_id, stage, kind, digest, state, at)'
                     ' VALUES (?, 0, ?, ?, ?, ?, ?)',
                     (str(target), 'rebuild', target.suffix.lower().lstrip('.'),
-                     _digest_of(target), CANDIDATE, time.time()))
+                     digest, CANDIDATE, time.time()))
                 self._conn.execute(
                     'UPDATE artifacts SET logical_id=? WHERE id=?',
                     (int(cur.lastrowid), int(cur.lastrowid)))
-            self._conn.commit()
             rows = self._conn.execute(
                 'SELECT id, path, logical_id, stage, kind, digest, state, at'
                 ' FROM artifacts ORDER BY id').fetchall()

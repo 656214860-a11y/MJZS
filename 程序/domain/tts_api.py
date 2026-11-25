@@ -506,6 +506,24 @@ def line_done(entry, folder):
         return False
 
 
+def _line_error_text(state, detail):
+    """第三方异常只保留 HTTP 状态或本地处理提示，供进度和时间轴共用。"""
+    status = re.match(r'^TTS 请求失败（HTTP ([1-5][0-9]{2})）', str(detail))
+    if status:
+        return status.group()
+    if state == 'unsaved':
+        return '已付费未保存，请核对服务商记录和本机文件'
+    if state == 'uncertain':
+        return '配音受理情况待核实，请先核对服务商记录'
+    return '配音未完成，请检查配音设置、网络和预算'
+
+
+def _safe_manifest_rows(manifest):
+    """续跑或人工放开旧批次时，也不将旧错误正文再写回磁盘。"""
+    return [{**row, 'error': _line_error_text(row.get('state'), row['error'])}
+            if isinstance(row, dict) and row.get('error') else row for row in manifest]
+
+
 def _line_needs_review(entry):
     if not isinstance(entry, dict):
         return False
@@ -513,7 +531,7 @@ def _line_needs_review(entry):
         return True
     # 旧版把 HTTP 408 写成明确失败。按本程序生成的错误前缀识别，避免自动重发旧请求。
     return (entry.get("state") == "failed" and not entry.get("released_at")
-            and str(entry.get("error") or "").startswith("TTS 请求失败（HTTP 408）："))
+            and str(entry.get("error") or "").startswith("TTS 请求失败（HTTP 408）"))
 
 
 def _line_verdicts(lines, manifest, folder):
@@ -682,7 +700,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
             text, speed=speed, voice=voice, settings=frozen)
     prior = read_json(folder / "时间轴.json")
     _require_object_entries(prior, folder)
-    prior = prior if isinstance(prior, list) else []
+    prior = _safe_manifest_rows(prior) if isinstance(prior, list) else []
     _save(folder / "批次.json", {"signature": batch_signature(lines, episode), "lines": len(lines),
                                  "identity": batch_identity(lines), "episode": str(episode or "")}, gateway=publish)
     # 逐句沿用按身份配对（不含位置与起止时间），整批先按新句序号落盘：
@@ -737,7 +755,7 @@ def run_lines(lines, folder, generate=None, report=None, stop=None, *, gateway=N
                 on_line(index, line, entry)
         except Exception as exc:
             state, error, not_submitted = _line_outcome(exc, started, paid, project)
-            entry = {**line, "file": "", "state": state, "error": error}
+            entry = {**line, "file": "", "state": state, "error": _line_error_text(state, error)}
             if project is not None:
                 entry.update(request_id=request_id, not_submitted=not_submitted)
             failed += 1
@@ -789,18 +807,20 @@ def synthesize(text, speed=1.0, voice=None, *, settings=None, project=None, requ
             return raw
         status = data.get('status')
         if status:
-            detail = str(data.get('error_body') or '')[:400]
-            message = f"TTS 请求失败（HTTP {status}）：{detail}"
+            message = f"TTS 请求失败（HTTP {int(status)}）"
             if data.get("acceptance") == "unknown":
                 raise TTSAcceptanceUnknown(message) from None
             if 400 <= int(status) <= 499:
                 raise TTSRejected(message) from None
             raise ValueError(message) from None
-        detail = str(data.get('error_body') or result.reason or '网络请求失败')
         if code_of(result) == 'E-NET-TIMEOUT':
-            raise TimeoutError(detail) from None
+            raise TimeoutError('配音请求超时，请核对受理情况') from None
         import urllib.error
-        raise urllib.error.URLError(detail) from None
+        # 在本地分类传输错误；异常会随时间轴持久化，不能带服务商原文或签名地址。
+        reason = urllib.error.URLError(str(data.get('error_body') or ''))
+        if _send_outcome(reason) == 'failed':
+            raise urllib.error.URLError(ConnectionRefusedError('未能连接配音服务')) from None
+        raise urllib.error.URLError('配音连接中断，请核对受理情况') from None
 
 
 def unknown_line_indexes(lines, folder):
@@ -860,5 +880,5 @@ def release_unknown(folder, indexes, *, gateway=None):
         manifest[index - 1] = {**entry, 'state': 'failed', 'released_at': stamp, 'not_submitted': True}
         released.append(index)
     if released:
-        _save(folder / '时间轴.json', manifest, gateway=publish)
+        _save(folder / '时间轴.json', _safe_manifest_rows(manifest), gateway=publish)
     return released

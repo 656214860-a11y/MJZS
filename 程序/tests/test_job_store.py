@@ -1,4 +1,5 @@
 import json
+import sqlite3
 import sys
 import tempfile
 import unittest
@@ -57,23 +58,51 @@ class TestJobStore(_StoreCase):
         self.assertEqual(row['digest'], 'd1')
 
     def test_crash_recovery_last_committed_state(self):
-        # I19-1：running 中途被杀，重开后回到最后一个已提交状态（降级 retrying）。
+        # 新连接只观察；持有者租约到期后才允许显式恢复。
         job = self.store.enqueue('a1', 'k')
         self.store.transition(job['id'], js.RUNNING)
         self.store.checkpoint(job['id'], {'resume': 7})
-        self.store._conn.close()  # 模拟进程被杀：已提交的状态保留
         revived = js.open_store(self.project)
         self.addCleanup(revived.close)
+        with mock.patch.object(js.time, 'time', return_value=1000.0):
+            self.store.renew_lease(job['id'])
+        with mock.patch.object(js.time, 'time', return_value=1001.0):
+            self.assertEqual(revived.get(job['id'])['state'], js.RUNNING)
+            self.assertEqual(revived.recover_expired(), 0)
+        with mock.patch.object(js.time, 'time', return_value=1001.0 + js.LEASE_SECONDS):
+            self.assertEqual(revived.recover_expired(), 1)
+            with self.assertRaises(ConfigError):
+                self.store.checkpoint(job['id'], {'stale': True})
+            revived.transition(job['id'], js.RUNNING)
+            with self.assertRaises(ConfigError):
+                self.store.transition(job['id'], js.SUCCEEDED)
         row = revived.get(job['id'])
-        self.assertEqual(row['state'], js.RETRYING)
+        self.assertEqual(row['state'], js.RUNNING)
         self.assertEqual(json.loads(row['checkpoint'])['resume'], 7)
+
+    def test_legacy_ledger_migration_preserves_ids_and_only_recovers_confirmed_jobs(self):
+        project = self.project / 'legacy'
+        db = sqlite3.connect(js.store_path(project))
+        with db:
+            db.execute('CREATE TABLE jobs(id INTEGER PRIMARY KEY,key TEXT UNIQUE,kind TEXT,payload TEXT,'
+                       'state TEXT,attempts INTEGER,last_try REAL,next_try REAL,checkpoint TEXT,digest TEXT,'
+                       'created_at REAL,updated_at REAL)')
+            db.execute("INSERT INTO jobs VALUES (9,'A1','video',NULL,'running',2,10,NULL,'{}','d',1,10)")
+        db.close()
+        with js.open_store(project) as store:
+            self.assertEqual(store.recover_expired(), 0)
+            other = store.enqueue('A1', 'asset_resume')
+            self.assertNotEqual(other['id'], 9)
+            self.assertEqual(store.recover_expired(confirmed_legacy_ids=[9]), 1)
+            self.assertEqual((store.get(9)['digest'], store.get(9)['state']), ('d', js.RETRYING))
+            self.assertEqual(store.get(other['id'])['state'], js.QUEUED)
 
     def test_mirror_upsert_and_list_and_by_key(self):
         first = self.store.mirror('a1', 'k', attempts=1, next_try=10.0, state='retrying')
-        second = self.store.mirror('a1', 'k2', attempts=3, next_try=None, state='stopped')
+        second = self.store.mirror('a1', 'k', attempts=3, next_try=None, state='stopped')
         self.assertEqual(first['id'], second['id'])
         self.assertEqual(second['attempts'], 3)
-        self.assertEqual(self.store.by_key('a1')['kind'], 'k2')
+        self.assertEqual(self.store.by_key('a1')['kind'], 'k')
         self.assertEqual([j['key'] for j in self.store.list(state='stopped')], ['a1'])
         self.assertEqual(len(self.store.list()), 1)
         with self.assertRaises(ConfigError):
@@ -106,6 +135,18 @@ class TestJobStore(_StoreCase):
 
 
 class TestAssetResumeDualWrite(_StoreCase):
+    def test_clear_and_reconcile_only_own_assets_even_at_same_key(self):
+        other = self.store.enqueue('A1', 'video')
+        asset_resume.note_round(self.project, ['A1', 'A2'], publish=self._publish())
+        asset_resume.note_round(self.project, ['A1'], publish=self._publish())
+        self.store.mirror('orphan', 'asset_resume', attempts=2, next_try=1, state=js.RETRYING)
+        self.assertEqual(asset_resume.consistency_report(self.project)['missing_in_ledger'], ['orphan'])
+        self.assertTrue(asset_resume.clear(self.project).ok)
+        self.assertEqual(self.store.get(other['id'])['state'], js.QUEUED)
+        self.assertEqual(self.store.by_key('A1', kind='asset_resume')['state'], js.SUCCEEDED)
+        self.assertEqual(self.store.by_key('A2', kind='asset_resume')['state'], js.SUCCEEDED)
+        self.assertFalse(any(asset_resume.consistency_report(self.project).values()))
+
     def _publish(self):
         writes = {}
         def publish(p, data):

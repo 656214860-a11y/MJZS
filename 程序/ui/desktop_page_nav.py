@@ -10,7 +10,7 @@ import tkinter as tk
 from agent.core import read, save
 from ui.desktop_page_registry import (ASSET_ROSTER_ICON, CACHED_PAGES, PAGE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
                                    PAGE_SITES, page_title)
-from ui.desktop_page_support import _prefs
+from ui.desktop_page_support import _prefs, flush_script_editor
 from pathlib import Path
 from tkinter import ttk
 from ui.ui_icons import IconLoader
@@ -33,6 +33,9 @@ def _page_paint_timed(func):
     import functools
     @functools.wraps(func)
     def wrapper(self, index, *args, **kwargs):
+        if not flush_script_editor(self):
+            self.mark_nav(self.page_index)
+            return
         app_logging.begin_page_paint(self, _page_paint_key(index))
         # 旧页留在屏幕上直到新页排好：拆旧建新、逐轮排版都在冻结期间完成，布局稳定后一次画出。
         self.freeze_page_paint()

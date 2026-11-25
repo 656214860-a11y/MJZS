@@ -29,6 +29,46 @@ class _IndexCase(unittest.TestCase):
 
 
 class TestRegisterAndVersions(_IndexCase):
+    def test_same_path_keeps_id_and_existing_descendants(self):
+        root = self._file('base.png')
+        first = self.index.register(root, stage='s', kind='image')
+        child = self.index.register(self._file('child.png'), stage='s', kind='image', parents=(first,))
+        self.assertEqual(self.index.register(root, stage='s', kind='image'), first)
+        self.assertEqual({r['id'] for r in self.index.versions(first)}, {first, child})
+        with self.assertRaises(ConfigError):
+            self.index.register(self._file('bad.png'), stage='s', kind='image', parents=(999,))
+        self.assertEqual(self.index._conn.execute('PRAGMA foreign_key_check').fetchall(), [])
+
+    def test_digest_is_bounded_and_outside_the_index_lock(self):
+        path = self._file('large.mp4', b'abcd' * (1024 * 1024))
+        original = ai._digest_of
+        def checked(target):
+            self.assertFalse(self.index._lock.locked())
+            return original(target)
+        with mock.patch.object(Path, 'read_bytes', side_effect=AssertionError('whole media read')), \
+                mock.patch.object(ai, '_digest_of', side_effect=checked):
+            key = self.index.register(path, stage='s', kind='video')
+            self.assertEqual(len(self.index.get(key)['digest']), 64)
+            self.assertEqual(len(self.index.rebuild()[0]['digest']), 64)
+
+    def test_old_orphans_are_recorded_and_surviving_versions_stay_grouped(self):
+        project = self.project / 'legacy'
+        db = sqlite3.connect(ai.index_path(project))
+        with db:
+            db.execute('CREATE TABLE artifacts(id INTEGER PRIMARY KEY,path TEXT UNIQUE,logical_id INTEGER,'
+                       'stage TEXT,kind TEXT,digest TEXT,state TEXT,at REAL)')
+            db.executemany('INSERT INTO artifacts VALUES(?,?,99,?,?,?,?,?)',
+                           [(i, str(i), 's', 'image', '', ai.CANDIDATE, i) for i in (5, 6)])
+            db.execute('CREATE TABLE parents(child INTEGER,parent INTEGER,PRIMARY KEY(child,parent))')
+            db.executemany('INSERT INTO parents VALUES(?,?)', [(5, 99), (6, 5), (80, 5)])
+        db.close()
+        with ai.open_index(project) as index:
+            self.assertEqual({v['id'] for v in index.versions(5)}, {5, 6})
+            self.assertEqual(index._conn.execute('SELECT * FROM parents').fetchall(), [(6, 5)])
+            self.assertEqual(set(index._conn.execute('SELECT * FROM orphaned_parents')), {(5, 99), (80, 5)})
+            self.assertEqual(index._conn.execute('SELECT * FROM orphaned_roots').fetchall(), [(99, 5)])
+            self.assertEqual(index._conn.execute('PRAGMA foreign_key_check').fetchall(), [])
+
     def test_register_candidate_and_versions_lineage(self):
         first = self._file('a.png')
         second = self._file('b.png')
@@ -95,6 +135,21 @@ class TestStateMachine(_IndexCase):
 
 
 class TestRebuild(_IndexCase):
+    def test_rebuild_keeps_concurrent_registration(self):
+        media = self._file('new.png')
+
+        def submit(_pool, scan):
+            from concurrent.futures import Future
+            result = Future()
+            result.set_result(scan())
+            with ai.open_index(self.project) as second:
+                second.register(media, stage='keyframe', kind='image')
+            return result
+
+        with self.assertRaises(StorageError):
+            self.index.rebuild(executor=submit)
+        self.assertEqual(self.index.versions(1)[0]['stage'], 'keyframe')
+
     def test_rebuild_after_index_loss_matches(self):
         self._file('frames/a.png', b'1')
         self._file('frames/b.png', b'2')

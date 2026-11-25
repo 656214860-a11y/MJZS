@@ -52,6 +52,33 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
         self.assertTrue(self.image.is_file())
         self.assertNotIn('frame_deleted', read(self.source)['shots'][0])
 
+    def test_restore_uses_exact_deleted_version_and_nested_original_name(self):
+        from infra.storage_maintenance import recycle_paths
+        shot = self.episode['shots'][0]
+        shot['frame'] = 'frames/nested/custom.PNG'
+        original = self.base / shot['frame']
+        original.parent.mkdir()
+        original.write_bytes(b'first')
+        self.assertTrue(delete_stage_keyframe(self.base, self.source, self.episode, shot).ok)
+        original.write_bytes(b'another')
+        recycle_paths(self.base, (original,), '其他删除')
+        with patch('stage_execution_service.publish_keyframe_episode', side_effect=OSError()):
+            self.assertFalse(restore_stage_keyframe(self.base, self.source, self.episode, shot).ok)
+        self.assertFalse(original.exists())
+        self.assertTrue(restore_stage_keyframe(self.base, self.source, self.episode, shot).ok)
+        self.assertEqual(original.read_bytes(), b'first')
+        self.assertEqual(read(self.source)['shots'][0]['frame'], 'frames/nested/custom.PNG')
+
+    def test_legacy_restore_without_original_file_never_publishes_success(self):
+        shot = self.episode['shots'][0]
+        shot.update(frame='frames/missing.png', frame_deleted=True)
+        save(self.source, self.episode)
+        before = self.source.read_bytes()
+        with patch('stage_execution_service.publish_keyframe_episode') as publish:
+            self.assertFalse(restore_stage_keyframe(self.base, self.source, self.episode, shot).ok)
+            publish.assert_not_called()
+        self.assertEqual(self.source.read_bytes(), before)
+
     def test_failed_restore_save_recycles_frame_and_keeps_deleted_state(self):
         shot = self.episode['shots'][0]
         self.assertTrue(delete_stage_keyframe(self.base, self.source, self.episode, shot).ok)

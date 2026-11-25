@@ -92,6 +92,44 @@ class ScriptAutosaveTests(unittest.TestCase):
         win.update()  # 先让控件完成首次布局，合成事件才稳定投递
         return win, preview, page, target, page.box_edit_session
 
+    def test_real_close_flushes_last_keystroke_and_refuses_a_failed_save(self):
+        from desktop import Desktop
+        for kind in ('natural', 'structured'):
+            with self.subTest(kind=kind):
+                win, preview, page, target, session = self._setup(kind=kind)
+                page.script_structure_editor_preview_edit_session = session
+                page.busy_reason = lambda: ''
+                page.pet_hides_instead_of_quitting = lambda: False
+                page.flush_brief = lambda: None
+                page.finish_close = mock.Mock(side_effect=preview.destroy)
+                session.begin_edit()
+                preview.delete('1.0', 'end')
+                Desktop.close(page)
+                page.finish_close.assert_not_called()
+                self.assertTrue(session.editing)
+                self.assertTrue(preview.winfo_exists())
+                preview.insert('1.0', '最后一次输入')
+                Desktop.close(page)
+                page.finish_close.assert_called_once_with()
+                self.assertIn('最后一次输入', target.read_text(encoding='utf-8'))
+
+    def test_page_rebuild_retains_editor_on_write_failure(self):
+        from ui.desktop_page_nav import PageNavMixin
+        win, preview, page, target, session = self._setup(kind='structured')
+        page.script_structure_editor_preview_edit_session = session
+        page.freeze_page_paint = mock.Mock()
+        page.mark_nav = mock.Mock()
+        page.page_index = 2
+        page._show_reset_page = mock.Mock()
+        session.begin_edit()
+        preview.insert('end', '尚未保存')
+        with mock.patch('agent.core.save_text', side_effect=OSError('磁盘已满')):
+            PageNavMixin.show(page, 1)
+        page._show_reset_page.assert_not_called()
+        self.assertTrue(session.editing)
+        self.assertIn('尚未保存', preview.get('1.0', 'end-1c'))
+        self.assertNotIn('尚未保存', target.read_text(encoding='utf-8'))
+
     def test_debounce_interval_is_600ms(self):
         """REQ-S02-35：防抖间隔取 ui_tokens.SCRIPT_EDIT_SAVE_DEBOUNCE_MS＝600。"""
         self.assertEqual(SCRIPT_EDIT_SAVE_DEBOUNCE_MS, 600)

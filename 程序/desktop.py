@@ -9,7 +9,7 @@ from ui.desktop_project_pages import ProjectPagesMixin, ProjectPageServices
 from ui.desktop_storyboard_page import StoryboardPageMixin, StoryboardPageServices
 from ui.desktop_writing_page import WritingPageMixin, WritingPageServices, TALK_MIN_LINES, TALK_MAX_LINES
 from ui.desktop_files_panel import ProjectFilesPanel
-from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT
+from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs, THUMB_SIZE, ASSET_ROW_HEIGHT, flush_script_editor
 from ui.desktop_idea_chat import IdeaChatMixin, IDEA_FIELDS, BUBBLE_FLOOR, BUBBLE_LINE, BUBBLE_MAX_RATIO, script_raw_saved_notice, model_error_display
 import desktop_shared_send
 from orchestrator.desktop_auto_state import AutoStateHolderMixin, create_auto_state
@@ -651,6 +651,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             if not confirm(self.win, '仍在处理', reason+'。\n\n现在强制关闭程序吗？\n中断这一步不会删掉已经做好的成果，下次打开可以接着做。\n若正在调用付费模型或线上任务，中断不会撤销远端调用，仍可能继续执行并按实际用量计费。', dangerous=True):return
             return self.force_quit()
         if self.pet_hides_instead_of_quitting():return
+        if not flush_script_editor(self):return
         self._closing=True
         self.flush_brief()
         # 第 36 期第 5 条：原来这里会借三虎递一张日报／周报标签框、并把真关推迟几秒（标签框才有
@@ -689,6 +690,8 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             except ValueError as exc:
                 if not is_missing_storyboard_open_error(exc):
                     raise
+        if not flush_script_editor(self):
+            raise ValueError('剧本尚未保存，未切换项目。')
         self.flush_brief()
         target = Path(path) if path else None
         if self.root != target:

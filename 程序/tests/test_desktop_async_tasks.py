@@ -65,6 +65,14 @@ class TickResultTests(unittest.TestCase):
         host.status.set.assert_called_once_with('本机已停止等待；在途任务与迟到结果可在运行状况核对。')
         host._start_next_queued.assert_called_once_with()
 
+    def test_broken_completion_callback_does_not_strand_queue(self):
+        from tkinter import TclError
+        host = self.host()
+        host.q.put((7, True, 'done', mock.Mock(side_effect=TclError('destroyed widget'))))
+        host._tick_async_result()
+        host._start_next_queued.assert_called_once_with()
+        self.assertFalse(host.worker)
+
     def test_failed_idea_request_unlocks_the_send_button(self):
         host = self.host()
         host._idea_requesting = True

@@ -302,6 +302,51 @@ class AccountClientTests(unittest.TestCase):
         body = json.loads(calls[0][1]['data'])
         self.assertEqual((body['age_confirmed'], body['tos_version']), (True, account_client.TOS_VERSION))
 
+    def test_bounded_response_and_truncation_on_both_http_paths(self):
+        import http.client
+
+        class Body(_Response):
+            def __init__(self, truncated):
+                super().__init__(b' ' * 4097)
+                self.truncated = truncated
+
+            def read(self, size=-1):
+                if size < 0 or size > 4097:
+                    raise AssertionError('account response must use a bounded read')
+                if self.truncated:
+                    raise http.client.IncompleteRead(b'partial')
+                return super().read(size)
+
+        for status in (200, 500):
+            for truncated in (False, True):
+                with self.subTest(status=status, truncated=truncated):
+                    body = Body(truncated)
+                    def opener(*args, **kwargs):
+                        if status == 500:
+                            raise urllib.error.HTTPError('u', status, 'error', {}, body)
+                        return body
+                    with unittest.mock.patch.object(account_client, 'MAX_RESPONSE_BYTES', 4096, create=True):
+                        result = account_client.meta(opener=opener)
+                    self.assertFalse(result.ok)
+                    self.assertIn(result.data['code'], ('bad_response', 'network'))
+                    self.assertTrue(body.closed)
+
+    def test_short_content_length_is_rejected_even_if_partial_json_parses(self):
+        import http.client
+        for status in (200, 500):
+            response = http.client.HTTPResponse(unittest.mock.Mock(
+                makefile=lambda *args: io.BytesIO(
+                    f'HTTP/1.1 {status} Test\r\nContent-Length: 20\r\n\r\n{{}}'.encode())))
+            response.begin()
+            def opener(*args, **kwargs):
+                if status == 500:
+                    raise urllib.error.HTTPError('u', status, 'error', response.headers, response)
+                return response
+            with self.subTest(status=status):
+                result = account_client.meta(opener=opener)
+                self.assertFalse(result.ok)
+                self.assertEqual(result.data['code'], 'bad_response')
+
     def test_pinned_cert_warns_within_sixty_days(self):
         """钉死证书 2027-10-22 到期；到期前 60 天内须给出告警，否则登录闸到期后才暴露（AUD-MODEL D3）。"""
         not_after = account_client.pinned_cert_not_after()

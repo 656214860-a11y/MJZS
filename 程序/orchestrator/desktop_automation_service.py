@@ -130,6 +130,10 @@ class BackgroundTaskQueue:
     def pop(self):
         return self._items.popleft() if self._items else None
 
+    def contains_work(self, fn):
+        """查询当前进程中仍在等待的回调任务，不读取持久描述符。"""
+        return any(item['fn'] is fn for item in self._items)
+
     def labels(self):
         return [item['label'] for item in self._items]
 

@@ -57,6 +57,6 @@ class Diagnostic:
     remedy: str = ''
     escape_hint: str = ''
 
-    def __post_init__(self):
+    def __post_init__(self) -> None:
         # severity 归一到枚举闭集：接受 'fatal' 等字符串，非法值当场拒绝。
         object.__setattr__(self, 'severity', Severity(self.severity))

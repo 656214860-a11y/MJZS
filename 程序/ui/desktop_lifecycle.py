@@ -72,6 +72,8 @@ class LifecycleMixin:
 
         收不干净也照样退：这几件事都是尽力而为，用户要的是「关得掉」，不是「等它跑完」。
         """
+        from ui.desktop_page_support import flush_script_editor
+        if not flush_script_editor(self):return False
         self._forcing_quit=True
         state=getattr(self,'previs_jobs',None)
         if isinstance(state,dict) and state.get('busy'):

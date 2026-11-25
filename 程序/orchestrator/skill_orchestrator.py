@@ -32,7 +32,8 @@ from infra.model_router import spend_kind
 
 DONE, PAGE, INPUT, PENDING, BUDGET, FAILED, MISSING = ('done', 'page', 'input', 'pending',
                                                       'budget', 'failed', 'missing')
-STATUSES = (DONE, PAGE, INPUT, PENDING, BUDGET, FAILED, MISSING)
+BLOCKED = 'blocked'
+STATUSES = (DONE, PAGE, INPUT, PENDING, BUDGET, FAILED, MISSING, BLOCKED)
 # 不算失败的几种收场：得回页面按、还缺用户手上的文件、等用户为付费点头、额度不够先停下。
 OK_STATUSES = (DONE, PAGE, INPUT)
 STOP_STATUSES = (PAGE, INPUT, PENDING, BUDGET)
@@ -153,7 +154,7 @@ def retryable_skills(run):
         seen.add(skill)
         names.append(skill)
     for skill in list((run or {}).get('failed') or []):
-        if skill and skill not in seen:
+        if isinstance(skill, str) and skill and skill not in seen:
             seen.add(skill)
             names.append(skill)
     return names
@@ -224,7 +225,7 @@ class Orchestrator:
 
     def _deps(self, sid):
         item = self.skill(sid)
-        return list(getattr(item, 'dependsOn', None) or []) if item is not None else []
+        return [self._canonical_id(dep) for dep in item.dependsOn] if item is not None else []
 
     # ── 一、校验 ────────────────────────────────────────────────────────────
     def validate(self, ids, context=None):
@@ -256,14 +257,17 @@ class Orchestrator:
         for item in self._skills(known):
             kind = spend_kind(item)
             cost[kind] = cost.get(kind, 0) + 1
-            enough, note = self.budget.check(kind, 1)
+        over_budget = []
+        for kind, amount in cost.items():
+            enough, note = self.budget.check(kind, amount)
             if not enough:
-                errors.append('%s：%s' % (item.displayName, note))
+                over_budget.append(kind)
+                errors.append(note)
                 if self.bus is not None:
                     pet_bus.emit_safe(self.bus, self.errors, 'budget.exceeded', budget=kind,
                                       used=self.budget.used(kind), limit=self.budget.limit(kind))
         return {'ok': not errors, 'errors': errors, 'warnings': warnings, 'missing_deps': missing,
-                'cost': cost, 'skills': known}
+                'cost': cost, 'skills': known, 'over_budget': over_budget}
 
     # ── 二、展开与分层 ──────────────────────────────────────────────────────
     def expand(self, ids):
@@ -298,7 +302,7 @@ class Orchestrator:
             layer = [sid for sid in remaining if not (set(self._deps(sid)) & pool)]
             if not layer:
                 problems.append('依赖成环：' + '、'.join(sorted(remaining)))
-                layer = list(remaining)       # 环里的硬着头皮当一层：卡死比跑歪更糟
+                break
             layer.sort(key=lambda sid: (order.get(sid, 999), sid))
             layers.append(layer)
             for sid in layer:
@@ -626,12 +630,8 @@ class Orchestrator:
             except Exception as exc:
                 errors.append('%s：%s' % (tool, exc))
                 rows.append({'tool': tool, 'status': FAILED, 'detail': str(exc)})
-        worked = any(row['status'] == DONE for row in rows)
         if errors:
             status, detail = FAILED, '；'.join(errors)[:200]
-        elif worked:
-            status, detail = DONE, (('这一步剩下的得回「%s」页面上按' % (page_title or page))
-                                    if page else '做完了')
         elif page:
             status, detail = PAGE, '这一步得回「%s」页面上按' % (page_title or page)
         elif need:
@@ -688,29 +688,8 @@ class Orchestrator:
         row.update(extra)
         return row
 
-    def _template_groups(self, names, step_count):
-        """将当前阶段已启用的细粒度 SKILL 平均归入业务模板步骤，确保不会漏跑。"""
-        rows = list(names or ())
-        groups, start = [], 0
-        for index in range(step_count):
-            remaining = len(rows) - start
-            slots = step_count - index
-            size = (remaining + slots - 1) // slots if remaining else 0
-            groups.append(rows[start:start + size])
-            start += size
-        return groups
-
-    @staticmethod
-    def _template_summary(rows):
-        if isinstance(rows, dict):
-            return str(rows.get('summary') or rows.get('detail') or rows.get('text') or '已执行')[:160]
-        if isinstance(rows, (list, tuple)):
-            return '；'.join(str(row.get('detail') or row.get('skill') or '') for row in rows
-                            if isinstance(row, dict))[:160] or '已执行'
-        return str(rows or '已执行')[:160]
-
     def run_stage_with_template(self, stage_id, context=None, names=None, mode='manual', wait_for_user=None,
-                                broadcast=None, execute_action=None, start_step=1):
+                                broadcast=None, execute_action=None, start_step=1, _prior=None):
         """载入阶段模板，以其业务步骤驱动已启用 SKILL 或注入的动作执行器。
 
         ``execute_action`` 是给页面适配器和回归测试的明确动作边界；缺省时仍执行注册表中
@@ -736,18 +715,44 @@ class Orchestrator:
             return Run({'ok': False, 'results': [], 'failed': [], 'errors': [message], 'text': message})
         stage_number = list(pet_bus.STAGES).index(template.stage_id) + 1
         emit('【阶段 %d/%d】%s' % (stage_number, len(pet_bus.STAGES), template.name))
-        groups = self._template_groups(selected, len(template.steps))
-        results, failed, skipped = [], [], []
+        if not callable(execute_action):
+            dag = self.buildDAG(selected)
+            if dag['problems']:
+                message = '【阻塞】' + '；'.join(dag['problems'])
+                emit(message)
+                return Run({'ok': False, 'results': [], 'failed': [], 'errors': dag['problems'], 'text': message})
+            selected = dag['order']
+        groups = skill_templates.step_groups(selected, len(template.steps))
+        if not callable(execute_action):
+            completed = {row['skill'] for row in (_prior or {}).get('results', [])
+                         if row.get('status') == DONE and row.get('skill')}
+            remaining = [name for group in groups[start_step-1:] for name in group if name not in completed]
+            check = self.validate(remaining, context)
+            for item in check['missing_deps']:
+                dep = item['missing']
+                if dep not in selected and self.skill(dep).stage == template.stage_id:
+                    check['errors'].append('%s 缺少已启用的前置步骤 %s' % (item['skill'], dep))
+            if check['errors']:
+                message = '【阻塞】' + '；'.join(check['errors'])
+                emit(message)
+                return Run({'ok': False, 'results': [], 'failed': [], 'errors': check['errors'],
+                            'outcome': BUDGET if check['over_budget'] else 'invalid', 'text': message})
+        results = [row for row in (_prior or {}).get('results', []) if row.get('status') == DONE]
+        skipped = list((_prior or {}).get('skipped', []))
+        failed = []
+        skipped_skills = {name for step, group in zip(template.steps, groups) if step.name in skipped
+                          for name in group}
         for step, group in zip(template.steps, groups):
             if step.index < start_step:
                 continue
             emit('【步骤 %d/%d】%s' % (step.index, len(template.steps), step.name))
-            if step.needs_confirmation and manual:
+            if step.needs_confirmation and manual and not (_prior and step.index == start_step):
                 question = step.question.format(count=context.get('count', 0))
                 emit('【门禁】%s' % question)
                 answer = str(wait_for_user(question) if callable(wait_for_user) else '').strip()
                 if answer not in ('确认', '需要', '继续', '是', 'yes', 'YES', 'Yes'):
                     skipped.append(step.name)
+                    skipped_skills.update(group)
                     emit('【警告】未确认，已跳过%s' % step.name)
                     continue
             try:
@@ -757,18 +762,28 @@ class Orchestrator:
                     outcome = execute_action(step.action, step_context)
                     rows = [outcome]
                 else:
-                    rows = [self.execute(name, step_context) for name in group]
+                    rows = []
+                    for name in group:
+                        if name in completed:
+                            continue
+                        unmet = skipped_skills.intersection(self._deps(name))
+                        row = (self._result(name, BLOCKED, False, detail='未确认前置步骤：' + '、'.join(sorted(unmet)))
+                               if unmet else self.execute(name, step_context))
+                        rows.append(row)
+                        if row['status'] != DONE:
+                            break
             except (OSError, TypeError, ValueError) as exc:
                 rows = [self._result(step.action, FAILED, False, detail=str(exc))]
             results.extend(rows)
-            bad = [row for row in rows if isinstance(row, dict) and not row.get('ok', False)]
+            bad = [row for row in rows if isinstance(row, dict)
+                   and (not row.get('ok', False) or row.get('status', DONE) != DONE)]
             if bad:
                 failed.extend(bad)
-                detail = self._template_summary(bad)
+                detail = skill_templates.step_summary(bad)
                 emit('【阻塞】%s：%s' % (step.name, detail))
                 break
-            emit('【完成】%s：%s' % (step.name, self._template_summary(rows)))
-        ok = not failed
+            emit('【完成】%s：%s' % (step.name, skill_templates.step_summary(rows)))
+        ok = not failed and not skipped
         text = ('%s已完成' % template.name) if ok else ('%s未完成' % template.name)
         if ok:
             self.clear_checkpoint(template.stage_id)
@@ -777,6 +792,12 @@ class Orchestrator:
                    'errors': [row.get('detail', '') for row in failed], 'text': text,
                    'template': str(template.path)})
         run.orchestrator, run.context = self, context
+        run['pending'] = [row for row in failed if row.get('status') == PENDING]
+        if run['pending'] and not callable(execute_action):
+            def resume(approved_context):
+                return self.run_stage_with_template(stage_id, approved_context, selected, mode, wait_for_user,
+                                                    broadcast, start_step=step.index, _prior=run)
+            run.resume_template = resume
         return run
 
     # ── 五、按层跑完一批 ────────────────────────────────────────────────────
@@ -789,32 +810,64 @@ class Orchestrator:
         context = dict(context or {})
         if trigger in ('manual', 'auto'):
             self.trigger = trigger
-        wanted = self.expand(ids)
+        return self._run_selected(self.expand(ids), context)
+
+    def _run_selected(self, wanted, context, previous=None):
+        statuses = dict(previous or {})
         check = self.validate(wanted, context)
         run = Run({'ok': False, 'skills': wanted, 'layers': [], 'results': [], 'failed': [],
                    'errors': list(check['errors']), 'warnings': list(check['warnings']),
                    'missing_deps': check['missing_deps'], 'cost': check['cost'],
-                   'pending': [], 'problems': [], 'parallel': bool(context.get('parallel')),
+                   'pending': [], 'problems': [], 'outcome': 'invalid', 'parallel': bool(context.get('parallel')),
                    'at': self.clock()})
         run.orchestrator = self
         run.context = context
+        run.history = statuses
         if not wanted:
             run['text'] = '没点到要跑的 SKILL，那就先不动手。'
             return run
         if check['errors']:
+            if check['over_budget']:
+                run['outcome'] = BUDGET
             run['text'] = '先别动手：' + '；'.join(check['errors'])
             return run
         dag = self.buildDAG(wanted)
         run['layers'], run['problems'] = dag['layers'], dag['problems']
+        if dag['problems']:
+            run['text'] = '未派发：' + '；'.join(dag['problems'])
+            return run
         for layer in dag['layers']:
-            run['results'].extend(self._run_layer(layer, context))
-        run['failed'] = [row['skill'] for row in run['results'] if row['status'] == FAILED]
-        run['pending'] = [row for row in run['results'] if row['status'] == PENDING]
-        run['ok'] = not run['failed']
-        run['text'] = self.describe(run)
+            ready, rows = [], {}
+            for sid in layer:
+                unmet = [dep for dep in self._deps(sid)
+                         if self.skill(dep) is not None and statuses.get(dep) != DONE]
+                if unmet:
+                    rows[sid] = self._result(sid, BLOCKED, False, dependencies=unmet,
+                                             detail='等待前置步骤：' + '、'.join(unmet))
+                else:
+                    ready.append(sid)
+            rows.update((row['skill'], row) for row in self._run_layer(ready, context))
+            for sid in layer:
+                statuses[sid] = rows[sid]['status']
+                run['results'].append(rows[sid])
+        self._summarize(run)
         if self.bus is not None:
             pet_bus.emit_safe(self.bus, self.errors, 'notify.aggregate', text=run['text'])
         return run
+
+    def _summarize(self, run):
+        run['failed'] = [row['skill'] for row in run['results'] if row['status'] in (FAILED, MISSING)]
+        run['pending'] = [row for row in run['results'] if row['status'] == PENDING]
+        outcomes = {row['status'] for row in run['results']}
+        run['ok'] = outcomes == {DONE}
+        if run['ok']:
+            run['outcome'] = DONE
+        elif DONE in outcomes:
+            run['outcome'] = 'partial'
+        else:
+            run['outcome'] = next((kind for kind in (FAILED, MISSING, BUDGET, PENDING, INPUT, PAGE)
+                                   if kind in outcomes), BLOCKED)
+        run['text'] = self.describe(run)
 
     def _run_layer(self, layer, context):
         parallel = bool(context.get('parallel')) and len(layer) > 1
@@ -850,17 +903,40 @@ class Orchestrator:
         """重试失败项与缺工具项：与 ``stage_exec.failures`` 同一口径，成功的那些不重跑。"""
         failed = retryable_skills(run)
         merged = dict(run.context or {}); merged.update(context or {})
-        again = Run({'ok': True, 'skills': failed, 'layers': [], 'results': [], 'failed': [],
-                     'errors': [], 'warnings': [], 'missing_deps': [], 'cost': {}, 'pending': [],
-                     'problems': [], 'retried': failed, 'at': self.clock()})
-        again.orchestrator, again.context = self, merged
-        if not failed:
-            again['text'] = '没有失败项，不用重试。'
-            return again
-        again.update({key: value for key, value in self.run(failed, merged).items()
-                      if key in ('layers', 'results', 'failed', 'errors', 'warnings', 'pending', 'cost', 'ok')})
-        again['retried'], again['text'] = failed, '重试了一遍：' + self.describe(again)
+        again = self._resume(run, failed, merged)
+        again['retried'] = failed
+        if failed:
+            again['text'] = '重试结果：' + again['text']
         return again
+
+    def _resume(self, run, selected, context):
+        selected = list(selected)
+        history = dict(getattr(run, 'history', {}))
+        for row in run.get('results', []):
+            history[row['skill']] = row['status']
+            if row['status'] == BLOCKED and any(dep in selected for dep in row.get('dependencies', [])):
+                selected.append(row['skill'])
+        combined = Run(run)
+        combined.orchestrator, combined.context, combined.history = self, context, history
+        if not selected:
+            return combined
+        again = self._run_selected(selected, context, history)
+        if again['errors'] or again['problems']:
+            combined.update({key: again[key] for key in ('ok', 'errors', 'problems', 'outcome', 'text')})
+            return combined
+        updates = {row['skill']: row for row in again['results']}
+        combined['results'] = [updates.get(row['skill'], row) for row in run['results']]
+        combined['errors'], combined['problems'] = [], []
+        combined.history = again.history
+        self._summarize(combined)
+        return combined
+
+    def resume_confirmed(self, run, pending, context):
+        """继续已确认项及其后继，保留同批其他分支的最终结果。"""
+        self.trigger = 'auto'
+        if hasattr(run, 'resume_template'):
+            return run.resume_template(context)
+        return self._resume(run, [row['skill'] for row in pending], context)
 
     # ── 六、说人话 ──────────────────────────────────────────────────────────
     def describe(self, run):
@@ -870,7 +946,7 @@ class Orchestrator:
         page = [row for row in rows if row['status'] == PAGE]
         need = [row for row in rows if row['status'] == INPUT]
         pending = [row for row in rows if row['status'] == PENDING]
-        failed = [row for row in rows if row['status'] == FAILED]
+        failed = [row for row in rows if row['status'] in (FAILED, MISSING)]
         lines = []
         lines.append('这一批 %d 个 SKILL：成了 %d 个，等您点头 %d 个，没成 %d 个。'
                      % (len(rows), len(done), len(pending), len(failed)))
@@ -887,6 +963,10 @@ class Orchestrator:
             lines.append('等您点头：' + '、'.join(row.get('name') or row['skill'] for row in pending))
         if failed:
             lines.append('没成的：' + '、'.join(row.get('name') or row['skill'] for row in failed))
+        for state, label in ((BUDGET, '预算不足'), (BLOCKED, '等待前置步骤')):
+            names = [row.get('name') or row['skill'] for row in rows if row['status'] == state]
+            if names:
+                lines.append(label + '：' + '、'.join(names))
         if run.get('problems'):
             lines.append('依赖有点绕：' + '；'.join(run['problems']))
         if run.get('errors'):

@@ -87,3 +87,24 @@ def load_template(stage_id, program=None):
     if len(found) != 1:
         raise ValueError('阶段 %s 的模板数量应为 1，实际为 %d' % (wanted or '（空）', len(found)))
     return found[0]
+
+
+def step_groups(names, step_count):
+    """将当前阶段已启用的细粒度 SKILL 平均归入业务模板步骤，确保不会漏跑。"""
+    rows = list(names or ())
+    groups, start = [], 0
+    for index in range(step_count):
+        remaining = len(rows) - start
+        slots = step_count - index
+        size = (remaining + slots - 1) // slots if remaining else 0
+        groups.append(rows[start:start + size])
+        start += size
+    return groups
+
+def step_summary(rows):
+    if isinstance(rows, dict):
+        return str(rows.get('summary') or rows.get('detail') or rows.get('text') or '已执行')[:160]
+    if isinstance(rows, (list, tuple)):
+        return '；'.join(str(row.get('detail') or row.get('skill') or '') for row in rows
+                        if isinstance(row, dict))[:160] or '已执行'
+    return str(rows or '已执行')[:160]

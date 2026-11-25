@@ -239,17 +239,46 @@ class _CloudSettingsWindow:
         except (ValueError,OSError) as e:import contract.error_codes as error_codes;notify(self.win, error_codes.user_text(e), level='error', title='云端设置', status=self.desktop.status)
 
     def probe_endpoint_now(self):
-        from infra.api_endpoints import normalize_url, probe_endpoint
-        try:base=normalize_url(self.entries['base'].get())
-        except ValueError as exc:self.probe_status.set(str(exc));return
-        self.probe_status.set('检测中…')
+        from infra.api_endpoints import normalize_url, probe_message
+        pending = getattr(self, '_probe_work', None)
+        if pending is not None and self.desktop.async_task_pending(pending):
+            return
+        try:
+            base = normalize_url(self.entries['base'].get())
+        except ValueError as exc:
+            self.probe_status.set(str(exc))
+            return
+
         def work():
-            result=probe_endpoint(base)
-            if result.get('reachable') and result.get('code') in (401,403,404):return f'接口可达（HTTP {result["code"]}，需密钥）'
-            if result.get('reachable'):return f'接口可达（HTTP {result["code"]}）'
-            return '连接失败：'+str(result.get('error','未知错误'))
-        # 只读、互不依赖的探测：后台正忙时排队，而不是用 async_ 顶掉正在进行的主动任务（代次覆盖会让其结果被丢弃）。
-        self.desktop.async_queued(work,lambda text:self.probe_status.set(str(text)),label='测试云端连接',show_progress=False,retryable=True)
+            try:
+                return probe_message(base)
+            except Exception as exc:
+                from contract.error_codes import user_text
+                return '连接失败：' + user_text(exc)
+
+        def done(message):
+            if self._probe_work is work:
+                self._probe_work = None
+                if self.win.winfo_exists():
+                    self.probe_status.set(message)
+
+        def check_cancelled():
+            if self._probe_work is not work or not self.win.winfo_exists():
+                return
+            if self.desktop.async_task_pending(work):
+                self.desktop.win.after(500, check_cancelled)
+            else:
+                done('检测已取消，可重新测试。')
+
+        self._probe_work = work
+        try:
+            self.desktop.async_queued(work, done, label='测试云端连接', show_progress=False, retryable=True)
+        except ValueError as exc:
+            done(str(exc))
+            return
+        if self._probe_work is work:
+            self.probe_status.set('检测中…')
+            self.desktop.win.after(500, check_cancelled)
 
 def align_source(desktop,folder):
     source=desktop.current_frame_json().resolve();cfg=read(folder/'config.json')

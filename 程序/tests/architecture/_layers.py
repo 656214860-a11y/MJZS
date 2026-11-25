@@ -211,6 +211,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('animatic_service', 'edit_service'),
     ('animatic_service', 'tts_api'),
     ('artifact_index', 'executors'),
+    ('artifact_index', 'file_cache'),
     ('artifact_index', 'storage_maintenance'),
     ('prefetch', 'executors'),
     ('prefetch', 'file_cache'),

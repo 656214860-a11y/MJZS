@@ -63,7 +63,7 @@ def _circuit_record(host, failed):
         entry['count'] = 0
 
 
-def _read_limited(response, limit):
+def read_limited(response, limit):
     chunks, total = [], 0
     while total <= limit:
         part = response.read(min(65536, limit + 1 - total))
@@ -179,7 +179,7 @@ def _request(method, url, *, headers=None, payload=None, timeout, caller='reques
                     _circuit_record(host, True)
                     return ServiceResult(False, _describe(code), False,
                                          code_data(code, status=status, error_body='响应体超过上限', retry_count=attempt - 1))
-                raw, overflow = _read_limited(response, max_bytes)
+                raw, overflow = read_limited(response, max_bytes)
                 if overflow:
                     code = 'E-NET-CLIENT'
                     _circuit_record(host, True)
