@@ -1,12 +1,17 @@
 # -*- coding: utf-8 -*-
+import inspect
 import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 import infra.model_pool as model_pool
 from ui.pet_models_tabs import (FORM_DEFAULT_PROVIDER, FORM_FIELDS, MODES,
+                                MODE_SEGMENT_STYLE, MODE_SEGMENT_SELECTED_STYLE, ModeSegmentedControl,
+                                CompactLineInput, COMPACT_COMBOBOX_STYLE, COMPACT_COMBOBOX_PAD_Y,
+                                form_column_width, install_compact_form_styles,
                                 ModelManagerFormGuardMixin, ModelManagerModeTabsMixin)
 from responsive_ui import auto_height
-from ui_tokens import (BUTTON_GAP, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
+from ui.desktop_layout_resize import PaintFreeze
+from ui_tokens import (BUTTON_GAP, CHAR_WIDTH, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
                        SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
 from ui.ui_dialogs import FileDialog
 from account_inputs import PasswordInput
@@ -18,19 +23,6 @@ MANAGER_BUTTON = '模型配置'              # 用户要求：原「API 统一�
 MANAGER_TITLE = '模型管理'
 SETTINGS_GEOMETRY = '700x430'
 SETTINGS_MIN = (620, 430)
-def form_column_width(labels):
-    """表单标签列宽：令牌字符宽给下限，再按实际标签量出像素，避免中文标签被裁。
-
-    `FORM_LABEL_WIDTH` 是共用表单基准（skill_panel 的同名列同源）；中文标签按字符数
-    直接当像素会裁字，所以再用令牌字体实测一次，取两者较大值。标签列还要留出与输入列
-    之间的 `SPACING['md']` 间距，一并计入后同一窗口的各页才能共用同一条输入竖线。
-    """
-    measure = tkfont.Font(font=FONTS['body']).measure
-    gap = SPACING['md']
-    floor = measure('0') * FORM_LABEL_WIDTH + gap
-    return max([floor] + [measure(str(label)) + gap for label in labels])
-
-
 def report_error(hint, message):
     """可恢复错误只写非模态提示（`NotificationDispatcher.error` 默认 modal=False）。
 
@@ -52,7 +44,7 @@ MANAGER_MIN = (820, 720)
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
 # 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
-NOTE_MANAGER = '点左上角页签选择调用方式：Desktop 配置桌面应用，API 配置接口与密钥，CLI 配置命令行程序。'
+NOTE_MANAGER = '选择调用方式后配置模型。'
 # 列表按「功能 → Provider」两级分组；只有 Provider 列头可点（翻转分组顺序）。
 COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode', '调用方式', 70),
            ('model', '模型 ID', 150), ('label', '显示名', 160), ('capabilities', '能力标签', 270),
@@ -60,14 +52,12 @@ COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
 # 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
 MANAGER_FORM_LABELS = ('Provider', '模型 ID', '显示名', '功能', 'API 根地址',
-                       '密钥名（.env 里的变量名）', '直接输入密钥', '协议', '能力标签',
+                       '密钥环境变量', '直接输入密钥', '协议', '能力标签',
                        '上下文长度（可选）', '每分钟请求上限（可选）', '模型组（可选）',
                        '权重（可选）', '备注（可选）', '最大输出', '温度', '超时（秒）', '重试次数',
                        '应用安装路径', '命令行程序路径')
-# 密钥框只给占位宽度，真正可输入区由输入列伸缩；不把整把密钥回显到界面。
-SECRET_FIELD_WIDTH = 30
-# 表单里的下拉框与输入框只给够用的宽度；成对的两项并在一行（左对左、右对右）。
-FORM_COMBO_WIDTH = 14
+# 密钥框只给紧凑占位宽度，长密钥在输入框内横向滚动编辑；不把整把密钥回显到界面。
+SECRET_FIELD_WIDTH = CHAR_WIDTH['3xl']
 FORM_RIGHT_LABEL_PAD = (SPACING['lg'], SPACING['xs'])
 
 
@@ -84,8 +74,10 @@ def main_box(parent):
     if parent is None:
         return None
     try:
-        parent.update_idletasks()
         width, height = parent.winfo_width(), parent.winfo_height()
+        if width <= 1 or height <= 1:
+            parent.update_idletasks()
+            width, height = parent.winfo_width(), parent.winfo_height()
         if width <= 1 or height <= 1:
             return None
         return parent.winfo_rootx(), parent.winfo_rooty(), width, height
@@ -152,27 +144,6 @@ def heading(body, title, note, columns=3):
     ttk.Label(row, text=note, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
         side='left', anchor='s', padx=(SPACING['md'], SPACING['none']))
     return 1
-
-
-# 模型管理表单用紧凑输入框：纵向内边距归零，行高约为常规输入框一半，空出高度给模型列表。
-COMPACT_PREFIX = 'Compact.'
-COMPACT_COMBOBOX_STYLE = COMPACT_PREFIX + 'Tokens.Combobox.TCombobox'
-# 下拉框纵向内边距：零内边距时框高约 19px，上下各 3px 后约 25px，高出三分之一。
-COMPACT_COMBOBOX_PAD_Y = SPACING['xs'] - SPACING['xs'] // 4
-
-
-class CompactLineInput(LineInput):
-    NORMAL_STYLE = COMPACT_PREFIX + LineInput.NORMAL_STYLE
-    PLACEHOLDER_STYLE = COMPACT_PREFIX + LineInput.PLACEHOLDER_STYLE
-    ERROR_STYLE = COMPACT_PREFIX + LineInput.ERROR_STYLE
-
-
-def install_compact_form_styles(widget):
-    """派生样式只改 padding，其余颜色、边框与状态映射沿用父样式。"""
-    style = ttk.Style(widget)
-    for name in (CompactLineInput.NORMAL_STYLE, CompactLineInput.PLACEHOLDER_STYLE, CompactLineInput.ERROR_STYLE):
-        style.configure(name, padding=(INPUT_PADDING_X, SPACING['none']))
-    style.configure(COMPACT_COMBOBOX_STYLE, padding=(COMBOBOX_PADDING[0], COMPACT_COMBOBOX_PAD_Y))
 
 
 def status_text(record, program):
@@ -242,12 +213,7 @@ def open_settings(pet):
 
 
 def settings_page(parent, pet, close=None, with_manager=True, label_width=None, show_save=True):
-    """把「模型配置」这一页画进 parent；给了 close 才多摆一颗「关闭」（嵌进分页时由分页自己收）。
-
-    第 48 期第 1 条：「API统一配置」那颗键往上挪一级——嵌在「设置」的分页按钮行上（就在
-    「三虎模型配置」右边，见 pet_settings_ui），所以嵌进分页时 with_manager=False，这一页只有
-    一行说明；它自己单独开一扇窗时（没有上一级）才照旧摆那颗键。
-    """
+    """构建独立或嵌入设置页的模型配置表单。"""
     program = program_of(pet)
     records = pet.agent_model_records()
     choices = {'default': model_options(records, with_auto=True),
@@ -259,8 +225,6 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     body.pack(fill='both', expand=True)
     body.columnconfigure(0, minsize=label_width or form_column_width(TASK_FIELD_LABELS))
     body.columnconfigure(1, weight=1)
-    # 第 46 期第 6 条：抬头那行标题文字（原来在分页里显示成「三虎模型设置」）删掉——分页上已经写着
-    # 「三虎模型配置」，页里再写一遍是重影。
     ttk.Label(body, text=NOTE_ABOUT, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).grid(
         row=0, column=0, columnspan=2, sticky='w')
     manager_button = None
@@ -269,15 +233,28 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
         manager_button.grid(row=0, column=2, sticky='e')
     row = 1
     tasks = pet.agent_model_tasks()
+    resolver = pet.resolve_agent_model
+    try:
+        parameters = inspect.signature(resolver).parameters
+        resolver_shares_records = ('records' in parameters or any(
+            parameter.kind is inspect.Parameter.VAR_KEYWORD for parameter in parameters.values()))
+    except (TypeError, ValueError):
+        resolver_shares_records = False
+
+    def resolve_best(key):
+        if resolver_shares_records:
+            return resolver(key, records=records)
+        return resolver(key)
+
     picked = {}
     states = {}
-    hint = tk.StringVar(value='改完点「保存」立刻生效，不用重启。')
-    cert_var = tk.BooleanVar(value=model_pool.require_certified(program))
+    hint = tk.StringVar(master=parent, value='改完点「保存」立刻生效，不用重启。')
+    cert_var = tk.BooleanVar(master=parent, value=model_pool.require_certified(program))
     for key, label, note in model_pool.TASK_FIELDS:
         pairs = choices['default'] if key == 'default' else choices['plain']
         values = [text for _model_id, text in pairs]
         import orchestrator.workflow_settings as workflow_settings
-        var = tk.StringVar(value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
+        var = tk.StringVar(master=parent, value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
                                                      records, labeler=workflow_settings.desktop_model_label))
         picked[key] = var
         ttk.Label(body, text=label).grid(row=row, column=0, sticky='w', pady=(SPACING['xs'], SPACING['none']))
@@ -305,7 +282,7 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
         for key, _label, _note in model_pool.TASK_FIELDS:
             model_id = model_of(key)
             if model_id == model_pool.AUTO:
-                best = pet.resolve_agent_model(key)
+                best = resolve_best(key)
                 states[key].config(text=('自动 · %s' % best.label) if best.ok else (
                     '自动 · %s' % best.reason))
                 continue
@@ -451,6 +428,8 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         self.pet = pet
         self._dirty = False            # 表单有未保存改动（真实键入/下拉/勾选才算）
         self._selecting = False        # 选区回退期间再入 <<TreeviewSelect>> 不再处理
+        self._records_cache = None     # 调用方式分段只改过滤条件；保存/删除/外部刷新才重读池
+        self._rows_paint_freeze = None
 
     def build(self):
         footer, body = self._build_window_and_table()
@@ -484,7 +463,7 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         body.rowconfigure(2, weight=1)
         heading(body, MANAGER_TITLE, NOTE_MANAGER, columns=1)
         # 表单行不叠加纵向外边距；控件保留自身内边距，窗口剩余高度全部交给模型列表。
-        # 列宽随窗口伸展，长名称与缺项说明可以通过滚动条查看。
+        # 普通字段按内容宽度排列；长地址与缺项说明可以通过横向滚动查看。
         self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=TEXT_ROWS['4xl'],
                                 empty_text='暂无模型配置')
         self.tree = self.table_shell.tree
@@ -493,19 +472,19 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
             # DataTable 默认给每个列头挂按显示文本排序；这里只留 Provider 一列可点，其余清掉。
             self.tree.heading(key, text=title, command=self.flip_provider_order if key == 'provider' else '')
             self.tree.column(key, width=width, anchor='w', stretch=True)
-        self.mode_tabs = ttk.Notebook(body)
-        self.mode_tabs.grid(row=1, column=0, columnspan=2, sticky='w')
-        for mode in MODES:
-            self.mode_tabs.add(ttk.Frame(self.mode_tabs, padding=(SPACING['none'], SPACING['xs'])), text=mode)
+        self.mode_tabs = ModeSegmentedControl(body, MODES, command=self._on_tab_changed)
+        self.mode_tabs.grid(row=1, column=0, columnspan=2, sticky='w',
+                            pady=(SPACING['none'], SPACING['xs']))
         self.table_shell.grid(row=2, column=0, sticky='nsew')
         self._fit_model_list = auto_height(self.tree, self.table_shell)
         install_compact_form_styles(body)
         self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
         self.form.grid(row=3, column=0, columnspan=2, sticky='ew')
         self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
-        self.form.columnconfigure(1, weight=1, uniform='fields')
-        self.form.columnconfigure(2, minsize=form_column_width(('功能', '显示名', '备注（可选）')))
-        self.form.columnconfigure(3, weight=1, uniform='fields')
+        self.form.columnconfigure(2, minsize=form_column_width(('功能', '显示名', '协议', '备注（可选）',
+                                                                '模型组（可选）', '温度', '重试次数')))
+        # 前四列都按内容请求宽度；第 4 列吃掉窗口余量，长地址／程序路径跨过去随窗口伸缩。
+        self.form.columnconfigure(4, weight=1)
         self.entries = {}
         self.labels = {}
         self.caps = {}
@@ -517,59 +496,60 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         return footer, body
 
     def _build_form_fields(self):
-        """表单：Provider、功能、模型 ID／显示名／地址／密钥、协议、能力标签（调用方式由左上角页签决定）。"""
+        """表单：Provider、功能、模型 ID／显示名／地址／密钥、协议、能力标签（调用方式由左上角分段决定）。"""
         ttk.Label(self.form, text='Provider').grid(row=0, column=0, sticky='w')
         # 第 65 期任务 5：可编辑下拉——挑现成的，或直接敲一个服务商名；存的就是填进去的那个名字。
         self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
-                                    values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, width=FORM_COMBO_WIDTH)
-        self.provider_box.grid(row=0, column=1, sticky='ew')
+                                    values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, fit=True)
+        self.provider_box.grid(row=0, column=1, sticky='w')
         self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
         self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
         ttk.Label(self.form, text='功能').grid(row=0, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
         self.modality = tk.StringVar(value=model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
         self.modality_box = SelectBox(self.form, textvariable=self.modality, style=COMPACT_COMBOBOX_STYLE,
-                                      values=[label for _value, label in model_pool.MODALITIES])
-        self.modality_box.grid(row=0, column=3, sticky='ew')
-        self.text_row(1, 'model', '模型 ID')
-        self.text_row(1, 'label', '显示名', column=2)
-        index = self.text_row(2, 'base_url', 'API 根地址', span=3)
-        self.text_row(index, 'key_env', '密钥名（.env 里的变量名）')
+                                      values=[label for _value, label in model_pool.MODALITIES],
+                                      width=CHAR_WIDTH['md'])
+        self.modality_box.grid(row=0, column=3, sticky='w')
+        self.text_row(1, 'model', '模型 ID', width=CHAR_WIDTH['3xl'])
+        self.text_row(1, 'label', '显示名', column=2, width=CHAR_WIDTH['3xl'])
+        index = self.text_row(2, 'base_url', 'API 根地址', span=4)
+        self.text_row(index, 'key_env', '密钥环境变量', width=CHAR_WIDTH['3xl'])
         ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
         self.wire_box = SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
-                                  values=[label for _value, label in model_pool.WIRE_APIS])
-        self.wire_box.grid(row=index, column=3, sticky='ew')
+                                  values=[label for _value, label in model_pool.WIRE_APIS], fit=True)
+        self.wire_box.grid(row=index, column=3, sticky='w')
         index += 1
         # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
         ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
         key_row = ttk.Frame(self.form)
-        key_row.grid(row=index, column=1, columnspan=3, sticky='w')
+        key_row.grid(row=index, column=1, columnspan=4, sticky='w')
         self.key_entry = PasswordInput(key_row, width=SECRET_FIELD_WIDTH, mask='*')
         self.key_entry.pack(side='left')
-        SecondaryButton(key_row, text='保存到本机', command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
-        SecondaryButton(key_row, text='清除本机密钥', command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
+        SecondaryButton(key_row, text='保存到本机', width=0, command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
+        SecondaryButton(key_row, text='清除本机密钥', width=0, command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
         # 密钥状态紧跟在按钮后面，不再单独占一行。
         self.key_state = tk.StringVar(value='')
         ttk.Label(key_row, textvariable=self.key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
         index += 1
         ttk.Label(self.form, text='能力标签').grid(row=index, column=0, sticky='w')
         cap_row = ttk.Frame(self.form)
-        cap_row.grid(row=index, column=1, columnspan=3, sticky='w')
+        cap_row.grid(row=index, column=1, columnspan=4, sticky='w')
         for tag in model_pool.CAPABILITY_TAGS:
             var = tk.BooleanVar(value=False)
             self.caps[tag] = var
             ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
                             variable=var, command=self._mark_dirty).pack(
                             side='left', padx=(SPACING['none'], SPACING['sm']))
-        self.text_row(index + 1, 'context_length', '上下文长度（可选）')
-        self.text_row(index + 1, 'note', '备注（可选）', column=2)
-        self.text_row(index + 2, 'rpm', '每分钟请求上限（可选）')
-        self.text_row(index + 2, 'group', '模型组（可选）', column=2)
-        self.text_row(index + 3, 'weight', '权重（可选）')
+        self.text_row(index + 1, 'context_length', '上下文长度（可选）', width=CHAR_WIDTH['xl'])
+        self.text_row(index + 1, 'note', '备注（可选）', column=2, width=CHAR_WIDTH['3xl'])
+        self.text_row(index + 2, 'rpm', '每分钟请求上限（可选）', width=CHAR_WIDTH['xl'])
+        self.text_row(index + 2, 'group', '模型组（可选）', column=2, width=CHAR_WIDTH['2xl'])
+        self.text_row(index + 3, 'weight', '权重（可选）', width=CHAR_WIDTH['md'])
         # UX-MODEL-PAGE：DES《05》§15.3——请求参数随模型记录存，「新建一条」预填主流默认。
-        self.text_row(index + 4, 'max_output', '最大输出')
-        self.text_row(index + 4, 'temperature', '温度', column=2)
-        self.text_row(index + 5, 'timeout', '超时（秒）')
-        self.text_row(index + 5, 'retries', '重试次数', column=2)
+        self.text_row(index + 4, 'max_output', '最大输出', width=CHAR_WIDTH['xl'])
+        self.text_row(index + 4, 'temperature', '温度', column=2, width=CHAR_WIDTH['md'])
+        self.text_row(index + 5, 'timeout', '超时（秒）', width=CHAR_WIDTH['md'])
+        self.text_row(index + 5, 'retries', '重试次数', column=2, width=CHAR_WIDTH['md'])
         self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
         self.api_rows = {2, 3, 4, index + 2, index + 3, index + 4, index + 5}
         self.api_controls = [widget for widget in self.form.winfo_children()
@@ -577,7 +557,7 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         self.program_label = ttk.Label(self.form, text='应用安装路径')
         self.program_label.grid(row=2, column=0, sticky='w')
         self.program_row = ttk.Frame(self.form)
-        self.program_row.grid(row=2, column=1, columnspan=3, sticky='ew')
+        self.program_row.grid(row=2, column=1, columnspan=4, sticky='ew')
         self.program_row.columnconfigure(0, weight=1)
         self.program_entry = CompactLineInput(self.program_row)
         self.program_entry.grid(row=0, column=0, sticky='ew')
@@ -658,14 +638,16 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         self.win._pet_provider = self.provider
         self.win._pet_mode = self.mode
         self.win._pet_modality_box = self.modality_box
-        self.mode_tabs.bind('<<NotebookTabChanged>>', self._on_tab_changed)
+        self.win._pet_mode_control = self.mode_tabs
+        self.win._pet_mode_buttons = self.mode_tabs.buttons
 
     def text_row(self, index, key, label, *, column=0, width=None, span=1):
         """一格「标签 ＋ 输入框」（column 0 左半边、2 右半边），返回下一行号；span 横跨右边，width 按字符数定宽。"""
         self.labels[key] = ttk.Label(self.form, text=label)
         self.labels[key].grid(row=index, column=column, sticky='w' if column == 0 else 'e', padx=0 if column == 0 else FORM_RIGHT_LABEL_PAD)
         entry = CompactLineInput(self.form, **({} if width is None else {'width': width}))
-        entry.grid(row=index, column=column + 1, columnspan=span, sticky='ew' if width is None else 'w')
+        # 单列字段按内容宽度停在左/右输入竖线上；跨列长字段（根地址、程序路径）才随窗口伸缩。
+        entry.grid(row=index, column=column + 1, columnspan=span, sticky='ew' if span > 1 else 'w')
         self.entries[key] = entry
         return index + 1
 
@@ -783,16 +765,19 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
         current = self.entries['label'].get().strip()
         if current and current != self.auto_label['text']:
             return None
-        guess = model_pool.suggest_label(self.entries['model'].get(), self.pet.agent_model_records())
+        records = self._records_cache if self._records_cache is not None else self.pet.agent_model_records()
+        guess = model_pool.suggest_label(self.entries['model'].get(), records)
         self.entries['label'].delete(0, 'end')
         self.entries['label'].insert(0, guess)
         self.auto_label['text'] = guess
         return guess
 
-    def load_rows(self):
+    def load_rows(self, refresh=True):
         # 自定义 Provider 已随模型记录写入模型池；每次刷新从同一份记录回填，无需第二份厂商配置。
         builtins = provider_choices()
-        records = self.pet.agent_model_records()
+        if refresh or self._records_cache is None:
+            self._records_cache = self.pet.agent_model_records()
+        records = self._records_cache
         saved = {model_pool.provider_name(model_id, item) for model_id, item in records.items()}
         # 本机程序记录写的厂商名（Anthropic）与内建项（anthropic）只差大小写，按 casefold 去重，保留内建项。
         seen = {label.casefold() for label in builtins}
@@ -801,22 +786,39 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
             if item.casefold() not in seen:
                 seen.add(item.casefold())
                 extra.append(item)
-        self.provider_box.configure(values=sorted([*builtins, *extra], key=str.casefold))
-        self._render_mode_rows(records)
-        self._fit_model_list()
+        freezer = self._rows_paint_freeze
+        if freezer is None:
+            freezer = self._rows_paint_freeze = PaintFreeze(self.table_shell)
+        frozen = freezer.freeze()
+        try:
+            self.provider_box.set_values(sorted([*builtins, *extra], key=str.casefold), refit=True)
+            self._render_mode_rows(records)
+            self._fit_model_list()
+        except Exception:
+            if frozen:
+                freezer.thaw()
+            raise
+        if frozen:
+            # auto_height 也是 after_idle；这个解冻排在它后面，行高先落定，再一次性画出整表。
+            def thaw_rows():
+                try:
+                    self.table_shell.update_idletasks()
+                finally:
+                    freezer.thaw()
+            self.table_shell.after_idle(thaw_rows)
         return self.tree
 
     def flip_provider_order(self):
         """点 Provider 列头：分组顺序正反翻转（同组内仍按显示名、模型 ID 排）。"""
         self.provider_descending = not self.provider_descending
-        self.load_rows()
+        self.load_rows(refresh=False)
 
     def show_key_state(self, value=None):
         """本机加密那份现在什么情况：只报前 4 位 ＋ ****，别把整把钥匙摆到界面上。"""
         item = value if isinstance(value, dict) else self.read_form()
         local = model_pool.local_key_of(item, self.program, self.state['id'])
-        self.key_state.set(('本机已存密钥：%s（明文本机不落盘）' % model_pool.redacted(local)) if local
-                      else '本机没存密钥；走 .env 的话只填上面的密钥名')
+        self.key_state.set(('本机已存：%s（不落明文）' % model_pool.redacted(local)) if local
+                      else '未存本机密钥')
         return local
 
     def local_save(self):

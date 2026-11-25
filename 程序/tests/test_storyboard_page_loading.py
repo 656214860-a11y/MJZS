@@ -4,6 +4,7 @@ import threading
 import time
 import unittest
 from pathlib import Path
+from tkinter import ttk
 from unittest import mock
 
 import test_page_cache
@@ -225,7 +226,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.assertEqual(str(page.editor.find_count.cget('text')), '2/2')
 
     def test_editor_shows_top_right_close_button_when_file_opened_and_hides_after_close(self):
-        """打开文件后编辑器右上角显示「关闭」按钮，点击后恢复空态且刷新不自动重开，重开文件再次显示。"""
+        """打开文件后编辑器内部右上角显示「×」，点击后恢复空态且刷新不自动重开，重开文件再次显示。"""
         import json
         from infra.pet_state import PAGE_OF
         from ui.storyboard_table_ui import S03_EMPTY_TEXT
@@ -254,11 +255,21 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             win.update()
             btn = page.editor.close_button
             self.assertTrue(btn.winfo_ismapped(), '打开文件后右上角关闭按钮应可见')
-            self.assertEqual(str(btn.cget('text')), '关闭')
-            self.assertEqual(str(page.editor.doc_title.cget('text')), board.name)
-            frame_mid_x = page.editor.frame.winfo_rootx() + page.editor.frame.winfo_width() / 2
-            self.assertGreater(btn.winfo_rootx(), frame_mid_x, '关闭按钮应位于编辑器右半区')
-            self.assertLessEqual(btn.winfo_rooty(), page.viewer.winfo_rooty(), '关闭按钮应位于编辑器正文上方')
+            self.assertEqual(str(btn.cget('text')), '×')
+            self.assertFalse(hasattr(page.editor, 'doc_bar'), '顶部当前文件内容框应已移除')
+            self.assertTrue(page.editor.gutter.winfo_ismapped(), '行号槽应可见')
+            self.assertLess(page.editor.shot_nav.winfo_rootx(), page.editor.gutter.winfo_rootx(),
+                            '镜头导航应在行号左侧')
+            self.assertLess(page.editor.gutter.winfo_rootx(), page.viewer.winfo_rootx(),
+                            '行号应在正文左侧')
+            area = page.editor.editor_area
+            self.assertGreater(btn.winfo_rootx(), area.winfo_rootx() + area.winfo_width() / 2,
+                               '关闭按钮应位于编辑器右半区')
+            self.assertLessEqual(btn.winfo_rootx() + btn.winfo_width(),
+                                 area.winfo_rootx() + area.winfo_width(),
+                                 '关闭按钮不得超出编辑器右缘')
+            self.assertLessEqual(btn.winfo_rooty() - area.winfo_rooty(), 16,
+                                 '关闭按钮应位于编辑器内部上沿')
             self.assertTrue(page.editor.shot_nav.visible, '多镜头分镜应展开镜头定位栏')
             btn.invoke()
             win.update()
@@ -267,7 +278,8 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.assertFalse(page.editor.find_bar.winfo_ismapped(), '关闭文档后查找条应收起')
             self.assertEqual(page.viewer.get('1.0', 'end-1c'), S03_EMPTY_TEXT)
             self.assertFalse(page.editor.shot_nav.visible, '关闭文档后镜头定位栏应收起')
-            self.assertIn('已关闭当前文档', d.status.get())
+            self.assertIn('已关闭当前文档；项目文件保留', d.status.get())
+            self.assertTrue(board.is_file(), '关闭视图不得删除项目文件')
             page.refresh()
             win.update()
             self.assertIsNone(page.active_path, '手动关闭后刷新不应把默认文档自动重开')
@@ -280,8 +292,8 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.assertEqual(page.active_path, board.resolve())
             self.assertTrue(btn.winfo_ismapped(), '重新打开文件后关闭按钮应再次可见')
 
-    def test_close_document_prompts_when_editing_dirty_and_respects_cancel(self):
-        """编辑态有未保存修改时点击关闭先弹确认窗；取消保稿留在文档，确认则不保存关闭。"""
+    def test_close_document_save_failure_keeps_scene_and_valid_save_closes(self):
+        """编辑态关闭先走真实保存；保存失败不丢现场，改成可保存内容后关闭并保留落盘结果。"""
         import json
         from infra.pet_state import PAGE_OF
         sample = {
@@ -305,28 +317,28 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.pump(win, lambda: page.loaded)
             page.show_document(board)
             page.begin_edit()
-            page.viewer.insert('end', '\n// 未保存的临时修改')
+            page.viewer.delete('1.0', 'end')
             win.update()
-            with mock.patch('storyboard_files.confirm', return_value=False) as mocked:
-                page.editor.close_button.invoke()
-                win.update()
-            mocked.assert_called_once()
-            self.assertEqual(page.active_path, board.resolve())
+            page.editor.close_button.invoke()
+            win.update()
+            self.assertEqual(page.active_path, board.resolve(), '空内容保存失败时不得关闭文档')
             self.assertTrue(page.editing)
-            self.assertIn('未保存的临时修改', page.viewer.get('1.0', 'end-1c'))
+            self.assertEqual(page.viewer.get('1.0', 'end-1c'), '')
+            self.assertEqual(board.read_text(encoding='utf-8'), original)
             self.assertTrue(page.editor.close_button.winfo_ismapped())
-            with mock.patch('storyboard_files.confirm', return_value=True) as mocked:
-                page.editor.close_button.invoke()
-                win.update()
-            mocked.assert_called_once()
+            self.assertIn('保存失败，未关闭当前文档', d.status.get())
+            page.viewer.insert('1.0', original)
+            win.update()
+            page.editor.close_button.invoke()
+            win.update()
             self.assertIsNone(page.active_path)
             self.assertFalse(page.editing)
             self.assertFalse(page.raw_json_mode)
             self.assertFalse(page.editor.close_button.winfo_ismapped())
-            self.assertEqual(board.read_text(encoding='utf-8'), original)
+            self.assertEqual(json.loads(board.read_text(encoding='utf-8'))['episode_id'], 'EP001')
 
-    def test_doc_bar_uses_card_frame_contrast_title_bordered_close_and_fits_content(self):
-        """打开文件后顶部文档栏采用圆角卡片容器、主对比文件名与带框关闭钮，切显隐触发 fit_content。"""
+    def test_close_button_is_accessible_without_top_document_header(self):
+        """S03 不渲染顶部「当前文件」内容框；只保留编辑器内部右上角可聚焦关闭×。"""
         import json
         from infra.pet_state import PAGE_OF
         sample = {
@@ -336,6 +348,12 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                  'location': '老街', 'dialogue': '雨下大了', 'frame_prompt': '雨夜霓虹街道'},
             ],
         }
+
+        def descendants(widget):
+            yield widget
+            for child in widget.winfo_children():
+                yield from descendants(child)
+
         with tempfile.TemporaryDirectory() as td:
             win, d = self.open_desktop(td)
             self.addCleanup(d.cancel_timers)
@@ -347,31 +365,22 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             d.show(PAGE_OF['storyboard'])
             page = d.storyboard_editor_page
             self.pump(win, lambda: page.loaded)
-            if page.active_path is not None:
-                page.close_document()
-                win.update()
-            fit_calls = []
-            original_fit = d.fit_content
-            d.fit_content = lambda: (fit_calls.append('fit'), original_fit())[1]
             page.show_document(board)
             win.update()
-            self.assertTrue(page.editor.doc_bar.winfo_ismapped())
-            self.assertEqual(str(page.editor.doc_bar.cget('style')), 'Tokens.Card.TFrame')
-            self.assertEqual(str(page.editor.doc_title.cget('style')), 'Composer.TLabel')
-            self.assertEqual(str(page.editor.doc_title.cget('text')), board.name)
-            self.assertEqual(str(page.editor.close_button.cget('style')), 'Tokens.Secondary.TButton')
-            self.assertEqual(str(page.editor.close_button.cget('text')), '关闭')
-            muted_labels = [
-                child for child in page.editor.doc_bar.winfo_children()
-                if str(child.cget('style')) == 'Composer.Muted.TLabel'
-            ]
-            self.assertTrue(any('当前文件' in str(lbl.cget('text')) for lbl in muted_labels))
-            opened_fits = len(fit_calls)
-            self.assertGreaterEqual(opened_fits, 1, '打开文档显示 doc_bar 须触发 fit_content')
+            labels = [str(item.cget('text')) for item in descendants(page.editor.frame)
+                      if isinstance(item, ttk.Label)]
+            self.assertFalse(any(text.startswith('当前文件') for text in labels),
+                             '顶部当前文件内容框应已移除')
+            self.assertFalse(hasattr(page.editor, 'doc_title'))
+            button = page.editor.close_button
+            self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton')
+            self.assertEqual(str(button.cget('text')), '×')
+            self.assertNotEqual(str(button.cget('takefocus')), '0')
+            self.assertTrue(button.bind('<Return>'), '关闭×须有回车激活绑定')
+            self.assertTrue(button.winfo_ismapped())
             page.editor.close_button.invoke()
             win.update()
-            self.assertFalse(page.editor.doc_bar.winfo_ismapped())
-            self.assertGreater(len(fit_calls), opened_fits, '关闭文档隐藏 doc_bar 须触发 fit_content')
+            self.assertFalse(button.winfo_ismapped())
 
 
 if __name__ == '__main__':

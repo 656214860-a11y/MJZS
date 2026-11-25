@@ -19,8 +19,9 @@ from contract.platform_tools import open_target
 from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, auto_columns, bind_row_toggle, bind_space_toggle, bind_show_all, configure_check_column, fit_row_height, refresh_check_heading, refresh_request_width, remember_columns
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_HINT
-from ui_widgets import BaseDialog, Card, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
+from ui_widgets import BaseDialog, Card, ContextMenu, DataTable, PrimaryButton, SecondaryButton, TextArea, ask_string
 from ui.desktop_page_support import ASSET_FIRST_ROWS, ASSET_ROWS_PER_FRAME, ASSET_ROW_HEIGHT, ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, THUMB_SIZE
+import ui.stage_page_simplify as stage_page_simplify
 
 PAGE = pet_state.PAGE_OF
 
@@ -225,6 +226,29 @@ class AssetPagesMixin:
         self.asset_detail_id=None;self.asset_roster=True
         self.show(PAGE['assets'])
         return True
+    def start_asset_production(self):
+        """手动制作资产：勾到「已制作」的项先确认重做；供发送键与右键菜单共用。"""
+        registry=self.asset_requirements()
+        controller=self.asset_page_controller(registry)
+        selected=controller.checked_ids()
+        made=controller.imported_ids(selected)
+        if made and self.asset_page_services.confirm(self.win,'重新制作资产',
+                '勾选的 %d 项已经做好了：%s\n\n要删掉旧图重做一遍吗？'
+                '（旧图移入项目回收站，可恢复）'%(len(made),'、'.join(made[:8])),
+                dangerous=True):
+            for aid in made:
+                try:
+                    self.delete_asset_image(aid,ask=False)
+                except (OSError,ValueError,KeyError) as exc:
+                    self.note(aid+'旧图未能删除：'+str(exc))
+        else:
+            selected=[aid for aid in selected if aid not in made]
+            if not selected:
+                self.status.set('没有要制作的资产：勾选的都已经做好了。要重做，先删掉它的资产图片。')
+                return False
+        ui_plugin_registry.module('asset_batch').show(self,'workflow',selected_ids=selected)
+        return True
+
     def asset_page(self):
         from ui.asset_skill_batch import resume
         from asset_reference_images import prepare_folders
@@ -234,107 +258,101 @@ class AssetPagesMixin:
             prepare_folders(self.asset_base())
         if not hasattr(self,'asset_checks'):self.asset_checks={}
         self.asset_gated_buttons=[]
-        # L4-U7b：行首标签放在 FlowBar 外面，按钮换行后回到本行第一颗按钮下面，而不是标签下面。
-        toolbar_row=ttk.Frame(self.content);toolbar_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        # 第 31 期第 7 条：这一行的标签与下面「参考图」「资产图片」两行同宽，三行按钮左边缘对齐。
-        ttk.Label(toolbar_row,text='资产',width=ASSET_ROW_LABEL).pack(side='left')
-        toolbar=FlowBar(toolbar_row);toolbar.pack(side='left',fill='x',expand=True)
-        def choose_all():self.asset_kind='all';self.show(PAGE['assets'])
-        (PrimaryButton if self.asset_kind=='all' else SecondaryButton)(toolbar,text='全部',command=lambda:self.safe(choose_all)).pack(side='left')
-        for label,kind in [('角色','characters'),('场景','scenes'),('道具','props')]:
-            def choose(k=kind):self.asset_kind=k;self.show(PAGE['assets'])
-            (PrimaryButton if self.asset_kind==kind else SecondaryButton)(toolbar,text=label,command=lambda fn=choose:self.safe(fn)).pack(side='left')
-        b=SecondaryButton(toolbar,text='检查提示词',command=lambda:self.safe(lambda:ui_plugin_registry.module('asset_prompt_check_dialog').check(self)));b.pack(side='left')
-        b=SecondaryButton(toolbar,text='识别背景人物',command=lambda:self.safe(lambda:ui_plugin_registry.module('background_characters').show(self)));b.pack(side='left')
-        # 第 31 期第 7 条：参考图／资产图片这两行的按钮挪到「资产」这一行下方，两行标签给同一个
-        # 宽度，按钮左边缘对齐——它们本来就是一组资产的动作，摊在表格下面白占两行高度。
-        # 第 46 期第 2 条：这两行按钮原来引用的 import_refs／open_ref_folder／delete_image／selected
-        # 只长在 self.assets() 的函数体里（按钮一点就是 NameError），「导入资产图片」还把上一个
-        # for 循环残留的 kind（永远是道具）当类别用。现在四件事各归各位、都走 Desktop 上的方法：
-        #   参考图行＝导入（要选中）／候选图墙（要选中）／参考图目录（选中就开它那一类）
-        #   资产图片行＝导入（要选中）／批量删除资产（只删勾选行）／资产目录
-        # 第 55 期第 5 条：「资产目录」删掉——它与「生成图目录」打开的是同一个资产库，
-        # 用户判它重复（导入图片落到资产库哪一格，右键／「生成图目录」都看得见）。
-        # 第 55 期第 6 条：参考图那一行补一颗「查看参考图」——原来「查看」只藏在「参考图」
-        # 那一格的单击里，入口看不出来。
-        # 第 57 期第 6 条：「查看参考图」又删了——参考图那一格单击打开的就是它（同一件事两个
-        # 入口，用户点名去重）；「批量删除图片」改名「批量删除资产」；「生成图目录」改名
-        # 「资产目录」，改开 episode 根目录（它下面才是资产库、参考图与生成资产）。
-        refs_row=ttk.Frame(self.content);refs_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(refs_row,text='参考图',width=ASSET_ROW_LABEL).pack(side='left')
-        refs=FlowBar(refs_row);refs.pack(side='left',fill='x',expand=True)
-        b=SecondaryButton(refs,text='导入参考图',command=lambda:self.safe(lambda:self.import_reference_images()));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
-        b=SecondaryButton(refs,text='候选图墙',command=lambda:self.safe(lambda:ui_plugin_registry.module('reference_wall').show(self,self.require_asset_selected('先点选一项资产，再打开候选图墙'))));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
-        SecondaryButton(refs,text='参考图目录',command=lambda:self.safe(lambda:self.open_reference_folder())).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        imgs_row=ttk.Frame(self.content);imgs_row.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(imgs_row,text='资产图片',width=ASSET_ROW_LABEL).pack(side='left')
-        imgs=FlowBar(imgs_row);imgs.pack(side='left',fill='x',expand=True)
-        b=SecondaryButton(imgs,text='导入资产图片',command=lambda:self.safe(lambda:self.asset_import(self.asset_kind,selected=self.asset_selected())));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
-        # 第 57 期第 6 条：「批量删除图片」→「批量删除资产」（它删的本来就不止图片：资产图上
-        # 那一行的登记一并撤掉）。
-        b=SecondaryButton(imgs,text='批量删除资产',command=lambda:self.safe(lambda:self.delete_asset_images()));b.pack(side='left',padx=SPACING['xs'],pady=SPACING['xs']);self.asset_gated_buttons.append(b)
-        SecondaryButton(imgs,text='恢复删除资产',command=lambda:self.safe(lambda:self.restore_asset_image(self.asset_selected()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+        self.asset_start_button=None
+
+        def choose_kind(kind):
+            self.asset_kind=kind
+            self.show(PAGE['assets'])
+            table=getattr(self,'asset_table',None)
+            if table is None or not table.winfo_exists():
+                return
+            rows=table.get_children()
+            if rows:
+                table.focus(rows[0])
+            def restore_table_focus():
+                try:
+                    if table.winfo_exists():
+                        table.focus_set()
+                except tk.TclError:
+                    pass
+            self.win.after_idle(restore_table_focus)
+
         def open_library():
-            # 第 57 期第 6 条：「生成图目录」→「资产目录」，开的是上一级的 episode 根目录
-            # （资产库、参考图、生成资产都在它下面）。
             self.asset_page_services.open_path(self.asset_base())
-        SecondaryButton(imgs,text='资产目录',command=lambda:self.safe(open_library)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
+
+        def kill_comfy_here():
+            from infra.native_apps import force_close_comfy
+            def work():
+                try:return force_close_comfy(self.settings)
+                except Exception as exc:return '强制关闭失败：'+str(exc)
+            self.async_(work,lambda text:self.status.set(str(text)),show_progress=False,label='正在强制关闭 ComfyUI…')
+
+        def asset_records():
+            folder=self.root/'workflows/Comfy资产批次'
+            folder.mkdir(parents=True,exist_ok=True)
+            self.asset_page_services.open_path(folder)
+
+        def import_asset_images(paths):
+            """右侧文件面板的资产图导入：沿用原「导入资产图片」登记链，不再复制到阶段根目录。"""
+            result={'imported':[],'skipped':[],'rejected':[]}
+            paths=list(paths or ())
+            if len(paths)!=1:
+                for raw in paths:
+                    result['rejected'].append((Path(raw).name,'资产图片一次导入一份；请点选资产后逐份导入'))
+                return result
+            source=Path(paths[0])
+            try:
+                aid=self.asset_selected() or ask_string(self.win,'资产编号','例如 CHAR_001 / LOC_001 / PROP_001')
+                if not aid:
+                    result['skipped'].append(source.name)
+                    return result
+                from domain.asset_batch_service import import_asset_image
+                kind,message=import_asset_image(AssetPagesMixin.asset_write_base(self),self.root,aid,source,
+                                                self.asset_requirements(),gateway=AssetPagesMixin.asset_batch_gateway())
+                self.asset_kind=kind
+                self.show(PAGE['assets'])
+                self.status.set(message)
+                result['imported'].append(source)
+            except Exception as exc:
+                result['rejected'].append((source.name,str(exc)))
+            return result
+
+        from orchestrator.stage_models import manual_command as _manual
+        def send_action():
+            return self.safe(_manual(self,'assets',self.start_asset_production,self.win))
+        self._asset_page_actions={
+            'send':send_action,
+            'choose_kind':choose_kind,
+            'check_prompts':lambda:self.safe(lambda:ui_plugin_registry.module('asset_prompt_check_dialog').check(self)),
+            'background_characters':lambda:self.safe(lambda:ui_plugin_registry.module('background_characters').show(self)),
+            'import_reference':lambda:self.safe(lambda:self.import_reference_images()),
+            'candidate_wall':lambda:self.safe(lambda:ui_plugin_registry.module('reference_wall').show(self,self.require_asset_selected('先点选一项资产，再打开候选图墙'))),
+            'reference_folder':lambda:self.safe(lambda:self.open_reference_folder()),
+            'import_asset_image':lambda:self.safe(lambda:self.asset_import(self.asset_kind,selected=self.asset_selected())),
+            'delete_assets':lambda:self.safe(lambda:self.delete_asset_images()),
+            'restore_asset':lambda:self.safe(lambda:self.restore_asset_image(self.asset_selected())),
+            'open_library':lambda:self.safe(open_library),
+            'kill_comfy':lambda:self.safe(kill_comfy_here),
+            'records':lambda:self.safe(asset_records),
+            'open_comfy':lambda:self.safe(self.launch_comfy),
+            'open_comfy_browser':lambda:self.safe(self.open_comfy_browser),
+        }
         try:
             from stage_execution_service import import_pending_generated_assets
             imported=import_pending_generated_assets(self.root, self.asset_base(), self.status.set)
             if imported:self.status.set('已自动导入生成资产图：'+'、'.join(imported))
         except Exception as exc:
             self.note('生成图自动导入暂缓：'+str(exc))
-        self.assets(self.asset_kind)
-        def start_assets():
-            """手动制作资产（第 59 期第 3 条）：勾到「已制作」的那几项先问一句重做不重做。
-
-            以前这里只写一句「已跳过 N 个已导入资产」就继续：用户勾了已制作的行去点制作，界面上
-            看不出它们会被跳过（只在状态行上闪一句）；现在：确认重做就把旧图移进项目回收站
-            （可恢复）、资产回到待导入，批次自然会重做它；不重做就把这几项剔出来，只做剩下的。
-            """
-            registry=self.asset_requirements()
-            controller=self.asset_page_controller(registry)
-            selected=controller.checked_ids()
-            made=controller.imported_ids(selected)
-            if made and self.asset_page_services.confirm(self.win,'重新制作资产',
-                    '勾选的 %d 项已经做好了：%s\n\n要删掉旧图重做一遍吗？'
-                    '（旧图移入项目回收站，可恢复）'%(len(made),'、'.join(made[:8])),
-                    dangerous=True):
-                for aid in made:
-                    try:
-                        self.delete_asset_image(aid,ask=False)
-                    except (OSError,ValueError,KeyError) as exc:
-                        self.note(aid+'旧图未能删除：'+str(exc))
-            else:
-                selected=[aid for aid in selected if aid not in made]
-                if not selected:
-                    self.status.set('没有要制作的资产：勾选的都已经做好了。要重做，先删掉它的资产图片。')
-                    return
-            ui_plugin_registry.module('asset_batch').show(self,'workflow',selected_ids=selected)
-        production=FlowBar(self.content);production.pack(fill='x',pady=(SPACING['sm'],SPACING['xs']))
-        # 第 32 期第 1／5 条：按钮改名「手动制作资产」，并把「手动XX」摆到最左边（左对齐）——
-        # 「制图」那个行首标签去掉，按钮自己说得清是干什么的。
-        # 第 47 期第 3 条：点「手动制作资产」先问一句模型配没配（没配就问要不要现在去「阶段配置」）。
-        from orchestrator.stage_models import manual_command as _manual
-        b=PrimaryButton(production,text='手动制作资产',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(_manual(self,'assets',start_assets,self.win)));b.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs']);self.asset_gated_buttons.append(b);self.asset_start_button=b
-        ui_plugin_registry.module('stage_flow').follow(b,'assets')       # 三虎在跑这一步就写「自动执行中」并置灰
-        # R2942：「阶段配置」按钮＋模型下拉框删除（模型选择已收进共享输入框，技能走 ✦ 图标）。
-        # 第 65 期任务 1：这两颗从「资产图片制作」弹窗搬到「阶段配置」右边（原话：移到主界面阶段配置旁）。
-        def kill_comfy_here():
-            # taskkill 逐个镜像、每个最长 10 秒，按下时 ComfyUI 通常正卡着——不能在界面线程上等。
-            from infra.native_apps import force_close_comfy
-            def work():
-                try:return force_close_comfy(self.settings)
-                except Exception as exc:return '强制关闭失败：'+str(exc)
-            self.async_(work,lambda text:self.status.set(str(text)),show_progress=False,label='正在强制关闭 ComfyUI…')
-        SecondaryButton(production,text='强制关闭 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(kill_comfy_here)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        def asset_records():
-            folder=self.root/'workflows/Comfy资产批次';folder.mkdir(parents=True,exist_ok=True);self.asset_page_services.open_path(folder)
-        SecondaryButton(production,text='制作记录',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(asset_records)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        SecondaryButton(production,text='桌面打开 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(self.launch_comfy)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        SecondaryButton(production,text='浏览器打开 ComfyUI',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(self.open_comfy_browser)).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        # 自动制作开关由三虎模式统一控制；变量保留给活动页面即时同步，初始为关闭。
+        self.asset_page_view=self.assets(self.asset_kind)
+        anchor=getattr(self.asset_page_view,'table',None)
+        stage_page_simplify.register_stage_send(self,'assets',send_action,anchor)
+        def asset_file_menu(menu,path):
+            if Path(path).suffix.lower() not in ('.png','.jpg','.jpeg','.webp','.bmp','.gif'):
+                return
+            menu.command('作为选中资产的图片导入',lambda raw=path:import_asset_images([raw]))
+        stage_page_simplify.register_files_panel(self,'assets',anchor,import_handler=import_asset_images,menu_hook=asset_file_menu)
+        stage_page_simplify.discoverability_hint(
+            self,'筛选与资产操作已收进表格右键菜单（Shift+F10 同效）；右侧项目文件可导入资产图片；空输入框点发送＝手动制作资产。')
         self.pet.auto_variable('auto_asset_var')
         self.update_asset_buttons()
     def asset_base(self):
@@ -381,7 +399,9 @@ class AssetPagesMixin:
                 enabled=has and pending if button is start else has
                 button.configure(state='normal' if enabled else 'disabled')
     def assets(self, kind):
-        return _AssetPage(self, kind).build()
+        view = _AssetPage(self, kind)
+        view.build()
+        return view
     # ── 第 46 期第 2／9 条：资产管理那两行按钮 + 内容框右键删除的公共实现 ────────
     # 这些活原来散在 assets() 的函数体里，页面上的按钮却摆在 assets() 外面——按下去
     # 找不到名字（NameError）。收到 Desktop 上以后，按钮、右键菜单与内容框走同一份实现。
@@ -691,8 +711,11 @@ class _AssetPage:
         # 「删除」只认右键那一行——高亮不再兼作删除目标，逐个删与批量删从此不会互相误伤。
         # 第 57 期第 3 条：「删除」还要认「右键落在哪一列」——「参考图」那一格删的是这一项的
         # 参考图（原来一律删资产图片，用户在参考图上右键就把导入的图删了）。
-        self.table.cell_hover=CellHover(self.table,link_cols,lambda aid,col:self.page.safe(lambda:self.open_cell(aid,col)),cell_image=lambda aid,col:(self.page.win._tick_images[int(self.checked.get(aid,False))] if col=='#0' else None),checked=lambda aid:self.checked.get(aid,False),toggle=self.toggle_asset,delete=lambda aid,col:self.page.safe(lambda:self.page.delete_asset_cell(aid,col)))
+        self.table.cell_hover=CellHover(self.table,link_cols,lambda aid,col:self.page.safe(lambda:self.open_cell(aid,col)),cell_image=lambda aid,col:(self.page.win._tick_images[int(self.checked.get(aid,False))] if col=='#0' else None),checked=lambda aid:self.checked.get(aid,False),toggle=self.toggle_asset)
         bind_row_toggle(self.table,self.toggle_asset,link_cols)
+        stage_page_simplify.bind_context_menu(
+            self.page,[self.table,self.table.cell_hover.overlay,table_box],
+            lambda event:self.context_menu(event))
         # 第 52 期第 3 条：给缩略图那一列盖一层图（#3「导入图片」只盖图）。
         # 第 53 期第 3 条：只盖 #3 一列——「名称」那一列退回原来写的文字（两列同时摆同一张
         # 图是重复，用户点名删掉「名称」列的那个图片）。
@@ -758,6 +781,54 @@ class _AssetPage:
                     return
                 self.row_job['id']=self.table.after(2000,more_rows)
             self.row_job['id']=self.table.after_idle(arm_more_rows)
+
+    def context_menu(self, event):
+        """资产表右键：行内查看/删除＋原按钮行的全部动作与筛选。"""
+        actions=getattr(self.page,'_asset_page_actions',{})
+        menu=ContextMenu(self.page.win)
+        try:
+            if str(getattr(event,'keysym','')) in ('F10','Menu','App'):
+                focused=self.table.focus()
+                selected=self.table.selection()
+                row=focused or (selected[0] if selected else '')
+                column=''
+            else:
+                x=event.x_root-self.table.winfo_rootx();y=event.y_root-self.table.winfo_rooty()
+                row=self.table.identify_row(y);column=self.table.identify_column(x)
+        except Exception:
+            row='';column=''
+        link_cols=('#0','#1','#2','#3','#4','#5','#6')
+        if row and self.table.exists(row):
+            self.table.selection_set(row)
+            self.table.focus(row)
+            if column in link_cols:
+                menu.command('查看这一格',lambda aid=row,col=column:self.page.safe(lambda:self.open_cell(aid,col)))
+            menu.command('删除这一格 / 该行资产图片',lambda aid=row,col=column:
+                         self.page.safe(lambda:self.page.delete_asset_cell(aid,col)))
+            menu.separator()
+        filters=menu.submenu()
+        for label,kind in [('全部','all'),('角色','characters'),('场景','scenes'),('道具','props')]:
+            text='● '+label if getattr(self.page,'asset_kind','all')==kind else label
+            filters.command(text,lambda pick=kind:actions.get('choose_kind',lambda _k:None)(pick))
+        menu.cascade('筛选资产',filters)
+        menu.command('手动制作资产',actions.get('send'))
+        menu.command('检查提示词',actions.get('check_prompts'))
+        menu.command('识别背景人物',actions.get('background_characters'))
+        menu.separator()
+        menu.command('导入参考图…',actions.get('import_reference'))
+        menu.command('候选图墙',actions.get('candidate_wall'))
+        menu.command('打开参考图目录',actions.get('reference_folder'))
+        menu.separator()
+        menu.command('导入资产图片…',actions.get('import_asset_image'))
+        menu.command('批量删除资产',actions.get('delete_assets'))
+        menu.command('恢复删除资产',actions.get('restore_asset'))
+        menu.command('打开资产目录',actions.get('open_library'))
+        menu.separator()
+        menu.command('制作记录',actions.get('records'))
+        menu.command('桌面打开 ComfyUI',actions.get('open_comfy'))
+        menu.command('浏览器打开 ComfyUI',actions.get('open_comfy_browser'))
+        menu.command('强制关闭 ComfyUI',actions.get('kill_comfy'))
+        return menu
 
     def asset_thumb(self, aid,size=THUMB_SIZE):
         """这一项资产已经导入的那张图的小图（路径不安全或没导入就是 None）。

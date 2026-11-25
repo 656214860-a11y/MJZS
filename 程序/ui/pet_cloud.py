@@ -150,7 +150,7 @@ HINT_FG = COLORS['text_muted']          # 灰：与状态行同一个色系，�
 HINT_BG = COLORS['background_card']     # 小字的底：与 ttk.Entry 的底色一致（量不到时才用这个兜底）
 # 第 59 期第 9 条：用户要「关闭按钮显著提示」——原来是灰×（停上去才转红），
 # 现在平时就是一块红底白×的实心按钮；鼠标停上去只是再深一层。
-CLOSE_FG = COLORS['background_card']    # × 是白的（画在红块上）
+CLOSE_FG = COLORS['on_accent']          # × 是白的（画在红块上）
 CLOSE_BG = COLORS['danger']             # 平时就是红的：一眼看得见「点这里关掉」
 CLOSE_HOVER = COLORS['primary_subtle']  # 悬停切浅底，配套切回危险色文字
 CLOSE_FONT = FONTS['title']
@@ -397,29 +397,34 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         return row
 
     def _build_close_button(self, canvas):
-        """对话框右上角那颗「关闭」（第 45 期）。
-
-        用户要的：三虎的对话框除了 Esc 还得有一个看得见、点得到的关闭入口。它只长在带输入行的
-        方框对话框上（三种贴纸不长）；点一下＝close()，与 Esc 同一条路。
-
-        第 59 期第 9 条：按钮改成红底白×的实心小方块（原来是一个不抢眼的灰×），
-        鼠标停上去只把底色压深一层。
-        """
+        """创建方框对话的可见关闭按钮，按 Esc 或点击均可关闭。"""
         button = tk.Label(canvas, text=CLOSE_MARK, bg=CLOSE_BG, fg=CLOSE_FG,
                           font=CLOSE_FONT, cursor='hand2', bd=0, highlightthickness=0)
         button.bind('<Button-1>', self._hit_close)
         button.bind('<Enter>', self._hover_close_button)
         button.bind('<Leave>', self._unhover_close_button)
+        button._refresh_theme_colors = lambda _widget, cloud=self: cloud.refresh_close_button_theme()
         self.close_button = button
+        self._close_hovered = False
         return button
+
+    def refresh_close_button_theme(self):
+        """主题重染后按当前悬停态重取关闭钮颜色；白×不能按普通卡片底色映射。"""
+        if self.close_button is not None:
+            if getattr(self, '_close_hovered', False):
+                self.close_button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG)
+            else:
+                self.close_button.configure(bg=CLOSE_BG, fg=CLOSE_FG)
 
     def _hover_close_button(self, event=None):
         """关闭钮悬停状态；单列方法使无窗口映射的 UI 回归也可验证。"""
+        self._close_hovered = True
         if self.close_button is not None:
             self.close_button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG)
 
     def _unhover_close_button(self, event=None):
         """恢复关闭钮的常态色。"""
+        self._close_hovered = False
         if self.close_button is not None:
             self.close_button.configure(bg=CLOSE_BG, fg=CLOSE_FG)
 
@@ -471,12 +476,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     # ── 显示与收起 ──────────────────────────────────────────────────────────
     def show(self, pinned=None, hold=None, focus=True, shape=None):
-        """把云摆到三虎左边（下沿对齐、尾巴尖指着它的脸颊）；pinned=True 带输入行，否则只有一段话。
-
-        谁都不必手动打开——宠物一说话就经 broadcast() 冒出来；这里只管「摆在哪、要不要抢焦点、
-        多久之后自己收」。hold 为 None 时按这句话要读多久算（第 24 期：read_hold，HOLD_MS 打底）。
-        shape 给 puff／round／tag 时换成那三种形状（打招呼／随口一句／标签框，第 18 期）。
-        """
+        """显示三虎对话框或贴纸。"""
         if getattr(getattr(self, 'pet', None), 'login_locked', lambda: False)() is True or (
                 not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape)):
             return None                    # R2051：登录闸挡着不弹；R1976：用户正拖着窗口，自动冒出来的云等松手再出

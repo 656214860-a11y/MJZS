@@ -318,6 +318,68 @@ class SwitchDocumentFlushTests(unittest.TestCase):
             self.assertEqual(box.active['path'], other.resolve(),
                              '落盘失败不切换文档')
 
+    def test_close_document_flushes_edit_and_can_reopen(self):
+        """关闭×只关闭当前文件视图：退出编辑的真实保存仍生效，项目文件保留且可重开。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, writing = _make_project(td)
+            other = writing / 'script_other.md'
+            other.write_text('另一份剧本\n', encoding='utf-8')
+            win = tk.Tk()
+            win.geometry('1280x800+40+40')
+            win.deiconify()
+            win.update()
+            self.addCleanup(lambda: win.winfo_exists() and win.destroy())
+            desktop = _show_script_structure(win, project)
+            session = desktop.script_structure_editor_preview_edit_session
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
+            box.select_document(other)
+            session.toggle_edit()
+            win.update()
+            preview.insert('end', '关闭前修改')
+            self.assertTrue(box.close_document())
+            win.update()
+            self.assertIn('关闭前修改', other.read_text(encoding='utf-8'))
+            self.assertIsNone(box.active['path'])
+            self.assertFalse(session.editing)
+            self.assertFalse(box.close_button.winfo_ismapped())
+            self.assertIn('尚未找到剧本准备阶段的剧本', preview.get('1.0', 'end-1c'))
+            self.assertTrue(other.is_file(), '关闭视图不得删除项目文件')
+            box.select_document(other)
+            win.update()
+            self.assertEqual(box.active['path'], other.resolve())
+            self.assertTrue(box.close_button.winfo_ismapped())
+            self.assertIn('关闭前修改', preview.get('1.0', 'end-1c'))
+
+    def test_close_document_failed_save_keeps_editing_scene(self):
+        """关闭前落盘失败时不丢稿：仍在原文档编辑态，关闭×保持可见。"""
+        with tempfile.TemporaryDirectory() as td:
+            project, writing = _make_project(td)
+            other = writing / 'script_other.md'
+            original = '另一份剧本\n'
+            other.write_text(original, encoding='utf-8')
+            win = tk.Tk()
+            win.geometry('1280x800+40+40')
+            win.deiconify()
+            win.update()
+            self.addCleanup(lambda: win.winfo_exists() and win.destroy())
+            desktop = _show_script_structure(win, project)
+            session = desktop.script_structure_editor_preview_edit_session
+            box = desktop.script_structure_editor_preview_content_box
+            preview = desktop.script_structure_editor_preview
+            box.select_document(other)
+            session.toggle_edit()
+            win.update()
+            preview.delete('1.0', 'end')     # 空内容保存被拒
+            self.assertFalse(box.close_document())
+            win.update()
+            self.assertEqual(box.active['path'], other.resolve())
+            self.assertTrue(session.editing)
+            self.assertEqual(preview.get('1.0', 'end-1c'), '')
+            self.assertEqual(other.read_text(encoding='utf-8'), original)
+            self.assertTrue(box.close_button.winfo_ismapped())
+            self.assertIn('保存失败，未关闭', desktop.status.get())
+
 
 if __name__ == '__main__':
     unittest.main()

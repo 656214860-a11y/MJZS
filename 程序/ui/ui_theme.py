@@ -2,6 +2,7 @@
 
 import infra.app_logging as app_logging
 import tkinter as tk
+from ui.ui_popup import refresh_menus
 from tkinter import ttk
 from ui_tokens import COLORS, DESKTOP_LAYOUT, DIALOG_MIN_HEIGHT, DIALOG_MIN_WIDTH, FONTS, SPACING
 from responsive_ui import row_height_for,font_linespace
@@ -14,21 +15,27 @@ INK=COLORS['text_primary']
 
 ACCENT=COLORS['primary']
 
-
-
 def apply(win):
 
     win.configure(bg=BG)
 
     for pattern,value in {'*Text.background':COLORS['background_card'],'*Text.foreground':INK,
 
-                          '*Text.insertBackground':ACCENT,'*Text.selectBackground':ACCENT,
+                          '*Text.insertBackground':INK,'*Text.selectBackground':COLORS['selection_bg'],
 
-                          '*Text.selectForeground':COLORS['background_card'],'*Text.inactiveSelectBackground':ACCENT,
+                          '*Text.selectForeground':COLORS['selection_text'],'*Text.inactiveSelectBackground':COLORS['selection_bg'],
 
                           '*Toplevel.background':BG,'*Menu.background':COLORS['background_card'],
 
-                          '*Menu.foreground':INK}.items():win.option_add(pattern,value)
+                          '*Menu.foreground':INK,'*Menu.activeBackground':COLORS['selection_bg'],
+
+                          '*Menu.activeForeground':COLORS['selection_text'],'*Menu.disabledForeground':COLORS['disabled_text'],
+
+                          '*Menu.selectColor':INK,'*Listbox.background':COLORS['background_card'],
+
+                          '*Listbox.foreground':INK,'*Listbox.selectBackground':COLORS['selection_bg'],
+
+                          '*Listbox.selectForeground':COLORS['selection_text']}.items():win.option_add(pattern,value)
 
     s=ttk.Style(win);s.theme_use('clam')
 
@@ -39,6 +46,7 @@ def apply(win):
     s.configure('TFrame',background=BG)
 
     s.configure('Card.TFrame',background=COLORS['background_card'])
+    s.configure('SelectedShot.TFrame',background=COLORS['focus'],padding=1)
 
     s.configure('TLabel',background=BG,foreground=INK)
 
@@ -117,6 +125,12 @@ def install_tick_indicators(win,style):
     keep=getattr(win,'_tick_images_keep',None)
     if keep is None:keep=[];win._tick_images_keep=keep
     keep.extend([off,on,disabled_off,disabled_on])
+    # 旧代表面仍被已建表格行、CheckboxColumn 与 ttk 图元持有；整批就地重画，
+    # 静态缓存与直接 image= 引用在日→夜→日切换时不留在上一套颜色。
+    for index,image in enumerate(keep):
+        role=index%4
+        IconLoader.paint_check_indicator(image,selected=role in (1,3),
+                                         disabled=role>=2,accent=ACCENT)
 
     from ui_tokens import current_theme
     name='DramaTick.indicator.' + current_theme()
@@ -370,6 +384,10 @@ def install_window_placement(root):
         if natural:window.geometry('');window.geometry(f'+{x}+{y}')
         else:window.geometry(f'{width}x{height}+{x}+{y}')
         window.update_idletasks()
+        # update_idletasks 只排完几何，不等于已经画过；alpha 直接回 1 时 Windows 可能先把
+        # 未上色的窗口帧合成成一块黑。显形前强制同步重画一次，非 Windows 由 repaint_area 自己降级。
+        from ui.desktop_layout_resize import repaint_area
+        repaint_area(window)
 
         # 启动画面盖着主窗口时由启动器决定何时显形，这里只摆位置。
         if not getattr(window,'_drama_hold_alpha',False):window.attributes('-alpha',1);window.lift()
@@ -475,6 +493,60 @@ def _recolor_canvas(canvas, mapping):
                 continue
 
 
+def _recolor_text_tags(text, mapping):
+    try:
+        tags = text.tag_names()
+    except tk.TclError:
+        return
+    for tag in tags:
+        if tag == 'sel':  # Tk mirrors this tag to the selection widget options.
+            continue
+        for option in ('foreground', 'background', 'lmargincolor', 'rmargincolor'):
+            try:
+                target = mapping.get(str(text.tag_cget(tag, option)).lower())
+                if target is not None:
+                    text.tag_configure(tag, **{option: target})
+            except tk.TclError:
+                continue
+
+
+def _treeview_tag_names(tree):
+    """ttk.Treeview 已配置的 tag 名；旧 Tk 无 ``tag names`` 时从现有行反推。"""
+    try:
+        names = tree.tk.splitlist(tree.tk.call(tree._w, 'tag', 'names'))
+        if names:
+            return [str(name) for name in names]
+    except (tk.TclError, AttributeError, TypeError):
+        pass
+    found = []
+    seen = set()
+    stack = list(tree.get_children(''))
+    while stack:
+        item = stack.pop()
+        try:
+            stack.extend(tree.get_children(item))
+            for tag in tree.item(item, 'tags') or ():
+                if tag not in seen:
+                    seen.add(tag)
+                    found.append(tag)
+        except tk.TclError:
+            continue
+    return found
+
+
+def _recolor_treeview_tags(tree, mapping):
+    """Treeview 的行 tag 不走样式表；completed/hover 等显式颜色也要随主题换。"""
+    for tag in _treeview_tag_names(tree):
+        for option in ('background', 'foreground'):
+            try:
+                current = tree.tag_configure(tag, option)
+                target = mapping.get(str(current).lower())
+                if target is not None:
+                    tree.tag_configure(tag, **{option: target})
+            except tk.TclError:
+                continue
+
+
 def recolor_tree(root, old, new):
     """递归换色；返回处理过的控件数以便测试。"""
     mapping = color_map(old, new)
@@ -488,11 +560,31 @@ def recolor_tree(root, old, new):
             stack.extend(widget.winfo_children())
         except tk.TclError:
             continue
+        if isinstance(widget, ttk.Treeview):
+            _recolor_treeview_tags(widget, mapping)
         if isinstance(widget, ttk.Widget):
+            # 显式赋给控件的颜色会覆盖主题样式，例如状态栏文本与进度说明。
+            options = set(widget.keys()).intersection(('foreground', 'background'))
+            _recolor_options(widget, options, mapping)
             continue
+        if isinstance(widget, tk.Text):
+            # 夜间正文与选区文字可以同色；按选项的语义映射才能正确切回日间。
+            for option, token in (('selectforeground', 'selection_text'),
+                                  ('selectbackground', 'selection_bg'),
+                                  ('inactiveselectbackground', 'selection_bg'),
+                                  ('insertbackground', 'text_primary')):
+                _recolor_options(widget, (option,), {old[token].lower(): new[token]})
         _recolor_options(widget, _WIDGET_OPTIONS, mapping)
         if isinstance(widget, tk.Canvas):
             _recolor_canvas(widget, mapping)
+        if isinstance(widget, tk.Text):
+            _recolor_text_tags(widget, mapping)
+            refresh = getattr(widget, "_refresh_tag_colors", None)
+            if refresh is not None:
+                refresh(widget)
+        refresh_theme = getattr(widget, "_refresh_theme_colors", None)
+        if refresh_theme is not None:
+            refresh_theme(widget)
         touched += 1
     return touched
 
@@ -500,6 +592,11 @@ def recolor_tree(root, old, new):
 def refresh_native_widgets(win):
     """主题切换后：原生 tk 控件换色，侧栏／项目文件图标按新文字色重染。"""
     import ui_tokens
-    from ui.ui_icons import retint_nav_icons
-    recolor_tree(win, ui_tokens.previous_palette(), COLORS)
+    from ui.ui_icons import retint_check_indicators, retint_nav_icons
+    from ui.ui_rounded import retint_empty_icons
+    previous = ui_tokens.previous_palette()
+    recolor_tree(win, previous, COLORS)
+    retint_empty_icons(win, color_map(previous, COLORS))
+    refresh_menus()
     retint_nav_icons()
+    retint_check_indicators()

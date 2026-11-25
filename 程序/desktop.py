@@ -50,7 +50,7 @@ from ui.desktop_page_nav import PageNavMixin
 from ui.desktop_lifecycle import LifecycleMixin
 from orchestrator.desktop_automation_service import BackgroundTaskLifecycle, DesktopAutomationScheduler, BackgroundTaskQueue, PersistentBackgroundTaskQueue, inspect_project_storage, RetryRegistry
 from orchestrator.idea_chat_controller import IdeaChatController, speaker_name
-from ui_tokens import BUTTON_GAP, BUTTON_WIDTH_DIALOG, CHAR_WIDTH, WRAPLENGTH, COLORS, FONTS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
+from ui_tokens import CHAR_WIDTH, COLORS, SPACING, DESKTOP_LAYOUT, SCRIPT_ACTION_WIDTH, SCRIPT_ACTION_PADDING, SCRIPT_FILE_FONT, ICON_FOLDER, ICON_DELETE
 import ui_tokens
 from ui.ui_dialogs import FileDialog
 from ui.ui_motion import Spinner
@@ -72,36 +72,11 @@ def confirm(parent, title, message, *, dangerous=False, **_legacy_options):
 
 
 def confirm_project_removal_from_last_script(parent, files):
-    """红色破坏性确认：删掉最后剧本时，用户必须明确同意删除整个项目。"""
+    """破坏性确认：删掉最后剧本时，用户必须明确同意删除整个项目。"""
     names='\n'.join(str(name) for name in files)
-    win=BaseDialog(parent, '危险操作：删除当前项目', modal=False, chrome=False)
-    win.resizable(False,False)
-    border=tk.Frame(win,bg=COLORS['danger'],padx=SPACING['xs'],pady=SPACING['xs']);border.pack(fill='both',expand=True)
-    body=tk.Frame(border,bg=COLORS['danger_subtle'],padx=SPACING['xl'],pady=SPACING['lg']);body.pack(fill='both',expand=True)
-    tk.Label(body,text='⚠ 将删除当前项目',bg=COLORS['danger_subtle'],fg=COLORS['danger_hover'],
-             font=('Microsoft YaHei UI',15,'bold')).pack(anchor='w')
-    tk.Label(body,text='这是最后一份剧本。继续后会将当前项目及其全部素材移入项目库回收站。',
-             bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=WRAPLENGTH['sm'],
-             font=FONTS['body']).pack(anchor='w',pady=(SPACING['sm'],SPACING['xs']))
-    tk.Label(body,text=names,bg=COLORS['danger_subtle'],fg=COLORS['danger_text'],justify='left',wraplength=WRAPLENGTH['sm']).pack(anchor='w')
-    result={'accepted':False}
-    buttons=tk.Frame(body,bg=COLORS['danger_subtle']);buttons.pack(anchor='e',fill='x',pady=(SPACING['lg'],SPACING['none']))
-    def close(accepted=False):
-        result['accepted']=accepted
-        try:win.grab_release()
-        except tk.TclError:pass
-        win.destroy()
-    SecondaryButton(buttons,text='取消',command=close,width=BUTTON_WIDTH_DIALOG).pack(side='right')
-    PrimaryButton(buttons,text='移入回收站',command=lambda:close(True),width=BUTTON_WIDTH_DIALOG,
-                  style='Tokens.Danger.TButton').pack(side='right',padx=(SPACING['none'],BUTTON_GAP))
-    win.protocol('WM_DELETE_WINDOW',close)
-    win.update_idletasks()
-    x=max(0,parent.winfo_rootx()+(parent.winfo_width()-win.winfo_width())//2)
-    y=max(0,parent.winfo_rooty()+(parent.winfo_height()-win.winfo_height())//2)
-    win.geometry('+%d+%d'%(x,y))
-    win.grab_set()
-    parent.wait_window(win)
-    return result['accepted']
+    message='将删除当前项目\n这是最后一份剧本。继续后会将当前项目及其全部素材移入项目库回收站。\n\n%s' % names
+    return ask_confirmation(parent, '危险操作：删除当前项目', message,
+                            dangerous=True, confirm_text='移入回收站')
 
 
 import contract.pet_bus as pet_bus
@@ -263,7 +238,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         try:
             import infra.app_icon as app_icon;app_icon.apply(win)
         except Exception:app_logging.swallowed()
-        win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);win.option_add('*Text.selectForeground',COLORS['on_accent']);setup_styles(win);install_window_placement(win)
+        win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
         # 项目区＝单个「项目」图标＋项目名称列表；四个二级图标在项目区内部展开，不挤占聊天区。
@@ -302,9 +277,8 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self.sidebar_canvas.bind('<Configure>',self.schedule_sidebar_fit,add='+')
 
     def refresh_ui_theme(self):
-        """REQ-UI-THEME-1：日间／夜间切换后重挂主题、样式与选项库；已建页面重开后完全生效。"""
+        """REQ-UI-THEME-1：日间／夜间切换后重挂主题、样式与选项库，并即时重染已建的原生控件。"""
         apply_theme(self.win)
-        self.win.option_add('*Text.selectForeground',COLORS['on_accent'])
         setup_styles(self.win)
         from ui.ui_theme import refresh_native_widgets;refresh_native_widgets(self.win)
 
@@ -484,7 +458,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                 else self.idea_chat_model())
 
     def model_chat_colors(self, model):
-        """为同一模型稳定分配一组浅色主题，切换回来仍保持原色。"""
+        """为同一模型按色相稳定分色；夜间改用高明度，模型名在深色底上仍可读。"""
         key = str(model or self.idea_chat_model() or 'AI 助手').encode('utf-8')
         hue = (int(hashlib.sha256(key).hexdigest()[:8], 16) % 360) / 360
         def hsv(saturation, value):
@@ -495,8 +469,9 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             rising = value * (1 - (1 - fraction) * saturation)
             return ((value, rising, low), (falling, value, low), (low, value, rising),
                     (low, falling, value), (rising, low, value), (value, low, falling))[section]
-        light = hsv(0.20, 1.0)
-        dark = hsv(0.54, 0.60)
+        night = ui_tokens.current_theme() == 'night'
+        light = hsv(0.34, 0.30) if night else hsv(0.20, 1.0)
+        dark = hsv(0.38, 0.84) if night else hsv(0.54, 0.60)
         to_hex = lambda rgb: '#%02x%02x%02x' % tuple(round(value * 255) for value in rgb)
         return to_hex(light), to_hex(dark)
 
@@ -832,7 +807,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             self.remember_daily_project_choice(result)
 
     def text(self,value,height=10):
-        t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],insertbackground=COLORS['primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
+        t=TextArea(self.content,bg=COLORS['background_card'],fg=COLORS['text_primary'],height=height,wrap='word',font=('Microsoft YaHei UI',11),relief='flat',padx=SPACING['md'],pady=SPACING['md']);t.insert('1.0',value);t.pack(fill='both',expand=True,pady=SPACING['sm']);bind_show_all(t,after=self.fit_content);return t
     def note(self,value):
         """把页面操作说明写入统一状态栏（R3016 起经 StringVar 桥进右区消息），不再额外占一行。"""
         text=' '.join(str(value or '').split())

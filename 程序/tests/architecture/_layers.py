@@ -66,7 +66,7 @@ _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factor
           "agent_dispatch", "engine", "stage_execution_service", "stage_asset_gateways", "stage_animatic_gateways", "stage_previs_gateways", "stage_gate_gateways", "stage_handoff_gateways", "stage_publication", "stage_write_preparation_service", "stage_download_inbox_service", "desktop_startup_service", "desktop_automation_service", "desktop_auto_state", "pet_broadcast_state", "idea_chat_controller", "idea_semantic_brief_service",
           "writing_api", "writing_unconfirm", "writing_preparation_ledger", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_direct_api", "audio_direct_api", "video_prompt_direct_api", "image_direct", "asset_batch_controller", "asset_page_controller", "editing_page_controller", "page_navigation_controller", "media_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")
-_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "pet_cloud_place", "pet_cloud_move_guard", "responsive_ui", "ui_theme", "ui_popup", "ui_widgets", "ui_composer_style", "ui_splash", "ui_tooltip", "ui_stage_popups", "ui_rounded", "ui_motion", "ui_scroll", "ui_hover_fade", "ui_dialogs", "ui_usage_indicator", "ui_usage_detail", "ui_shortcuts", "ui_icons", "ui_status_bus", "ui_status_bar", "desktop_status_bridge", "cell_hover", "cell_menu", "prompt_window", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "stage_model_picker", "skill_panel_workflow", "skill_panel_import", "skill_note_render", "script_view_style", "desktop_shared_input", "desktop_shared_send", "desktop_shared_menus", "desktop_shared_input_extras", "pet_skills_manage", "app")
+_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "pet_cloud_place", "pet_cloud_move_guard", "responsive_ui", "ui_theme", "ui_popup", "ui_widgets", "ui_composer_style", "ui_splash", "ui_tooltip", "ui_stage_popups", "ui_rounded", "ui_motion", "ui_scroll", "ui_hover_fade", "ui_dialogs", "ui_usage_indicator", "ui_usage_detail", "ui_shortcuts", "ui_icons", "ui_status_bus", "ui_status_bar", "desktop_status_bridge", "cell_hover", "cell_menu", "prompt_window", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "stage_model_picker", "skill_panel_workflow", "skill_panel_import", "skill_note_render", "script_view_style", "desktop_shared_input", "desktop_shared_send", "desktop_shared_menus", "desktop_shared_input_extras", "pet_skills_manage", "pet_skill_tree", "app")
 _register(5, "app_shortcut")
 
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
@@ -168,7 +168,7 @@ _register(2, "animatic_sketch_backends")
 
 # S04-PAGE-REDESIGN（REQ-S04-95…99／DES-S04-25）：预演页拆成独立 L4 模块；
 # desktop_media_pages.animatic_page 只做薄壳转发，业务全走 L3 网关。
-_register(4, "animatic_page")
+_register(4, "animatic_page", "animatic_player", "animatic_view_state", "stage_page_simplify")
 
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
@@ -183,7 +183,7 @@ TOOLS: dict[str, str] = {
 # R3391（L1任务书轮 I1，LR-03）：同层依赖方向登记。凡 importer 与 imported 同层的静态
 # 与字面量动态 import 边都必须在此登记；未登记的同层边、同层互相依赖由
 # tests/architecture/test_layer_relations.py 判红。存量 763 条为 I1 首登记基线，
-# 只许随模块迁移减少；新增同层边必须先在本表登记方向（I6 增至 764：infra_errors→error_codes）。
+# 只许随模块迁移减少；新增同层边必须先在本表登记方向。
 SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('cloud_assets', 'http_client'),
     ('comfy_service', 'http_client'),
@@ -208,6 +208,20 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('session_integrity', 'publication'),
     ('storage_maintenance', 'temporary_sweep'),
     ('agent_skill_sync', 'skill_registry'),
+    ('animatic_page', 'animatic_player'),
+    ('animatic_page', 'animatic_view_state'),
+    ('animatic_player', 'asset_thumbs'),
+    ('desktop_asset_pages', 'stage_page_simplify'),
+    ('desktop_media_pages', 'stage_page_simplify'),
+    ('desktop_storyboard_page', 'stage_page_simplify'),
+    ('local_previs', 'stage_page_simplify'),
+    ('pet_models_ui', 'desktop_layout_resize'),
+    ('pet_settings_ui', 'desktop_layout_resize'),
+    ('pet_settings_ui', 'ui_popup'),
+    ('stage_page_simplify', 'ui_widgets'),
+    ('storyboard_files', 'stage_page_simplify'),
+    ('ui_theme', 'desktop_layout_resize'),
+    ('ui_theme', 'ui_rounded'),
     ('animatic_page', 'asset_thumbs'),
     ('animatic_page', 'desktop_files_panel_filters'),
     ('animatic_page', 'ui_widgets'),
@@ -640,6 +654,8 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_llm', 'request_ledger'),
     ('pet_llm', 'token_saver'),
     ('pet_models_ui', 'account_inputs'),
+    ('pet_models_tabs', 'ui_widgets'),
+    ('pet_models_tabs', 'ui_popup'),
     ('pet_models_ui', 'pet_models_tabs'),
     ('pet_models_ui', 'responsive_ui'),
     ('pet_models_ui', 'speech_settings_ui'),
@@ -652,7 +668,10 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_settings_ui', 'pet_skills_manage'),
     ('pet_settings_ui', 'prompt_window'),
     ('pet_settings_ui', 'ui_dialogs'),
+    ('pet_settings_ui', 'ui_icons'),
     ('pet_settings_ui', 'ui_widgets'),
+    ('pet_skills_manage', 'pet_skill_tree'),
+    ('pet_skills_manage', 'ui_shortcuts'),
     ('pet_skills_manage', 'skill_archive'),
     ('pet_skills_manage', 'skill_import_service'),
     ('pet_skills_manage', 'skill_lifecycle_service'),
@@ -918,6 +937,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('storyboard_selection', 'project_context_factory'),
     ('storyboard_source_service', 'storyboard_catalog_service'),
     ('storyboard_table_ui', 'responsive_ui'),
+    ('storyboard_table_ui', 'script_line_numbers'),
     ('storyboard_table_ui', 'ui_shortcuts'),
     ('storyboard_table_ui', 'ui_widgets'),
     ('subtitle_export_service', 'subtitle_timing'),
@@ -941,12 +961,14 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('ui_status_bar', 'ui_widgets'),
     ('ui_theme', 'responsive_ui'),
     ('ui_theme', 'ui_icons'),
+    ('ui_theme', 'ui_popup'),
     ('ui_theme', 'ui_widgets'),
     ('ui_tooltip', 'ui_popup'),
     ('ui_usage_detail', 'ui_widgets'),
     ('ui_usage_indicator', 'ui_usage_detail'),
     ('ui_widgets', 'ui_composer_style'),
     ('ui_widgets', 'ui_hover_fade'),
+    ('ui_widgets', 'ui_icons'),
     ('ui_widgets', 'ui_motion'),
     ('ui_widgets', 'ui_popup'),
     ('ui_widgets', 'ui_rounded'),

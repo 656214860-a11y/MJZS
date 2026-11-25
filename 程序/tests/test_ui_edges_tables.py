@@ -24,6 +24,61 @@ from ui_edges_support import (
 class UiEdgeTablesTests(UiEdgeCase):
     """UI 边界回归（表格与缩略图域）。"""
 
+    def capture_context_menu(self, win, widget, sequence='<Button-3>', **event):
+        from unittest.mock import patch
+        import ui_widgets
+        menus = []
+        def capture_popup(menu, _event):
+            menus.append(menu)
+            return 'break'
+        def capture_popup_at(menu, _x, _y):
+            menus.append(menu)
+            return menu
+        with patch.object(ui_widgets.ContextMenu, 'popup', capture_popup), \
+                patch.object(ui_widgets.ContextMenu, 'popup_at', capture_popup_at):
+            widget.event_generate(sequence, **event)
+            win.update()
+        self.assertTrue(menus, sequence + ' 应弹出上下文菜单')
+        return menus[-1]
+
+    def menu_labels(self, menu):
+        end = menu.menu.index('end')
+        if end is None:
+            return []
+        labels = []
+        for index in range(end + 1):
+            try:
+                labels.append(str(menu.menu.entrycget(index, 'label')))
+            except Exception:
+                pass
+        return labels
+
+    def menu_item_state(self, menu, label):
+        end = menu.menu.index('end')
+        for index in range((end or 0) + 1):
+            try:
+                if str(menu.menu.entrycget(index, 'label')) == label:
+                    return str(menu.menu.entrycget(index, 'state'))
+            except Exception:
+                continue
+        self.fail(label + ' 不在上下文菜单里：' + repr(self.menu_labels(menu)))
+
+    def invoke_menu_item(self, menu, label):
+        end = menu.menu.index('end')
+        labels = self.menu_labels(menu)
+        for index in range((end or 0) + 1):
+            try:
+                text = str(menu.menu.entrycget(index, 'label'))
+            except Exception:
+                continue
+            if text != label:
+                continue
+            self.assertNotEqual(str(menu.menu.entrycget(index, 'state')), 'disabled',
+                                label + ' 应处于可操作状态')
+            menu.menu.invoke(index)
+            return
+        self.fail(label + ' 不在上下文菜单里：' + repr(labels))
+
     def test_frame_page_batch_row_moved_below_table(self):
         """04 首帧页：「选中镜头」行贴内容框下方，批量/Skill/导入新首帧等按钮删除。"""
         if self.tk is None:
@@ -68,53 +123,116 @@ class UiEdgeTablesTests(UiEdgeCase):
                          "Skill 调用设置", "SKILL说明", "导入新首帧", "打开镜头 JSON", "恢复为待生成",
                          "查看选中首帧", "选择镜头 JSON"):
                 self.assertNotIn(gone, found)
-            for kept in ("手动制作首帧", "刷新首帧列表", "查看首帧提示词",
-                         "查看镜头资产", "导入 / 替换选中首帧", "批量删除首帧", "恢复删除的首帧"):
-                self.assertIn(kept, found)
+            for moved in ("手动制作首帧", "刷新首帧列表", "查看首帧提示词",
+                          "查看镜头资产", "导入 / 替换选中首帧", "批量删除首帧", "恢复删除的首帧"):
+                self.assertNotIn(moved, found, moved + " 应收进右键菜单，不再作为常驻按钮")
+            self.assertIsNotNone(d.shared_input.stage_action("keyframe"), "空输入框发送键应承接手动制作首帧")
             # DataTable 是统一表格壳；Treeview 的直接父级是壳本身，页面内容框在再上一层。
             table_box = [t for t in trees if "prompt" in t["columns"]][0].master.master
-            target_row = found["刷新首帧列表"].master
-            actions_row = found["手动制作首帧"].master
-            self.assertIsNot(target_row, actions_row)
-            win.update()
-            # 视觉顺序：内容框 → 选中镜头行 → 生成行（贴底行先 pack，不能再用 pack 顺序判断）
-            self.assertLess(table_box.winfo_rooty(), target_row.winfo_rooty())
-            self.assertLess(target_row.winfo_rooty(), actions_row.winfo_rooty())
-            # 下拉框在行内最左，六个按钮依次排在其右侧
+            rows = [w for w in d.content.winfo_children() if w.winfo_manager() == "pack" and str(w.pack_info().get("side")) == "bottom"]
+            self.assertTrue(rows, "选中镜头行仍应贴底保留")
+            target_row = rows[0]
             children = target_row.winfo_children()
             self.assertIsInstance(children[1], ttk.Combobox)
             texts = [str(w.cget("text")) for w in children if isinstance(w, (ttk.Label, ttk.Button))]
-            self.assertEqual(texts, ["选中镜头", "刷新首帧列表", "查看首帧提示词", "查看镜头资产",
-                                     "导入 / 替换选中首帧", "批量删除首帧", "恢复删除的首帧"])
-            # 「手动制作首帧」用主色按钮突出
-            self.assertEqual(str(found["手动制作首帧"].cget("style")), "Tokens.Primary.TButton")
-            # 底部两行先贴底占位，内容框最后填充剩余高度：缩窗时按钮/下拉框不会被挤出可视区
+            self.assertEqual(texts, ["选中镜头"])
             self.assertEqual(str(target_row.pack_info()["side"]), "bottom")
-            self.assertEqual(str(actions_row.pack_info()["side"]), "bottom")
             self.assertEqual(str(table_box.pack_info()["side"]), "top")
             table = [t for t in trees if "prompt" in t["columns"]][0]
+            first_row = table.get_children()[0]
+            table.selection_set(first_row)
+            table.focus(first_row)
+            table.event_generate('<<TreeviewSelect>>')
+            win.update()
+            cell = table.bbox(first_row, "#5")
+            self.assertTrue(cell, "首帧表格的图片格应真实可见")
+            x, y = cell[0] + 2, cell[1] + 2
+            menu = self.capture_context_menu(
+                win, table, x=x, y=y,
+                rootx=table.winfo_rootx() + x, rooty=table.winfo_rooty() + y)
+            labels = self.menu_labels(menu)
+            for label in ("手动制作首帧", "刷新首帧列表", "查看首帧提示词", "查看镜头资产",
+                          "导入 / 替换选中首帧…", "批量删除首帧", "恢复删除的首帧",
+                          "查看", "删除这一镜首帧"):
+                self.assertIn(label, labels, label + " 应收进可操作的右键菜单")
+                self.assertNotEqual(self.menu_item_state(menu, label), "disabled",
+                                    label + " 在已选中镜头时应可操作")
+            self.invoke_menu_item(menu, "刷新首帧列表")
+            win.update()
+            self.assertIn("现有首帧", d.status.get(), "菜单里的刷新首帧列表应真的执行")
             tall = int(table.cget("height"))
             win.geometry("1100x520+40+40")
             for _ in range(3):
                 win.update(); win.update_idletasks()
-            self.assertLess(int(table.cget("height")), tall)          # 内容框随窗口变矮
-            self.assertEqual(tuple(d.canvas.yview()), (0.0, 1.0))     # 整页无需滚动即可看全
-            limit = win.winfo_rooty() + win.winfo_height() + 2
-            for name in ("刷新首帧列表", "导入 / 替换选中首帧", "手动制作首帧"):
-                widget = found[name]
-                self.assertTrue(widget.winfo_ismapped())
-                self.assertGreater(int(widget.winfo_height()), 0)
-                self.assertLessEqual(widget.winfo_rooty() + widget.winfo_height(), limit)
-            errors = []
-            real_error = desktop_module.messagebox.showerror
-            desktop_module.messagebox.showerror = lambda *a, **k: errors.append(a[1] if len(a) > 1 else a)
-            self.addCleanup(setattr, desktop_module.messagebox, "showerror", real_error)
-            found["手动制作首帧"].invoke(); win.update()
-            dialogs = popup_windows(win, self.tk)
-            self.assertEqual(errors, [])
-            self.assertEqual(len(dialogs), 1, "第 54 期起这一颗按钮只剩它自己那一扇窗")
-            self.assertIn("首帧制作", dialogs[0].title())
-            dialogs[0].destroy(); win.update()
+            self.assertLess(int(table.cget("height")), tall)
+            self.assertEqual(tuple(d.canvas.yview()), (0.0, 1.0))
+            hints = []
+            def text_walk(w):
+                try:
+                    hints.append(str(w.cget("text")))
+                except Exception:
+                    pass
+                for child in w.winfo_children():
+                    text_walk(child)
+            text_walk(d.content)
+            self.assertTrue(any("右键菜单" in text for text in hints), "首帧页应保留右键入口提示")
+
+    def test_keyframe_shift_f10_menu_and_refresh_keep_item_focus(self):
+        """首帧页 Shift+F10 能打开同一份操作菜单；刷新重建行后键盘焦点行不丢。"""
+        if self.tk is None:
+            self.skipTest(PLATFORM_TKINTER)
+        from tkinter import ttk
+        import desktop as desktop_module
+        original = desktop_module.Desktop.choose_project
+        desktop_module.Desktop.choose_project = lambda self: None
+        self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_adopted_project(td)
+            frame_json = storyboard_stage(proj) / "分镜文档" / "episode.json"
+            data = json.loads(frame_json.read_text(encoding="utf-8"))
+            base = data["shots"][0]
+            data["shots"] = [dict(base, id="SH%03d" % index) for index in range(1, 31)]
+            frame_json.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            win = self.tk.Tk(); win.geometry("1100x760+40+40")
+            def quiet_destroy():
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+            self.addCleanup(quiet_destroy)
+            from desktop import Desktop
+            from local_video import open_studio
+            d = Desktop(win, root=PROGRAM)
+            d.root = proj
+            d.studio = open_studio(proj)
+            d.show(PAGE["keyframe"]); win.update()
+            trees = []
+            def walk(widget):
+                if isinstance(widget, ttk.Treeview) and "prompt" in widget["columns"]:
+                    trees.append(widget)
+                for child in widget.winfo_children():
+                    walk(child)
+            walk(d.content)
+            table = trees[0]
+            table.selection_set("SH025")
+            table.focus("SH025")
+            table.see("SH025")
+            table.focus_force()
+            win.update()
+            scroll_before = table.yview()[0]
+            self.assertGreater(scroll_before, 0.0, "用例前提：表格已离开顶部")
+            self.assertIs(win.focus_get(), table, "用例前提：键盘焦点在首帧表格上")
+            menu = self.capture_context_menu(win, table, sequence='<Shift-F10>')
+            labels = self.menu_labels(menu)
+            for label in ("手动制作首帧", "刷新首帧列表", "查看", "删除这一镜首帧"):
+                self.assertIn(label, labels, label + " 应能经 Shift+F10 到达")
+            self.invoke_menu_item(menu, "刷新首帧列表")
+            win.update()
+            self.assertEqual(table.focus(), "SH025", "刷新重建行后键盘焦点行不应丢失")
+            self.assertEqual(table.selection(), ("SH025",), "刷新重建行后高亮行不应丢失")
+            self.assertAlmostEqual(table.yview()[0], scroll_before, places=3,
+                                   msg="刷新重建行后表格滚动位置不应跳走")
+            self.assertIs(win.focus_get(), table, "刷新不应把键盘焦点从表格抢走")
 
     def test_the_asset_table_shows_thumbnails_only_in_the_import_column(self):
         """第 53 期第 3 条：缩略图只留在「资产图片」那一列，同一行的「名称」列退回纯文字。
@@ -371,16 +489,15 @@ class UiEdgeTablesTests(UiEdgeCase):
             # 解不开的图（只有魔数）退回文字：assets 那一页的 CHAR_001 就是这么一块假图。
             # 行是在建表时按「这张图能不能解开」写好的，所以按页面自己的「刷新首帧列表」重建一遍。
             (storyboard_stage(proj) / "frames" / "SH001.png").write_bytes(PNG)
-            def walk_buttons(w):
-                found = []
-                for child in w.winfo_children():
-                    if isinstance(child, ttk.Button) and str(child.cget("text")) == "刷新首帧列表":
-                        found.append(child)
-                    found.extend(walk_buttons(child))
-                return found
-            refresh_button = walk_buttons(d.content)
-            self.assertEqual(len(refresh_button), 1, "得找得到「刷新首帧列表」那颗按钮")
-            refresh_button[0].invoke(); win.update()
+            x, y = 2, 2
+            menu = self.capture_context_menu(
+                win, label, x=x, y=y,
+                rootx=label.winfo_rootx() + x, rooty=label.winfo_rooty() + y)
+            labels = self.menu_labels(menu)
+            self.assertIn("查看", labels, "缩略图上的右键菜单仍应保留查看这一格")
+            self.assertIn("刷新首帧列表", labels, "缩略图上的右键菜单应能到达刷新首帧列表")
+            self.invoke_menu_item(menu, "刷新首帧列表")
+            win.update()
             self.assertNotIn(("SH001", "#5"), table.cell_images.refresh(),
                              "图解不开就不盖，退回原来写的文件名")
             self.assertIn("SH001.png", str(table.set("SH001", "file")),
@@ -697,13 +814,17 @@ class StoryboardRowLayoutTests(unittest.TestCase):
             d.show(PAGE["keyframe"])
             for _ in range(10):
                 win.update()
-            row = [b for b in self.buttons(d.content) if b.cget("text") == "手动制作首帧"]
-            self.assertTrue(row, "首帧页该有「手动制作首帧」")
-            top = row[0].winfo_rooty() - d.canvas.winfo_rooty()
-            bottom = top + row[0].winfo_height()
-            self.assertGreaterEqual(top, 0, "按钮行不许被顶到画布上边去")
+            rows = [w for w in d.content.winfo_children()
+                    if w.winfo_manager() == "pack" and str(w.pack_info().get("side")) == "bottom"]
+            self.assertTrue(rows, "首帧页该保留贴底的选中镜头行")
+            self.assertIsNotNone(d.shared_input.stage_action("keyframe"),
+                                 "手动制作首帧应保留在共享输入框发送入口")
+            row = rows[0]
+            top = row.winfo_rooty() - d.canvas.winfo_rooty()
+            bottom = top + row.winfo_height()
+            self.assertGreaterEqual(top, 0, "选中镜头行不许被顶到画布上边去")
             self.assertLessEqual(bottom, d.canvas.winfo_height(),
-                                 "按钮行整个要落在画布可见区里——越过底边就是用户看到的「按钮不显示」")
+                                 "选中镜头行整个要落在画布可见区里——越过底边就是用户看到的操作区不显示")
 
 class AutoHeightScrollbarTests(unittest.TestCase):
     """auto_height 算行数时要把露着的横向滚动条一起扣掉。

@@ -150,8 +150,8 @@
   "tests.test_tool_result_contract"
  ],
  "tests_ok": true,
- "points_total": 3132,
- "points_covered": 1852,
+ "points_total": 3133,
+ "points_covered": 1854,
  "modules": [
   {
    "module": "budget.py",
@@ -544,12 +544,6 @@
    "percent": 80.8
   },
   {
-   "module": "file_index.py",
-   "points": 110,
-   "covered": 91,
-   "percent": 82.7
-  },
-  {
    "module": "lease_verifier.py",
    "points": 6,
    "covered": 5,
@@ -560,6 +554,12 @@
    "points": 12,
    "covered": 10,
    "percent": 83.3
+  },
+  {
+   "module": "file_index.py",
+   "points": 110,
+   "covered": 92,
+   "percent": 83.6
   },
   {
    "module": "executors.py",
@@ -761,8 +761,8 @@
   },
   {
    "module": "ui_tokens.py",
-   "points": 15,
-   "covered": 15,
+   "points": 16,
+   "covered": 16,
    "percent": 100.0
   },
   {

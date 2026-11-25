@@ -145,13 +145,14 @@ def _build_stage_rail_state(panel):
     ``frame=panel.stage_rail`` 收养既有停靠框，宽度钉法不变。
     """
     from contract.pet_bus import STAGES, stage_name
-    from ui.desktop_expand_column import ExpandIconColumn
+    from ui.desktop_expand_column import ExpandIconColumn, align_stage_rows
     from ui.desktop_files_panel_filters import STAGE_RAIL_ICONS, _retention_days
-    from ui_tokens import COLORS
+    from ui_tokens import COLORS, NAV_PRIMARY_ICON_SIZE
     panel._ensure_filter_state()
     column = ExpandIconColumn(panel.script_box, panel.page.win,
                               bg=COLORS['background_primary'],
-                              frame=panel.stage_rail)
+                              frame=panel.stage_rail, scrollbar=False,
+                              keys=True, icon_size=NAV_PRIMARY_ICON_SIZE)
     state = {'_rail_column': column}
 
     def rail_action(key, icon_name, glyph, tip, method_name):
@@ -166,7 +167,8 @@ def _build_stage_rail_state(panel):
     for stage in STAGES:
         stage_buttons[stage] = column.add(
             stage, stage + '_files', STAGE_RAIL_ICONS.get(stage, '•'),
-            stage_name(stage), lambda value=stage: panel.show_stage(value))
+            stage_name(stage) + '：查看该阶段文件；再点已选图标恢复跟随当前页',
+            lambda value=stage: panel.show_stage(value))
     state['stage_buttons'] = stage_buttons
     state['recycle_button'] = rail_action(
         'recycle', 'recycle', '♻', '回收站：浏览与恢复已删除的文件',
@@ -180,6 +182,7 @@ def _build_stage_rail_state(panel):
         '全局素材库：跨项目的共享素材（可在设置里指定目录）',
         panel.show_library)
     column.finalize()
+    align_stage_rows(panel.page, column, stage_buttons['script'])
     state['stage_rail_scroller'] = column.scroller
     state['stage_rail_form'] = column.form
     return state

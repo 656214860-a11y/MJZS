@@ -189,6 +189,9 @@ class _Page:
         self.segments = {}
         self.went = []
         self.reported = []
+        self.reply_notes = []
+        self.reply_note = lambda kind, stage, text='', **kw: self.reply_notes.append(
+            (kind, stage, str(text), kw))
 
     def async_(self, fn, done=None, show_progress=True, label=None):
         result = fn()
@@ -368,6 +371,70 @@ class LayoutTests(_PageCase):
                          '页面销毁应清空状态段')
 
 
+class TimelineInteractionTests(_PageCase):
+    """REQ-S04-95/97：时间线格宽随时长、显示缩略图，点击与键盘都能选中镜头。"""
+
+    def test_cells_width_thumbnail_selection_and_keyboard(self):
+        self.win.geometry('1080x760')
+        self.win.update()
+        self.source = _storyboard(self.project, (('SH001', 2), ('SH002', 10)))
+        from contract.stage_path_service import write_dir
+        folder = write_dir(self.project, 'animatic') / '镜头'
+        for sid in ('SH001', 'SH002'):
+            (folder / sid).mkdir(parents=True, exist_ok=True)
+            (folder / sid / 'v1.png').write_bytes(b'png')
+        seen, images = [], []
+
+        def fake_thumbnail(parent, path, size=0):
+            image = tk.PhotoImage(width=1, height=1)
+            images.append(image)
+            seen.append((Path(path), size))
+            return image
+
+        with patch.object(animatic_page.asset_thumbs, 'thumbnail', side_effect=fake_thumbnail):
+            self.show()
+            state = self.state
+            first = state['shot_widgets']['SH001']
+            second = state['shot_widgets']['SH002']
+            self.assertLess(int(first.cget('width')), int(second.cget('width')),
+                            '镜头格宽必须随时长比例增加')
+            bars = [w for w in _walk(self.page.content) if isinstance(w, ttk.Scrollbar)
+                    and str(w.cget('orient')) == 'horizontal']
+            self.assertTrue(bars, '长时间线必须有横向滚动条，不能挤压或截断镜头格')
+            self.assertTrue(any(path.name == 'v1.png' and path.parent.name == 'SH001'
+                                and size == state['layout_metrics']['thumb_size']
+                                for path, size in seen),
+                            '镜头格应装入当前图版本缩略图')
+            first.focus_force()
+            self.win.update()
+            first.event_generate('<Right>')
+            tk_test_support.pump(self.win, .05)
+            self.assertEqual('SH002', state['selected_shot'],
+                             '时间线右方向键应选中下一镜')
+            current = state['shot_widgets']['SH002']
+            self.assertIs(self.win.focus_get(), current,
+                          '方向键选中下一镜后键盘焦点应跟着走')
+            self.assertEqual('SelectedShot.TFrame', str(current.cget('style')),
+                             '选中镜头格应有可见焦点边框')
+            self.assertTrue(any('SH002 当前镜头草图' in text for text in _labels(self.page.content)),
+                            '播放区应跟随当前选中镜头换大图')
+            first_current = state['shot_widgets']['SH001']
+            first_current.focus_set()
+            first_current.event_generate('<Return>')
+            tk_test_support.pump(self.win, .05)
+            self.assertEqual('SH001', state['selected_shot'],
+                             'Enter 应选中获得键盘焦点的镜头格')
+            self.assertTrue(any('SH001 当前镜头草图' in text for text in _labels(self.page.content)),
+                            '点选/键盘选中第一镜后播放区应同步回第一镜')
+            second_current = state['shot_widgets']['SH002']
+            second_current.focus_set()
+            with patch.object(animatic_page, 'shot_context_menu') as menu_factory:
+                second_current.event_generate('<Shift-F10>')
+                tk_test_support.pump(self.win, .05)
+            menu_factory.assert_called_once()
+            menu_factory.return_value.popup_at.assert_called_once()
+
+
 class ConfirmBarTests(_PageCase):
     """REQ-S04-98：有可播放版本才出现三项确认＋「锁定」。"""
 
@@ -382,6 +449,37 @@ class ConfirmBarTests(_PageCase):
         self.assertEqual(1, len(locks), '应有且只有一颗「锁定」')
         segment = self.page.segments.get('animatic_note', ('',))[0]
         self.assertIn('未确认', segment)
+
+    def test_compact_880x600_keeps_lock_inside_and_restores_regular_sizes(self):
+        self.win.geometry('880x600+0+0')
+        tk_test_support.pump(self.win, .2)
+        self.show()
+        tk_test_support.pump(self.win, .2)
+        state = self.state
+        metrics = state['layout_metrics']
+        self.assertTrue(metrics['compact'], '880×600 主窗口应进入紧凑布局')
+        self.assertLess(metrics['cell_height'], animatic_page._TIMELINE_CELL_HEIGHT)
+        self.assertLess(metrics['thumb_size'], animatic_page._TIMELINE_THUMB_SIZE)
+        lock = next(w for w in _walk(self.page.content)
+                    if isinstance(w, SecondaryButton) and str(w.cget('text')) == '锁定')
+        self.assertTrue(lock.winfo_ismapped())
+        self.assertLessEqual(lock.winfo_rootx() + lock.winfo_width(),
+                             self.frame.winfo_rootx() + self.frame.winfo_width() + 1,
+                             '锁定按钮不得横向越出分镜预演页')
+        self.assertLessEqual(lock.winfo_rooty() + lock.winfo_height(),
+                             self.frame.winfo_rooty() + self.frame.winfo_height() + 1,
+                             '锁定按钮不得纵向越出分镜预演页')
+        video_view = state.get('video_view')
+        self.assertIsNotNone(video_view, '紧凑布局仍应保留真实内嵌播放器')
+        self.assertEqual(metrics['player_height'], int(float(video_view.cget('height'))))
+        compact_cell = state['shot_widgets']['SH001']
+        self.assertEqual(metrics['cell_height'], int(float(compact_cell.cget('height'))))
+        self.win.geometry('1280x900+0+0')
+        tk_test_support.pump(self.win, .3)
+        self.assertFalse(state['layout_metrics']['compact'], '窗口拉高后应回到常规布局')
+        restored = state['shot_widgets']['SH001']
+        self.assertEqual(animatic_page._TIMELINE_CELL_HEIGHT,
+                         int(float(restored.cget('height'))))
 
     def test_lock_blocked_until_all_checked(self):
         self.show()
@@ -403,6 +501,15 @@ class ConfirmBarTests(_PageCase):
                                if isinstance(w, SecondaryButton) and str(w.cget('text')) == '锁定')
             lock_button.invoke()
         lock.assert_called_once_with(self.project, rhythm=True, duration=True, dialogue_sync=True)
+        self.assertTrue(any(kind == 'user' and stage == 'animatic' and text == '锁定分镜预演'
+                            for kind, stage, text, _kw in self.page.reply_notes),
+                        '锁定入口应在回话区保留用户指令')
+        self.assertTrue(any(kind == 'progress' and stage == 'animatic' and '回写分镜时长' in text
+                            for kind, stage, text, _kw in self.page.reply_notes),
+                        '锁定过程应写入回话区')
+        self.assertTrue(any(kind == 'reply' and stage == 'animatic' and '已锁定' in text
+                            for kind, stage, text, _kw in self.page.reply_notes),
+                        '锁定结果应写入回话区')
 
 
 class SendCommandTests(_PageCase):
@@ -434,6 +541,62 @@ class SendCommandTests(_PageCase):
         self.assertFalse(accepted)
         self.assertFalse(redo.called)
         self.assertTrue(any('SH099' in message for message in self.page.status.messages))
+
+    def test_generate_writes_process_and_reply_entries(self):
+        """UX-S04-23：真实发送入口把用户指令、进度与产物写进共用过程与回话区。"""
+        self.show()
+        video = self.project / '版本' / 'animatic_v001.mp4'
+        with patch('stage_execution_service.run_animatic_timeline', return_value=video):
+            accepted = self.page.shared_input.stage_action('animatic')()
+        self.assertTrue(accepted)
+        self.assertTrue(any(kind == 'user' and stage == 'animatic' and text == '生成分镜预演'
+                            for kind, stage, text, _kw in self.page.reply_notes),
+                        '空发送应在回话区保留用户指令')
+        self.assertTrue(any(kind == 'progress' and stage == 'animatic'
+                            and '正在合成分镜预演' in text and kw.get('expand') is True
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '开始生成应写入进度并展开回话区')
+        self.assertTrue(any(kind == 'artifact' and stage == 'animatic'
+                            and kw.get('path') == str(video)
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '生成完成应写入可打开的产物记录')
+
+    def test_unknown_redo_writes_error_to_reply_area(self):
+        self.show()
+        accepted = animatic_page.run_command(self.page, self.state, '重做 SH099')
+        self.assertFalse(accepted)
+        self.assertTrue(any(kind == 'error' and stage == 'animatic'
+                            and 'SH099' in text and kw.get('expand') is True
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '本地拦截错误也应进入回话区，而不是只闪状态栏')
+
+    def test_redo_refreshes_selected_shot_preview_without_video(self):
+        """REQ-S04-83/95：单镜重做完，未合成整片时播放区的大图也换成新版本。"""
+        self.show()
+        updated = dict(self.state['timeline'])
+        updated['shots'] = [dict(self.state['timeline']['shots'][0], image_version=2)]
+        with patch('stage_execution_service.regenerate_animatic_shot', return_value=updated), \
+             patch.object(animatic_page, '_render_player') as render_player:
+            accepted = animatic_page.run_command(self.page, self.state, '只重做 SH001')
+        self.assertTrue(accepted)
+        self.assertTrue(render_player.called,
+                        '单镜重做后不能只刷新时间线，播放区当前镜大图也要刷新')
+
+    def test_backend_error_is_written_to_status_and_reply_area(self):
+        """UX-S04-23/REQ-S04-99：生成业务异常不冒泡成全局弹窗，写状态栏与回话区。"""
+        self.show()
+        with patch('stage_execution_service.run_animatic_timeline',
+                   side_effect=ValueError('ComfyUI 未就绪')), \
+             patch('infra.diagnostic_capture.record_degradation') as degradation:
+            accepted = animatic_page.run_command(self.page, self.state, '')
+        self.assertTrue(accepted, '后台任务本身已受理；失败应作为业务结果回到本页')
+        degradation.assert_called_once()
+        self.assertTrue(any('ComfyUI 未就绪' in message for message in self.page.status.messages),
+                        '生成失败应写状态栏')
+        self.assertTrue(any(kind == 'error' and stage == 'animatic'
+                            and 'ComfyUI 未就绪' in text and kw.get('expand') is True
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '生成失败应写入过程与回话区并展开')
 
     def test_on_send_intercepts_free_text_and_delegates_slash(self):
         self.show()
@@ -549,6 +712,10 @@ class FilesPanelHookTests(_PageCase):
         into.assert_called_once()
         self.assertEqual([clip], list(into.call_args[0][2]))
         self.assertEqual(3, len(result['imported']))
+        self.assertTrue(any(kind == 'artifact' and stage == 'animatic'
+                            and kw.get('path') == str(image)
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '文件面板导入成功也应在回话区留下可打开产物记录')
 
     def test_select_handler_switches_storyboard_source(self):
         self.show()
@@ -571,10 +738,31 @@ class FilesPanelHookTests(_PageCase):
             hook(menu, ref)
             labels = _menu_labels(menu)
             self.assertIn('修改参考图分类', labels)
+            self.assertIn('修改参考图对应名', labels)
             self.assertIn('本地生成参考草图', labels)
             submenu = menu.nametowidget(menu.entrycget(labels.index('修改参考图分类'), 'menu'))
             submenu.invoke(0)  # 第一个分类＝角色
         reclassify.assert_called_once_with(self.project, ref, '角色')
+
+    def test_reference_rename_uses_inline_entry_and_keeps_category(self):
+        """REQ-S04-73：右键修改对应名，保留原分类并在缺扩展名时补回原扩展名。"""
+        self.show()
+        from contract.stage_path_service import shared_reference_dir
+        ref = shared_reference_dir(self.project) / '角色' / '林夏.png'
+        ref.parent.mkdir(parents=True)
+        ref.write_bytes(b'png')
+        hook = self.page.files_panel.menus['animatic']
+        menu = ContextMenu(self.win)
+        hook(menu, ref)
+        labels = _menu_labels(menu)
+        menu.invoke(labels.index('修改参考图对应名'))
+        entry = next((w for w in _walk(self.page.content) if isinstance(w, LineInput)), None)
+        self.assertIsNotNone(entry, '修改对应名应使用页内输入条，不弹窗')
+        entry.delete(0, 'end')
+        entry.insert(0, '林夏正面')
+        with patch('stage_execution_service.reclassify_animatic_reference') as reclassify:
+            self.state['edit_commit']()
+        reclassify.assert_called_once_with(self.project, ref, '角色', new_name='林夏正面.png')
 
     def test_sketch_generate_uses_settings_model(self):
         self.show()
@@ -592,12 +780,23 @@ class FilesPanelHookTests(_PageCase):
         self.assertIsNotNone(entry, '生成参考草图应展开页内输入条')
         state = self.state
         entry.insert(0, '一只猫')
-        result = type('Result', (), {'ok': True, 'reason': ''})()
+        result = type('Result', (), {'ok': True, 'reason': '', 'data': (ref,)})()
         with patch('stage_execution_service.generate_animatic_reference',
                    return_value=result) as generate:
             state['edit_commit']()
         generate.assert_called_once()
         self.assertEqual(('一只猫', 'model.safetensors'), generate.call_args[0][1:3])
+        self.assertTrue(any(kind == 'user' and stage == 'animatic' and '一只猫' in text
+                            for kind, stage, text, _kw in self.page.reply_notes),
+                        '本地生成参考草图应保留用户指令')
+        self.assertTrue(any(kind == 'progress' and stage == 'animatic'
+                            and '正在生成参考草图' in text and kw.get('expand') is True
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '开始生成草图应写入进度并展开回话区')
+        self.assertTrue(any(kind == 'artifact' and stage == 'animatic'
+                            and kw.get('path') == str(ref)
+                            for kind, stage, text, kw in self.page.reply_notes),
+                        '草图完成应写入可打开的产物记录')
 
 
 class RealPanelHookTests(_PageCase):
@@ -665,6 +864,28 @@ class PlayAreaTests(_PageCase):
         state['open_video']()
         expected = str(self._animatic_bundle / '版本' / 'animatic_v001.mp4')
         self.assertEqual([expected], self.page.media_page_services.opened)
+
+    def test_cover_plays_and_pauses_in_page_and_releases_on_destroy(self):
+        from ui.animatic_player import VideoPreview
+        self.show()
+        view = self.state['video_view']
+        self.assertIsInstance(view, VideoPreview)
+        with patch('ui.animatic_player.EmbeddedVideo') as factory:
+            view.toggle()
+            view.toggle()
+            factory.assert_called_once_with(view.path, view.winfo_id())
+            self.assertEqual(factory.return_value.toggle.call_count, 2)
+            self.assertEqual(self.page.media_page_services.opened, [])
+            view.destroy()
+            factory.return_value.close.assert_called_once()
+
+    def test_inline_play_failure_keeps_cover_and_reports_external_option(self):
+        self.show()
+        view = self.state['video_view']
+        with patch('ui.animatic_player.EmbeddedVideo', side_effect=OSError('codec')):
+            view.toggle()
+        self.assertEqual(view.cover.winfo_manager(), 'pack')
+        self.assertIn('外部播放器', self.page.status.get())
 
     def test_video_menu_has_external_open(self):
         self.show()

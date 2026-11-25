@@ -51,9 +51,11 @@ class PetSettingsMixin:
     def agent_model_tasks(self):
         """三虎四个任务维度各用哪一条（缺项补出厂默认）。"""
         return model_pool.agent_models(program=self.program)
-    def resolve_agent_model(self, task='default', context=None):
+    def resolve_agent_model(self, task='default', context=None, records=None):
         """规格里的 resolveAgentModel：这一档实际会用哪条模型（挑不出来时说清为什么）。"""
-        return model_router.resolve_agent_model(task, records=self.agent_model_records(),
+        if records is None:
+            records = self.agent_model_records()
+        return model_router.resolve_agent_model(task, records=records,
                                                 context=context, program=self.program)
     def apply_agent_models(self):
         """把「三虎设置 → 模型」叠进正在用的客户端，并重建「切换模型」子菜单。

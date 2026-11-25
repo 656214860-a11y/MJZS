@@ -22,7 +22,8 @@ from responsive_ui import FlowBar, MIN_COL, auto_columns, fit_row_height, refres
 from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import BUTTON_MIN_WIDTH, CHAR_WIDTH, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_DESC
-from ui_widgets import Card, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
+from ui_widgets import Card, ContextMenu, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, ask_string
+import ui.stage_page_simplify as stage_page_simplify
 from dataclasses import dataclass
 from typing import Callable
 from ui.desktop_page_support import ASSET_ROW_LABEL, STAGE_ACTION_WIDTH, _prefs
@@ -110,7 +111,194 @@ def _line_quote_gate(page, lines, out, settings):
     return quote,pending,None
 
 
-class MediaPagesMixin:
+class ContinuityPageMixin:
+    """连贯性清单的页面、台账和问题处置。"""
+    def continuity_ledger_data(self):
+        """现场算一份连贯性台账：读当前分镜 JSON ＋ 这一集的资产清单（第 61 期 v0.8 任务 7）。"""
+        return media_logic.build_ledger(lambda:read(self.current_frame_json()),self.asset_requirements)
+    def continuity_folder(self):
+        """这一阶段落盘的地方（03_continuity/output）。"""
+        return media_logic.continuity_folder(self.root)
+    def write_continuity_ledger(self,ledger=None):
+        """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
+        from infra.continuity_ledger import write
+        return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
+    def generate_continuity_ledger(self,ledger=None):
+        """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
+        ledger=self.continuity_ledger_data() if ledger is None else ledger
+        summary=ledger.get('summary') or {}
+        if not summary.get('shots'):
+            raise ValueError('当前没有可用的分镜镜头，请先在「初步分镜」采用一份分镜再生成连贯性清单。')
+        self.write_continuity_ledger(ledger)
+        self.sync_continuity_issues(ledger)
+        text=media_logic.summary_text(summary)
+        self.pet_report('continuity','连贯性清单已生成：'+text+'。')
+        self.status.set('连贯性清单已生成并落盘：'+text)
+        if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
+        return text
+    def pet_continuity_ledger(self):
+        """三虎自动链的连贯性清单入口（经 stage_handler_registry.start 的回调）；没有分镜时返回空串。"""
+        try:return '已自动生成「连贯性清单」：'+self.generate_continuity_ledger()
+        except ValueError:return ''
+    def continuity_page(self):
+        """06 连贯性清单（第 62 期任务 11）。
+
+        第 61 期 v0.8 它只是资产管理页底部的一个折叠区；用户要它成为独立的一步（左侧列表
+        「05 资产管理」之下、「07 分镜定稿」之上），显示方式照首帧管理页那一套：上面一行按钮，
+        下面按组各一张表。表里的数字全部来自同一次台账计算，页面上写的批次、镜头与结论不会
+        各说各话（第 62 期任务 11 的「信息要准确」）。
+        """
+        from stage_execution_service import run_stage_confirmation_gate
+        ledger=self.continuity_ledger_data()
+        summary=ledger.get('summary') or {}
+        passed=bool(summary.get('ok'))
+        def line():
+            return media_logic.summary_text(summary)
+        def make():
+            self.generate_continuity_ledger(ledger)
+        action_context={'make':lambda:self.safe(make)}
+        head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
+        file=self.continuity_folder()/'continuity_ledger.json'
+        DescriptionBlock(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成；空输入框点发送即可生成').pack(
+            side='left',padx=(SPACING['sm'],SPACING['none']))
+        def table_of(title,columns,rows,height,detail=''):
+            """一张小表：抬头 ＋ 表头 ＋ 若干行（这一页的清单就是这几张表）。
+
+            第 64 期任务 6：最后一列（「冻结锚点」「说明」）跟着窗口一起收放——原来固定
+            620／700 像素，界面一窄就被挤没、界面一宽又留一大片白。detail 写某一列时，
+            点这一列的格子弹一扇只读窗把整段字显示全（表格格子放不下长说明）。
+            """
+            frame=Card(self.content)
+            frame.pack(fill='both',expand=True,pady=(SPACING['xs'],SPACING['none']))
+            ttk.Label(frame,text=title).pack(anchor='w')
+            compact=[(key,label,MIN_COL) for key,label,width in columns]
+            table=DataTable(frame,columns=compact,show='headings',height=height,
+                            selectmode='browse',empty_text='暂无'+title)
+            tree=table.tree
+            _configure_table_style(tree)
+            last=columns[-1][0]
+            for key,label,width in columns:
+                tree.heading(key,text=label)
+                tree.column(key,width=MIN_COL,minwidth=MIN_COL,stretch=key==last)
+            remember_columns(tree,[(key,width) for key,label,width in columns])
+            auto_columns(tree)
+            refresh_request_width(tree)
+            for row in rows:tree.insert('','end',values=row)
+            table.pack(fill='both',expand=True)
+            if detail:
+                def open_detail(event,tree=tree,column_name=detail,heading=title):
+                    row=tree.identify_row(event.y);column=tree.identify_column(event.x)
+                    if not row or not column:return
+                    if tree.column(column,'id')!=column_name:return
+                    text=str(tree.set(row,column_name) or '')
+                    if not text:return
+                    from ui.prompt_window import show as show_text
+                    show_text(self.win,heading+' · 说明',text,status=self.status,
+                              receipt='说明已复制',button='复制说明',scrollbar=True)
+                tree.bind('<Button-1>',open_detail,add='+')
+            return tree
+        batches=media_logic.batch_rows(ledger)
+        batch_tree=table_of('批次与冻结锚点',
+                 [('batch','批次',120),('shots','镜头',200),('seconds','秒数',70),
+                  ('anchors','冻结锚点（逐字复用，机器不许改写）',620)],
+                 batches,min(8,max(2,len(batches))))
+        checks=media_logic.check_rows(ledger)
+        check_tree=table_of('跨批次与三元组校验',
+                 [('kind','项目',110),('id','编号',150),('result','结论',100),('detail','说明',700)],
+                 checks,min(8,max(2,len(checks))),detail='detail')
+        issue_rows=self.continuity_issue_rows(ledger)
+        issue_tree=None
+        if issue_rows:
+            issue_tree=table_of('问题闭环',
+                     [('id','编号',130),('kind','类型',110),('severity','严重度',60),
+                      ('state','状态',80),('where','涉及镜头/资产',170),('evidence','证据',560)],
+                     media_logic.issue_table_rows(issue_rows),min(8,max(2,len(issue_rows))),detail='evidence')
+        problems=list(summary.get('problems') or [])
+        foot=Card(self.content);foot.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
+        ttk.Label(foot,text='待办与裁决').pack(anchor='w')
+        if problems:
+            for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
+        else:
+            ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground=COLORS['success_text']).pack(anchor='w')
+        asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
+        ask_entries=[]
+        if asks:
+            ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
+                      foreground=COLORS['warning_text']).pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
+        for item in asks:
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
+            text=' ／ '.join('候选%d %s'%(index+1,value)
+                            for index,value in enumerate(item['candidates']))
+            ttk.Label(box,text=item['title']+'：'+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
+            DescriptionBlock(box,text='理由：'+str(item.get('reason') or '')).pack(anchor='w')
+            choice=item['candidates'][item.get('recommended',0)]
+            ask_entries.append((item['title'],item['key'],choice,item.get('digest','')))
+        open_issue_rows=list(media_logic.open_issues(issue_rows))
+        for row in open_issue_rows:
+            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
+            ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
+                                          row.get('detail') or ''),wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
+
+        def continuity_menu(event):
+            menu=ContextMenu(self.win)
+            menu.command('手动生成连贯性清单',action_context['make'])
+            menu.command('打开清单目录',lambda:self.safe(lambda:self.media_page_services.open_path(self.continuity_folder())))
+            widget=event.widget
+            tree=widget if widget is issue_tree else None
+            row_id=''
+            if tree is not None:
+                try:
+                    y=event.y_root-tree.winfo_rooty()
+                    row=tree.identify_row(y)
+                    row_id=str(tree.set(row,'id') if row else '')
+                except Exception:row_id=''
+            if ask_entries:
+                priority=menu.submenu()
+                for title,key,value,digest in ask_entries:
+                    priority.command('采用推荐：'+title,lambda k=key,v=value,d=digest:self.safe(
+                        lambda:self.pick_gate(k,v,lambda:self.show(PAGE['continuity']),d)))
+                menu.cascade('参考图优先级裁决',priority)
+            if row_id or open_issue_rows:
+                ignore_menu=menu.submenu()
+                candidates=[row_id] if row_id else [str(row.get('id')) for row in open_issue_rows]
+                for iid in candidates:
+                    if iid:ignore_menu.command('忽略 '+iid+'（写明理由）',
+                        lambda target=iid:self.safe(lambda:self.ignore_continuity_issue(target)))
+                menu.cascade('忽略问题',ignore_menu)
+            return menu
+
+        anchors=[batch_tree,check_tree,foot]
+        if issue_tree is not None:anchors.append(issue_tree)
+        stage_page_simplify.bind_context_menu(self,anchors,continuity_menu)
+        stage_page_simplify.register_stage_send(self,'continuity',action_context['make'],foot)
+        stage_page_simplify.register_files_panel(self,'continuity',foot)
+        stage_page_simplify.discoverability_hint(
+            self,'连贯性操作已收进表格/卡片右键菜单（Shift+F10 同效）；空输入框点发送＝重新生成清单；文件入口在右侧项目文件。')
+    def continuity_issue_rows(self,ledger):
+        """问题闭环视图：登记表与本次台账合并后的行（只读，不落盘）。"""
+        from stage_execution_service import continuity_issue_report
+        try:return list(continuity_issue_report(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError):return []
+    def sync_continuity_issues(self,ledger=None):
+        """把本次问题并进 03_continuity/output/continuity_issues.json（跟「手动生成」同一次做）。"""
+        from stage_execution_service import sync_continuity_issues
+        try:return list(sync_continuity_issues(self.root,ledger))
+        except (ValueError,OSError,TypeError,AttributeError,KeyError) as exc:
+            self.status.set('问题闭环台账没写成：'+str(exc));return []
+    def ignore_continuity_issue(self,iid):
+        """忽略一条问题：必须先写理由（记下当时那一版证据），再刷新页面。"""
+        reason=ask_string(self.win,'忽略这条问题','忽略这条问题的理由：')
+        if reason is None:return
+        reason=str(reason).strip()
+        if not reason:
+            self.status.set('没写理由，这条问题不忽略。');return
+        from stage_execution_service import decide_continuity_issue
+        decide_continuity_issue(self.root,iid,'ignored',reason)
+        self.status.set('已忽略 '+str(iid)+'（理由与作用版本已记录）。')
+        self.show(PAGE['continuity'])
+
+class MediaPagesMixin(ContinuityPageMixin):
     """Desktop 的制作后段页面方法集（见模块说明）。"""
     def edit_ready(self):
         """整集「已验收」就绪判定：返回 (验收状态签名, 成片指纹)。
@@ -224,163 +412,6 @@ class MediaPagesMixin:
     def auto_video_log(self,ticket,text):
         # 工作线程回调：只入队，由主循环写状态栏，线程里不碰 Tk。
         self.auto.video_messages.put((ticket,str(text)))
-    def continuity_ledger_data(self):
-        """现场算一份连贯性台账：读当前分镜 JSON ＋ 这一集的资产清单（第 61 期 v0.8 任务 7）。"""
-        return media_logic.build_ledger(lambda:read(self.current_frame_json()),self.asset_requirements)
-    def continuity_folder(self):
-        """这一阶段落盘的地方（03_continuity/output）。"""
-        return media_logic.continuity_folder(self.root)
-    def write_continuity_ledger(self,ledger=None):
-        """把台账落到 03_continuity（第 62 期任务 11：这一步成了独立的一页，清单由「手动生成」写）。"""
-        from infra.continuity_ledger import write
-        return write(self.root,self.continuity_ledger_data() if ledger is None else ledger)
-    def generate_continuity_ledger(self,ledger=None):
-        """生成连贯性清单：手动按钮与三虎自动链共用的唯一实现（落盘＋同步问题登记＋播报）。"""
-        ledger=self.continuity_ledger_data() if ledger is None else ledger
-        summary=ledger.get('summary') or {}
-        if not summary.get('shots'):
-            raise ValueError('当前没有可用的分镜镜头，请先在「初步分镜」采用一份分镜再生成连贯性清单。')
-        self.write_continuity_ledger(ledger)
-        self.sync_continuity_issues(ledger)
-        text=media_logic.summary_text(summary)
-        self.pet_report('continuity','连贯性清单已生成：'+text+'。')
-        self.status.set('连贯性清单已生成并落盘：'+text)
-        if getattr(self,'page_index',None)==PAGE['continuity']:self.show(PAGE['continuity'])
-        return text
-    def pet_continuity_ledger(self):
-        """三虎自动链的连贯性清单入口（经 stage_handler_registry.start 的回调）；没有分镜时返回空串。"""
-        try:return '已自动生成「连贯性清单」：'+self.generate_continuity_ledger()
-        except ValueError:return ''
-    def continuity_page(self):
-        """06 连贯性清单（第 62 期任务 11）。
-
-        第 61 期 v0.8 它只是资产管理页底部的一个折叠区；用户要它成为独立的一步（左侧列表
-        「05 资产管理」之下、「07 分镜定稿」之上），显示方式照首帧管理页那一套：上面一行按钮，
-        下面按组各一张表。表里的数字全部来自同一次台账计算，页面上写的批次、镜头与结论不会
-        各说各话（第 62 期任务 11 的「信息要准确」）。
-        """
-        from stage_execution_service import run_stage_confirmation_gate
-        ledger=self.continuity_ledger_data()
-        summary=ledger.get('summary') or {}
-        passed=bool(summary.get('ok'))
-        def line():
-            return media_logic.summary_text(summary)
-        def make():
-            self.generate_continuity_ledger(ledger)
-        bar=FlowBar(self.content);bar.pack(fill='x',pady=(SPACING['none'],SPACING['xs']))
-        ttk.Label(bar,text='清单',width=ASSET_ROW_LABEL).pack(side='left')
-        _make=PrimaryButton(bar,text='手动生成连贯性清单',style='Primary.TButton',width=STAGE_ACTION_WIDTH,command=lambda:self.safe(make))
-        _make.pack(side='left',padx=(SPACING['none'],SPACING['xs']),pady=SPACING['xs'])
-        ui_plugin_registry.module('stage_flow').follow(_make,'continuity')     # 三虎在跑这一步就写「自动执行中」并置灰
-        # R2942：「阶段配置」按钮＋模型下拉框删除。
-        SecondaryButton(bar,text='清单目录',style='Asset.TButton',
-                   command=lambda:self.safe(lambda:self.media_page_services.open_path(self.continuity_folder()))).pack(side='left',padx=SPACING['xs'],pady=SPACING['xs'])
-        head=ttk.Frame(self.content);head.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        ttk.Label(head,text=line(),foreground=COLORS['success_text'] if passed else COLORS['warning_text']).pack(side='left')
-        file=self.continuity_folder()/'continuity_ledger.json'
-        DescriptionBlock(head,text=('已落盘：'+file.name) if file.is_file() else '还没生成，按左边的按钮生成').pack(
-            side='left',padx=(SPACING['sm'],SPACING['none']))
-        def table_of(title,columns,rows,height,detail=''):
-            """一张小表：抬头 ＋ 表头 ＋ 若干行（这一页的清单就是这几张表）。
-
-            第 64 期任务 6：最后一列（「冻结锚点」「说明」）跟着窗口一起收放——原来固定
-            620／700 像素，界面一窄就被挤没、界面一宽又留一大片白。detail 写某一列时，
-            点这一列的格子弹一扇只读窗把整段字显示全（表格格子放不下长说明）。
-            """
-            frame=Card(self.content)
-            frame.pack(fill='both',expand=True,pady=(SPACING['xs'],SPACING['none']))
-            ttk.Label(frame,text=title).pack(anchor='w')
-            compact=[(key,label,MIN_COL) for key,label,width in columns]
-            table=DataTable(frame,columns=compact,show='headings',height=height,
-                            selectmode='browse',empty_text='暂无'+title)
-            tree=table.tree
-            _configure_table_style(tree)
-            last=columns[-1][0]
-            for key,label,width in columns:
-                tree.heading(key,text=label)
-                tree.column(key,width=MIN_COL,minwidth=MIN_COL,stretch=key==last)
-            remember_columns(tree,[(key,width) for key,label,width in columns])
-            auto_columns(tree)
-            refresh_request_width(tree)
-            for row in rows:tree.insert('','end',values=row)
-            table.pack(fill='both',expand=True)
-            if detail:
-                def open_detail(event,tree=tree,column_name=detail,heading=title):
-                    row=tree.identify_row(event.y);column=tree.identify_column(event.x)
-                    if not row or not column:return
-                    if tree.column(column,'id')!=column_name:return
-                    text=str(tree.set(row,column_name) or '')
-                    if not text:return
-                    from ui.prompt_window import show as show_text
-                    show_text(self.win,heading+' · 说明',text,status=self.status,
-                              receipt='说明已复制',button='复制说明',scrollbar=True)
-                tree.bind('<Button-1>',open_detail,add='+')
-            return tree
-        batches=media_logic.batch_rows(ledger)
-        table_of('批次与冻结锚点',
-                 [('batch','批次',120),('shots','镜头',200),('seconds','秒数',70),
-                  ('anchors','冻结锚点（逐字复用，机器不许改写）',620)],
-                 batches,min(8,max(2,len(batches))))
-        checks=media_logic.check_rows(ledger)
-        table_of('跨批次与三元组校验',
-                 [('kind','项目',110),('id','编号',150),('result','结论',100),('detail','说明',700)],
-                 checks,min(8,max(2,len(checks))),detail='detail')
-        issue_rows=self.continuity_issue_rows(ledger)
-        if issue_rows:
-            table_of('问题闭环',
-                     [('id','编号',130),('kind','类型',110),('severity','严重度',60),
-                      ('state','状态',80),('where','涉及镜头/资产',170),('evidence','证据',560)],
-                     media_logic.issue_table_rows(issue_rows),min(8,max(2,len(issue_rows))),detail='evidence')
-        problems=list(summary.get('problems') or [])
-        foot=Card(self.content);foot.pack(fill='x',pady=(SPACING['xs'],SPACING['none']))
-        ttk.Label(foot,text='待办与裁决').pack(anchor='w')
-        if problems:
-            for text in problems[:8]:ttk.Label(foot,text='· '+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
-        else:
-            ttk.Label(foot,text='没有待办：批次、锚点与三元组都对得上。',foreground=COLORS['success_text']).pack(anchor='w')
-        asks=run_stage_confirmation_gate(self.root, 'G-08', ledger=ledger).get('ask') or ()
-        if asks:
-            ttk.Label(foot,text='参考图优先级（每条选一个，问过就不再问）：',
-                      foreground=COLORS['warning_text']).pack(anchor='w',pady=(SPACING['xs'],SPACING['none']))
-        for item in asks:
-            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
-            text=' ／ '.join('候选%d %s'%(index+1,value)
-                            for index,value in enumerate(item['candidates']))
-            ttk.Label(box,text=item['title']+'：'+text,wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
-            DescriptionBlock(box,text='理由：'+str(item.get('reason') or '')).pack(anchor='w')
-            choice=item['candidates'][item.get('recommended',0)]
-            PrimaryButton(box,text='采用推荐',
-                       command=lambda key=item['key'],value=choice,digest=item.get('digest',''):self.safe(
-                           lambda:self.pick_gate(key,value,
-                               lambda:self.show(PAGE['continuity']),digest))).pack(anchor='w')
-        for row in media_logic.open_issues(issue_rows):
-            box=ttk.Frame(foot);box.pack(fill='x',anchor='w',pady=SPACING['xs'])
-            ttk.Label(box,text='%s %s：%s'%(row.get('severity') or '',row.get('id') or '',
-                                          row.get('detail') or ''),wraplength=TEXT_DESC['wraplength'],justify='left').pack(anchor='w')
-            SecondaryButton(box,text='忽略（写明理由）',
-                            command=lambda iid=row.get('id'):self.safe(lambda:self.ignore_continuity_issue(iid))).pack(anchor='w')
-    def continuity_issue_rows(self,ledger):
-        """问题闭环视图：登记表与本次台账合并后的行（只读，不落盘）。"""
-        from stage_execution_service import continuity_issue_report
-        try:return list(continuity_issue_report(self.root,ledger))
-        except (ValueError,OSError,TypeError,AttributeError,KeyError):return []
-    def sync_continuity_issues(self,ledger=None):
-        """把本次问题并进 03_continuity/output/continuity_issues.json（跟「手动生成」同一次做）。"""
-        from stage_execution_service import sync_continuity_issues
-        try:return list(sync_continuity_issues(self.root,ledger))
-        except (ValueError,OSError,TypeError,AttributeError,KeyError) as exc:
-            self.status.set('问题闭环台账没写成：'+str(exc));return []
-    def ignore_continuity_issue(self,iid):
-        """忽略一条问题：必须先写理由（记下当时那一版证据），再刷新页面。"""
-        reason=ask_string(self.win,'忽略这条问题','忽略这条问题的理由：')
-        if reason is None:return
-        reason=str(reason).strip()
-        if not reason:
-            self.status.set('没写理由，这条问题不忽略。');return
-        from stage_execution_service import decide_continuity_issue
-        decide_continuity_issue(self.root,iid,'ignored',reason)
-        self.status.set('已忽略 '+str(iid)+'（理由与作用版本已记录）。')
-        self.show(PAGE['continuity'])
     def comfy_listening(self,timeout=0.3):
         """本地 ComfyUI 端口上是否已有实例在听：只做 TCP 连接，不发 HTTP 请求。
 
@@ -567,6 +598,8 @@ class MediaPagesMixin:
                    command=lambda:self.safe(lambda:self.show(PAGE['video'],video_mode='cloud'))).pack(side='left')
         ttk.Label(entry,text='（线上接口在「阶段配置」→「接口」里配）',
                   style='Muted.TLabel').pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+        stage_page_simplify.relocate_buttons(self,('进入本地生成','进入线上生成'),[facts,local,cloud],stage='video',send_label='进入本地生成',
+            hint='视频生成方式已收进页面右键菜单（Shift+F10 同效）；空输入框点发送默认进入本地生成，右键可选线上生成。')
     def videos(self):
         mode=getattr(self,'video_mode',None)
         if mode is None:
@@ -630,6 +663,12 @@ class MediaPagesMixin:
         if is_cloud:self.bind_status_segment('video',self.video.status)
         self.video_sessions[session_key]=self.video
         self.stage_button=getattr(self.video,'stage_button',None)
+        labels=('手动制作视频','播放视频','查看全部版本','本地设置','通过','打开素材目录','恢复任务编号',
+                '打开视频目录','需修改','批量需修改','批量生成勾选镜头','删除勾选镜头','打开剪辑成片目录',
+                '手动制作提示词','MCP 优化','MCP 设置','保存提示词','导入提示词','当前提示词目录','清空日志')
+        stage_page_simplify.relocate_buttons(self,labels,[panel],stage='video',send_label='手动制作视频',
+            hint='视频操作已收进镜头工作台右键菜单（Shift+F10 同效）；空输入框点发送＝手动制作视频；视频文件入口在右侧项目文件。')
+        stage_page_simplify.register_files_panel(self,'video',panel)
         # The shared workspace owns script/project actions.
         self.video.writing_setup=lambda:self.show(PAGE['script']);self.video.import_json=self.import_json
     def open_tts_settings(self):
@@ -719,6 +758,22 @@ class MediaPagesMixin:
         tools_bar=_group_bar(self,'打开目录与外部工具');audio_button(tools_bar,'打开音频目录',lambda:self.media_page_services.open_path(audio_dir),standard=True)
         audio_button(tools_bar,'打开字幕目录',lambda:self.media_page_services.open_path(subtitle_dir),standard=True)
         audio_button(tools_bar,'打开 ElevenLabs（浏览器）',lambda:self.safe(lambda:open_target('https://elevenlabs.io/app')),standard=True)
+        labels=('手动制作配音','生成配音（TTS）','逐句配音（分句）','停止逐句配音','配音设置',
+                '导入配音 / 音乐','校验并确认本阶段成果','导出对白字幕 SRT','导出对白脚本 TXT',
+                '打开音频目录','打开字幕目录','打开 ElevenLabs（浏览器）')
+        stage_page_simplify.relocate_buttons(self,labels,[production,import_bar,export_bar,tools_bar],stage='audio',send_label='手动制作配音',
+            hint='配音操作已收进页面右键菜单（Shift+F10 同效）；空输入框点发送＝手动制作配音；音频/字幕文件入口在右侧项目文件。')
+        def import_audio_files(paths):
+            from ui.tts_settings import import_audio_with_kind
+            result={'imported':[],'skipped':[],'rejected':[]}
+            for raw in paths:
+                try:
+                    import_audio_with_kind(self,str(raw))
+                    result['imported'].append(Path(raw))
+                except Exception as exc:
+                    result['rejected'].append((Path(raw).name,str(exc)))
+            return result
+        stage_page_simplify.register_files_panel(self,'audio',production,import_handler=import_audio_files)
     def import_audio(self):
         """「导入配音 / 音乐」入口：本页只保证音频工作区存在并弹文件对话框；
         选好文件后的用途询问（对白／旁白／BGM／音效／整轨，默认对白）、
@@ -814,6 +869,12 @@ class MediaPagesMixin:
         box=self.text(read_text(f,encoding='utf-8') if f.exists() else '□ 删除多余停顿\n□ 检查对白口型\n□ 校对字幕\n□ 统一人声与环境音量\n□ 检查角色、镜头衔接\n□ 检查片头片尾和导出比例',8)
         from stage_execution_service import save_stage_editing_checklist
         checklist_bar=_group_bar(self,'优化清单');edit_button(checklist_bar,'保存剪辑优化清单',lambda:save_stage_editing_checklist(self.root,box.get('1.0','end-1c')),primary=True)
+        labels=('手动制作剪辑','自动粗剪整集（跳过未验收镜头）','整理剪映素材交接包','转场：','背景音乐：',
+                '清除背景音乐','导出抖音版','导出B站版','导出YouTube版','启动剪映','打开后期目录',
+                '校验交接包','校验并确认本阶段成果','保存剪辑优化清单')
+        stage_page_simplify.relocate_buttons(self,labels,[cut_bar,tune_bar,export_bar,tools_bar,confirm_bar,checklist_bar,box],stage='edit',send_label='手动制作剪辑',
+            hint='剪辑操作已收进页面右键菜单（Shift+F10 同效）；空输入框点发送＝手动制作剪辑；素材文件入口在右侧项目文件。')
+        stage_page_simplify.register_files_panel(self,'edit',box)
     def find_editor(self):
         from orchestrator.media_page_controller import editor_candidates;saved=self.settings.get('jianying','')
         for executable in editor_candidates(saved):
@@ -900,3 +961,32 @@ class MediaPagesMixin:
         version_bar=_group_bar(self,'版本与目录');delivery_button(version_bar,'选择采用版本…',lambda:self.safe(self.open_version_picker))
         delivery_button(version_bar,'打开交付目录',lambda:self.media_page_services.open_path(delivery_dir))
         delivery_button(version_bar,'打开自动剪辑与QC报告目录',lambda:self.open_folder(export_dir))
+        labels=('手动制作交付','导入剪映最终成片','校验并确认本阶段成果','生成商用待填资料',
+                '核验商用交付资料','选择采用版本…','打开交付目录','打开自动剪辑与QC报告目录')
+        stage_page_simplify.relocate_buttons(self,labels,[import_bar,commercial_bar,version_bar,box],stage='delivery',send_label='手动制作交付',
+            hint='交付操作已收进页面右键菜单（Shift+F10 同效）；空输入框点发送＝手动制作交付；成片与交付文件入口在右侧项目文件。')
+        def import_delivery_files(paths):
+            result={'imported':[],'skipped':[],'rejected':[]}
+            for raw in paths:
+                source=Path(raw)
+                try:
+                    if source.suffix.lower() in ('.mp4','.mov','.mkv'):
+                        def work(path=source):
+                            from stage_execution_service import import_delivery_master
+                            outcome=import_delivery_master(self.root,path)
+                            if outcome.ok:return '最终成片已导入：'+str(outcome.data)
+                            raise ValueError(outcome.reason)
+                        self.async_(work)
+                    elif source.suffix.lower()=='.json':
+                        from orchestrator.stage_completion_service import confirm_commercial_evidence
+                        def work(path=source):
+                            target=confirm_commercial_evidence(Path(self.root).resolve(),read(Path(path)))
+                            return '商用资料核验通过（依据人工记录）：'+str(target)
+                        self.async_(work)
+                    else:
+                        raise ValueError('交付页只接收成片视频或商用资料 JSON')
+                    result['imported'].append(source)
+                except Exception as exc:
+                    result['rejected'].append((source.name,str(exc)))
+            return result
+        stage_page_simplify.register_files_panel(self,'delivery',box,import_handler=import_delivery_files)

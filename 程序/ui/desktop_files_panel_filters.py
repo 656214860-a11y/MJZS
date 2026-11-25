@@ -143,6 +143,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.library_view = False
         self.group_mode = '阶段'
         self.group_box.set('阶段')
+        self._stage_filter_pinned = False
         self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
         self._reset_filter_boxes()
         self._sync_stage_buttons()
@@ -156,6 +157,11 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         if getattr(self, 'library_view', False):
             return
         current = self._page_stage()
+        if getattr(self, '_stage_filter_pinned', False) and self.stage_filter is not None:
+            # 手动点选的阶段是跨阶段排查视图：换页不抢回筛选；标题仍按当前状态重同步。
+            self._sync_stage_title()
+            self._sync_stage_buttons()
+            return
         if current != getattr(self, '_followed_page_stage', _FOLLOWED_STAGE_SENTINEL):
             self.stage_filter = current
             self._followed_page_stage = current
@@ -454,7 +460,10 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self._meta_refresh_job = None
             self._library_root = None
             self.script_row_stage = {}      # iid → 阶段显示名（另存为预填名用）
+            self._stage_filter_pinned = False
             self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
+        if not hasattr(self, '_stage_filter_pinned'):
+            self._stage_filter_pinned = False
 
     def _build_stage_rail(self):
         """建右缘阶段图标列：13 个阶段（顺序＝``pet_bus.STAGES``）＋回收站／素材库动作。
@@ -564,21 +573,29 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
                 pass
 
     def _sync_stage_title(self):
-        """面板标题跟着当前阶段走：「项目文件 · <阶段名>」，全部＝「项目文件 · 全部阶段」。"""
+        """面板标题跟着当前阶段走；手动钉住的跨阶段视图标出来，避免误以为仍在跟随当前页。"""
         title = getattr(self, 'script_title', None)
         if title is None:
             return
         from contract.pet_bus import stage_name
         text = '全部阶段' if self.stage_filter is None else stage_name(self.stage_filter)
+        if (getattr(self, '_stage_filter_pinned', False) and self.stage_filter is not None
+                and self.stage_filter != self._page_stage()):
+            text += ' · 跨阶段查看'
         try:
             title.configure(text='项目文件 · ' + text)
         except tk.TclError:
             pass
 
     def show_stage(self, stage=None):
-        """点阶段图标：写当前阶段并同步面板标题，再按筛选条件重填（``None``＝不限阶段）。"""
+        """点阶段图标查看该阶段文件；手动选择跨页钉住，再点已选图标恢复跟随当前页。"""
         self._ensure_filter_state()
         self.library_view = False
+        if stage is not None and stage == self.stage_filter and getattr(self, '_stage_filter_pinned', False):
+            self._stage_filter_pinned = False
+            stage = self._page_stage()
+        else:
+            self._stage_filter_pinned = stage is not None
         self.stage_filter = stage
         # 同步记录当前页阶段，避免从全局素材库或换页后点选某阶段图标时被 _sync_view_filters 覆写回页面阶段。
         self._followed_page_stage = self._page_stage()

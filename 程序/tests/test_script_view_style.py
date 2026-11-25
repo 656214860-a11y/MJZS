@@ -102,6 +102,16 @@ class SpanTests(unittest.TestCase):
 
 
 class TkApplyTests(unittest.TestCase):
+    def test_speaker_names_use_the_current_readable_text_color(self):
+        import ui_tokens
+        self.addCleanup(ui_tokens.set_theme, ui_tokens.current_theme())
+        for theme in ('day', 'night'):
+            with self.subTest(theme=theme):
+                ui_tokens.set_theme(theme)
+                style.apply_tags(self.widget, GOOD_RAW, 'natural')
+                self.assertEqual(self.widget.tag_cget(style.SPEAKER, 'foreground'),
+                                 ui_tokens.COLORS['primary_text'])
+
     def setUp(self):
         self.root = tk.Tk()
         self.root.withdraw()

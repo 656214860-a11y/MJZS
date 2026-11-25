@@ -1,0 +1,15 @@
+{
+  "round": 4522,
+  "commit_base": "3339fe8cf",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_settings pet_skills_manage ui_theme ui_widgets_dialogs ui_batch7_settings_models script_autosave storyboard_page_loading",
+    "exit": 0,
+    "passed": 193,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T00:29:50"
+}

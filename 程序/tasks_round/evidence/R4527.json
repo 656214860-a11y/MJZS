@@ -1,0 +1,15 @@
+{
+  "round": 4527,
+  "commit_base": "fcb0b7b29",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_animatic_page test_pet_skills_manage test_ui_batch7_settings_models test_page_paint_metric test_branch_coverage_floor",
+    "exit": 0,
+    "passed": 129,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T01:36:14"
+}

@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """「设置 → SKILL 管理」页自检（生命周期任务书 T7／R3089）。
 
-覆盖：列表渲染（三层来源与体检状态列）、说明弹窗、体检详情、删除确认
-（内置层拒绝、用户层进回收站）、导入对话框五入口与单文件安装管线。
+覆盖：树形列表（三层来源、真实包子技能、阶段入口与旧包）、筛选与详情、说明弹窗、
+体检详情、删除确认（内置层拒绝、用户层进回收站）、导入对话框五入口与单文件安装管线。
 运行：python run_selftests.py -k pet_skills_manage
 """
 from skip_reasons import PLATFORM_TKINTER
@@ -128,6 +128,17 @@ class SkillsManageCase(unittest.TestCase):
         self.project_skill = write_skill(self.project / 'skills' / STAGE_DIR,
                                          'project-layer-skill')
 
+    def write_package(self, package, name='pack-main'):
+        package = Path(package)
+        (package / 'nested').mkdir(parents=True)
+        (package / 'SKILL.md').write_text(
+            '---\nname: %s\ndisplayName: 测试技能包\ndescription: 包说明\n---\n\n# 测试技能包\n\n包正文。\n' % name,
+            encoding='utf-8')
+        (package / 'nested' / 'pack-child.skill.md').write_text(
+            '---\nname: pack-child\ndisplayName: 包内子技能\ndescription: 子说明\n---\n\n子正文。\n',
+            encoding='utf-8')
+        return package
+
     def select(self, win, name):
         tree = self.tree(win)
         tree.selection_set(name)
@@ -151,6 +162,200 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertTrue(all(str(values[4]).strip('— ') for values in rows.values()))
         seams = win._pet_seams['skills']
         self.assertIn('hint', seams)
+        self.assertIn('filter', seams)
+        self.assertIn('detail', seams)
+
+    def test_real_package_expands_children_and_child_actions_stay_scoped(self):
+        self.add_skills()
+        package = self.program / 'data' / 'skills' / STAGE_DIR / 'pack-dir'
+        self.write_package(package)
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4), '包应作为一个父行进入列表')
+        tree = self.tree(win)
+        self.assertEqual('pack-main', tree.get_children()[0], '真实技能包应排在独立 SKILL 前')
+        values = tree.item('pack-main', 'values')
+        self.assertEqual('技能包', values[5])
+        self.assertEqual('用户版', values[3])
+        children = tree.get_children('pack-main')
+        self.assertEqual(1, len(children))
+        child = children[0]
+        self.assertTrue(child.startswith('child|pack-main|'))
+        child_values = tree.item(child, 'values')
+        self.assertEqual('包内子技能', child_values[5])
+        self.assertEqual('随父包', child_values[4])
+        self.assertIn('不单独执行', child_values[6])
+
+        self.win.deiconify()
+        win.deiconify()
+        win.update()
+        tree.focus_force()
+        tree.focus('pack-main')
+        tree.event_generate('<space>')
+        win.update()
+        self.assertTrue(tree.item('pack-main', 'open'), '空格应能展开真实技能包')
+        tree.selection_set(child)
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        seams = win._pet_seams['skills']
+        detail = seams['detail'].get('1.0', 'end-1c')
+        self.assertIn('包内子技能', detail)
+        self.assertIn('所属包：pack-main', detail)
+        self.assertIn('nested/pack-child.skill.md', detail)
+        with mock.patch('pet_skills_manage.ask_confirmation') as confirm:
+            self.assertIsNone(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+            self.assertIsNone(pet_skills_manage.remove_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_not_called()
+        self.assertIn('父包', seams['hint'].get())
+        self.assertTrue((package / 'nested' / 'pack-child.skill.md').is_file())
+
+    def test_package_disable_and_enable_apply_to_whole_package(self):
+        self.add_skills()
+        package = self.program / 'data' / 'skills' / STAGE_DIR / 'pack-dir'
+        self.write_package(package)
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4))
+        tree = self.tree(win)
+        seams = win._pet_seams['skills']
+        tree.selection_set('pack-main')
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'disabled|pack-main' in t.get_children()))
+        row = 'disabled|pack-main'
+        values = tree.item(row, 'values')
+        self.assertEqual('技能包', values[5])
+        self.assertEqual('已禁用', values[4])
+        self.assertEqual(1, len(tree.get_children(row)),
+                         '禁用后的包仍应能看出子技能随包管理')
+        tree.selection_set(row)
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=True):
+            self.assertTrue(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        self.assertTrue(self.wait_tree(
+            win, lambda t: 'pack-main' in t.get_children()
+            and 'disabled|pack-main' not in t.get_children()))
+
+    def test_stage_root_entry_is_not_mislabeled_as_package(self):
+        self.add_skills()
+        stage_root = self.program / 'data' / 'skills' / STAGE_DIR
+        entry = stage_root / 'SKILL.md'
+        entry.write_text(
+            '---\nname: stage-root-entry\ndisplayName: 阶段总入口\ndescription: 阶段说明\n---\n\n阶段正文。\n',
+            encoding='utf-8')
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4))
+        tree = self.tree(win)
+        self.assertIn('stage-root-entry', tree.get_children())
+        values = tree.item('stage-root-entry', 'values')
+        self.assertEqual('阶段入口', values[5])
+        self.assertEqual('用户版', values[3])
+        self.assertNotEqual('技能包', values[5])
+        self.assertEqual((), tree.get_children('stage-root-entry'),
+                         '阶段目录根部总入口不能伪造子技能树')
+
+        tree.selection_set('stage-root-entry')
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        seams = win._pet_seams['skills']
+        self.assertIn('disabled', seams['delete'].state())
+        self.assertIn('阶段总入口', seams['delete_tip'].text)
+        with mock.patch('pet_skills_manage.ask_confirmation') as confirm, \
+                mock.patch('pet_skills_manage.ask_string') as ask:
+            self.assertIsNone(pet_skills_manage.remove_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+            self.assertIsNone(pet_skills_manage.rename_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_not_called()
+        ask.assert_not_called()
+        self.assertTrue(entry.is_file())
+        with mock.patch('pet_skills_manage.platform_tools.open_path') as opener:
+            result = pet_skills_manage.edit_skill(
+                self.pet, tree, seams['state'], seams['hint'])
+        self.assertEqual(entry, result)
+        opener.assert_called_once_with(entry)
+
+    def test_legacy_package_source_filters_and_actions_are_explicit(self):
+        self.add_skills()
+        package = self.program / 'skills' / 'LegacyPack'
+        self.write_package(package, name='legacy-entry')
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4))
+        tree = self.tree(win)
+        iid = 'legacy|LegacyPack'
+        self.assertIn(iid, tree.get_children())
+        values = tree.item(iid, 'values')
+        self.assertEqual('旧包（未挂载）', values[3])
+        self.assertEqual('未挂载', values[4])
+        self.assertEqual('旧包', values[5])
+        children = tree.get_children(iid)
+        self.assertEqual(1, len(children), '旧包可查看内容，但内容仍不注册执行')
+        self.assertEqual('包内子技能', tree.item(children[0], 'values')[5])
+
+        seams = win._pet_seams['skills']
+        seams['state']['source_filter'].set('旧包')
+        win.update()
+        self.assertEqual((iid,), tree.get_children())
+        seams['state']['source_filter'].set('项目')
+        win.update()
+        self.assertEqual(('project-layer-skill',), tree.get_children())
+        seams['state']['source_filter'].set('全部来源')
+        seams['state']['filter_text'].set('pack-child')
+        win.update()
+        self.assertEqual((iid,), tree.get_children(), '子技能命中时父包只作定位外壳')
+        self.assertEqual(1, len(tree.get_children(iid)))
+
+        tree.selection_set(children[0])
+        with mock.patch('pet_skills_manage.ask_confirmation') as confirm:
+            self.assertIsNone(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_not_called()
+        tree.selection_set(iid)
+        with mock.patch('pet_skills_manage.ask_confirmation', return_value=False) as confirm:
+            self.assertIsNone(pet_skills_manage.remove_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_called_once()
+        self.assertTrue(package.exists())
+        with mock.patch('pet_skills_manage.ask_confirmation') as confirm:
+            self.assertIsNone(pet_skills_manage.toggle_disabled(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+            self.assertIsNone(pet_skills_manage.rename_skill(
+                self.pet, tree, seams['state'], seams['refresh'], seams['hint']))
+        confirm.assert_not_called()
+
+    def test_text_source_and_stage_filters_keep_rows_traceable(self):
+        self.add_skills()
+        package = self.program / 'data' / 'skills' / STAGE_DIR / 'pack-dir'
+        self.write_package(package)
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4))
+        tree = self.tree(win)
+        seams = win._pet_seams['skills']
+        state = seams['state']
+        state['filter_text'].set('user-layer')
+        win.update()
+        self.assertEqual(('user-layer-skill',), tree.get_children())
+        state['filter_text'].set('')
+        state['source_filter'].set('用户')
+        win.update()
+        self.assertEqual({'pack-main', 'user-layer-skill'}, set(tree.get_children()))
+        script_label = next(label for label, sid in state['stage_ids'].items() if sid == 'script')
+        state['stage_filter'].set(script_label)
+        win.update()
+        self.assertEqual({'pack-main', 'user-layer-skill'}, set(tree.get_children()))
+        state['source_filter'].set('项目')
+        win.update()
+        self.assertEqual(('project-layer-skill',), tree.get_children())
+        state['stage_filter'].set('全部阶段')
+        state['source_filter'].set('全部来源')
+        state['filter_text'].set('pack-child')
+        win.update()
+        self.assertEqual(('pack-main',), tree.get_children())
+        self.assertEqual(1, len(tree.get_children('pack-main')))
+        values = tree.item(tree.get_children('pack-main')[0], 'values')
+        self.assertEqual('包内子技能', values[5])
 
     def test_project_isolated_registry(self):
         # 另一个项目的 skills/ 不进本项目列表（T5 隔离口径延续到管理页）。

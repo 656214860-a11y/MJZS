@@ -11,6 +11,9 @@ reshow／grace 语义参考 Radix Tooltip/HoverCard，数值登记在 ``ui_token
 """
 import time
 import tkinter as tk
+from tkinter import ttk
+from ui_tokens import SPACING
+
 
 from ui.ui_popup import make_passive_popup, monitor_bounds
 from ui_tokens import (TOOLTIP_BACKGROUND, TOOLTIP_BORDER, TOOLTIP_BORDER_WIDTH,
@@ -378,3 +381,33 @@ class TreeRowTooltip(Tooltip):
         selected = self.widget.selection()
         self.text = str(self.text_for(selected[0]) or '') if selected else ''
         super()._schedule_from_focus(event)
+
+
+class EllipsisLabel(ttk.Label):
+    """单行摘要按实际宽度省略，鼠标和键盘焦点说明保留全文。"""
+
+    def __init__(self, master, *, text='', **kwargs):
+        super().__init__(master, text='', width=1, **{'anchor': 'w', **kwargs})
+        self.full_text = str(text)
+        self.tooltip = Tooltip(self, self.full_text)
+        self.bind('<Configure>', self._render, add='+')
+
+    def set_text(self, text):
+        self.full_text = str(text)
+        self.tooltip.text = self.full_text
+        self._render()
+
+    def _render(self, _event=None):
+        from tkinter.font import Font
+        from ui.ui_popup import measure_text_width
+        font = Font(root=self, font=self.cget('font') or ttk.Style(self).lookup(self.cget('style') or 'TLabel', 'font'))
+        room = max(0, self.winfo_width() - SPACING['xs'])
+        text = self.full_text
+        if measure_text_width(font, [text]) > room:
+            lo, hi = 0, len(text)
+            while lo < hi:
+                mid = (lo + hi + 1) // 2
+                if measure_text_width(font, [text[:mid] + '…']) <= room:lo = mid
+                else:hi = mid - 1
+            text = text[:lo] + '…' if measure_text_width(font, ['…']) <= room else ''
+        if self.cget('text') != text:self.configure(text=text)

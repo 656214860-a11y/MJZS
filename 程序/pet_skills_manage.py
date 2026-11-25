@@ -1,10 +1,10 @@
 # -*- coding: utf-8 -*-
-"""「设置 → SKILL 管理」页（生命周期任务书 T7）：全部 SKILL 平铺列表与安装级操作。
+"""「设置 → SKILL 管理」页：注册 SKILL 树形列表与安装级操作。
 
 分工：本页只做安装级增删查（导入／说明／体检／删除）；阶段勾选仍归各阶段面板，
-避免双入口（规则 28）。数据在用户主动打开时后台加载（规则 33），列表列
-name/displayName/阶段/层/体检状态；删除走 ``skill_import_service.uninstall_skill``
-回收站口径，内置层只读不提供删除。
+避免双入口（规则 28）。数据在用户主动打开时后台加载（规则 33）。真实外部包
+作为父节点展开包内子技能；阶段目录根部总入口、独立 SKILL、旧包分别标注，
+阶段与来源只做列和筛选，不伪造成包。删除走统一回收站口径，内置层只读。
 
 线程封送：worker 只写 ``queue.Queue``，Tk 侧 ``after(50)`` 轮询回填——``after``
 只能在 Tk 主线程登记，后台线程直调会抛 ``main thread is not in main loop``，
@@ -16,6 +16,16 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
+from ui.pet_skill_tree import (
+    _SOURCE_FILTER_LABELS,
+    _build_manage_rows,
+    _filters_active,
+    _remember_expansion,
+    _selected,
+    render_manage_rows,
+    update_detail,
+    STATUS_LABELS,
+)
 import pet_bus
 import skill_import_service
 import ui.skill_lifecycle_service as skill_lifecycle_service
@@ -24,18 +34,20 @@ import skill_registry
 import workflow_settings
 from contract import platform_tools
 from ui_dialogs import FileDialog
-from ui_tokens import COLORS, FONTS, SPACING, TEXT_DESC, TEXT_ROWS
-from ui_widgets import (BaseDialog, DataTable, SecondaryButton, SelectBox, TextArea,
+from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_ROWS
+from ui_widgets import (BaseDialog, DataTable, LineInput, SecondaryButton, SelectBox, TextArea,
                         Tooltip, ask_confirmation, ask_string, notify)
 
 PAGE_TITLE = 'SKILL 管理'
-NOTE_MANAGE = ('这里管「装了哪些 SKILL」：导入、看说明、体检、删除。'
-               '每个阶段用不用哪个 SKILL 仍在各阶段面板里勾选，两边不重复。')
+NOTE_MANAGE = '展开技能包查看子技能。'
 IMPORT_TITLE = '导入 SKILL'
-_STATUS_LABELS = {'ok': '正常', 'warning': '警告', 'problem': '问题', 'error': '预演失败'}
-# 平铺列表列宽（DataTable 列定义第三位是显示宽度字符数，不走 width= 关键字）。
+# 树形列表列宽（DataTable 列定义第三位是显示宽度字符数，不走 width= 关键字）。
+# 前五个 values 顺序保持原契约（名称/显示名/阶段/层/体检），名称改由树列展示；
+# 类型与作用域追加在末尾，供用户分辨真包、独立 SKILL、包内子技能和旧包。
 _COLUMNS = (('name', '名称', 180), ('display', '显示名', 140), ('stage', '阶段', 90),
-            ('layer', '层', 70), ('status', '体检', 70))
+            ('layer', '层', 70), ('status', '体检', 70), ('kind', '类型', 90),
+            ('scope', '作用域', 150))
+_VISIBLE_COLUMNS = ('display', 'kind', 'stage', 'layer', 'status', 'scope')
 
 
 def _page_title(frame, text, note):
@@ -63,6 +75,79 @@ def _program_of(pet):
     return Path(skill_import_service.__file__).resolve().parent
 
 
+def _build_filter_bar(frame, state, apply_filter):
+    """筛选行：文本、来源、阶段都只是过滤条件，不参与树的分组身份。"""
+    bar = ttk.Frame(frame)
+    bar.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+    ttk.Label(bar, text='筛选').pack(side='left')
+    entry = LineInput(bar, textvariable=state['filter_text'])
+    entry.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
+    Tooltip(entry, '按名称、说明或包内路径筛选；Ctrl+F 聚焦，Esc 清空文本。')
+    source = SelectBox(bar, values=list(_SOURCE_FILTER_LABELS), state='readonly',
+                       textvariable=state['source_filter'], fit=True)
+    source.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    source.set('全部来源')
+    stage_labels = ['全部阶段'] + [pet_bus.stage_label(sid) for sid in pet_bus.STAGES]
+    state['stage_ids'] = {'全部阶段': ''}
+    state['stage_ids'].update({pet_bus.stage_label(sid): sid for sid in pet_bus.STAGES})
+    stage = SelectBox(bar, values=stage_labels, state='readonly',
+                      textvariable=state['stage_filter'], fit=True)
+    stage.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+    stage.set('全部阶段')
+    clear = SecondaryButton(bar, text='清空', command=lambda: clear_filter(state, apply_filter))
+    clear.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
+
+    def changed(*_args):
+        apply_filter()
+
+    state['filter_text'].trace_add('write', changed)
+    state['source_filter'].trace_add('write', changed)
+    state['stage_filter'].trace_add('write', changed)
+    source.bind('<<ComboboxSelected>>', lambda _event: apply_filter(), add='+')
+    stage.bind('<<ComboboxSelected>>', lambda _event: apply_filter(), add='+')
+
+    def escape(_event=None):
+        if state['filter_text'].get():
+            state['filter_text'].set('')
+            return 'break'
+        return None
+
+    entry.bind('<Escape>', escape, add='+')
+    return {'entry': entry, 'source': source, 'stage': stage, 'clear': clear}
+
+
+def clear_filter(state, apply_filter):
+    state['filter_text'].set('')
+    state['source_filter'].set('全部来源')
+    state['stage_filter'].set('全部阶段')
+    apply_filter()
+    return True
+
+
+def _delete_block_reason(selected, state):
+    """删除按钮口径：包内行与阶段总入口都不能伪装成可独立回收的安装包。"""
+    if selected is None:
+        return '先在列表里选中一个 SKILL。'
+    kind = selected.row.get('kind') if hasattr(selected, 'row') else ''
+    if kind == 'child':
+        return '包内子技能随父包管理，不能单独删除。'
+    if kind == 'legacy':
+        return ''
+    if kind == 'stage-entry':
+        return '阶段总入口不是技能包；为避免误回收整个阶段目录，这里不提供删除。'
+    if getattr(selected, 'layer', '') == 'builtin':
+        return '内置 SKILL 只读，不能删除。'
+    return skill_lifecycle_service.skill_delete_block_reason(state['project'], selected.name)
+
+
+def _delete_tip_text(selected, reason):
+    if reason:
+        return reason
+    kind = selected.row.get('kind') if hasattr(selected, 'row') else ''
+    return ('将所选旧包整包移入回收站。' if kind == 'legacy'
+            else '将所选 SKILL 移入回收站。')
+
+
 def skills_page(frame, pet, width=None):
     """设置页「SKILL 管理」格；返回 seams（hint 供底部保存回退文案）。"""
     _page_title(frame, PAGE_TITLE, NOTE_MANAGE)
@@ -70,7 +155,10 @@ def skills_page(frame, pet, width=None):
     project = _project_of(pet)
     registry = skill_registry.default_registry(_program_of(pet), project=project)
     state = {'skills': [], 'disabled': [], 'health': {}, 'registry': registry,
-             'project': project, 'tk': frame, 'problems': 0, 'error': '', 'load_gen': 0}
+             'project': project, 'tk': frame, 'problems': 0, 'error': '', 'load_gen': 0,
+             'rows': [], 'rowmap': {}, 'expanded': set(),
+             'filter_text': tk.StringVar(value=''), 'source_filter': tk.StringVar(value='全部来源'),
+             'stage_filter': tk.StringVar(value='全部阶段'), 'stage_ids': {}, 'detail': None}
 
     bar = ttk.Frame(frame)
     bar.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
@@ -83,11 +171,20 @@ def skills_page(frame, pet, width=None):
         side='left', padx=(SPACING['sm'], SPACING['none']))
     SecondaryButton(bar, text='刷新', command=lambda: load(state, fill)).pack(side='left')
 
-    table = DataTable(frame, columns=list(_COLUMNS), height=TEXT_ROWS['2xl'],
-                      empty_text='暂无 SKILL，点「导入 SKILL…」添加。',
-                      auto_hide_scrollbars=True)
+    def apply_filter():
+        render_manage_rows(tree, state)
+        update_delete_state()
+        update_detail(tree, state)
+
+    filter_widgets = _build_filter_bar(frame, state, apply_filter)
+    table = DataTable(frame, columns=list(_COLUMNS), height=TEXT_ROWS['xl'],
+                      show='tree headings', empty_text='暂无 SKILL，点「导入 SKILL…」添加。',
+                      auto_hide_scrollbars=True, takefocus=True)
     table.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
     tree = table.tree
+    tree.heading('#0', text='技能包 / 技能', anchor='w')
+    tree.column('#0', width=_COLUMNS[0][2], stretch=True)
+    tree.configure(displaycolumns=list(_VISIBLE_COLUMNS))
 
     actions = ttk.Frame(frame)
     actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
@@ -107,20 +204,53 @@ def skills_page(frame, pet, width=None):
     delete.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     delete_tip = Tooltip(delete, '先在列表里选中一个 SKILL。')
 
+    detail = TextArea(frame, height=TEXT_ROWS['md'], wrap='word', state='disabled')
+    detail.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+    state['detail'] = detail
+
     def update_delete_state(_event=None):
-        selected = _selected(tree, state)
-        reason = '先在列表里选中一个 SKILL。'
-        if selected is not None:
-            reason = ('内置 SKILL 只读，不能删除。'
-                      if getattr(selected, 'layer', '') == 'builtin' else
-                      skill_lifecycle_service.skill_delete_block_reason(
-                          state['project'], selected.name))
+        selected_item = _selected(tree, state)
+        reason = _delete_block_reason(selected_item, state)
         delete.state(['disabled'] if reason else ['!disabled'])
-        delete_tip.text = reason or '将所选 SKILL 移入回收站。'
+        delete_tip.text = _delete_tip_text(selected_item, reason)
+
+    def toggle_row(_event=None):
+        item = tree.focus()
+        if item and tree.get_children(item):
+            tree.item(item, open=not bool(tree.item(item, 'open')))
+            if tree.item(item, 'open'):
+                state['expanded'].add(item)
+            else:
+                state['expanded'].discard(item)
+            return 'break'
+        return None
+
+    def focus_filter(_event=None):
+        if not frame.winfo_manager():
+            return None
+        filter_widgets['entry'].focus_set()
+        filter_widgets['entry'].select_range(0, 'end')
+        return 'break'
+
+    def open_selected(_event=None):
+        show_note(pet, tree, state)
+        return 'break'
+
+    def selected(_event=None):
+        update_delete_state()
+        update_detail(tree, state)
 
     state['update_delete_state'] = update_delete_state
-    tree.bind('<<TreeviewSelect>>', update_delete_state, add='+')
+    tree.bind('<<TreeviewSelect>>', selected, add='+')
+    tree.bind('<<TreeviewOpen>>', _remember_expansion(tree, state, True), add='+')
+    tree.bind('<<TreeviewClose>>', _remember_expansion(tree, state, False), add='+')
+    tree.bind('<space>', toggle_row, add='+')
+    tree.bind('<Return>', open_selected, add='+')
+    from ui.ui_shortcuts import ShortcutRegistry
+    ShortcutRegistry().bind(frame.winfo_toplevel(), ('<Control-f>',), focus_filter,
+                            scope='skill_manager', name='filter')
     update_delete_state()
+    update_detail(tree, state)
     ttk.Label(frame, textvariable=hint, style='Muted.TLabel',
               wraplength=TEXT_DESC['wraplength']).pack(anchor='w', pady=(SPACING['xs'], SPACING['none']))
 
@@ -128,45 +258,36 @@ def skills_page(frame, pet, width=None):
         load(state, fill)
 
     def fill():
-        tree.delete(*tree.get_children())
-        skills = sorted(state['skills'], key=lambda s: (skill_project_layer.LAYER_ORDER.get(
-            getattr(s, 'layer', ''), 9), getattr(s, 'name', '') or ''))
-        for skill in skills:
-            name = getattr(skill, 'name', '') or ''
-            status = state['health'].get(name, '')
-            tree.insert('', 'end', iid=name or str(id(skill)), values=(
-                name, getattr(skill, 'displayName', '') or '',
-                pet_bus.stage_label(getattr(skill, 'stage', '') or ''),
-                skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '—'),
-                _STATUS_LABELS.get(status, status or '—')))
-        for skill in state.get('disabled', []):
-            name = getattr(skill, 'name', '') or ''
-            iid = 'disabled|' + name
-            tree.insert('', 'end', iid=iid, tags=('disabled',), values=(
-                name, getattr(skill, 'displayName', '') or '—',
-                pet_bus.stage_label(getattr(skill, 'stage', '') or ''),
-                skill_project_layer.LAYER_LABELS.get(getattr(skill, 'layer', ''), '—'),
-                '已禁用'))
-        tree.tag_configure('disabled', foreground=COLORS['text_muted'])
-        table.refresh_empty_state()
+        visible = render_manage_rows(tree, state)
         update_delete_state()
+        update_detail(tree, state)
+        first = tree.get_children()
+        if first and not tree.focus():
+            tree.focus(first[0])
         if state.get('error'):
             hint.set('SKILL 列表加载失败：%s' % state['error'])
             return
         counts = {}
         for row in state['health'].values():
             counts[row] = counts.get(row, 0) + 1
-        summary = '共 %d 个 SKILL' % len(skills)
+        summary = '共 %d 个注册 SKILL' % len(state['skills'])
+        packages = sum(1 for item in state.get('rows', []) if item.row.get('kind') == 'package')
+        legacy = sum(1 for item in state.get('rows', []) if item.row.get('kind') == 'legacy')
+        if packages or legacy:
+            summary += '；技能包 %d 个、旧包 %d 个' % (packages, legacy)
+        if _filters_active(state):
+            summary += '；筛选后可见 %d 行' % visible
         if counts:
-            summary += '；体检：' + ' · '.join('%s %d' % (_STATUS_LABELS.get(k, k), v)
+            summary += '；体检：' + ' · '.join('%s %d' % (STATUS_LABELS.get(k, k), v)
                                               for k, v in sorted(counts.items()))
         if state['problems'] > 0:
             summary += '；另有全局问题/警告 %d 条' % state['problems']
-        hint.set(summary + '。内置层只读；删除只影响用户层与项目层（进回收站可恢复）。')
+        hint.set(summary + '。包内子技能随父包管理；阶段与来源只是列和筛选条件。')
 
     load(state, fill)
     return {'hint': hint, 'tree': tree, 'state': state, 'refresh': refresh,
-            'delete': delete, 'delete_tip': delete_tip}
+            'delete': delete, 'delete_tip': delete_tip, 'detail': detail,
+            'filter': filter_widgets, 'apply_filter': apply_filter}
 
 
 def load(state, done):
@@ -189,15 +310,17 @@ def load(state, done):
             skills = list(registry.getAll())
             disabled = _disabled_skill_objects(registry)
             program = skill_import_service.program_of_registry(registry)
+            scan_program = program or Path(registry.root).parent
             modified = (skill_import_service.local_modifications(program)
                         if program is not None else {})
             report = workflow_settings.skill_health_report(
                 registry, project=project, local_modified=modified)
             health = {row.get('name'): row.get('status') for row in report.get('skills', [])}
             problems = len(report.get('problems', ())) + len(report.get('warnings', ()))
-            result_q.put((skills, disabled, health, problems, ''))
+            rows = _build_manage_rows(skills, disabled, scan_program)
+            result_q.put((skills, disabled, rows, health, problems, ''))
         except Exception as exc:
-            result_q.put(([], [], {}, 0, str(exc)))
+            result_q.put(([], [], [], {}, 0, str(exc)))
 
     def poll():
         widget = state['tk']
@@ -208,11 +331,12 @@ def load(state, done):
         if not alive or state['load_gen'] != generation:
             return
         try:
-            skills, disabled, health, problems, error = result_q.get_nowait()
+            skills, disabled, rows, health, problems, error = result_q.get_nowait()
         except queue.Empty:
             widget.after(50, poll)
             return
         state['skills'], state['disabled'] = skills, disabled
+        state['rows'] = rows
         state['health'], state['problems'] = health, problems
         state['error'] = error
         done()
@@ -234,6 +358,9 @@ def _disabled_skill_objects(registry):
             try:
                 meta, body = skill_registry.parse(
                     path.read_text(encoding='utf-8-sig'), source=str(path))
+                package_names = {name.casefold() for name in skill_import_service._PACKAGE_ENTRY_NAMES}
+                if path.name.casefold() in package_names:
+                    meta = skill_registry.imported_package_meta(meta, body, path.parent, path)
             except (OSError, UnicodeError, ValueError):
                 meta, body = {}, ''
         if not str(meta.get('name') or ''):
@@ -243,17 +370,6 @@ def _disabled_skill_objects(registry):
                                      layer=str(entry.get('layer') or ''))
         out.append(skill)
     return out
-
-
-def _selected(tree, state):
-    pick = tree.selection()
-    if not pick:
-        return None
-    iid = pick[0]
-    disabled = iid.startswith('disabled|')
-    name = iid.split('|', 1)[-1] if disabled else iid
-    pool = state.get('disabled', []) if disabled else state['skills']
-    return next((s for s in pool if getattr(s, 'name', '') == name), None)
 
 
 def show_note(pet, tree, state):
@@ -296,11 +412,45 @@ def _is_disabled_row(tree, state):
     return bool(pick) and pick[0].startswith('disabled|')
 
 
+def _kind_of(item):
+    return str(item.row.get('kind') or '') if hasattr(item, 'row') else ''
+
+
+def _remove_legacy_package(pet, state, skill, refresh, hint):
+    """旧包删除：沿用残留包通道的双确认与整包回收凭据。"""
+    row = skill.row
+    label = str(row.get('relative_path') or getattr(skill, 'name', ''))
+    if not ask_confirmation(getattr(pet, 'win', None), '回收旧包',
+                            '旧包「%s」未挂载到阶段，不参与执行。将把整包移入回收站，是否继续？'
+                            % label, dangerous=True):
+        return None
+    if not ask_confirmation(getattr(pet, 'win', None), '再次确认回收',
+                            '确认回收旧包「%s」及其全部内容？可从程序回收站恢复。' % label,
+                            dangerous=True):
+        return None
+    result = skill_project_layer.dispose_residue(
+        _program_of(pet), [label], package_source=skill_registry.Registry._package_source)
+    hint.set(result.reason)
+    if not result.ok:
+        return None
+    refresh()
+    return result
+
+
 def remove_skill(pet, tree, state, refresh, hint):
     """删除：仅用户层／项目层；内置层只读，已禁用项按登记路径回收，回收站语义由服务把关。"""
     skill = _selected(tree, state)
     if skill is None:
         hint.set('先在列表里选中一个 SKILL。')
+        return None
+    kind = _kind_of(skill)
+    if kind == 'child':
+        hint.set('包内子技能随父包管理，不能单独删除；请选中父包。')
+        return None
+    if kind == 'legacy':
+        return _remove_legacy_package(pet, state, skill, refresh, hint)
+    if kind == 'stage-entry':
+        hint.set('阶段总入口不是技能包；为避免误回收整个阶段目录，这里不提供删除。')
         return None
     if getattr(skill, 'layer', '') == 'builtin':
         hint.set('内置 SKILL 只读，不能删除；要换行为请用用户层同名覆盖。')
@@ -340,6 +490,16 @@ def rename_skill(pet, tree, state, refresh, hint):
     skill = _selected(tree, state)
     if skill is None:
         hint.set('先在列表里选中一个 SKILL。')
+        return None
+    kind = _kind_of(skill)
+    if kind == 'child':
+        hint.set('包内子技能不是独立安装项，不能在这里单独重命名。')
+        return None
+    if kind == 'legacy':
+        hint.set('旧包未挂载到注册表，不能按 SKILL 改名；可编辑目录或回收后重新导入。')
+        return None
+    if kind == 'stage-entry':
+        hint.set('阶段总入口不是技能包，不能按包改名；请直接编辑入口文件。')
         return None
     old = getattr(skill, 'name', '') or ''
     new = ask_string(getattr(pet, 'win', None), '重命名 SKILL',
@@ -382,6 +542,23 @@ def edit_skill(pet, tree, state, hint):
     if skill is None:
         hint.set('先在列表里选中一个 SKILL。')
         return None
+    kind = _kind_of(skill)
+    if kind == 'child':
+        target = getattr(skill, 'path', None)
+    elif kind == 'legacy':
+        target = Path(skill.row.get('package_root') or getattr(skill, 'path', '') or '')
+    elif kind == 'stage-entry':
+        target = getattr(skill, 'path', None)
+    else:
+        target = None
+    if target is not None:
+        try:
+            platform_tools.open_path(target)
+        except (OSError, ValueError) as exc:
+            hint.set('打开失败：%s' % exc)
+            return None
+        hint.set('已交给系统默认程序打开；保存后回到本页点「刷新」即可看到改动。')
+        return target
     name = getattr(skill, 'name', '') or ''
     try:
         entry = skill_lifecycle_service.find_skill_entry(_program_of(pet), state['registry'], name)
@@ -406,6 +583,13 @@ def toggle_disabled(pet, tree, state, refresh, hint):
     skill = _selected(tree, state)
     if skill is None:
         hint.set('先在列表里选中一个 SKILL。')
+        return None
+    kind = _kind_of(skill)
+    if kind == 'child':
+        hint.set('包内子技能随父包启停，不能单独禁用；请选中父包。')
+        return None
+    if kind == 'legacy':
+        hint.set('旧包未挂载到阶段，本来就不参与执行；无需禁用。')
         return None
     name = getattr(skill, 'name', '') or ''
     disabling = not _is_disabled_row(tree, state)
@@ -628,7 +812,7 @@ def import_dialog(pet, state, refresh):
 
 
 def residue_dialog(pet, refresh):
-    """用户主动打开的独立管理通道；不混入阶段 SKILL 列表。"""
+    """用户主动打开的批量回收通道；主列表只展示旧包，批量清点与回收仍归这里。"""
     win = BaseDialog(getattr(pet, 'win', None), '残留包管理', modal=False)
     ttk.Label(win.content, text='仅列出非阶段资料包；回收整个包，可在程序回收站恢复。',
               wraplength=TEXT_DESC['wraplength']).pack(anchor='w')

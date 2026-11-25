@@ -663,16 +663,13 @@ def _restore_pick(desktop, aid, records, vars_):
     return restore_to_version(desktop, aid, chosen[0], records)
 
 
-def _version_image(desktop, summary):
-    """版本记录里的图片摘要 → 缩略图；图不在资产库或那一版没有图给 ``None``。"""
+def _version_image(desktop, aid, summary):
+    """版本记录里的图片摘要 → 缩略图；按 sha256 找那一版，同路径被覆盖时不拿现图冒充。"""
     if not isinstance(summary, dict):
         return None
-    rel = str(summary.get('path') or '')
-    if not rel:
-        return None
-    base = _base(desktop)
-    path = (base / rel).resolve()
-    if not path.is_file() or not path.is_relative_to(base):
+    from domain.asset_versions import find_version_file
+    path = find_version_file(_base(desktop), aid, summary)
+    if path is None:
         return None
     return asset_thumbs.thumbnail(desktop.win, path, _COMPARE_THUMB)
 
@@ -718,7 +715,7 @@ def compare_versions(desktop, aid, records, a, b):
             cell = ttk.Frame(row)
             cell.pack(side='left', padx=SPACING['sm'])
             ttk.Label(cell, text=title).pack(anchor='w')
-            image = _version_image(desktop, snap.get('image'))
+            image = _version_image(desktop, aid, snap.get('image'))
             if image is not None:
                 label = ttk.Label(cell, image=image)
                 label.image = image

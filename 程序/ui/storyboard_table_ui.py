@@ -8,10 +8,11 @@ from tkinter import ttk
 import infra.app_logging as app_logging
 from ui_tokens import (
     COLORS, FONTS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
-    SCRIPT_VIEW_PADDING, SPACING, TEXT_ROWS,
+    SCRIPT_VIEW_PADDING, SCROLLBAR_WIDTH, SPACING, TEXT_ROWS,
 )
-from ui_widgets import Card, ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
+from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
 from ui.ui_shortcuts import ShortcutRegistry
+from ui.script_line_numbers import LineNumberGutter
 
 from responsive_ui import (
     CHECK_COLUMN_WIDTH, VIEW_PAD, auto_columns, auto_height, cached_fonts,
@@ -433,63 +434,52 @@ class S03EditorView:
         self.shortcut_hint = ttk.Label(
             frame, text=S03_HINT_READ, style='SidebarProjectMuted.TLabel', anchor='w')
         self.shortcut_hint.pack(side='bottom', fill='x', pady=(SPACING['xs'] // 2, SPACING['none']))
-        self._build_doc_bar(frame)
         self._build_find_bar(frame)
         body = ttk.Frame(frame)
         body.pack(fill='both', expand=True)
         self.body = body
         area = ttk.Frame(body)
         area.pack(side='left', fill='both', expand=True)
+        self.editor_area = area
         self.viewer = TextArea(
             area, bg=COLORS['background_card'], fg=COLORS['text_primary'], height=1,
             wrap='word', undo=True, maxundo=-1, font=SCRIPT_VIEW_FONT, relief='flat',
             padx=SCRIPT_VIEW_PADDING[0], pady=SCRIPT_VIEW_PADDING[1])
         self.viewer._wheel_lines = self.wheel_lines
         self.viewer._ctrl_wheel_zoom = self.zoom_by
+        self.gutter = LineNumberGutter(area, self.viewer)
         scroll = ttk.Scrollbar(area, orient='vertical', command=self.viewer.yview)
-        self.viewer.configure(yscrollcommand=scroll.set)
-        self.viewer.grid(row=0, column=0, sticky='nsew')
-        scroll.grid(row=0, column=1, sticky='ns')
-        area.columnconfigure(0, weight=1)
+
+        def sync_scroll(first, last):
+            scroll.set(first, last)
+            self.gutter.refresh()
+
+        self.viewer.configure(yscrollcommand=sync_scroll)
+        self.viewer.bind('<<Modified>>', lambda _e: self.gutter.refresh(), add='+')
+        self.gutter.grid(row=0, column=0, sticky='ns')
+        self.viewer.grid(row=0, column=1, sticky='nsew')
+        scroll.grid(row=0, column=2, sticky='ns')
+        area.columnconfigure(1, weight=1)
         area.rowconfigure(0, weight=1)
+        self.close_button = SecondaryButton(
+            area, text='×', width=0, style='Tokens.Secondary.TButton', takefocus=True,
+            command=lambda: self.page.desktop.safe(self.page.close_document))
+        Tooltip(self.close_button, '关闭当前文件（项目文件保留）')
+        for sequence in ('<Return>', '<space>'):
+            self.close_button.bind(sequence, lambda _e: (self.close_button.invoke(), 'break')[1], add='+')
         self.shot_nav = S03ShotNavigator(body, self.viewer)
         self.viewer.bind('<Button-3>', self.page.on_context_menu, add='+')
         self.viewer.bind('<Escape>', self._on_escape, add='+')
         self._bind_shortcuts()
 
-    def _build_doc_bar(self, parent):
-        bar = Card(parent, padding=(SPACING['sm'], SPACING['xs']))
-        self.doc_bar = bar
-        self.doc_prefix = ttk.Label(bar, text='当前文件：', style='Composer.Muted.TLabel')
-        self.doc_prefix.pack(side='left', padx=(SPACING['none'], SPACING['xs'] // 2))
-        self.doc_title = ttk.Label(bar, text='', style='Composer.TLabel', anchor='w')
-        self.doc_title.pack(side='left', fill='x', expand=True)
-        self.close_button = SecondaryButton(
-            bar, text='关闭', width=0, style='Tokens.Secondary.TButton',
-            command=lambda: self.page.desktop.safe(self.page.close_document))
-        self.close_button.pack(side='right', padx=(SPACING['xs'], SPACING['none']))
-        Tooltip(self.close_button, '关闭当前打开的文件')
-
     def set_document_header(self, path):
-        changed = False
+        """按当前文件显隐右上角关闭×；S03 不再显示顶部文件名内容框。"""
         if path is not None:
-            self.doc_title.configure(text=Path(path).name)
-            if not self.doc_bar.winfo_manager():
-                anchor = self.find_bar if self.find_bar.winfo_manager() else self.body
-                self.doc_bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']), before=anchor)
-                changed = True
+            self.close_button.place(relx=1.0, x=-(SCROLLBAR_WIDTH + SPACING['xs']),
+                                    y=SPACING['xs'], anchor='ne')
+            self.close_button.lift()
         else:
-            self.doc_title.configure(text='')
-            if self.doc_bar.winfo_manager():
-                self.doc_bar.pack_forget()
-                changed = True
-        if changed:
-            fit = getattr(getattr(self.page, 'desktop', None), 'fit_content', None)
-            if callable(fit):
-                try:
-                    fit()
-                except Exception:
-                    app_logging.swallowed()
+            self.close_button.place_forget()
 
     def follow_renamed(self, changed):
         page = self.page
@@ -500,15 +490,16 @@ class S03EditorView:
             self.set_document_header(page.active_path)
 
     def close_current(self, *, confirm_fn):
+        """关闭当前文件视图；编辑态先走真实保存，保存失败则原样留在现场。"""
         page = self.page
         if page.active_path is None:
             return False
-        dirty = bool(page.editing and self.viewer.edit_modified())
-        if dirty and not confirm_fn(
-            page.desktop.win, '关闭当前文档',
-            '当前文档有未保存的修改，确定不保存直接关闭吗？', dangerous=True,
-        ):
-            return False
+        if page.editing:
+            try:
+                page.exit_edit()
+            except (OSError, ValueError) as exc:
+                page.desktop.status.set('保存失败，未关闭当前文档：' + str(exc))
+                return False
         page.active_path = None
         page.active_board_json = None
         page.raw_json_mode = False
@@ -520,7 +511,7 @@ class S03EditorView:
         self.shot_nav.hide(by_user=False)
         page._set_viewer_text(S03_EMPTY_TEXT, editable=False)
         page._update_status_segment()
-        page.desktop.status.set('已关闭当前文档')
+        page.desktop.status.set('已关闭当前文档；项目文件保留')
         return True
 
     def _build_find_bar(self, parent):
@@ -634,7 +625,9 @@ class S03EditorView:
         if clamped == base + self.zoom_delta:
             return
         self.zoom_delta = clamped - base
-        self.viewer.configure(font=font_at_size(SCRIPT_VIEW_FONT, clamped))
+        scaled = font_at_size(SCRIPT_VIEW_FONT, clamped)
+        self.viewer.configure(font=scaled)
+        self.gutter.set_font(scaled)
         self.page.desktop.status.set('字号 %d' % clamped)
 
     def _bind_shortcuts(self):
@@ -671,6 +664,7 @@ class S03EditorView:
         self.viewer.edit_modified(False)
         self.viewer.configure(state='normal' if editable else 'disabled')
         self.shortcut_hint.configure(text=S03_HINT_EDIT if editable else S03_HINT_READ)
+        self.gutter.refresh()
         self.shot_nav.set_text(content)
         if self.find_bar.winfo_manager():
             self._refresh_find_matches()

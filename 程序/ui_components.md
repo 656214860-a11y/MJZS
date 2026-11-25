@@ -61,7 +61,7 @@
 | 圆角 | 保持矩形（ttk.Entry／TCombobox 图元改造会破坏占位／只读／错误态／下拉行为） |
 | 内边距 | `padx=space.lg`，`pady=CONTROL_PADDING_Y`（8px） |
 | 尺寸 | 视觉高度 36px（`19px 行高 + 2×8px + 2×1px 边框 = 37px`，36±2） |
-| 焦点 | 描边 `color.focus`（＝`color.primary`）；TextArea 用 `highlightcolor` 表达同一主色 |
+| 焦点 | 描边 `color.focus`；TextArea 用 `highlightcolor` 表达同一焦点色 |
 | 正文 | `font.body` + `color.text.primary` |
 | 提示/辅助 | `font.assistive` + `color.text.secondary` |
 
@@ -142,9 +142,9 @@
 
 | 组件 | 使用时机 | 规则 |
 | --- | --- | --- |
-| `BaseDialog` | 任何新建的应用内弹窗 | 统一标题栏、内容区、底部动作区、`transient`、`grab_set`、Esc 关闭、首个可交互控件聚焦与销毁时释放 grab。 |
+| `BaseDialog` | 任何新建的应用内弹窗 | 统一标题栏、内容区、底部动作区、`transient`、`grab_set`、Esc 关闭、首个可交互控件聚焦与销毁时释放 grab；无输入控件时聚焦安全的默认动作，危险确认默认停在「取消」。 |
 | `FormDialog` | 用户填写或编辑字段 | 继承 `BaseDialog`；表单字段放入 `content`，提交／取消必须用 `add_form_actions()`。 |
-| `ConfirmDialog` | 询问、删除或不可逆确认 | 继承 `BaseDialog`；调用方经 `result`／`on_result` 接收确认态，危险主操作使用 `color.danger`。 |
+| `ConfirmDialog` | 询问、删除或不可逆确认 | 继承 `BaseDialog`；调用方经 `result`／`on_result` 接收确认态，危险说明用 `Tokens.Dialog.Danger.TLabel`（`color.danger.subtle`＋`color.danger.text`），危险主操作使用 `color.danger`。 |
 
 业务页禁止新建裸 `tk.Toplevel(...)` 作对话框；已有历史弹窗按独立轮次迁移，不在一次组件改造中批量替换。
 

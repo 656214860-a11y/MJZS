@@ -5,8 +5,8 @@
 
 - REQ-S01-114：``COMPOSER_BASE_PLACEHOLDER`` 统一占位前缀＋``stage_placeholder`` 阶段尾句；
 - REQ-S01-113：``ATTACHMENT_UNSUPPORTED`` 非剧本阶段附件明确文案；
-- REQ-S01-112：``continue_state`` 续写提示条、``quick_reply_rules`` 本地规则胶囊栏、
-  ``sync_send_art`` 发送键三态圆形视觉（全部颜色/间距走 ui_tokens，不写内联 hex）。
+- REQ-S01-112：``continue_state`` 续写提示条与 ``sync_send_art`` 发送键三态圆形视觉
+  （全部颜色/间距走 ui_tokens，不写内联 hex）。
 """
 from __future__ import annotations
 
@@ -15,7 +15,6 @@ from tkinter import ttk
 
 import infra.app_logging as app_logging
 import infra.tk_timers as tk_timers
-from contract import pet_bus
 from ui.ui_rounded import element_photo
 from ui_widgets import SecondaryButton
 from ui_tokens import COLORS, SPACING
@@ -39,24 +38,6 @@ CONTINUE_HINT = '上次回复中断，可从断点继续。'
 # continue_plan() 产出中可作为续写文案的显式键（按序取用）。
 _CONTINUE_TEXT_KEYS = ('continue_text', 'prompt', 'instruction')
 
-# REQ-S01-112：快捷答复胶囊上限与各阶段静态建议（本地规则表，无网络/模型/递归扫盘）。
-QUICK_REPLY_LIMIT = 3
-QUICK_REPLY_SCRIPT = '生成自然剧本'
-QUICK_REPLY_NO_LOCKS = '补充制作锁：'
-_QUICK_STAGE_HINTS = {
-    'script_structure': '整理为结构化剧本',
-    'storyboard': '按结构剧本生成分镜',
-    'animatic': '生成分镜预演',
-    'assets': '盘点本阶段资产',
-    'continuity': '生成连贯性清单',
-    'final': '生成分镜定稿',
-    'keyframe': '生成首帧',
-    'previs': '生成白模预演',
-    'video': '生成视频提示词',
-    'audio': '生成配音与字幕',
-    'edit': '进入后期剪辑',
-    'delivery': '生成交付清单',
-}
 
 # 发送键圆形底图边长：与 Tokens.Composer.Send.TButton 的圆环图元同尺寸。
 _SEND_ART_SIZE = SPACING['2xl']
@@ -97,84 +78,6 @@ def continue_state(stage, controller):
             app_logging.swallowed()
     return {'text': continue_prompt(plan)}
 
-
-def quick_reply_rules(stage, ctx):
-    """REQ-S01-112：快捷答复规则表——纯本地判定，只消费传入 ``ctx`` 快照。
-
-    ``ctx`` 键：``has_project``/``missing_locks``/``has_natural_script``。
-    不调模型、不联网、不读盘；最多返回 ``QUICK_REPLY_LIMIT`` 条可行动文案。
-    """
-    ctx = ctx or {}
-    if not ctx.get('has_project', True):
-        return ()
-    suggestions = []
-    missing = [str(item).strip() for item in ctx.get('missing_locks') or ()
-               if str(item).strip()]
-    if missing:
-        suggestions.append(QUICK_REPLY_NO_LOCKS + '、'.join(missing[:QUICK_REPLY_LIMIT]))
-    stage = str(stage or '')
-    if stage == 'script':
-        if ctx.get('has_natural_script') is False:
-            suggestions.append(QUICK_REPLY_SCRIPT)
-    else:
-        hint = _QUICK_STAGE_HINTS.get(stage)
-        if hint:
-            suggestions.append(hint)
-    if ctx.get('needs_review'):
-        suggestions.append('检查本阶段产物并确认')
-    return tuple(suggestions[:QUICK_REPLY_LIMIT])
-
-
-def collect_quick_context(box):
-    """REQ-S01-112：从已接线状态取胶囊栏快照——单文件 JSON 读与浅层目录枚举，
-    不递归扫盘、不读文件正文、不联网、不调模型。"""
-    ctx = {'has_project': False, 'missing_locks': (), 'has_natural_script': None}
-    project = getattr(box, 'project', None)
-    if project is None:
-        return ctx
-    ctx['has_project'] = True
-    try:
-        import orchestrator.stage_config as stage_config
-        from contract.script_contract import (PRODUCTION_LOCK_DEFINITIONS,
-                                              stage_lock_requirements)
-        values = stage_config.workflow_lock(project)
-        labels = {item['key']: item['label'] for item in PRODUCTION_LOCK_DEFINITIONS}
-        required = stage_lock_requirements(str(box.stage),
-                                           stage_config.project_created_at(project))
-        ctx['missing_locks'] = tuple(labels.get(key, key) for key in required
-                                     if not str(values.get(key) or '').strip())
-    except Exception:
-        app_logging.swallowed()
-    if str(box.stage) == 'script':
-        ctx['has_natural_script'] = _has_natural_script(project)
-    return ctx
-
-
-def _has_natural_script(project):
-    """自然剧本存在判定：阶段目录 ≤3 层 glob 浅枚举，不递归、不读正文、不做 sha
-    （``natural_script_paths`` 的指纹去重对本判定过重）。取不到返回 ``None``。"""
-    try:
-        from contract.stage_path_service import read_dirs
-        for folder in read_dirs(project, 'script'):
-            if not folder.is_dir():
-                continue
-            for pattern in ('*.md', '*/*.md', '*/*/*.md'):
-                for path in folder.glob(pattern):
-                    if not path.is_file():
-                        continue
-                    name = path.name.lower()
-                    if ('剧本' in path.name or 'script' in name
-                            or '项目剧本' in path.parent.name):
-                        return True
-    except Exception:
-        app_logging.swallowed()
-        return None
-    return False
-
-
-def default_quick_replies(box):
-    """REQ-S01-112：默认胶囊建议＝本地快照＋规则表。"""
-    return quick_reply_rules(getattr(box, 'stage', ''), collect_quick_context(box))
 
 
 def sync_send_art(box):
@@ -223,12 +126,11 @@ def _wrap_after(box, name, hook):
 
 
 class _ComposerExtras:
-    """续写提示条＋快捷答复胶囊栏＋发送键图元的管理对象（挂 ``box.extras``）。"""
+    """续写提示条＋发送键图元的管理对象（挂 ``box.extras``）。"""
 
     def __init__(self, box):
         self.box = box
         self._continue_muted = False
-        self._quick_muted = False
         try:
             self._send_idle_glyph = str(box.send_button.cget('text') or '')
         except (AttributeError, tk.TclError):
@@ -244,10 +146,7 @@ class _ComposerExtras:
                         command=self._continue_clicked).pack(
                             side='right', padx=(SPACING['none'], SPACING['sm']),
                             pady=SPACING['xs'] // 2)
-        self.quick_bar = ttk.Frame(card, style='Composer.TFrame')
-        self._quick_buttons = []
         self.sync_continue()
-        self.refresh_quick()
 
     # ── 续写提示条（自动接入）───────────────────────────────────────────
     def _state(self):
@@ -294,80 +193,10 @@ class _ComposerExtras:
             app_logging.swallowed()
         box.send()
 
-    # ── 快捷答复胶囊 ────────────────────────────────────────────────────
-    def _suggestions(self):
-        provider = getattr(self.box, 'on_quick_replies', None)
-        try:
-            items = provider(self.box) if callable(provider) else default_quick_replies(self.box)
-        except Exception:
-            app_logging.swallowed()
-            return ()
-        seen = []
-        for item in items or ():
-            text = str(item or '').strip()
-            if text and text not in seen:
-                seen.append(text)
-            if len(seen) >= QUICK_REPLY_LIMIT:
-                break
-        return tuple(seen)
-
-    def refresh_quick(self):
-        """重算胶囊：有正文或被静音不显示；清空/切页后由钩子恢复。"""
-        for button in self._quick_buttons:
-            button.destroy()
-        self._quick_buttons = []
-        if self._quick_muted or self._raw():
-            self.quick_bar.pack_forget()
-            return
-        suggestions = self._suggestions()
-        if not suggestions:
-            self.quick_bar.pack_forget()
-            return
-        for text in suggestions:
-            button = SecondaryButton(self.quick_bar, text=text,
-                                     style='Tokens.Composer.Model.TButton',
-                                     command=lambda value=text: self._quick_clicked(value))
-            button.pack(side='left', padx=(SPACING['none'], SPACING['xs']),
-                        pady=SPACING['xs'] // 2)
-            self._quick_buttons.append(button)
-        if not self.quick_bar.winfo_manager():
-            self.quick_bar.pack(fill='x', after=self.box.icon_row)
-
-    def _raw(self):
-        try:
-            return self.box._raw_text().strip()
-        except Exception:
-            return ''
-
-    def _quick_clicked(self, text):
-        """REQ-S01-112：点击只填入输入框，不自动发送（可撤销）。"""
-        self._quick_muted = True
-        self.quick_bar.pack_forget()
-        box = self.box
-        box.set_text(text)
-        try:
-            box.input.mark_set('insert', 'end-1c')
-            box.input.focus_set()
-        except Exception:
-            app_logging.swallowed()
-
     # ── 宿主薄钩子（由 _wrap_after 挂在现有方法尾）────────────────────────
-    def text_edited(self):
-        """输入框有正文 → 胶囊隐藏；删空 → 解除静音并按需恢复。"""
-        if self._raw():
-            self._quick_muted = True
-            if self.quick_bar.winfo_manager():
-                self.quick_bar.pack_forget()
-        elif self._quick_muted:
-            self._quick_muted = False
-            self.refresh_quick()
-
     def cleared(self):
-        """清空/成功发送后：续写条静音收起（REQ-S01-112：新请求/清空同步收起），
-        胶囊解除静音按需恢复。"""
+        """清空/成功发送后：续写条静音收起（REQ-S01-112：新请求/清空同步收起）。"""
         self.hide_continue()
-        self._quick_muted = False
-        self.refresh_quick()
 
     def _reset_send_button(self):
         """切离剧本准备页时复位共享发送键，避免 01 必填置灰或中断态残留。"""
@@ -394,9 +223,7 @@ class _ComposerExtras:
     def stage_changed(self):
         self._reset_send_button()
         self._continue_muted = False
-        self._quick_muted = False
         self.sync_continue()
-        self.refresh_quick()
 
     def tick(self):
         """400ms 巡检：发送键三态图＋续写条数据源（can_continue 变化随拍出现）。"""
@@ -502,7 +329,6 @@ def attach(box):
     manager = _ComposerExtras(box)
     _wrap_after(box, 'set_stage', manager.stage_changed)
     _wrap_after(box, 'clear', manager.cleared)
-    _wrap_after(box, '_schedule_refresh', manager.text_edited)
     _wrap_upstream_error(box)
     _wrap_stage_action(box)
     box.input._on_flow_edit = lambda *args: box._schedule_refresh(*args)
@@ -542,7 +368,6 @@ def launch_storyboard_flow(desktop, batch, request_text, value, kwargs, hooks):
 
 
 __all__ = ['ATTACHMENT_UNSUPPORTED', 'COMPOSER_BASE_PLACEHOLDER', 'CONTINUE_LABEL',
-           'CONTINUE_PROMPT', 'QUICK_REPLY_LIMIT', 'attach', 'collect_quick_context',
-           'continue_prompt', 'continue_state', 'default_quick_replies',
+           'CONTINUE_PROMPT', 'attach', 'continue_prompt', 'continue_state',
            'launch_storyboard_flow', 'normalize_stage_model_snapshot',
-           'quick_reply_rules', 'stage_placeholder', 'sync_send_art']
+           'stage_placeholder', 'sync_send_art']

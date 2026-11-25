@@ -8,6 +8,7 @@ from ui_tokens import COLORS
 
 _NAV_DIR = Path(__file__).resolve().parents[1] / 'assets' / 'nav'
 _NAV_IMAGES = []   # (PhotoImage, 源 PNG 路径, 目标尺寸或 None)：切换主题时就地重染色
+_CHECK_IMAGES = []  # (PhotoImage, selected, disabled, 自定义 accent 或 None)：直接引用的勾选图也随主题就地重画
 
 
 _STAGE_BADGE_BOX = (16, 16, 28, 28)   # 与 scripts/build_nav_icons.STAGE_FILE_BADGE_POS/SIZE 一致
@@ -107,6 +108,17 @@ def retint_nav_icons():
             _NAV_IMAGES.remove(entry)
 
 
+def retint_check_indicators():
+    """主题切换后重画所有直接缓存的复选框图元（含下拉面板里不走 ``_tick_images`` 的图）。"""
+    for entry in list(_CHECK_IMAGES):
+        image, selected, disabled, accent = entry
+        try:
+            IconLoader.paint_check_indicator(image, selected=selected,
+                                             disabled=disabled, accent=accent)
+        except (tk.TclError, AttributeError):
+            _CHECK_IMAGES.remove(entry)
+
+
 class IconLoader:
     """页面图标的唯一构建入口。
 
@@ -170,19 +182,14 @@ class IconLoader:
         return image
 
     @classmethod
-    def check_indicator(cls, master, *, size: int, selected: bool = False,
-                        disabled: bool = False, accent: str | None = None):
-        """返回统一复选框图元，按宿主、状态、尺寸与主题底色缓存。"""
-        size = max(1, int(size))
+    def paint_check_indicator(cls, image, *, selected: bool = False,
+                              disabled: bool = False, accent: str | None = None):
+        """按当前主题重画一张复选框图元；旧缓存对象就地更新，持有旧引用的行也不漂色。"""
+        size = max(1, int(image.width()))
         if accent is None:
             accent = COLORS['primary']
         fill = COLORS['surface_hover'] if disabled else COLORS['background_card']
         border = COLORS['border_input_hover'] if disabled else accent
-        key = ('check_indicator', size, bool(selected), bool(disabled), border, fill)
-        cache = cls._cache(master)
-        if key in cache:
-            return cache[key]
-        image = tk.PhotoImage(master=master, width=size, height=size)
         image.put(border, to=(0, 0, size, size))
         image.put(fill, to=(1, 1, size - 1, size - 1))
         if selected:
@@ -196,5 +203,23 @@ class IconLoader:
                     y = round(y0 + (y1 - y0) * index / steps)
                     image.put(border, to=(max(1, x - 1), max(1, y - 1),
                                           min(size - 1, x + 1), min(size - 1, y + 1)))
+
+    @classmethod
+    def check_indicator(cls, master, *, size: int, selected: bool = False,
+                        disabled: bool = False, accent: str | None = None):
+        """返回统一复选框图元，按宿主、状态、尺寸与主题底色缓存。"""
+        size = max(1, int(size))
+        if accent is None:
+            accent = COLORS['primary']
+        fill = COLORS['surface_hover'] if disabled else COLORS['background_card']
+        border = COLORS['border_input_hover'] if disabled else accent
+        key = ('check_indicator', size, bool(selected), bool(disabled), border, fill)
+        cache = cls._cache(master)
+        if key in cache:
+            return cache[key]
+        image = tk.PhotoImage(master=master, width=size, height=size)
+        cls.paint_check_indicator(image, selected=selected, disabled=disabled, accent=accent)
         cache[key] = image
+        theme_accent = None if accent in (None, COLORS['primary']) else accent
+        _CHECK_IMAGES.append((image, bool(selected), bool(disabled), theme_accent))
         return image

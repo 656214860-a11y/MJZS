@@ -154,3 +154,69 @@ class ExpandIconColumn:
             count = max(1, len(self._items))
             self.frame.configure(
                 height=pinned_h + scroll_h + count * SPACING['xs'])
+
+def align_stage_rows(desktop, column, first_file_button):
+    """把文件图标的第一行对齐阶段图标；其余各行使用相同的按钮高度和间距。"""
+    from infra.pet_state import PAGE_OF
+    left_canvas = getattr(desktop, 'sidebar_canvas', None)
+    if left_canvas is None:
+        return
+    right = column.scroller.canvas
+    padding = ttk.Frame(column.form, height=1, width=1)
+    padding.pack(before=first_file_button)
+    job = None
+    bindings = []
+    last_offsets = None
+
+    def sync():
+        nonlocal job, last_offsets
+        job = None
+        nav = getattr(desktop, 'nav', ())
+        if len(nav) <= PAGE_OF['script']:
+            return
+        source = nav[PAGE_OF['script']]
+        if source is None or not right.winfo_ismapped() or not source.winfo_ismapped():
+            return
+        left_top = left_canvas.canvasy(0)
+        left_center = source.winfo_rooty() + source.winfo_height() // 2
+        right_center = first_file_button.winfo_rooty() + first_file_button.winfo_height() // 2
+        wanted = max(1, round(padding.winfo_height() + left_center + left_top
+                              - right_center - right.canvasy(0)))
+        if int(padding.cget('height')) != wanted:
+            last_offsets = None
+            padding.configure(height=wanted)
+            schedule()
+            return
+        right_top = right.canvasy(0)
+        if last_offsets is None or left_top != last_offsets[0]:
+            target, offset = right, left_top
+        elif right_top != last_offsets[1]:
+            target, offset = left_canvas, right_top
+        else:
+            return
+        region = target.bbox('all')
+        if region and abs(target.canvasy(0) - offset) > 1:
+            target.yview_moveto(offset / max(1, region[3] - region[1]))
+        last_offsets = (left_canvas.canvasy(0), right.canvasy(0))
+
+    def schedule(_event=None):
+        nonlocal job
+        if job is None:
+            job = right.after_idle(sync)
+
+    def cleanup(event):
+        if event.widget is not right:
+            return
+        if job is not None:
+            right.after_cancel(job)
+        for widget, event_name, handler in bindings:
+            if widget.winfo_exists():
+                widget.unbind(event_name, handler)
+
+    for widget, event_name in ((desktop.sidebar_scroll.form, '<Configure>'),
+                               (left_canvas, '<Configure>'), (column.form, '<Configure>'),
+                               (right, '<Configure>'),
+                               (right, '<Map>')):
+        bindings.append((widget, event_name, widget.bind(event_name, schedule, add='+')))
+    right.bind('<Destroy>', cleanup, add='+')
+    schedule()

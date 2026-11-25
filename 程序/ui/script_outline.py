@@ -14,7 +14,7 @@ import ui.script_view_style as script_view_style
 from ui_tokens import COLORS, SPACING, SCRIPT_VIEW_FONT, TEXT_ROWS
 
 _TITLE_MAX = 40       # 大纲条目标题截断长度（字符）
-_LIST_WIDTH = 30      # Listbox 宽度（字符）：容下一条截断标题
+_LIST_WIDTH = 18      # 左栏只占一条短场次标题的宽度
 _HIT_TAG = "script_outline_hit"
 _EMPTY_TEXT = "无集数／场次标题"
 
@@ -95,8 +95,8 @@ class OutlinePanel(ttk.Frame):
             font=SCRIPT_VIEW_FONT,
             bg=COLORS["background_card"],
             fg=COLORS["text_primary"],
-            selectbackground=COLORS["primary"],
-            selectforeground=COLORS["background_card"],
+            selectbackground=COLORS["selection_bg"],
+            selectforeground=COLORS["selection_text"],
             highlightthickness=0,
             bd=0,
             width=_LIST_WIDTH,
