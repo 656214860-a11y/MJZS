@@ -2393,6 +2393,37 @@ class LevelColorTests(PetTestCase):
         self.assertEqual(pet_ui.palette('worry', 'auto'), pet_ui.LEVEL_COLORS['auto'])
         self.assertEqual(pet_ui.palette('busy', '不存在'), pet_ui.MOODS['busy'])
 
+    def test_sanhu_avatar_and_paw_levels_use_cool_slate_palette(self):
+        """UX-SLATE-PALETTE-SYNC：三虎头像与三档猫爪收敛为低饱和冷墨高级灰且三档深浅递进。"""
+        def _rgb(hex_color):
+            return tuple(int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+
+        def _lum(hex_color):
+            r, g, b = (c / 255.0 for c in _rgb(hex_color))
+            lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
+            return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+
+        self.assertNotEqual(pet_ui.SANHU_FUR.lower(), '#ff8a3d')
+        self.assertNotEqual(pet_ui.SANHU_STAR.lower(), '#22d3ee')
+        for label, color in (
+            ('SANHU_FUR', pet_ui.SANHU_FUR),
+            ('SANHU_EAR', pet_ui.SANHU_EAR),
+            ('SANHU_STAR', pet_ui.SANHU_STAR),
+            ('level_hint', pet_ui.LEVEL_COLORS['hint'][0]),
+            ('level_semi', pet_ui.LEVEL_COLORS['semi'][0]),
+            ('level_auto', pet_ui.LEVEL_COLORS['auto'][0]),
+        ):
+            r, g, b = _rgb(color)
+            with self.subTest(label=label, color=color):
+                self.assertLessEqual(max(r, g, b) - min(r, g, b), 45,
+                                     '%s=%s 通道差过大，不属低饱和高级灰' % (label, color))
+                self.assertGreaterEqual(b, r, '%s=%s 应为冷中性石板灰（B>=R）' % (label, color))
+        self.assertGreater(_lum(pet_ui.LEVEL_COLORS['hint'][0]),
+                           _lum(pet_ui.LEVEL_COLORS['semi'][0]))
+        self.assertGreater(_lum(pet_ui.LEVEL_COLORS['semi'][0]),
+                           _lum(pet_ui.LEVEL_COLORS['auto'][0]))
+        self.assertEqual(pet_ui.CAPTION_INK, '#000000')
+
     def test_switching_the_level_keeps_the_avatar_identity_colour(self):
         self.pet.agent.set_level('semi')
         self.pet.draw()

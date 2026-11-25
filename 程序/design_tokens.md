@@ -18,12 +18,12 @@
 | `color.text.secondary` | `#536471` | 次文字（白底 6.1:1） |
 | `color.text.muted` | `#616D76` | 弱文字（白底 5.3:1、悬停面 4.75:1；禁用态另用 `color.disabled.text`） |
 | `color.text.heading` | `#0F1419` | 标题文字（与正文同灰度，靠字重区分） |
-| `color.primary` | `#0F6FC0` | 主按钮、强调（与白 5.18:1、与页面底 4.90:1） |
-| `color.primary.subtle` | `#E8F3FB` | 主色浅底（选中背景） |
-| `color.primary.hover` | `#0C5FA6` | 主色悬停（白 6.56:1） |
-| `color.primary.pressed` | `#0A4F8C` | 主色按下（白 8.37:1） |
-| `color.focus` | `#0F6FC0` | 键盘焦点环 / 输入框聚焦描边 |
-| `color.accent` | `#1D9BF0` | 装饰色（聚焦环、侧边指示条等非文字用途，对白 3.0:1；不作按钮底色或文字色） |
+| `color.primary` | `#2E3842` | 主按钮、强调（深石墨高级灰；与白 11.8:1、与页面底 11.2:1） |
+| `color.primary.subtle` | `#E9EEF1` | 主色浅底（雾灰续写条/轻底） |
+| `color.primary.hover` | `#212931` | 主色悬停（深石墨加深，白字 14.7:1） |
+| `color.primary.pressed` | `#161C22` | 主色按下（炭黑加深，白字 17.2:1） |
+| `color.focus` | `#4B5A68` | 键盘焦点环 / 输入框聚焦描边 |
+| `color.accent` | `#64748B` | 装饰色（冷石板灰；聚焦环、侧边指示条等非文字用途，不作按钮底色或文字色） |
 | `color.danger` | `#DC2626` | 危险操作与错误 |
 | `color.danger.hover` | `#B91C1C` | 危险悬停 |
 | `color.danger.pressed` | `#7F1D1D` | 危险按下 |
@@ -34,23 +34,23 @@
 | `color.success.subtle` | `#DCFCE7` | 成功提示底色（统一状态栏 success 级消息，R2984 起） |
 | `color.warning` | `#D97706` | 警告状态（只作状态与文字，不作按钮底色） |
 | `color.warning.text` | `#B45309` | 警告文字（白底 5.0:1） |
-| `color.secondary.bg` | `#DBEAFE` | 默认 TButton 族浅蓝底 |
-| `color.secondary.hover` | `#BFDBFE` | 默认按钮悬停（本轮起被消费） |
-| `color.secondary.pressed` | `#93C5FD` | 默认按钮按下（本轮起被消费） |
-| `color.secondary.text` | `#1E40AF` | 默认按钮文字 |
+| `color.secondary.bg` | `#E8EDF0` | 默认 TButton 族柔和浅灰底 |
+| `color.secondary.hover` | `#DCE3E7` | 默认按钮悬停（浅灰加深） |
+| `color.secondary.pressed` | `#CFD8DE` | 默认按钮按下（中浅灰加深） |
+| `color.secondary.text` | `#1F2933` | 默认按钮深炭灰文字（对三态底色均 >10:1） |
 | `color.disabled.bg` | `#F3F4F6` | 禁用背景 |
 | `color.disabled.text` | `#9CA3AF` | 禁用文字 |
 | `color.border.strong` | `#D1D5DB` | 分组框、容器边框 |
 | `color.header.bg` | `#F7F9F9` | 表头背景 |
 | `color.code.background` | `#F3F4F6` | 代码块底色 |
 | `color.trough` | `#EFF3F4` | 进度条槽 |
-| `color.selection.bg` | `#E8F3FB` | 表格/单元格选中背景 |
-| `color.selection.text` | `#0A4F8C` | 选中文字 |
-| `color.selection.border` | `#B7D3EC` | 选中描边 |
-| `color.progress` | `#0F6FC0` | 进度条 |
-| `color.row.done.bg` | `#F0FDF4` | 已完成行底色 |
+| `color.selection.bg` | `#E5EBEF` | 表格/项目卡片选中雾灰背景 |
+| `color.selection.text` | `#141B22` | 选中深炭文字 |
+| `color.selection.border` | `#BDC8D0` | 选中冷灰描边 |
+| `color.progress` | `#3D4B58` | 进度条 |
+| `color.row.done.bg` | `#EFF3F4` | 已完成行柔和灰底色 |
 | `color.on.accent` | `#FFFFFF` | 实心按钮（主／危险／成功／听写中）上的文字色；与表面色拆开，夜间仍是白字（REQ-UI-THEME-1） |
-| `color.primary.text` | `#0F6FC0` | 主色用作页面文字（进度提示、文字按钮）时的颜色；夜间提亮一档（见「明暗主题」） |
+| `color.primary.text` | `#33414E` | 主色用作页面文字（进度提示、文字按钮）时的深石板灰；夜间提亮一档（见「明暗主题」） |
 
 ## 明暗主题（REQ-UI-THEME-1）
 
@@ -80,12 +80,12 @@
 | `color.text.secondary` | `#A7B3C2` |
 | `color.text.muted` | `#8B98A9` |
 | `color.text.heading` | `#F2F5F9` |
-| `color.primary` | `#0F6FC0` |
-| `color.primary.subtle` | `#16283D` |
-| `color.primary.hover` | `#0C5FA6` |
-| `color.primary.pressed` | `#0A4F8C` |
-| `color.focus` | `#56A8F5` |
-| `color.accent` | `#38BDF8` |
+| `color.primary` | `#475569` |
+| `color.primary.subtle` | `#242E3B` |
+| `color.primary.hover` | `#3A4758` |
+| `color.primary.pressed` | `#2E3948` |
+| `color.focus` | `#94A3B8` |
+| `color.accent` | `#94A3B8` |
 | `color.danger` | `#DC2626` |
 | `color.danger.hover` | `#B91C1C` |
 | `color.danger.pressed` | `#7F1D1D` |
@@ -96,23 +96,23 @@
 | `color.success.subtle` | `#12301F` |
 | `color.warning` | `#D97706` |
 | `color.warning.text` | `#FBBF24` |
-| `color.secondary.bg` | `#22304A` |
-| `color.secondary.hover` | `#2B3D5C` |
-| `color.secondary.pressed` | `#35496B` |
-| `color.secondary.text` | `#BFDBFE` |
+| `color.secondary.bg` | `#283240` |
+| `color.secondary.hover` | `#323E4F` |
+| `color.secondary.pressed` | `#3C4A5E` |
+| `color.secondary.text` | `#E2E8F0` |
 | `color.disabled.bg` | `#232B38` |
 | `color.disabled.text` | `#6B7686` |
 | `color.border.strong` | `#46536A` |
 | `color.header.bg` | `#161C26` |
 | `color.code.background` | `#1E2632` |
 | `color.trough` | `#10151C` |
-| `color.selection.bg` | `#1E3A5C` |
-| `color.selection.text` | `#BFDBFE` |
-| `color.selection.border` | `#35557E` |
-| `color.progress` | `#4C9BE8` |
-| `color.row.done.bg` | `#12301F` |
+| `color.selection.bg` | `#2B3646` |
+| `color.selection.text` | `#E2E8F0` |
+| `color.selection.border` | `#4B5B70` |
+| `color.progress` | `#94A3B8` |
+| `color.row.done.bg` | `#222B38` |
 | `color.on.accent` | `#FFFFFF` |
-| `color.primary.text` | `#5BA3E8` |
+| `color.primary.text` | `#CBD5E1` |
 
 对比度约束（两套都成立，由可跑测试守卫）：正文文字对底 ≥4.5:1、次要文字 ≥3:1、实心按钮字色对填充 ≥4.5:1。
 
@@ -185,7 +185,7 @@
 
 **圆角按钮规则（2026-10-21）**：按钮常态用圆角图元（`ui_rounded.py` 用标准库生成的带 alpha PNG，按 (颜色, 半径, 尺寸) 缓存）取代 raised 浮雕；样式 `background` 取 `CONTROL_CORNER_SURFACE`（按钮背后的页面底），填充色走 `fill` 选项，否则圆角会被填成方角；悬停加深一档、按下再深一档并让文字下移 1px。主按钮实心 `color.primary`，次按钮白底＋输入框级描边（`color.border.input`，在页面底上清晰可见），新增文字按钮无底、悬停浅底（`color.surface.hover`）。既有样式名全部保留，只改外观不改名。
 
-主色只有蓝色一套：橙色／琥珀色不再作按钮或强调底色（旧 `emphasis`、`warning.hover`、`warning.pressed` 已删除）。需要“醒目”的按钮用更深一档的 `color.primary.pressed`。文字与底色的对比度不低于 4.5:1。
+主色收敛为深石墨高级灰一套（对齐应用目录图标与文件图标的冷中性墨色体系）：橙色／琥珀色不再作按钮或强调底色（旧 `emphasis`、`warning.hover`、`warning.pressed` 已删除），亮蓝与浅绿提示底色亦退场。需要“醒目”的按钮用更深一档的 `color.primary.pressed`。文字与底色的对比度不低于 4.5:1。
 
 ## 窗口尺寸
 

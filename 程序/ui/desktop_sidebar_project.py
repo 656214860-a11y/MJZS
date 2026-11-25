@@ -306,7 +306,8 @@ class ProjectNameList(ttk.Frame):
                     anchor='w', stretch=True)
         tree.column('state', width=state_w, minwidth=state_w,
                     anchor='e', stretch=False)
-        tree.tag_configure('current', background=COLORS['primary_subtle'])
+        tree.tag_configure('current', background=COLORS['selection_bg'],
+                           foreground=COLORS['selection_text'])
         tree.configure(takefocus=1)
         self._card_details = {}
         self._row_tips = TreeRowCard(tree, lambda item: self._card_details.get(item, ''))
@@ -336,7 +337,8 @@ class ProjectNameList(ttk.Frame):
         if self.table is None:
             return
         tree = self.table.tree
-        tree.tag_configure('current', background=COLORS['primary_subtle'])
+        tree.tag_configure('current', background=COLORS['selection_bg'],
+                           foreground=COLORS['selection_text'])
         tree.delete(*tree.get_children())
         self._card_details.clear()
         items = list(getattr(self.host, '_picker_items', None) or [])

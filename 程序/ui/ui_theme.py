@@ -50,9 +50,9 @@ def apply(win):
     s.configure('SkillDescHover.TLabel',background=COLORS['surface_hover'],foreground=COLORS['text_secondary'],font=FONTS['pet_body'])
     s.configure('Warn.TLabel',foreground=COLORS['warning_text'])
     s.configure('Expired.TLabel',foreground=COLORS['danger_text'])
-    # 各设置页会随操作变化的说明统一用这一档：淡绿底区别于静态说明，
-    # 但仍保持深色文字，长提示与错误提示都能清楚阅读。
-    s.configure('PaleGreenHint.TLabel', background=COLORS['success_subtle'], foreground=COLORS['success_text'], padding=(SPACING['sm'], SPACING['xs']))
+    # 各设置页会随操作变化的说明统一用这一档：柔和高级灰雾底区别于静态说明，
+    # 保持石板灰深色文字可读性，并保留既有样式名 PaleGreenHint.TLabel 兼容消费方。
+    s.configure('PaleGreenHint.TLabel', background=COLORS['surface_hover'], foreground=COLORS['text_secondary'], padding=(SPACING['sm'], SPACING['xs']))
 
     s.configure('Project.Treeview',rowheight=24)
 

@@ -61,6 +61,36 @@ class UiTokenContractTests(unittest.TestCase):
         self.assertIn('CONTROL_HEIGHT', doc)
         self.assertTrue(hasattr(ui_tokens, 'CONTROL_HEIGHT'))
 
+    def test_slate_palette_replaces_legacy_blue_and_green_tokens(self):
+        """UX-SLATE-PALETTE-SYNC：主色、次按钮、选中态与完成行底收敛为低饱和冷中性高级灰。"""
+        legacy_blues = {'#0F6FC0', '#0C5FA6', '#0A4F8C', '#DBEAFE', '#E8F3FB', '#1D9BF0'}
+        slate_keys = (
+            'primary', 'primary_hover', 'primary_pressed', 'primary_subtle',
+            'primary_text', 'focus', 'accent', 'progress',
+            'secondary_bg', 'secondary_hover', 'secondary_pressed', 'secondary_text',
+            'selection_bg', 'selection_text', 'selection_border', 'row_done_bg',
+        )
+        for theme, palette in ui_tokens.THEMES.items():
+            for key in slate_keys:
+                value = palette[key].upper()
+                r, g, b = (int(value[i:i + 2], 16) for i in (1, 3, 5))
+                with self.subTest(theme=theme, key=key, value=value):
+                    self.assertNotIn(value, legacy_blues, '不得残留旧亮蓝：%s=%s' % (key, value))
+                    self.assertLessEqual(max(r, g, b) - min(r, g, b), 45,
+                                         '%s=%s 通道差过大，不属低饱和高级灰' % (key, value))
+                    self.assertGreaterEqual(b, r, '%s=%s 应保持冷中性灰调（B>=R）' % (key, value))
+            self.assertNotEqual(palette['row_done_bg'].upper(), '#F0FDF4')
+            self.assertLess(_luminance(palette['primary_pressed']), _luminance(palette['primary_hover']))
+            self.assertLess(_luminance(palette['primary_hover']), _luminance(palette['primary']))
+
+    def test_design_tokens_doc_lists_every_color_in_all_themes(self):
+        """日间与夜间两套调色板的全部十六进制色值都必须登记在 design_tokens.md。"""
+        doc = (ROOT / 'design_tokens.md').read_text(encoding='utf-8')
+        documented = {value.upper() for value in re.findall(r'`(#[0-9A-Fa-f]{6})`', doc)}
+        for theme, palette in ui_tokens.THEMES.items():
+            missing = sorted(name for name, value in palette.items() if value.upper() not in documented)
+            self.assertEqual(missing, [], '%s 主题以下颜色令牌未登记：%s' % (theme, missing))
+
 
 if __name__ == '__main__':
     unittest.main()
