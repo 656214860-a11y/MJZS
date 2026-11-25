@@ -147,6 +147,11 @@
       "owner": "项目维护者",
       "description": "仓库根标准入口/资源，保留现名"
     },
+    "PROJECT_HEALTH.md": {
+      "role": "docs",
+      "owner": "项目维护者",
+      "description": "项目健康、开放风险与回归验证入口"
+    },
     "reorganize_install.py": {
       "role": "tooling",
       "owner": "项目维护者",

@@ -21,7 +21,7 @@ def _worker(folder, name):
             assert token == 'first' and device_id == DID
             with (folder / 'requests.txt').open('a', encoding='utf-8') as stream:
                 stream.write(name + '\n')
-            return success({'refresh_token': 'successor', 'lease': sign(payload())})
+            return success({'refresh_token': 'successor', 'lease': sign(payload(sid='successor-session'))})
 
     def submit(work, done, label):
         (folder / name).touch()

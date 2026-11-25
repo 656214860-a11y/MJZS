@@ -17,7 +17,7 @@ from infra.storage_maintenance import remove_private_file
 PROGRAM = Path(__file__).resolve().parents[1]
 SESSION_FILE = ('private', '账户', 'session.json')
 DEVICE_SEED_FILE = ("设备", "seed.txt")
-SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password')
+SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password', 'login_generation')
 _FINGERPRINT_SALT = 'manju-device-v1:'
 _CLOCK_KEY = r'Software\漫剧制作助手'
 _CLOCK_VALUE = 'clock_floor'

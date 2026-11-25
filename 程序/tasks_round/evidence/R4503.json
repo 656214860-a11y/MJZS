@@ -1,0 +1,16 @@
+{
+  "round": 4503,
+  "commit_base": "d1fb3b87b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "",
+    "exit": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": "docs-only"
+  },
+  "generated_at": "2026-11-25T20:22:12"
+}

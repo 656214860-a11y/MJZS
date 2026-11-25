@@ -7,6 +7,7 @@
 会话并验签，不联网，启动路径与阶段启动都不等待网络（设计文档 §4.3、§5.4）。
 """
 import platform
+import secrets
 import threading
 import time
 from contextlib import nullcontext
@@ -14,6 +15,7 @@ from pathlib import Path
 
 import domain.account_client as account_client
 import infra.account_store as account_store
+from infra import lease_verifier
 import domain.entitlement_service as entitlement_service
 import infra.update_notice as update_notice
 from agent.core import save
@@ -24,6 +26,27 @@ RENEW_INTERVAL = 12 * 3600
 RENEW_VIEW_INTERVAL = 60      # R2064：进账号页、窗口回前台时的最短续签间隔（秒），后台改了到期日能很快看到
 # 这些错误码说明本机会话已不可能续上：删除令牌与租约，回到未登录。
 SESSION_DEAD = frozenset({'session_invalid', 'account_pending_deletion', 'invalid_device'})
+
+
+def _session_identity(session):
+    """绑定签名主体和本机登录代际。旧会话以当前签名 sid 为起点，续签时继承。"""
+    payload = lease_verifier.verify(session.get('lease'))
+    if payload:
+        identity = (payload.get('uid'), payload.get('did'), session.get('login_generation') or payload.get('sid'))
+        if all(identity):
+            return identity
+    return None
+
+
+def _same_session(before, current):
+    if all(before.get(key) == current.get(key) for key in ('refresh_token', 'lease', 'login_generation')):
+        return True
+    identity = _session_identity(before)
+    return identity is not None and identity == _session_identity(current)
+
+
+def _session_changed():
+    return SystemError('登录状态已变化，请重新发起操作', data={'code': 'session_changed'})
 
 
 class AccountController:
@@ -102,35 +125,44 @@ class AccountController:
         email, code = str(email or '').strip(), str(code or '').strip()
         device = self.device()
 
-        def work():
-            result = self._client.verify_code(email, code, device, age_confirmed=age_confirmed)
-            return self._accept(result.data, email=email) if result.ok else result
-        self._run(work, done, '登录账号')
+        self._login(lambda: self._client.verify_code(email, code, device, age_confirmed=age_confirmed),
+                    email, done, '登录账号')
 
     def password_login(self, email, password, done):
         email, device = str(email or '').strip(), self.device()
 
-        def work():
-            result = self._client.password_login(email, password or '', device)
-            return self._accept(result.data, email=email) if result.ok else result
-        self._run(work, done, '登录账号')
+        self._login(lambda: self._client.password_login(email, password or '', device),
+                    email, done, '登录账号')
 
     def register(self, email, code, password, *, age_confirmed, done):
         email, code, device = str(email or '').strip(), str(code or '').strip(), self.device()
 
+        self._login(lambda: self._client.register(email, code, password or '', device, age_confirmed=age_confirmed),
+                    email, done, '注册账号')
+
+    def _login(self, request, email, done, label):
+        before = self.session()
+
         def work():
-            result = self._client.register(email, code, password or '', device, age_confirmed=age_confirmed)
-            return self._accept(result.data, email=email) if result.ok else result
-        self._run(work, done, '注册账号')
+            result = request()
+            with access():
+                if not _same_session(before, self.session()):
+                    return _session_changed()
+                return self._accept(result.data, email=email) if result.ok else result
+        self._run(work, done, label)
 
     def reset_password(self, email, code, password, done):
         """凭重置验证码设新密码；服务端吊销该账号全部会话，本机若登着同一账号也一并退出。"""
         email, code = str(email or '').strip(), str(code or '').strip()
 
+        before = self.session()
+
         def work():
             result = self._client.reset_password(email, code, password or '')
-            if result.ok and str(self.session().get('email') or '').lower() == email.lower():
-                self._store.clear_session()
+            if result.ok and str(before.get('email') or '').lower() == email.lower():
+                with access():
+                    if _same_session(before, self.session()):
+                        self._store.clear_session()
             return result
         self._run(work, done, '重置密码')
 
@@ -152,27 +184,23 @@ class AccountController:
         device_id = self.device_id
         self.last_renew_at = self._clock()
 
-        def work():
-            result = self._renew_once(token, device_id)
-            if result is None:
-                return success({'already_renewed': True, 'lease': self.session().get('lease')})
-            return result
-        self._run(work, done, '续签会员授权', quiet=quiet)
+        self._run(lambda: self._renew_once(data, device_id), done, '续签会员授权', quiet=quiet)
         return True
 
-    def _renew_once(self, token, device_id):
+    def _renew_once(self, before, device_id):
         """序列化同会话的续签，等待者重读。项目发布锁只覆盖最后的本机写入。"""
+        token = before['refresh_token']
         with self._renew_lock, self._account_process_lock():
-            current = self.session().get('refresh_token')
-            if current != token:
-                return self._changed_renewal(current)
+            current = self.session()
+            if current.get('refresh_token') != token or not _same_session(before, current):
+                return self._changed_renewal(before, current)
             result = self._client.renew(token, device_id)
             with access():
-                current = self.session().get('refresh_token')
-                if current != token:
-                    return self._changed_renewal(current)
+                current = self.session()
+                if current.get('refresh_token') != token or not _same_session(before, current):
+                    return self._changed_renewal(before, current)
                 if result.ok:
-                    return self._accept(result.data)
+                    return self._accept(result.data, previous=before)
                 if (result.data or {}).get('code') in SESSION_DEAD:
                     self._store.clear_session()
                 return result
@@ -182,9 +210,11 @@ class AccountController:
         return access(lock_path=lock_path()) if lock_path else nullcontext()
 
     @staticmethod
-    def _changed_renewal(current):
-        if current:
-            return None
+    def _changed_renewal(before, current):
+        if current.get('refresh_token'):
+            if _same_session(before, current) and current.get('lease'):
+                return success({'already_renewed': True, 'lease': current['lease']})
+            return _session_changed()
         return SystemError('登录已失效，请重新登录', data={'code': 'session_invalid'})
 
     def check_update(self, done):
@@ -212,7 +242,7 @@ class AccountController:
         code = str(code or '').strip()
 
         def accept(result):
-            return self._accept(result.data, rotate=False) if result.ok else result
+            return self._accept(result.data, rotate=False, previous=self.session()) if result.ok else result
         return self._lease_call(lambda lease: self._client.redeem(lease, code), done, '兑换会员', then=accept)
 
     def devices(self, done):
@@ -277,22 +307,31 @@ class AccountController:
         if not lease:
             return False
         device_id = self.device_id
+        delivery_session = data
 
         def work():
+            nonlocal delivery_session
+            if not _same_session(data, self.session()):
+                return _session_changed()
             result = call(lease)
             if not result.ok and (result.data or {}).get('code') == 'session_invalid' and token:
-                renewed = self._renew_once(token, device_id)
-                if renewed is None:             # 别处刚续过：用本机现成的新租约重试
-                    fresh = self.session().get('lease')
-                    if not fresh:
-                        return result
-                    result = call(fresh)
-                elif not renewed.ok:
+                renewed = self._renew_once(data, device_id)
+                if not renewed.ok:
                     return renewed
-                else:
-                    result = call(renewed.data['lease'])
-            return then(result) if then else result
-        self._run(work, done, label)
+                result = call(renewed.data['lease'])
+            with access():
+                if not _same_session(data, self.session()):
+                    return _session_changed()
+                if then:
+                    result = then(result)
+                    delivery_session = self.session()  # 本次操作可能刚清掉自己的会话
+                return result
+
+        def deliver(result):
+            if result.ok and not _same_session(delivery_session, self.session()):
+                result = _session_changed()
+            done(result)
+        self._run(work, deliver if done else None, label)
         return True
 
     def _run(self, work, done, label, *, quiet=False):
@@ -318,14 +357,17 @@ class AccountController:
 
     def logout(self, done=None):
         """先尝试服务端吊销，失败仍清本机。桌面回调走后台线程。"""
+        before = self.session()
         if done is None:
-            return self._logout_once()
-        self._run(self._logout_once, done, '退出登录')
+            return self._logout_once(before)
+        self._run(lambda: self._logout_once(before), done, '退出登录')
         return True
 
-    def _logout_once(self):
+    def _logout_once(self, requested):
         with self._renew_lock, self._account_process_lock():
             before = self.session()
+            if not _same_session(requested, before):
+                return _session_changed()
             lease = before.get('lease')
             try:
                 remote_ok = self._client.logout(lease).ok if lease else not before.get('refresh_token')
@@ -343,7 +385,7 @@ class AccountController:
                                data={'code': 'remote_logout_unconfirmed', 'local_cleared': True})
         return success({'local_cleared': True})
 
-    def _accept(self, data, *, email=None, rotate=True):
+    def _accept(self, data, *, email=None, rotate=True, previous=None):
         """先验签再落盘：返回原结果或 SystemError，不抛异常（完成回调总能收到结果）。
 
         ``rotate=False``（兑换）只替换租约，刷新令牌不变。
@@ -364,6 +406,13 @@ class AccountController:
             # 验签失败或不是本机的租约：不覆盖本机已有的有效会话。
             return SystemError('账号服务返回的授权无法验证，请稍后重试', data={'code': 'lease_unverified'})
         payload = checked.payload
+        identity = _session_identity(previous) if previous else None
+        if previous is not None and identity is None:
+            return SystemError('原登录授权无法验证，请重新登录', data={'code': 'lease_unverified'})
+        if identity and identity[:2] != (payload.get('uid'), payload.get('did')):
+            return _session_changed()
+        # 刷新可能签发新 sid，只有这次持锁验过的后继能继承代际。显式登录总是开始新代际。
+        fields['login_generation'] = identity[2] if identity else secrets.token_hex(16)
         fields['server_time'] = max(int(payload.get('iat_server') or 0), int(payload.get('issued_at') or 0))
         self._store.save_session(fields)
         return success(data)

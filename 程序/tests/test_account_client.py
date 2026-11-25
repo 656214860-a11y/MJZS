@@ -655,6 +655,121 @@ class AccountControllerTests(unittest.TestCase):
         self.assertEqual([c[0] for c in client.calls], ['devices', 'renew', 'devices'])
         self.assertEqual(client.calls[2][1], (fresh,))
 
+    def test_switched_session_never_retries_with_new_lease(self):
+        for identity in ({'uid': 'other'}, {'sid': 'new-login'}):
+            with self.subTest(identity=identity):
+                old = self._signed_in()
+                new = sign(payload(**identity))
+                def switched(*args):
+                    self.store.save_session({'lease': new, 'refresh_token': 'new-token'})
+                    return UserError('expired', data={'code': 'session_invalid'})
+                client = unittest.mock.Mock()
+                client.redeem.side_effect = switched
+                self.controller(client).redeem('C', self.results.append)
+                client.redeem.assert_called_once_with(old, 'C')
+                client.renew.assert_not_called()
+                self.assertEqual(self.results[-1].data['code'], 'session_changed')
+                self.assertEqual(self.store.load()['lease'], new)
+
+    def test_late_lease_results_cannot_read_write_or_clear_new_session(self):
+        for operation in ('devices', 'redeem', 'unbind', 'request_deletion', 'change_password'):
+            with self.subTest(operation=operation):
+                old = self._signed_in()
+                new = sign(payload(uid='other', sid='new-login'))
+                def switched(*args):
+                    self.store.save_session({'lease': new, 'refresh_token': 'new-token', 'has_password': False})
+                    return success({'lease': old, 'devices': ['old-account-device']})
+                client = unittest.mock.Mock()
+                method = {'unbind': 'unbind_device', 'request_deletion': 'delete_request'}.get(operation, operation)
+                getattr(client, method).side_effect = switched
+                ctl = self.controller(client)
+                args = () if operation == 'devices' else ('value',)
+                kwargs = {'current': True} if operation == 'unbind' else {}
+                getattr(ctl, operation)(*args, self.results.append, **kwargs)
+                self.assertEqual(self.results[-1].data, {'code': 'session_changed'})
+                after = self.store.load()
+                self.assertEqual((after['lease'], after['refresh_token'], after['has_password']),
+                                 (new, 'new-token', False))
+
+    def test_late_device_list_is_not_delivered_after_switch(self):
+        self._signed_in()
+        deliveries = []
+        client = _Client(devices=success({'devices': ['first-account-device']}))
+        ctl = account_controller.AccountController(
+            submit=lambda work, done, label: deliveries.append((done, work())),
+            clock=lambda: NOW, store=self.store, client=client)
+        ctl.devices(self.results.append)
+        self.store.save_session({'lease': sign(payload(sid='new-login')), 'refresh_token': 'new-token'})
+        deliver, result = deliveries.pop()
+        deliver(result)
+        self.assertEqual(self.results[-1].data, {'code': 'session_changed'})
+
+    def test_queued_logout_keeps_new_login(self):
+        self._signed_in()
+        pending = []
+        client = _Client(logout=success({}))
+        ctl = account_controller.AccountController(
+            submit=lambda work, done, label: pending.append(work),
+            clock=lambda: NOW, store=self.store, client=client)
+        ctl.logout(self.results.append)
+        self.store.save_session({'lease': sign(payload(sid='new-login')), 'refresh_token': 'new-token'})
+        result = pending.pop()()
+        self.assertEqual(result.data, {'code': 'session_changed'})
+        self.assertEqual(client.calls, [])
+        self.assertEqual(self.store.load()['refresh_token'], 'new-token')
+
+    def test_late_login_cannot_overwrite_new_login(self):
+        new = sign(payload(uid='other', sid='new-login'))
+        def switched(*args):
+            self.store.save_session({'lease': new, 'refresh_token': 'new-token'})
+            return success({'lease': sign(payload()), 'refresh_token': 'old-token'})
+        client = unittest.mock.Mock()
+        client.password_login.side_effect = switched
+        self.controller(client).password_login('a@b.c', 'value', self.results.append)
+        self.assertEqual(self.results[-1].data, {'code': 'session_changed'})
+        self.assertEqual(self.store.load()['refresh_token'], 'new-token')
+
+    def test_signing_a_successor_session_preserves_queued_operations(self):
+        old = self._signed_in()
+        fresh = sign(payload(sid='successor', nonce='new'))
+        client = _Client(devices=[UserError('expired', data={'code': 'session_invalid'}),
+                                  success({'devices': []})],
+                         renew=success({'lease': fresh, 'refresh_token': 'r2'}))
+        pending = []
+        ctl = account_controller.AccountController(
+            submit=lambda work, done, label: pending.append(work),
+            clock=lambda: NOW, store=self.store, client=client)
+        ctl.devices(self.results.append)
+        ctl.renew(self.results.append)
+        self.assertTrue(pending.pop()().ok)
+        self.assertTrue(pending.pop()().ok)
+        self.assertEqual(client.calls, [('renew', ('r1', DID)), ('devices', (old,)), ('devices', (fresh,))])
+
+    def test_renewal_cannot_replace_unverifiable_previous_identity(self):
+        old = self._signed_in(kid='retired')
+        successor = sign(payload(uid='other', sid='successor'))
+        client = _Client(renew=success({'lease': successor, 'refresh_token': 'r2'}))
+        self.controller(client).renew(self.results.append)
+        self.assertFalse(self.results[-1].ok)
+        self.assertEqual(self.store.load()['lease'], old)
+        self.assertEqual(self.store.load()['refresh_token'], 'r1')
+
+    def test_new_login_replaces_generation_even_if_signed_lease_is_reused(self):
+        lease = sign(payload())
+        client = _Client(password_login=success({'lease': lease, 'refresh_token': 'r1'}))
+        ctl = self.controller(client)
+        ctl.password_login('a@b.c', 'value', self.results.append)
+        generation = self.store.load()['login_generation']
+        pending = []
+        queued = account_controller.AccountController(
+            submit=lambda work, done, label: pending.append(work),
+            clock=lambda: NOW, store=self.store, client=client)
+        queued.devices(self.results.append)
+        ctl.password_login('a@b.c', 'value', self.results.append)
+        self.assertNotEqual(self.store.load()['login_generation'], generation)
+        self.assertEqual(pending.pop()().data, {'code': 'session_changed'})
+        self.assertEqual([name for name, args in client.calls], ['password_login', 'password_login'])
+
     def test_lease_calls_need_session(self):
         ctl = self.controller(_Client())
         for start in (lambda: ctl.devices(self.results.append), lambda: ctl.unbind('d', self.results.append),

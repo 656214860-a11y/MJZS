@@ -210,6 +210,46 @@ class ProjectArchiveTests(unittest.TestCase):
             self.assertEqual(packed_cloud['password'], '<已移除>')
             self.assertEqual(packed_reg['projects'][0]['session_secret'], '<已移除>')
 
+    def test_export_redacts_lists_and_case_variants_in_actual_zip(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, project = _project(td)
+            config = project / 'CLOUD_VIDEO' / 'session' / 'Config.JSON'
+            config.parent.mkdir(parents=True)
+            data = [{'api_keys': ['synthetic-secret'], 'accounts': [
+                {'token': 'synthetic-secret', 'model': 'keep'}],
+                'refresh_token': 81234567, 'pin': 0, 'max_tokens': 2048, 'token_enabled': True,
+                'api_key': None}]
+            config.write_text(json.dumps(data), encoding='utf-8')
+            archive = project_archive.export_project(service, project, dest_dir=Path(td) / 'out')
+            with zipfile.ZipFile(archive) as zf:
+                member = next(name for name in zf.namelist() if name.lower().endswith('/session/config.json'))
+                packed = json.loads(zf.read(member))
+                self.assertEqual(packed[0]['accounts'][0], {'token': project_archive.REDACTED, 'model': 'keep'})
+                self.assertEqual(packed[0]['refresh_token'], project_archive.REDACTED)
+                self.assertEqual(packed[0]['pin'], project_archive.REDACTED)
+                self.assertEqual(packed[0]['max_tokens'], 2048)
+                self.assertIs(packed[0]['token_enabled'], True)
+                self.assertIsNone(packed[0]['api_key'])
+                self.assertTrue(json.loads(zf.read('manifest.json'))['redacted'])
+                for name in zf.namelist():
+                    self.assertNotIn(b'synthetic-secret', zf.read(name))
+            self.assertEqual(json.loads(config.read_text(encoding='utf-8')), data)
+
+    def test_unsafe_config_aborts_export_and_preserves_previous_archive(self):
+        with tempfile.TemporaryDirectory() as td:
+            service, project = _project(td)
+            out = Path(td) / 'out'
+            previous = project_archive.export_project(service, project, dest_dir=out)
+            original = previous.read_bytes()
+            for bad in ('{"token":"synthetic-secret"', '"synthetic-secret"'):
+                with self.subTest(invalid=bad.startswith('{')):
+                    (project / 'config.json').write_text(bad, encoding='utf-8')
+                    with self.assertRaisesRegex(ValueError, 'config.json') as caught:
+                        project_archive.export_project(service, project, dest_dir=out)
+                    self.assertNotIn('synthetic-secret', str(caught.exception))
+                    self.assertEqual(list(out.iterdir()), [previous])
+                    self.assertEqual(previous.read_bytes(), original)
+
     def test_junction_locks_and_cache_dirs_are_skipped(self):
         with tempfile.TemporaryDirectory() as td:
             service, project = _project(td)
