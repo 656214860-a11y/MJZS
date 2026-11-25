@@ -363,7 +363,7 @@
   {
    "module": "contract/script_manifest_schema.py",
    "covered": 0,
-   "total": 206,
+   "total": 220,
    "percent": 0.0
   },
   {
@@ -597,7 +597,7 @@
   {
    "module": "desktop_shared_input.py",
    "covered": 0,
-   "total": 698,
+   "total": 697,
    "percent": 0.0
   },
   {
@@ -609,7 +609,7 @@
   {
    "module": "desktop_shared_send.py",
    "covered": 0,
-   "total": 769,
+   "total": 770,
    "percent": 0.0
   },
   {
@@ -1599,7 +1599,7 @@
   {
    "module": "orchestrator/media_page_controller.py",
    "covered": 0,
-   "total": 145,
+   "total": 149,
    "percent": 0.0
   },
   {
@@ -2529,7 +2529,7 @@
   {
    "module": "ui/desktop_login_gate.py",
    "covered": 0,
-   "total": 127,
+   "total": 129,
    "percent": 0.0
   },
   {
@@ -2541,7 +2541,7 @@
   {
    "module": "ui/desktop_page_nav.py",
    "covered": 0,
-   "total": 425,
+   "total": 440,
    "percent": 0.0
   },
   {
@@ -2584,6 +2584,12 @@
    "module": "ui/desktop_send_choice.py",
    "covered": 0,
    "total": 134,
+   "percent": 0.0
+  },
+  {
+   "module": "ui/desktop_shared_input_extras.py",
+   "covered": 0,
+   "total": 273,
    "percent": 0.0
   },
   {
@@ -3075,7 +3081,7 @@
   {
    "module": "ui/video_progress.py",
    "covered": 0,
-   "total": 108,
+   "total": 109,
    "percent": 0.0
   },
   {
@@ -3357,8 +3363,8 @@
   {
    "module": "ui/ui_composer_style.py",
    "covered": 4,
-   "total": 39,
-   "percent": 10.3
+   "total": 41,
+   "percent": 9.8
   },
   {
    "module": "infra/tk_timers.py",
@@ -3535,6 +3541,12 @@
    "percent": 19.1
   },
   {
+   "module": "stage_execution_service.py",
+   "covered": 111,
+   "total": 574,
+   "percent": 19.3
+  },
+  {
    "module": "infra/diagnostic_capture.py",
    "covered": 103,
    "total": 528,
@@ -3583,12 +3595,6 @@
    "percent": 21.7
   },
   {
-   "module": "stage_execution_service.py",
-   "covered": 105,
-   "total": 479,
-   "percent": 21.9
-  },
-  {
    "module": "ui/pet_cloud_hint.py",
    "covered": 23,
    "total": 104,
@@ -3601,6 +3607,12 @@
    "percent": 22.2
   },
   {
+   "module": "ui/pet_poll_policy.py",
+   "covered": 11,
+   "total": 49,
+   "percent": 22.4
+  },
+  {
    "module": "orchestrator/skill_budget.py",
    "covered": 44,
    "total": 194,
@@ -3611,12 +3623,6 @@
    "covered": 157,
    "total": 690,
    "percent": 22.8
-  },
-  {
-   "module": "ui/pet_poll_policy.py",
-   "covered": 11,
-   "total": 48,
-   "percent": 22.9
   },
   {
    "module": "contract/file_naming.py",
@@ -3663,8 +3669,8 @@
   {
    "module": "ui/ui_status_bus.py",
    "covered": 35,
-   "total": 141,
-   "percent": 24.8
+   "total": 142,
+   "percent": 24.6
   },
   {
    "module": "domain/usage_overview.py",
@@ -4148,5 +4154,5 @@
   }
  ],
  "modules_covered": 134,
- "modules_total": 688
+ "modules_total": 689
 }
