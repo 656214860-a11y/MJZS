@@ -177,6 +177,9 @@ def publish_startup_warnings(bus, items):
     if not items or bus is None:
         return
     try:
+        # EC-5B：逐项经 SELFCHECK_TO_CODE→describe() 统一出口；懒加载保证导入失败也只吞掉播报。
+        from contract.selfcheck import SELFCHECK_TO_CODE
+        from contract.error_codes import describe
         seen = set()
         unique = []
         for item in items:
@@ -188,8 +191,7 @@ def publish_startup_warnings(bus, items):
         shown = []
         for item in unique[:4]:
             code = str(getattr(item, 'code', '') or '')
-            message = str(getattr(item, 'message', '') or '')
-            shown.append((code + '：' if code else '') + message)
+            shown.append(describe(SELFCHECK_TO_CODE.get(code, 'E-UNKNOWN')))
         text = '【警告】启动自检：' + '；'.join(shown)
         if len(unique) > 4:
             text += ' 等 %d 项' % len(unique)

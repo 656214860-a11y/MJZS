@@ -2,8 +2,9 @@
 import time
 from pathlib import Path
 from infra.file_cache import read_json_shared as read_cached
-from domain.video_task_state import ACTIVE,elapsed_text,provider_failure_reason
+from domain.video_task_state import ACTIVE,elapsed_text,provider_failure_reason,VIDEO_FAILURE_TO_CODE
 from contract.storyboard_paths import config_listing,resolved_path
+from contract.error_codes import describe
 
 LABELS={'submitting':'提交中','unknown':'待核实','queued':'排队中','running':'生成中',
         'succeeded':'下载中','downloaded':'已下载','failed':'失败','rejected':'被拒绝'}
@@ -146,7 +147,7 @@ def status_detail(version):
     if step:text+='（下一步：'+step+'）'
     if key in ('failed','rejected','unknown','download_failed','qc_failed'):
         kind=error_kind(version.get('error') or version.get('error_code'))
-        if kind:text+=' · 错误分类：'+ERROR_LABELS[kind]+'，'+ERROR_NEXT[kind]
+        if kind:text+=' · 错误分类：'+describe(VIDEO_FAILURE_TO_CODE.get(kind,'E-UNKNOWN'))+'，'+ERROR_NEXT[kind]
         if key == 'failed':
             reason = provider_failure_reason(version)
             if reason:text+=' · '+reason
