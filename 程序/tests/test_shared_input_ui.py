@@ -1561,6 +1561,23 @@ class ComposerExtrasTests(unittest.TestCase):
         input_extras.sync_send_art(box)
         self.assertEqual(str(button.cget('image')), idle_image)
 
+    def test_send_button_uses_slate_primary_fill_and_neutral_notice_bar(self):
+        """UX-SLATE-PALETTE-SYNC：发送键圆面与续写条跟随高级灰令牌，无残留旧亮蓝。"""
+        from tkinter import ttk
+        from ui_tokens import COLORS
+        box = self._make(stage='edit')
+        input_extras.sync_send_art(box)
+        primary = COLORS['primary'].upper()
+        self.assertEqual(box._send_art_key[1].upper(), primary)
+        self.assertNotEqual(primary, '#0F6FC0')
+        r, g, b = (int(primary[i:i + 2], 16) for i in (1, 3, 5))
+        self.assertLessEqual(max(r, g, b) - min(r, g, b), 45)
+        self.assertGreaterEqual(b, r)
+        style = ttk.Style(box.winfo_toplevel())
+        notice_bg = str(style.lookup('Composer.Notice.TFrame', 'background')).upper()
+        self.assertEqual(notice_bg, COLORS['primary_subtle'].upper())
+        self.assertNotEqual(notice_bg, '#E8F3FB')
+
 
 if __name__ == '__main__':
     unittest.main()

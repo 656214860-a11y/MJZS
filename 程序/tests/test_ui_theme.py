@@ -145,6 +145,42 @@ class TokenButtonStateTests(unittest.TestCase):
             self.assertEqual(widget.linespace, tokens['linespace'])
             self.assertEqual(widget.max_chars, tokens['max_chars'])
 
+    def test_pale_green_hint_style_uses_slate_neutral_tokens(self):
+        """UX-SLATE-PALETTE-SYNC：设置页提示条去绿改高级灰，保留样式名 PaleGreenHint.TLabel。"""
+        style = ttk.Style(self.win)
+        label = ttk.Label(self.win, text='设置提示', style='PaleGreenHint.TLabel')
+        self.assertEqual(str(label.cget('style')), 'PaleGreenHint.TLabel')
+        bg = str(style.lookup('PaleGreenHint.TLabel', 'background')).upper()
+        fg = str(style.lookup('PaleGreenHint.TLabel', 'foreground')).upper()
+        self.assertEqual(bg, COLORS['surface_hover'].upper())
+        self.assertEqual(fg, COLORS['text_secondary'].upper())
+        self.assertNotEqual(bg, COLORS['success_subtle'].upper())
+        self.assertNotEqual(fg, COLORS['success_text'].upper())
+        self.assertGreaterEqual(ThemePaletteTests._contrast(fg, bg), 4.5)
+
+    def test_sidebar_project_card_current_row_uses_selection_tokens(self):
+        """UX-SLATE-PALETTE-SYNC：左上角项目卡片当前项高亮使用 selection_bg 与 selection_text。"""
+        from types import SimpleNamespace
+        from ui.desktop_sidebar_project import ProjectNameList
+        cur_path = 'C:/tmp/slate_demo_project'
+        projects = [{'name': '高级灰项目', 'path': cur_path, 'status': 'making'}]
+        host = SimpleNamespace(
+            win=self.win,
+            root=Path(cur_path),
+            _picker_items=projects,
+            _project_group='making',
+            projects=SimpleNamespace(info={'projects': projects}),
+        )
+        widget = ProjectNameList(host, self.win)
+        widget.pack()
+        self.addCleanup(widget.close_card)
+        widget.open_card()
+        tree = widget.table.tree
+        self.assertEqual(str(tree.tag_configure('current', 'background')).upper(),
+                         COLORS['selection_bg'].upper())
+        self.assertEqual(str(tree.tag_configure('current', 'foreground')).upper(),
+                         COLORS['selection_text'].upper())
+
 class NoPopupKeyTests(unittest.TestCase):
     """第 8 轮（收口）：弹窗右上角那两颗「最小化／最大化」删掉了，而且不许再长回来。
 
