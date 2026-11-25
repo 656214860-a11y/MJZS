@@ -33,6 +33,25 @@ class TestJobStore(_StoreCase):
         self.store.transition(job['id'], js.RETRYING)
         self.assertEqual(self.store.get(job['id'])['state'], js.RETRYING)
 
+    def test_shared_key_requires_kind_for_lookup_and_reconciliation(self):
+        for kind in ('video', 'asset_resume'):
+            job = self.store.enqueue('S1', kind)
+            self.assertEqual(self.store.by_key('S1', kind=kind)['id'], job['id'])
+        with self.assertRaises(ConfigError):
+            self.store.by_key('S1')
+        with self.assertRaises(ConfigError):
+            self.store.reconcile({})
+        self.assertEqual(self.store.reconcile({}, kind='video')['missing_in_ledger'], ['S1'])
+
+    def test_only_current_worker_can_renew_lease(self):
+        job_id = self.store.enqueue('S1', 'video')['id']
+        self.store.transition(job_id, js.RUNNING)
+        with js.open_store(self.project) as other:
+            with self.assertRaises(ConfigError):
+                other.renew_lease(job_id)
+        self.store.renew_lease(job_id)
+        self.assertEqual(self.store.get(job_id)['state'], js.RUNNING)
+
     def test_illegal_transition_raises(self):
         job = self.store.enqueue('a1', 'k')
         with self.assertRaises(ConfigError):

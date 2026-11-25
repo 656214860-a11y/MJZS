@@ -39,6 +39,23 @@ class TestRegisterAndVersions(_IndexCase):
             self.index.register(self._file('bad.png'), stage='s', kind='image', parents=(999,))
         self.assertEqual(self.index._conn.execute('PRAGMA foreign_key_check').fetchall(), [])
 
+    def test_reregister_preserves_parents_and_failed_insert_rolls_back(self):
+        register = self.index.register
+        options = {'kind': 'image', 'stage': 's'}
+        root = register(self._file('root.png'), **options)
+        other = register(self._file('other.png'), **options)
+        path = self._file('child.png')
+        child = register(path, parents=(root,), **options)
+        self.assertEqual(register(path, parents=(root,), **options), child)
+        with self.assertRaises(ConfigError):
+            register(path, parents=(other,), **options)
+        next_path = self._file('next.png')
+        with self.assertRaises(ConfigError):
+            register(next_path, parents=(child, 99999), **options)
+        self.assertEqual([r['id'] for r in self.index.versions(root)], [root, child])
+        successor = register(next_path, parents=(child,), **options)
+        self.assertEqual([r['id'] for r in self.index.versions(root)], [root, child, successor])
+
     def test_digest_is_bounded_and_outside_the_index_lock(self):
         path = self._file('large.mp4', b'abcd' * (1024 * 1024))
         original = ai._digest_of

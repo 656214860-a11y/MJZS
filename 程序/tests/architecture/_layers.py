@@ -424,6 +424,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('desktop_layout', 'ui_rounded'),
     ('desktop_layout', 'ui_scroll'),
     ('desktop_lifecycle', 'asset_thumbs'),
+    ('desktop_lifecycle', 'desktop_page_support'),
     ('desktop_login_gate', 'desktop_page_registry'),
     ('desktop_media_pages', 'animatic_page'),
     ('desktop_media_pages', 'app'),
