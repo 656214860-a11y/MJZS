@@ -302,11 +302,9 @@ def send_storyboard(desktop, text='', *, only=None):
     request_text = str(text or '').strip()
     named = [str(name) for name in only] if only else None
     project = desktop.root
-    model_snap = None
     shared = getattr(desktop, 'shared_input', None)
     snap = getattr(shared, 'request_model', None) if shared is not None else None
-    if snap is not None:
-        model_snap = snap
+    model_snap = input_extras.normalize_stage_model_snapshot(snap)
 
     def action():
         reason = _account_block(desktop, 'storyboard')
@@ -422,12 +420,8 @@ def open_storyboard_skill(desktop, key=None, *, request_text='', only=None, mode
             except Exception:
                 config = None
         kwargs = {'_config': config} if config is not None else {}
-        desktop._storyboard_request_text = request_text
-        desktop.open_flow_agent('storyboard', '初步分镜', batch['prompt'], batch['followup'], **kwargs)
-        if batch.get('named'):
-            _say(desktop, '点名执行：' + '、'.join(batch['named']) + '。' + str(value or ''))
-        else:
-            _say(desktop, value)
+        input_extras.launch_storyboard_flow(
+            desktop, batch, request_text, value, kwargs, (_read_status, _say, _notify_error))
 
     try:
         ticket = desktop.async_(work, finish)
@@ -465,9 +459,9 @@ def _storyboard_idle_note(project):
         return ''
     try:
         plan = storyboard_work_plan(project)
-    except (OSError, ValueError, KeyError, TypeError):
+    except (OSError, ValueError, KeyError, TypeError) as exc:
         app_logging.swallowed()
-        return ''
+        return '读取结构剧本输入失败：%s' % exc
     if not plan['scripts']:
         return '未选择结构剧本，请先在上方勾选一份结构剧本再发送'
     if not plan['todo'] and not plan['revise']:

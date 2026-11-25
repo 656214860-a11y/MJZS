@@ -314,8 +314,11 @@ class ScriptPagesMixin:
                     getattr(self,'_script_agent_launching',False) or self.script_agent_processes())
     def update_script_interrupt_button(self):
         """共享输入框发送键的唯一状态入口：运行中显示终止，空闲时按简报必填置灰（REQ-S01-62/86）。"""
-        from ui_tokens import ICON_SEND, ICON_STOP
         shared = getattr(self, 'shared_input', None)
+        stage = getattr(shared, 'stage', None)
+        if isinstance(stage, str) and stage and stage != 'script':
+            return
+        from ui_tokens import ICON_SEND, ICON_STOP
         button = getattr(shared, 'send_button', None)
         if button is None or not button.winfo_exists():
             return

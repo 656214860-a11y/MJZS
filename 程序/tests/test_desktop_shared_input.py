@@ -401,6 +401,31 @@ class SendButtonRunningStateTests(_StageActionCase):
         self.box._sync_send_state()
         self.assertTrue(self.box.send_button.instate(['disabled']))
 
+    def test_switching_from_disabled_script_stage_re_enables_storyboard_send_button(self):
+        """从 01 页置灰或中断态切到 03 初步分镜后，发送键复位可点并触发分镜动作。"""
+        default_glyph = self.box.send_button.cget('text')
+        self._switch('script')
+        self.box._send_interrupt = False
+        self.box.send_button.state(['disabled'])
+        self._switch('storyboard')
+        self.assertFalse(self.box.send_button.instate(['disabled']))
+
+        interrupted = []
+        self._switch('script')
+        self.box._send_interrupt = True
+        self.box.send_button.configure(
+            text='STOP', command=lambda: interrupted.append('stop'))
+        self.box.send_button.state(['disabled'])
+        self.box.set_stage_action('storyboard', self.make)
+        self._switch('storyboard')
+        self.assertFalse(self.box.send_button.instate(['disabled']))
+        self.assertFalse(getattr(self.box, '_send_interrupt', False))
+        self.assertEqual(self.box.send_button.cget('text'), default_glyph)
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.box.send_button.invoke()
+        self.assertEqual(interrupted, [])
+        self.assertEqual(self.calls, ['make'])
+
 
 if __name__ == '__main__':
     unittest.main()

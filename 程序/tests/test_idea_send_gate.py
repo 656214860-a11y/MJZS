@@ -83,6 +83,31 @@ class IdeaSendGateTests(unittest.TestCase):
         self.page.win.after.assert_called()
         self.assertIsNotNone(self.page._idea_send_state_after)
 
+    def test_apply_idea_send_state_skips_when_not_on_script_stage(self):
+        """切到 03 初步分镜后，01 的延迟防抖门禁直接早退，不置灰按钮也不写状态栏。"""
+        self.page.shared_input.stage = 'storyboard'
+        self.page._idea_send_state_after = 'after-id'
+        self.draft('')
+        self.assertIsNone(self.page._idea_send_state_after)
+        self.page.update_script_interrupt_button.assert_not_called()
+        self.page.status.set.assert_not_called()
+
+    def test_update_script_interrupt_button_ignores_non_script_stage(self):
+        """真实 update_script_interrupt_button 在 03 初步分镜页不得篡改或置灰发送键。"""
+        from ui.desktop_script_pages import ScriptPagesMixin
+        for active in (False, True):
+            with self.subTest(script_task_active=active):
+                button = Mock()
+                button.winfo_exists.return_value = True
+                self.page.shared_input.stage = 'storyboard'
+                self.page.shared_input.send_button = button
+                self.page.shared_input._send_interrupt = False
+                self.page.script_task_active = Mock(return_value=active)
+                ScriptPagesMixin.update_script_interrupt_button(self.page)
+                button.configure.assert_not_called()
+                button.state.assert_not_called()
+                self.assertFalse(self.page.shared_input._send_interrupt)
+
 
 if __name__ == '__main__':
     unittest.main()
