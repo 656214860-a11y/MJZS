@@ -315,8 +315,9 @@ class GearButton:
     仍把画布 pack 进 settings_gear_layer／pet_dock 等既有承载层。
     """
 
-    def __init__(self, master, command=None, size=GEAR_SIZE, tip=GEAR_TIP, bg=CANVAS_BG):
+    def __init__(self, master, command=None, size=GEAR_SIZE, tip=GEAR_TIP, bg=None):
         import tkinter as tk
+        bg = CANVAS_BG if bg is None else bg
         self.command = command
         self.tip_text = tip
         self.visual_size = int(size)
