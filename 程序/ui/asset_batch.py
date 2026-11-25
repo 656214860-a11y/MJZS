@@ -315,6 +315,7 @@ class _AssetBatchWindow:
             deleted=current.get('asset_batch',{}).get('deleted_models',[])
             return self.controller.detect(client.models, url, deleted, identity)
         def done(models):
+            if not self.modelbox.winfo_exists():return
             self.modelbox.configure(values=models)
             if len(models)==1:self.values['model'].set(models[0])
             elif not models and self.values['workflow'].get().strip():self.values['model'].set(WORKFLOW_MODEL)

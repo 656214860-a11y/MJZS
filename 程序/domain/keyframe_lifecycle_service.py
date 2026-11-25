@@ -62,18 +62,21 @@ def delete_keyframe(base, source, episode, shot, *, publish=None):
         raise ValueError('其他镜头也在使用此图片，请先替换它们的首帧')
     if not callable(publish):
         raise TypeError('首帧状态需要由 L3 注入发布器。')
-    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_path
+    from infra.storage_maintenance import recycle_base, recycle_paths, restore_recycle_batch
     aid = _index_register(base, path)
-    if not recycle_paths(base, (path,), '删除首帧'):
+    records = recycle_paths(base, (path,), '删除首帧')
+    if not records:
         raise OSError('首帧未能安全移入项目回收站')
+    batch_name = (base / records[0]['recycle_path']).relative_to(recycle_base(base)).parts[0]
     previous = dict(shot)
     try:
         shot['frame_deleted'] = True
+        shot['frame_recycle_batch'] = batch_name
         publish(source, episode)
     except Exception:
         shot.clear()
         shot.update(previous)
-        restore_latest_recycled_path(base, path)
+        restore_recycle_batch(base, recycle_base(base) / batch_name, sources=(records[0]['source'],))
         raise
     _index_recycled(base, aid)
     return path
@@ -93,8 +96,8 @@ def restore_keyframe(base, source, episode, shot, *, publish=None):
     if not re.fullmatch(r'(?:EP\d+_)?SH\d+', sid):
         raise ValueError('镜头编号格式不正确')
     frames = (base / 'frames').resolve()
-    dest = (frames / (sid + '.png')).resolve()
-    if not dest.is_relative_to(frames):
+    dest = (base / (shot.get('frame') or ('frames/' + sid + '.png'))).resolve()
+    if not dest.is_relative_to(frames) or dest.suffix.lower() != '.png':
         raise ValueError('恢复目标超出项目')
     if not shot.get('frame_deleted') and dest.is_file():
         raise ValueError('此镜头已有首帧，无需恢复')
@@ -105,19 +108,35 @@ def restore_keyframe(base, source, episode, shot, *, publish=None):
         raise ValueError('其他镜头已关联同名图片')
     if not callable(publish):
         raise TypeError('首帧状态需要由 L3 注入发布器。')
-    from infra.storage_maintenance import recycle_paths, restore_latest_recycled_child
-    restored = restore_latest_recycled_child(base, frames, sid, ('.png',))
-    if restored != [dest] or not dest.is_file():
-        raise OSError('首帧未能安全从回收站恢复')
+    from infra.storage_maintenance import (recycle_base, recycle_paths, restore_latest_recycled_child,
+                                          restore_latest_recycled_path, restore_recycle_batch)
     previous = dict(shot)
-    try:
-        shot['frame'] = dest.relative_to(base).as_posix()
+    relative = dest.relative_to(base).as_posix()
+    def publish_restored():
+        shot['frame'] = relative
         shot.pop('frame_deleted', None)
+        shot.pop('frame_recycle_batch', None)
         publish(source, episode)
+    batch = previous.get('frame_recycle_batch')
+    restored = []
+    try:
+        if batch:
+            restored = restore_recycle_batch(base, recycle_base(base) / batch, (relative,),
+                                             after_moves=publish_restored)
+        else:
+            # 旧索引没有批次号。标准名还须兼容早期“历史版本”；其他名称只按原路径查找。
+            if dest == frames / (sid + '.png'):
+                restored = restore_latest_recycled_child(base, frames, sid, ('.png',))
+            else:
+                restored = restore_latest_recycled_path(base, dest)
+            if restored != [dest] or not dest.is_file():
+                raise OSError('首帧未能安全从回收站恢复')
+            publish_restored()
     except Exception:
         shot.clear()
         shot.update(previous)
-        recycle_paths(base, (dest,), '恢复首帧失败回收')
+        if restored and not batch:
+            recycle_paths(base, (dest,), '恢复首帧失败回收')
         raise
     return dest
 
@@ -156,6 +175,7 @@ def replace_keyframe(base, source, episode, shot, data, *, publish=None, publish
         def update_index(_target):
             shot['frame'] = dest.relative_to(base).as_posix()
             shot.pop('frame_deleted', None)
+            shot.pop('frame_recycle_batch', None)
             shot['frame_evidence'] = evidence
             publish_episode(source, episode)
 

@@ -641,6 +641,18 @@ class ToolTests(unittest.TestCase):
         out = skill_tools.call('storyboard.validate', context)
         self.assertEqual(out['shot_count'], 7)
         self.assertEqual(len(calls), 1)
+def complete_prerequisites(case, orch, target):
+    """模拟已产出结果的前置步骤，真实执行本用例关心的 SKILL。"""
+    execute = orch.execute
+    def run(sid, context):
+        if sid == target:
+            return execute(sid, context)
+        return orch._result(sid, 'done', True)
+    patcher = mock.patch.object(orch, 'execute', side_effect=run)
+    patcher.start()
+    case.addCleanup(patcher.stop)
+
+
 class OrchestratorTests(unittest.TestCase):
     def orchestrator(self, **kwargs):
         holder = tempfile.TemporaryDirectory()
@@ -674,7 +686,11 @@ class OrchestratorTests(unittest.TestCase):
             write_skill(stage_dir, 'ring-b', stage='资产管理', depends='ring-a')
             orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root))
             dag = orch.buildDAG(['ring-a', 'ring-b'])
-            self.assertEqual(len(dag['layers']), 1)
+            self.assertEqual(dag['layers'], [])
+            with mock.patch.object(orch, 'execute') as execute:
+                run = orch.run(['ring-a'])
+            execute.assert_not_called()
+            self.assertFalse(run['ok'])
             self.assertIn('成环', '；'.join(dag['problems']))
 
     def test_validate_catches_unknown_conflict_and_budget(self):
@@ -704,11 +720,86 @@ class OrchestratorTests(unittest.TestCase):
     def test_run_reports_page_and_input_without_calling_them_failures(self):
         orch = self.orchestrator()
         run = orch.run(['storyboard-pacing-check'], {'project': '.'})
-        self.assertTrue(run['ok'])
+        self.assertFalse(run['ok'])
         self.assertEqual(run['failed'], [])
         statuses = set(row['status'] for row in run['results'])
         self.assertTrue({'page', 'input'} & statuses, statuses)
-        self.assertIn('要您回页面', run['text'])
+        self.assertIn('等待前置步骤', run['text'])
+
+    def test_dependencies_block_only_descendants(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            for sid, dep in [('first', ''), ('second', 'first'), ('third', 'second'), ('solo', '')]:
+                write_skill(root / '05资产管理SKILL', sid, stage='资产管理', depends=dep)
+            orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root))
+            for state in ('failed', 'pending', 'input', 'page', 'budget'):
+                def execute(sid, ctx):
+                    return orch._result(sid, state if sid == 'first' else 'done', sid != 'first')
+                with self.subTest(state=state), mock.patch.object(orch, 'execute', side_effect=execute) as work:
+                    run = orch.run(['third', 'solo'])
+                    self.assertCountEqual([call.args[0] for call in work.call_args_list], ['first', 'solo'])
+                    self.assertFalse(run['ok'])
+                    self.assertEqual([r['skill'] for r in run['results'] if r['status'] == 'blocked'],
+                                     ['second', 'third'])
+            def first_attempt(sid, context):
+                return orch._result(sid, 'failed' if sid == 'first' else 'pending', False)
+            with mock.patch.object(orch, 'execute', side_effect=first_attempt):
+                first = orch.run(['third', 'solo'])
+            with mock.patch.object(orch, 'execute', side_effect=lambda sid, ctx: orch._result(sid, 'done', True)) as work:
+                again = orch.retry(first)
+                self.assertFalse(again['ok'])
+                self.assertEqual(again['outcome'], 'partial')
+                self.assertEqual([r['skill'] for r in again['pending']], ['solo'])
+                self.assertEqual([c.args[0] for c in work.call_args_list], ['first', 'second', 'third'])
+                self.assertFalse(orch.retry(again)['ok'])
+                complete = orch.resume_confirmed(again, again['pending'], {})
+                self.assertTrue(complete['ok'])
+                self.assertEqual([c.args[0] for c in work.call_args_list], ['first', 'second', 'third', 'solo'])
+
+    def test_template_stops_on_unfinished_skill_before_dependent(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            for name, dep in [('upstream', ''), ('downstream', 'upstream')]:
+                write_skill(root / '05资产管理SKILL', name, stage='资产管理', depends=dep)
+            orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root), project=td)
+            with mock.patch.object(orch, 'execute', return_value=orch._result('upstream','page',True)) as work:
+                run = orch.run_stage_with_template('assets', names=['downstream','upstream'], mode='auto')
+            self.assertFalse(run['ok'])
+            self.assertEqual([c.args[0] for c in work.call_args_list], ['upstream'])
+
+    def test_template_omitted_dependency_and_paid_resume(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            for sid, dep in [('a', ''), ('b', 'a'), ('c', 'b')]:
+                write_skill(root / '05资产管理SKILL', sid, stage='资产管理', depends=dep)
+            orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root), project=td)
+            calls = []
+            def execute(sid, context):
+                calls.append(sid)
+                status = 'pending' if sid == 'b' and calls.count('b') == 1 else 'done'
+                return orch._result(sid, status, status == 'done')
+            with mock.patch.object(orch, 'execute', side_effect=execute):
+                missing = orch.run_stage_with_template('assets', names=['c'], mode='auto')
+                self.assertFalse(missing['ok'])
+                self.assertEqual(calls, [])
+                run = orch.run_stage_with_template('assets', names=['c', 'b', 'a'], mode='auto')
+                self.assertEqual([r['skill'] for r in run['pending']], ['b'])
+                finished = orch.resume_confirmed(run, run['pending'], {})
+            self.assertTrue(finished['ok'])
+            self.assertEqual(calls, ['a', 'b', 'b', 'c'])
+
+    def test_budget_preflight_checks_combined_demand(self):
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            for sid in ('left', 'right'):
+                write_skill(root / '05资产管理SKILL', sid, stage='资产管理', tool='asset.generate')
+            budget = skill_budget.Budget(config={'images_per_project': 1})
+            orch = skill_orchestrator.Orchestrator(registry=skill_registry.Registry(root=root), budget=budget)
+            with mock.patch.object(orch, 'execute') as work:
+                run = orch.run(['left', 'right'])
+            work.assert_not_called()
+            self.assertEqual(run['cost'], {'images': 2})
+            self.assertEqual(run['outcome'], 'budget')
 
     def test_before_step_persists_a_recoverable_checkpoint(self):
         orch = self.orchestrator()
@@ -746,12 +837,14 @@ class OrchestratorTests(unittest.TestCase):
         self.assertIn('步骤 3/4：生成缺失的正典板', messages[1])
         self.assertIn('[继续/跳过/重做]', messages[2])
         resumed_skill = orch.registry.getByStage('assets')[resumed - 1].name
+        complete_prerequisites(self, orch, resumed_skill)
         orch.run([resumed_skill], {'project': '.'})
         saved = json.loads((Path(orch.project) / 'sanhu_project_status.json').read_text(encoding='utf-8'))
         self.assertEqual(saved['checkpoint']['step'], 3)
 
     def test_paid_skill_waits_for_a_nod(self):
         orch = self.orchestrator()
+        complete_prerequisites(self, orch, 'firstframe-batch')
         run = orch.run(['firstframe-batch'], {'project': '.', 'at': NOON})
         self.assertEqual([row['skill'] for row in run['pending']], ['firstframe-batch'])
         self.assertFalse(run['pending'][0]['queued'])
@@ -764,6 +857,7 @@ class OrchestratorTests(unittest.TestCase):
         bubbles = []
         bus.subscribe('notify.aggregate', lambda item: bubbles.append(item['text']))
         orch = self.orchestrator(bus=bus)
+        complete_prerequisites(self, orch, 'firstframe-batch')
         run = orch.run(['firstframe-batch'], {'project': '.', 'at': MIDNIGHT})
         self.assertTrue(run['pending'][0]['queued'])
         self.assertIn('排上队', orch.pending_confirmations()[0]['text'])
@@ -772,12 +866,14 @@ class OrchestratorTests(unittest.TestCase):
 
     def test_confirm_all_approves_and_the_next_run_goes_through(self):
         orch = self.orchestrator()
+        complete_prerequisites(self, orch, 'firstframe-batch')
         orch.run(['firstframe-batch'], {'project': '.', 'at': NOON})
         rows = orch.confirm_all(True)
         self.assertEqual([row['skill'] for row in rows], ['firstframe-batch'])
         self.assertEqual(orch.pending_confirmations(), [])
         self.assertIn('firstframe-batch', orch.approved)
-        again = orch.run(['firstframe-batch'], {'project': '.', 'at': NOON})
+        again = orch.run(['firstframe-batch'], {'project': '.', 'at': NOON,
+                                               'tools': {'firstframe.batchGenerate': lambda ctx: {'ok': True}}})
         self.assertEqual(again['pending'], [])
         self.assertTrue(again['ok'])
 
@@ -789,6 +885,7 @@ class OrchestratorTests(unittest.TestCase):
             raise RuntimeError('这一步炸了')
 
         orch = self.orchestrator()
+        complete_prerequisites(self, orch, 'firstframe-batch')
         first = orch.run(['firstframe-batch'], {'project': '.', 'confirm': True, 'at': NOON,
                                                 'tools': {'firstframe.batchGenerate': boom}})
         self.assertIn('firstframe-batch', first['failed'])
@@ -796,7 +893,7 @@ class OrchestratorTests(unittest.TestCase):
         again = first.retry_failed({'project': '.', 'confirm': True, 'at': NOON, 'tools': {}})
         self.assertEqual(again['retried'], ['firstframe-batch'])
         self.assertEqual(again['failed'], [])
-        # 重跑时依赖会连带展开（幂等），但那一步坏活只重试了一次
+        # 已成功的依赖不重复执行。
         self.assertEqual(calls, ['boom'])
 
     def test_run_reports_events_for_the_ui(self):
@@ -1709,6 +1806,7 @@ class PetIntegrationTests(unittest.TestCase):
     def test_settle_paid_asks_once_and_carries_on(self):
         orch = skill_panel.build_orchestrator(self.fake, self.fake.root)
         context = {'project': str(self.fake.root), 'at': NOON}
+        complete_prerequisites(self, orch, 'firstframe-batch')
         run = orch.run(['firstframe-batch'], context)
         self.assertTrue(run['pending'])
         out = self.pet.settle_paid(orch, run, list(run['pending']), context)

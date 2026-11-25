@@ -24,6 +24,7 @@ from functools import wraps
 import logging
 
 from agent.core import read_json
+from agent.publication import access
 from contract.service_contract import SystemError, success
 
 FILE_NAME = '资产续跑台账.json'
@@ -84,6 +85,7 @@ def attempts(project, ids=None):
 
 
 @_ledger_result
+@access()
 def note_round(project, ids, limit=None, now=None, *, publish=None):
     """一轮跑完还有缺图：只留还在等图的编号，逐个「次数＋1」并写下下次退避的挂钟时刻。
 
@@ -116,18 +118,14 @@ def _dual_write(project, data):
     try:
         from infra.job_store import open_store
         with open_store(project) as store:
-            for job in store.list():
-                if job['key'] not in data and job['state'] != 'succeeded':
-                    store.mirror(job['key'], job['kind'], attempts=job['attempts'],
-                                 next_try=None, state='succeeded')
-            for aid, entry in data.items():
-                store.mirror(aid, 'asset_resume', attempts=entry['attempts'],
-                             next_try=entry['next_try'],
-                             state='retrying' if entry['state'] == 'waiting' else 'stopped')
+            store.sync_mirror('asset_resume', {
+                aid: dict(entry, state='retrying' if entry['state'] == 'waiting' else 'stopped')
+                for aid, entry in data.items()})
     except (OSError, sqlite3.Error):
         logging.getLogger('asset_resume').exception('作业库双写失败（旧台账不受影响）')
 
 
+@access()
 def consistency_report(project):
     """I19-2 一致性检查：旧台账与作业库的差异报告（missing/field_diffs）。"""
     from infra.job_store import open_store
@@ -138,7 +136,7 @@ def consistency_report(project):
               for aid, entry in ledger.items()}
     with open_store(project) as store:
         return store.reconcile(
-            mapped, state_map={'waiting': 'retrying', 'stopped': 'stopped'})
+            mapped, kind='asset_resume', state_map={'waiting': 'retrying', 'stopped': 'stopped'})
 
 
 def delay(project, now=None):
@@ -152,6 +150,7 @@ def delay(project, now=None):
 
 
 @_ledger_result
+@access()
 def clear(project):
     """受控清除台账；底层拒绝或删除失败必须返回失败，不再静默丢弃。"""
     from infra.storage_maintenance import clear_generated_workflow_state
@@ -159,4 +158,5 @@ def clear(project):
     if not clear_generated_workflow_state(project, path(project), FILE_NAME):
         logging.getLogger('asset_resume').error('资产续跑台账清除被拒绝或失败')
         return SystemError('资产续跑台账未清除，请检查文件权限和目录边界后重试。')
+    _dual_write(project, {})
     return success()

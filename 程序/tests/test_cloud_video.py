@@ -96,6 +96,27 @@ class SessionPublicationTests(unittest.TestCase):
             self.assertEqual(json.loads((root / 'session' / 'config.json').read_text(encoding='utf-8'))['model'], 'm1')
             self.assertEqual(json.loads((root / 'ui_settings.json').read_text(encoding='utf-8'))['cloud_video_workspace'], 'cloud_video/session')
 
+    def test_second_write_failure_restores_existing_or_absent_session_config(self):
+        from agent.core import save
+        from orchestrator import stage_gate_gateways as gateways
+        for existing in (True, False):
+            with self.subTest(existing=existing), tempfile.TemporaryDirectory() as td:
+                config, prefs = Path(td) / 'config.json', Path(td) / 'ui_settings.json'
+                save(prefs, {'workspace': 'old'})
+                if existing:
+                    save(config, {'model': 'old'})
+                def publish(path, data):
+                    if path == prefs:
+                        raise OSError('模拟写失败')
+                    save(path, data)
+                with patch.object(gateways, 'cloud_video_gateway', return_value={'publish_json': publish}):
+                    with self.assertRaises(ValueError):
+                        gateways.publish_cloud_video_session_config(config, {'model': 'new'}, prefs, {})
+                self.assertEqual(json.loads(prefs.read_text(encoding='utf-8')), {'workspace': 'old'})
+                self.assertEqual(config.exists(), existing)
+                if existing:
+                    self.assertEqual(json.loads(config.read_text(encoding='utf-8')), {'model': 'old'})
+
     def test_publishes_studio_config(self):
         from cloud_video_service import publish_studio_config
         with tempfile.TemporaryDirectory() as td:

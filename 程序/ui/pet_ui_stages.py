@@ -706,11 +706,7 @@ class PetStagesMixin:
             orch.confirm_all(False)
             return run
         orch.confirm_all(True)
-        again = orch.run([row['skill'] for row in pending], context, trigger='auto')
-        run['text'] = str(run.get('text') or '') + '\n' + str(again.get('text') or '')
-        run['results'] = list(run.get('results') or []) + list(again.get('results') or [])
-        run['failed'] = list(run.get('failed') or []) + list(again.get('failed') or [])
-        return run
+        return orch.resume_confirmed(run, pending, context)
     def start_level(self):
         """开机那一档（第 67 期任务 4）：一律「只提醒」，用户上一次选的档不沿用。
 

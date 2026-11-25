@@ -1,0 +1,15 @@
+{
+  "round": 4509,
+  "commit_base": "0a4001490",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_artifact_index test_job_store",
+    "exit": 0,
+    "passed": 29,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T21:09:16"
+}

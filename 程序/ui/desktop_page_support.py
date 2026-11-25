@@ -28,6 +28,19 @@ ASSET_ROWS_PER_FRAME=12
 # 又不会在首次绘制时为 48 张图同时登记缩略图任务。余项随后按帧补齐。
 ASSET_FIRST_ROWS=24
 
+def flush_script_editor(page):
+    """在换项目、拆页或关闭窗口前保存仍在编辑的正文；失败时保留现场。"""
+    session = getattr(page, 'script_structure_editor_preview_edit_session', None)
+    if session is not None and session.editing:
+        try:
+            session.flush_save(session.preview.get('1.0', 'end-1c'))
+            session.cancel_pending()
+        except (OSError, ValueError) as exc:
+            page.status.set('剧本未能保存，请保留当前编辑并重试：' + str(exc))
+            return False
+    return True
+
+
 def _prefs(path):
     if not path:return {}
     # 这里故意用不缓存的 agent.core.read：调用方（当前分镜、资产范围、视频模式）会就地改这份

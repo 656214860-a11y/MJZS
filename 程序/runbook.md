@@ -66,7 +66,7 @@
 
 ## 5. 升级、备份与回滚
 
-- 发布流程以 `docs/process/发布检查单.md` 为准；安装后对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位（旧文档里的 `reorganize_install.py`／`install_release.py` 仓库里已不存在）。
+- 发布流程以 `docs/process/发布检查单.md` 为准；安装后对照 `安装信息.json` 与 `distribution_manifest.md` 核对落位。根目录 `reorganize_install.py` 已停用，手工调用只提示当前发布流程。
 - 当前没有在线自动更新器；程序更新采用全新空目录并列构建、校验后人工切换，旧发布目录至少保留一个完整使用周期。程序版本回退切回旧发布目录；开发源码撤销才使用独立 `git revert`。
 - 用户项目数据不靠 Git 回滚。版本化产物迁移使用 `contract.artifact_schema` 的同目录 `.bak`、原子发布与读回断言；迁移失败恢复 `.bak`，未来 schema 拒写。完整步骤与发布门见 `docs/review/安装更新与恢复方案_A15.md`。
 - 历史 `升级备份/` 与解释器 `.bak_*` 不进入发布包，也不把整目录备份机制重新引入源码提交。

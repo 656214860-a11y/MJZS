@@ -1270,9 +1270,9 @@
    },
    {
     "file": "domain/account_client.py",
-    "point": "_read_json:json.loads:f29dc5e7efbf117e:1",
+    "point": "_read_json:json.loads:fc66c8571fec0d11:1",
     "disposition": "exempt",
-    "reason": "R1895：解析账号服务 HTTP 响应体，不读取文件。"
+    "reason": "R4509：在长度和完整性校验后解析账号服务 HTTP 响应体，不读取文件。"
    },
    {
     "file": "orchestrator/storyboard_direct_api.py",

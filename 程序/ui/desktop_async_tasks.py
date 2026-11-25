@@ -15,6 +15,7 @@ class AsyncTasksMixin:
     def async_(self,fn,done=None,show_progress=True,label=None):
         self._async_ticket+=1;ticket=self.background_tasks.submit(self._async_ticket,label=label,project=getattr(self,'root',None))
         self.worker=True
+        self._active_async_fn = fn
         self.busy_state.set_busy(True, message=label or '正在处理… 界面保持响应')
         def run():
             try:self.q.put((ticket,True,self.background_tasks.run(ticket,fn),done))
@@ -43,6 +44,11 @@ class AsyncTasksMixin:
         position=self.task_queue.enqueue(fn,done,label or '',show_progress,retryable)
         self.status.set('已排队（第%d个）：%s'%(position,label or '后台任务'))
         return None
+    def async_task_pending(self, fn):
+        if getattr(self, '_active_async_fn', None) is fn:
+            return self.background_tasks.accepts(self._async_ticket)
+        return self.task_queue.contains_work(fn)
+
     def async_descriptor(self,kind,payload,*,label='',priority=0,expires_at=None):
         task_id=self.task_queue.enqueue_descriptor(kind,payload,label=label,priority=priority,expires_at=expires_at)
         self.status.set('已排队：'+label)
@@ -116,6 +122,8 @@ class AsyncTasksMixin:
         except queue.Empty:pass
         try:
             ticket,ok,value,done=self.q.get_nowait()
+            if ticket == self._async_ticket:
+                self._active_async_fn = None
             was_active=self.background_tasks.accepts(ticket)
             if not self.background_tasks.finish(ticket, succeeded=ok, error='' if ok else str(value)) or ticket!=self._async_ticket:
                 if was_active and ticket==self._async_ticket:
@@ -124,16 +132,23 @@ class AsyncTasksMixin:
                     self._start_next_queued()
                 return
             self.worker=False;self.busy_state.set_busy(False)
-            if ok and done:done(value)
-            elif ok:self.status.set(str(value))
-            elif not ok:self._async_failed(value)
-            # 自动链派到结构剧本时，若恰有另一项后台工作在收尾，不能把这次
-            # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
-            # 仍走 L3 注册器重新启动，避免在 UI 层复制派发逻辑或无限重试。
-            if getattr(self, '_auto_structure_retry', False) and not self.worker:
-                self._auto_structure_retry=False
-                try:self.pet_start('script_structure')
+            try:
+                if ok and done:done(value)
+                elif ok:self.status.set(str(value))
+                else:self._async_failed(value)
+            except Exception:
+                app_logging.swallowed()
+                self.status.set('后台任务已结束，界面结果回调失败。')
+            finally:
+                try:
+                    # 恢复自动派发时，不能把另一项后台工作造成的
+                    # 暂时占用误判成永久失败。只保留一个待派发标记；当前队列清空后
+                    # 仍由阶段注册器启动结构剧本。
+                    if getattr(self, '_auto_structure_retry', False) and not self.worker:
+                        self._auto_structure_retry=False
+                        self.pet_start('script_structure')
                 except (OSError, ValueError, KeyError, TypeError) as exc:
                     self.status.set('自动恢复结构剧本暂缓：'+str(exc))
-            self._start_next_queued()
+                finally:
+                    self._start_next_queued()
         except queue.Empty:pass

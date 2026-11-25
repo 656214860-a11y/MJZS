@@ -88,10 +88,12 @@ def cloud_video_saved_provider_key(project, kind, providers, remembered=None, ba
 
 
 def publish_cloud_video_session_config(config_path, config, prefs_path, prefs):
+    from agent.publication import transaction
     from domain.cloud_video_service import publish_session_config
-    result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
-    if not result.ok:
-        raise ValueError(result.reason)
+    with transaction():
+        result = publish_session_config(config_path, config, prefs_path, prefs, gateway=cloud_video_gateway())
+        if not result.ok:
+            raise ValueError(result.reason)
     return result.data
 
 

@@ -359,7 +359,7 @@ def _recycle_paths(root, paths, reason, now, after_moves):
     return moved
 
 
-def restore_recycle_batch(root, batch, sources=None):
+def restore_recycle_batch(root, batch, sources=None, *, after_moves=None):
     """恢复一个回收批次的文件或目录，目标冲突或清单异常时零移动。
 
     兼容自动维护的 ``items`` 清单和分镜页早期的 ``files`` 清单。批次必须位于当前
@@ -410,6 +410,15 @@ def restore_recycle_batch(root, batch, sources=None):
         moves.append((source, target))
     if not moves:
         raise ValueError('回收站中没有可恢复的指定文件')
+    if after_moves is not None:
+        from agent.publication import recycle_file, transaction
+        with transaction():
+            for source, target in moves:
+                target.parent.mkdir(parents=True, exist_ok=True)
+                recycle_file(source, target)
+            after_moves()
+        recycled(moves)
+        return [target for _source, target in moves]
     moved = []
     try:
         for source, target in moves:
@@ -460,6 +469,21 @@ def rollback_recycle_batch(root, batch):
     return restored
 
 
+def _recent_recycled_sources(root):
+    """Newest first, yielding validated batch paths and their recorded original names."""
+    base = _recycle_base(root)
+    if not base.is_dir():
+        return
+    for batch in sorted((item for item in base.iterdir() if item.is_dir()), key=lambda item: item.name, reverse=True):
+        try:
+            manifest = read_recycle_batch(root, batch)
+        except (OSError, ValueError):
+            continue
+        if manifest['state'] != BATCH_ROLLED_BACK:
+            for item in manifest['items']:
+                yield batch, item['source']
+
+
 def restore_latest_recycled_path(root, path):
     """仅恢复 ``path`` 最近一次回收记录，不连带恢复同批其他用户文件。"""
     root = Path(root).resolve()
@@ -467,19 +491,8 @@ def restore_latest_recycled_path(root, path):
     if not _within(target, root):
         raise ValueError('恢复目标超出当前项目范围')
     relative = target.relative_to(root).as_posix()
-    base = _recycle_base(root)
-    if not base.is_dir():
-        raise ValueError('没有可恢复的删除记录')
-    for batch in sorted((item for item in base.iterdir() if item.is_dir()), key=lambda item: item.name, reverse=True):
-        manifest = batch / '恢复位置.json'
-        try:
-            data = read_json(manifest)
-        except (OSError, ValueError):
-            continue
-        if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
-            continue                                   # 已撤回的批次不是可恢复内容
-        rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
-        if any(isinstance(row, dict) and str(row.get('source', row.get('original', ''))).replace('\\', '/') == relative for row in rows):
+    for batch, recorded in _recent_recycled_sources(root):
+        if recorded == relative:
             return restore_recycle_batch(root, batch, sources=(relative,))
     raise ValueError('没有可恢复的删除记录')
 
@@ -491,24 +504,10 @@ def restore_latest_recycled_child(root, parent, stem, suffixes):
     if not _within(parent, root):
         raise ValueError('恢复目录超出当前项目范围')
     allowed = {str(suffix).lower() for suffix in suffixes}
-    base = _recycle_base(root)
-    if base.is_dir():
-        for batch in sorted((item for item in base.iterdir() if item.is_dir()), key=lambda item: item.name, reverse=True):
-            manifest = batch / '恢复位置.json'
-            try:
-                data = read_json(manifest)
-            except (OSError, ValueError):
-                continue
-            if isinstance(data, dict) and str(data.get('state') or '') == BATCH_ROLLED_BACK:
-                continue                               # 已撤回的批次不是可恢复内容
-            rows = data.get('items', data.get('files', [])) if isinstance(data, dict) else []
-            for row in rows:
-                if not isinstance(row, dict):
-                    continue
-                relative = str(row.get('source', row.get('original', ''))).replace('\\', '/')
-                target = (root / relative).resolve()
-                if target.parent == parent and target.stem == str(stem) and target.suffix.lower() in allowed:
-                    return restore_recycle_batch(root, batch, sources=(target.relative_to(root).as_posix(),))
+    for batch, relative in _recent_recycled_sources(root):
+        target = (root / relative).resolve()
+        if target.parent == parent and target.stem == str(stem) and target.suffix.lower() in allowed:
+            return restore_recycle_batch(root, batch, sources=(relative,))
     # 旧版资产图片在同目录“历史版本”中留存，尚未具备回收站清单。只读兼容该历史：
     # 新删除始终走 recycle_paths()，这里绝不向旧目录写入或批量搬运。
     history = parent / '历史版本'
