@@ -78,6 +78,7 @@ def _say(desktop, text):
             status.set(str(text))
         except Exception:
             app_logging.swallowed()
+    getattr(desktop, 'reply_note', lambda *a, **k: None)('progress', current_stage(desktop), text)
 
 
 def upstream_send_error(project, stage, status=None):
@@ -141,7 +142,7 @@ def upstream_send_error(project, stage, status=None):
 
 
 def _notify_error(desktop, text):
-    notifier = getattr(desktop, 'notifier', None)
+    notifier = getattr(desktop, 'notifier', None); getattr(desktop, 'reply_note', lambda *a, **k: None)('error', current_stage(desktop), text)
     error = getattr(notifier, 'error', None)
     if callable(error):
         try:
@@ -617,7 +618,7 @@ def _finish_stage_file_ui(desktop, stage, job):
         except Exception:
             app_logging.swallowed()
     text = '「%s」已按技能输出文件：%s' % (label, target.name if target is not None else '')
-    _say(desktop, text)
+    _say(desktop, text); getattr(desktop, 'reply_note', lambda *a, **k: None)('artifact', stage, text, path=str(target) if target is not None else '', title=target.name if target is not None else '')
     if hasattr(desktop, 'pet_report'):
         try:
             desktop.pet_report(stage, text)
@@ -906,7 +907,7 @@ def _send_skill(desktop, stage, parsed):
 
 def send(desktop, stage, text, parsed):
     """共享输入框 ``on_send``：返回真值＝已受理（输入框随即清空）。"""
-    stage = str(stage or '') or current_stage(desktop)
+    stage = str(stage or '') or current_stage(desktop); getattr(desktop, 'reply_note', lambda *a, **k: None)('user', stage, text)
     if isinstance(parsed, dict):
         kind = parsed.get('kind')
         if kind == 'stage':

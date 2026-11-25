@@ -1,0 +1,15 @@
+{
+  "round": 4480,
+  "commit_base": "05a2dcc24",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_reply shared_send shared_input part_renderers desktop_compact_layout",
+    "exit": 0,
+    "passed": 208,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T16:31:22"
+}

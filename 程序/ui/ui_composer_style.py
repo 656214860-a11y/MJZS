@@ -89,3 +89,9 @@ def install_composer_styles(style, root, configure_button):
     for name in ("Tokens.Composer.Icon.TButton", "Tokens.Composer.Send.TButton",
                  "Tokens.Composer.Model.TButton"):
         style.configure(name, background=card)
+    # UX-REPLY-AREA：第 2–13 页「过程与回话区」——卡片底上的标题行与最新摘要。
+    style.configure("ReplyArea.TFrame", background=card)
+    style.configure("ReplyArea.Title.TLabel", background=card,
+                    foreground=COLORS["text_secondary"], font=FONTS["hint"])
+    style.configure("ReplyArea.Summary.TLabel", background=card,
+                    foreground=COLORS["text_muted"], font=FONTS["hint"])
