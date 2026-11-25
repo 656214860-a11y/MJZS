@@ -9,6 +9,7 @@ import unittest
 import unittest.mock
 import tk_test_support
 import sys
+from tkinter import ttk
 from pathlib import Path
 
 sys.path.insert(0,str(Path(__file__).resolve().parents[1]))
@@ -86,6 +87,27 @@ class LoginGateTests(unittest.TestCase):
         self.assertTrue(self.desktop.login_gate_active)
         self.assertTrue(self.desktop.login_gate.winfo_exists())
         self.assertEqual(started,[])
+
+    def test_gate_form_compact_contract(self):
+        """REQ-UI-L5-1：登录面板——邮箱＋口令、一个强调色主按钮、文字式次要入口；
+        错误提示在输入框下方。"""
+        d=self.desktop
+        self.use(_Client())
+        started=[]
+        d.begin_startup_or_login(True,lambda:started.append(1));self.pump()
+        gate=d.login_gate
+        self.assertTrue(gate.winfo_exists())
+        primaries=[w for w in _walk(gate) if isinstance(w,ttk.Button)
+                   and str(w.cget('style'))=='Tokens.Primary.TButton'
+                   and w.winfo_ismapped()]
+        self.assertEqual([str(b.cget('text')) for b in primaries],['登录'],
+                         '登录面板只保留一个强调色主按钮')
+        for name in ('account_forgot_button','account_use_code_button'):
+            self.assertEqual(str(getattr(d,name).cget('style')),'Tokens.Text.TButton',
+                             '%s 是次要入口，用文字样式' % name)
+        self.assertGreater(d.account_message.winfo_rooty(),
+                           d.account_password_input.winfo_rooty(),
+                           '错误提示在输入框下方一行')
 
     def test_gate_closes_visible_cloud_via_public_pet_api(self):
         class Pet:                                   # 只有公开接口，没有 _cloud

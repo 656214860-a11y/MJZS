@@ -6,6 +6,7 @@ import unittest
 import tk_test_support
 import unittest.mock
 import tkinter as tk
+from tkinter import ttk
 import sys
 from pathlib import Path
 
@@ -94,6 +95,33 @@ class AccountPageTests(unittest.TestCase):
         d.account_redeem_input.insert(0,'ABCD-EFGH-JKMN-PQRS');d.account_redeem_button.invoke();self.pump()
         self.assertIn('套餐：季度会员',_texts(d.content))
         self.assertIn('90 天',d.status.get())
+
+    def test_signed_in_view_compact_contract(self):
+        """REQ-UI-L5-1：已登录视图——一个强调色主按钮；低频工具入口文字样式；
+        「注销账号」危险样式且单独一组。"""
+        d=self.desktop
+        store=self.use(_Client())
+        from infra import account_store
+        account_store.save_session({'email':'a@b.c','refresh_token':'r',
+                                    'lease':sign(payload()),'server_time':NOW},store.path)
+        d.go_page(PAGE_ACCOUNT);self.pump()
+        self.assertIn('当前状态：授权有效',_texts(d.content))
+        renew=[w for w in _walk(d.content) if _safe_text(w)=='立即续签']
+        self.assertEqual(str(renew[0].cget('style')),'Tokens.Primary.TButton')
+        self.assertNotEqual(str(d.account_redeem_button.cget('style')),'Tokens.Primary.TButton',
+                            '「兑换」是次要入口，不占主按钮位')
+        tools=d.account_tool_buttons
+        for key in ('password','devices','export'):
+            self.assertEqual(str(tools[key].cget('style')),'Tokens.Text.TButton',
+                             '%s 是低频入口，用文字样式' % key)
+        self.assertEqual(str(tools['delete'].cget('style')),'Tokens.Danger.TButton',
+                         '注销是危险操作，用危险样式')
+        self.assertNotEqual(str(tools['delete'].winfo_parent()),
+                            str(tools['password'].winfo_parent()),
+                            '危险操作单独一组，不与普通工具同容器')
+        logout=[w for w in _walk(d.content) if _safe_text(w)=='退出登录']
+        self.assertEqual(str(logout[0].cget('style')),'Tokens.Text.TButton')
+        d.account.logout();d.show(PAGE_ACCOUNT);self.pump()          # 还原成未登录页
 
     def test_membership_visibility_logged_out_and_expired(self):
         d=self.desktop

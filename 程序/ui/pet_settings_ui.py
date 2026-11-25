@@ -26,7 +26,8 @@ import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
 from ui_tokens import FONTS, SPACING, TEXT_DESC, TEXT_HINT
-from ui_widgets import BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox
+from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox,
+                        ask_confirmation)
 
 HUB_TITLE = '设置'
 # 齿轮是无参调用：没指定落在哪一格时，默认与分页行第一项「基础功能」一致。
@@ -155,6 +156,49 @@ def save_current(win):
     return None
 
 
+def save_and_close(win):
+    """REQ-UI-L5-1：保存＝写入并关闭；写入失败留在窗内，由那一格自己的 hint 报原因。"""
+    result = save_current(win)
+    if not result:
+        return result
+    if win.winfo_exists():
+        win.destroy()
+    return result
+
+
+def _fields_snapshot(seams):
+    """各页待保存变量的开扇快照：seam 里 fields／picked 字典中 Variable 的原值。"""
+    snap = {}
+    for key, seam in (seams or {}).items():
+        for group in ('fields', 'picked'):
+            values = (seam or {}).get(group)
+            if not isinstance(values, dict):
+                continue
+            for name, var in values.items():
+                if hasattr(var, 'get'):
+                    snap[(key, group, name)] = var.get()
+    return snap
+
+
+def hub_dirty(win):
+    """任一可保存页的变量与开扇快照不同：关窗前要先确认丢弃。"""
+    seams = getattr(win, '_pet_seams', None) or {}
+    for (key, group, name), value in (getattr(win, '_pet_saved', None) or {}).items():
+        var = ((seams.get(key) or {}).get(group) or {}).get(name)
+        if var is not None and var.get() != value:
+            return True
+    return False
+
+
+def request_close(win):
+    """关闭＝不保存；有未保存改动先问一次，拒绝留在窗内。Esc／窗口 X 同路。"""
+    if hub_dirty(win) and not ask_confirmation(
+            win, HUB_TITLE, '有未保存的改动，关闭后不会保存。确定关闭？'):
+        return False
+    win.destroy()
+    return True
+
+
 def _error(hint, message):
     """可恢复错误只写非模态提示，不弹模态框锁住整扇设置窗。"""
     return pet_models_ui.report_error(hint, message)
@@ -179,39 +223,43 @@ def open_hub(pet, tab=None):
     pet_models_ui.fit_to_main(win, parent, HUB_GEOMETRY, floor=HUB_MIN)
     win.minsize(*HUB_MIN)
     win.transient(parent or None)
-    win.bind('<Escape>', lambda event: win.destroy())
+    win.bind('<Escape>', lambda event: request_close(win))
     body = Card(win)
     body.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
     # 底部动作区先占住窗口底边：窗口被压矮时只压缩页面栈，保存／关闭不会掉出可视区。
     footer = ttk.Frame(body)
     footer.pack(side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none']))
-    save_button = PrimaryButton(footer, text='保存', command=lambda: save_current(win))
+    save_button = PrimaryButton(footer, text='保存', command=lambda: save_and_close(win))
     save_button.pack(side='right')
     # 还没选页时没有可保存内容：先置灰，select() 按落到的页决定是否恢复。
     save_button.state(['disabled'])
-    close_button = SecondaryButton(footer, text='关闭', command=win.destroy)
+    close_button = SecondaryButton(footer, text='关闭', command=lambda: request_close(win))
     close_button.pack(side='right', padx=(SPACING['none'], SPACING['sm']))
     ttk.Label(body, text=HUB_TITLE, font=FONTS['title']).pack(anchor='w')
     ttk.Label(body, text=NOTE_HUB, style='Muted.TLabel', wraplength=TEXT_DESC['wraplength']).pack(
         anchor='w', pady=(SPACING['xs'], SPACING['sm']))
-    # 第 48 期第 1 条：分页头改成自己的按钮行 —— 分页（Notebook）的头里塞不进别的控件，而用户要
-    # 「API统一配置」就摆在「三虎模型配置」右边；顺手把「目录」做成真正的按钮：当前那一格用
-    # Selected 样式亮着，点一下就切。
-    bar = ttk.Frame(body)
-    bar.pack(fill='x')
+    # REQ-UI-L5-1：分类收进左侧一列，竖分隔线右边放内容区；「API统一配置」照旧紧跟
+    # 「三虎模型配置」分类下面（原来是分页按钮行的同一排）。当前那一格用 Selected
+    # 样式亮着，点一下就切。
+    columns = ttk.Frame(body)
+    columns.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
+    nav = ttk.Frame(columns)
+    nav.pack(side='left', fill='y')
+    ttk.Separator(columns, orient='vertical').pack(
+        side='left', fill='y', padx=(SPACING['none'], SPACING['sm']))
+    stack = ttk.Frame(columns)
+    stack.pack(side='left', fill='both', expand=True)
     tabs = {}
     manager_button = None
     for key, title in TABS:
-        button = SecondaryButton(bar, text=title, command=lambda k=key: select(win, k))
-        button.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        button = SecondaryButton(nav, text=title, command=lambda k=key: select(win, k))
+        button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         tabs[key] = button
         if key == 'model':
-            # 第 51 期第 1 条：与同排的分页按钮同一格式（原来一个人用琥珀色的 Highlight）。
-            manager_button = SecondaryButton(bar, text=pet_models_ui.MANAGER_BUTTON,
+            # 第 51 期第 1 条：与同列的分类按钮同一格式（原来一个人用琥珀色的 Highlight）。
+            manager_button = SecondaryButton(nav, text=pet_models_ui.MANAGER_BUTTON,
                                              command=lambda: pet.open_model_manager())
-            manager_button.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
-    stack = ttk.Frame(body)
-    stack.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
+            manager_button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
     pages = {}
     for key, title in TABS:
         pages[key] = ttk.Frame(stack, padding=SPACING['md'])
@@ -227,11 +275,13 @@ def open_hub(pet, tab=None):
     seams['model']['manager'] = manager_button          # 那颗键还在这一扇窗里，只是换了一级
     win._pet_tabs = tabs
     win._pet_manager = manager_button
+    win._pet_nav = nav
     win._pet_pages = pages
     win._pet_seams = seams
     win._pet_footer = footer
     win._pet_save = save_button
     win._pet_close = close_button
+    win._pet_saved = _fields_snapshot(seams)
     select(win, tab or DEFAULT_TAB)
     return win
 
