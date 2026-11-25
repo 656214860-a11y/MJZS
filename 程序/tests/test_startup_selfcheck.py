@@ -799,6 +799,15 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 ui_widgets = _mod('ui_widgets')
                 ui_widgets.Splash = _Splash
                 ui_widgets.notify = lambda *a, **k: None
+                # 对齐 R4427（UX-L5-DIALOGS）desktop_launcher.py 顶层导入所需桩。
+                class _DialogStub:
+                    pass
+                ui_widgets.BaseDialog = _DialogStub
+                ui_widgets.DescriptionBlock = _DialogStub
+                ui_widgets.PrimaryButton = _DialogStub
+                ui_widgets.SecondaryButton = _DialogStub
+                ui_widgets.DIALOG_ACTION_GAP = 8
+                ui_widgets.SPACING = {'none': 0}
 
                 status_bus_mod = _load_real('ui_status_bus',
                                             program_dir + '/ui/ui_status_bus.py')
