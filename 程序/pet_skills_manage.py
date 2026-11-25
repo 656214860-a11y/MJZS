@@ -82,6 +82,7 @@ def _build_filter_bar(frame, state, apply_filter):
     ttk.Label(bar, text='筛选').pack(side='left')
     entry = LineInput(bar, textvariable=state['filter_text'])
     entry.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
+    Tooltip(entry, '按名称、说明或包内路径筛选；Ctrl+F 聚焦，Esc 清空文本。')
     source = SelectBox(bar, values=list(_SOURCE_FILTER_LABELS), state='readonly',
                        textvariable=state['source_filter'], fit=True)
     source.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
@@ -139,6 +140,14 @@ def _delete_block_reason(selected, state):
     return skill_lifecycle_service.skill_delete_block_reason(state['project'], selected.name)
 
 
+def _delete_tip_text(selected, reason):
+    if reason:
+        return reason
+    kind = selected.row.get('kind') if hasattr(selected, 'row') else ''
+    return ('将所选旧包整包移入回收站。' if kind == 'legacy'
+            else '将所选 SKILL 移入回收站。')
+
+
 def skills_page(frame, pet, width=None):
     """设置页「SKILL 管理」格；返回 seams（hint 供底部保存回退文案）。"""
     _page_title(frame, PAGE_TITLE, NOTE_MANAGE)
@@ -174,7 +183,7 @@ def skills_page(frame, pet, width=None):
     table.pack(fill='both', expand=True, pady=(SPACING['sm'], SPACING['none']))
     tree = table.tree
     tree.heading('#0', text='技能包 / 技能', anchor='w')
-    tree.column('#0', width=210, minwidth=150, stretch=True)
+    tree.column('#0', width=_COLUMNS[0][2], stretch=True)
     tree.configure(displaycolumns=list(_VISIBLE_COLUMNS))
 
     actions = ttk.Frame(frame)
@@ -195,14 +204,15 @@ def skills_page(frame, pet, width=None):
     delete.pack(side='left', padx=(SPACING['sm'], SPACING['none']))
     delete_tip = Tooltip(delete, '先在列表里选中一个 SKILL。')
 
-    detail = TextArea(frame, height=5, wrap='word', state='disabled')
+    detail = TextArea(frame, height=TEXT_ROWS['md'], wrap='word', state='disabled')
     detail.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     state['detail'] = detail
 
     def update_delete_state(_event=None):
-        reason = _delete_block_reason(_selected(tree, state), state)
+        selected_item = _selected(tree, state)
+        reason = _delete_block_reason(selected_item, state)
         delete.state(['disabled'] if reason else ['!disabled'])
-        delete_tip.text = reason or '将所选 SKILL 移入回收站。'
+        delete_tip.text = _delete_tip_text(selected_item, reason)
 
     def toggle_row(_event=None):
         item = tree.focus()
@@ -271,7 +281,7 @@ def skills_page(frame, pet, width=None):
                                               for k, v in sorted(counts.items()))
         if state['problems'] > 0:
             summary += '；另有全局问题/警告 %d 条' % state['problems']
-        hint.set(summary)
+        hint.set(summary + '。包内子技能随父包管理；阶段与来源只是列和筛选条件。')
 
     load(state, fill)
     return {'hint': hint, 'tree': tree, 'state': state, 'refresh': refresh,

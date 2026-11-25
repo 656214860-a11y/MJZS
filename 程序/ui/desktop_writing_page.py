@@ -278,6 +278,7 @@ class _WritingPage:
         self.page.idea_log=self.box
         self.page.idea_scroll=dialog_scroll
         self.page.idea_input=self.input_box
+        self.box._refresh_tag_colors=lambda widget,page=self.page:page.refresh_bubble_tag_colors(widget)
         self.page.queue_initial_brief_document(self.input_box,brief)
         # 先让 Text 用当前布局命中鼠标位置，再在空闲时重算高度；同步重排会让选区偏到上一行。
         self.box.bind('<Button-1>',lambda event:self.box.after_idle(self.refit_talk),add='+')

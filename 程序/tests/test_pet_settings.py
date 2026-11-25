@@ -415,6 +415,21 @@ class SettingsWindowTests(SettingsCase):
         self.assertEqual(pet_settings_ui.current(win), 'basic')
         self.assertEqual(str(win.focus_get()), str(basic))
 
+    def test_pages_build_lazily_and_are_reused_without_reloading(self):
+        """设置窗首帧只建落到的页；切走再切回复用同一页，不重读配置、不重启后台加载。"""
+        win = self.hub('basic')
+        self.assertIn('basic', win._pet_seams)
+        self.assertNotIn('model', win._pet_seams)
+        self.assertNotIn('skills', win._pet_seams)
+        pet_settings_ui.select(win, 'model')
+        model_seam = win._pet_seams['model']
+        self.assertNotIn('skills', win._pet_seams, '没打开过的 SKILL 页不得提前扫描')
+        pet_settings_ui.select(win, 'basic')
+        pet_settings_ui.select(win, 'model')
+        self.assertIs(win._pet_seams['model'], model_seam, '切回已建页必须复用，不能重复加载')
+        combos = self.walk(win._pet_pages['model'], self.ttk.Combobox)
+        self.assertEqual(len(combos), 4, '复用后的模型页四档下拉仍在')
+
     def test_token_controls_use_widths_chosen_by_value_kind(self):
         """枚举用短固定宽；数字短一些，模型名长一些，并行数很短；输入框不再被输入列拉满。"""
         win = self.hub('token')

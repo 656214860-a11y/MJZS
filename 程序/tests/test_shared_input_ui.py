@@ -1371,7 +1371,7 @@ class SharedInputFlowDefectTests(unittest.TestCase):
 
 class ComposerExtrasTests(unittest.TestCase):
     """REQ-S01-112/113/114（UX-CHAT-INPUT-EXTRAS）：占位统一前缀、附件明确文案、
-    续写提示条、快捷答复胶囊栏、发送键三态圆形视觉。"""
+    续写提示条、无静态动作说明行、发送键三态圆形视觉。"""
 
     def setUp(self):
         self.win = tk.Tk()
@@ -1499,43 +1499,35 @@ class ComposerExtrasTests(unittest.TestCase):
         self.win.update()
         self.assertEqual(box.extras.continue_bar.winfo_manager(), 'pack')
 
-    # ── REQ-S01-112：快捷答复胶囊栏 ──────────────────────────────────────
-    def test_quick_replies_fill_input_without_sending(self):
-        """REQ-S01-112：胶囊点击只填入输入框不自动发送；最多 3 条。"""
-        box = self._make(options={'on_quick_replies': lambda b: ('甲方案', '乙方案', '丙方案', '丁方案')})
+    # ── 共享输入框左下角不再放静态动作说明 ───────────────────────────────
+    def test_no_static_action_descriptions_below_icon_row(self):
+        """契约变更：图标下的快捷答复/动作说明行全局删除；✦／＋／🎤 图标入口保留。"""
+        box = self._make(options={'on_quick_replies': lambda b: ('生成自然剧本', '继续')})
         self.win.update()
-        buttons = [w for w in _descendants(box.extras.quick_bar)
-                   if w.winfo_class() == 'TButton']
-        self.assertEqual(len(buttons), input_extras.QUICK_REPLY_LIMIT)
-        buttons[0].invoke()
-        self.win.update()
-        self.assertEqual(box.input.get('1.0', 'end-1c'), '甲方案')
-        self.assertEqual(self.sent, [])
+        self.assertFalse(hasattr(box.extras, 'quick_bar'),
+                         '输入框图标行下不得再挂静态动作说明/快捷答复条')
+        icon_texts = {str(button.cget('text')) for button in
+                      (box.skill_button, box.attachment_button, box.voice_button)}
+        from ui_tokens import ICON_ADD, ICON_MICROPHONE, ICON_SKILL
+        self.assertEqual(icon_texts, {ICON_SKILL, ICON_ADD, ICON_MICROPHONE})
+        visible_texts = {str(w.cget('text')) for w in _descendants(box.input_card)
+                         if w.winfo_class() == 'TButton' and w.winfo_manager()}
+        self.assertNotIn('生成自然剧本', visible_texts)
+        self.assertNotIn('按结构剧本生成分镜', visible_texts)
 
-    def test_quick_replies_hide_on_typing_and_return_on_clear(self):
-        """REQ-S01-112：输入框有正文胶囊隐藏；清空后按需恢复。"""
-        box = self._make(options={'on_quick_replies': lambda b: ('继续',)})
+    def test_icon_commands_and_completion_survive_without_action_descriptions(self):
+        """删掉说明行后，图标命令与 ``/`` 实时筛选仍走原入口。"""
+        box = self._make(options={'on_quick_replies': lambda b: ('生成自然剧本',)})
+        box.open_skill_list()
+        self.assertTrue(box.skill_panel.is_open(), '技能图标仍打开原下拉面板')
+        box.close_completion()
+        box.set_text('/sto')
+        box.input.mark_set('insert', 'end-1c')
+        box._on_key_release(SimpleNamespace(keysym='o'))
         self.win.update()
-        self.assertEqual(box.extras.quick_bar.winfo_manager(), 'pack')
-        box.input.insert('1.0', '自己写')
-        self.win.update()
-        self.assertEqual(box.extras.quick_bar.winfo_manager(), '')
-        box.clear()
-        self.win.update()
-        self.assertEqual(box.extras.quick_bar.winfo_manager(), 'pack')
-
-    def test_quick_reply_rules_are_local_and_capped(self):
-        """REQ-S01-112：规则表纯本地判定——无项目/无法制锁提示/缺自然剧本建议。"""
-        self.assertEqual(input_extras.quick_reply_rules('script', {}), ())
-        rules = input_extras.quick_reply_rules(
-            'script', {'has_project': True, 'missing_locks': ('交付形态', '赛道'),
-                       'has_natural_script': False})
-        self.assertLessEqual(len(rules), input_extras.QUICK_REPLY_LIMIT)
-        self.assertTrue(any('制作锁' in text for text in rules))
-        self.assertIn(input_extras.QUICK_REPLY_SCRIPT, rules)
-        stage_rules = input_extras.quick_reply_rules(
-            'storyboard', {'has_project': True})
-        self.assertIn('按结构剧本生成分镜', stage_rules)
+        self.assertTrue(box.candidates.open, '斜杠候选仍实时筛选')
+        labels = [entry['label'] for entry in box.candidates.entries]
+        self.assertTrue(any('storyboard' in label for label in labels))
 
     # ── REQ-S01-112：发送键三态圆形视觉 ──────────────────────────────────
     def test_send_button_circular_art_three_states(self):

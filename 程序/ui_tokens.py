@@ -580,8 +580,8 @@ _DERIVED_SOURCES = {
 
 # 已导入模块在模块级把颜色绑成了自己的常量（`X = COLORS['k']` 或改过名的
 # `from ui_tokens import`）：切主题时按这张表回写。值是颜色键，或颜色键元组
-# （元组产元组，如 GEAR_COLOR）。只覆盖已 import 的模块；之后才 import 的
-# 模块本来就会绑到新值。
+# （元组产元组，如 GEAR_COLOR；嵌套 dict 产同形颜色表，如 SHAPE_COLORS）。
+# 只覆盖已 import 的模块；之后才 import 的模块本来就会绑到新值。
 _CONSUMER_BINDS = {
     'ui.ui_theme': {'BG': 'background_primary', 'INK': 'text_primary',
                     'ACCENT': 'primary'},
@@ -590,7 +590,11 @@ _CONSUMER_BINDS = {
                      'STATUS_INK': 'text_secondary', 'BG': 'background_primary',
                      'HINT_FG': 'text_muted', 'HINT_BG': 'background_card',
                      'CLOSE_FG': 'on_accent', 'CLOSE_BG': 'danger',
-                     'CLOSE_HOVER': 'primary_subtle'},
+                     'CLOSE_HOVER': 'primary_subtle',
+                     'SHAPE_COLORS': {'cloud': ('background_card', 'success'),
+                                      'puff': ('background_card', 'danger'),
+                                      'round': ('primary_subtle', 'primary'),
+                                      'tag': ('background_card', 'warning')}},
     'ui.pet_ui_support': {'CANVAS_BG': 'background_primary',
                           'GEAR_COLOR': ('primary', 'primary_pressed'),
                           'GEAR_HOVER': ('primary_hover', 'primary_pressed')},
@@ -630,6 +634,9 @@ def _sync_consumers():
         for attr, spec in binds.items():
             if isinstance(spec, tuple):
                 setattr(module, attr, tuple(COLORS[key] for key in spec))
+            elif isinstance(spec, dict):
+                setattr(module, attr, {name: tuple(COLORS[key] for key in pair)
+                                       for name, pair in spec.items()})
             else:
                 setattr(module, attr, COLORS[spec])
 

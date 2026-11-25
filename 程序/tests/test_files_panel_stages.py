@@ -169,6 +169,51 @@ class StageRailTests(unittest.TestCase):
             self.assertEqual(button._rail_icon_name, icon_name)
             self.assertEqual(str(button.cget('compound')), 'image')
 
+    def test_stage_icons_match_left_nav_size_spacing_and_hidden_scrollbar(self):
+        """界面单卡第 15 项：左右两侧 13 个阶段图标同尺寸、同纵向节距；右侧与左侧一样隐藏滚动条但可滚动。"""
+        panel = self.desktop.files_panel
+        left_pitch = []
+        right_pitch = []
+        for first, second in zip(STAGES, STAGES[1:]):
+            left_first = self.desktop.nav[PAGE[first]]
+            left_second = self.desktop.nav[PAGE[second]]
+            right_first = panel.stage_buttons[first]
+            right_second = panel.stage_buttons[second]
+            self.assertEqual((right_first.winfo_reqwidth(), right_first.winfo_reqheight()),
+                             (left_first.winfo_reqwidth(), left_first.winfo_reqheight()),
+                             '%s 左右图标请求尺寸不一致' % first)
+            left_pitch.append(left_second.winfo_rooty() - left_first.winfo_rooty())
+            right_pitch.append(right_second.winfo_rooty() - right_first.winfo_rooty())
+        self.assertEqual(right_pitch, left_pitch, '左右图标纵向节距应逐一对齐')
+        left = self.desktop.sidebar_canvas
+        right = panel.stage_rail_scroller.canvas
+        original = left.yview()[0]
+        self.addCleanup(left.yview_moveto, original)
+        for canvas in (None, left, right):
+            if canvas is not None:
+                canvas.yview_scroll(1 if canvas is left else -1, 'units')
+            self.pump(.05)
+            for stage in STAGES:
+                lhs, rhs = self.desktop.nav[PAGE[stage]], panel.stage_buttons[stage]
+                delta = lhs.winfo_rooty() + lhs.winfo_height() // 2 - rhs.winfo_rooty() - rhs.winfo_height() // 2
+                self.assertLessEqual(abs(delta), 1, stage + ' 的左右图标中心应对齐')
+
+        self.assertIsNone(panel.stage_rail_scroller.scroll,
+                          '右侧阶段列与左侧导航一致：不显示整列滚动条，滚轮仍可滚动')
+
+    def test_stage_rail_keyboard_focus_and_enter_open_stage(self):
+        """界面单卡第 15 项：右侧阶段列保留键盘访问，上下移动焦点、回车查看阶段。"""
+        panel = self.desktop.files_panel
+        for stage in STAGES:
+            button = panel.stage_buttons[stage]
+            self.assertTrue(button.bind('<Up>'), '%s 缺少上键绑定' % stage)
+            self.assertTrue(button.bind('<Down>'), '%s 缺少下键绑定' % stage)
+            self.assertTrue(button.bind('<Return>'), '%s 缺少 Enter 绑定' % stage)
+            self.assertTrue(int(button.cget('takefocus') or 0), '%s 不可 Tab 聚焦' % stage)
+        panel.stage_buttons[STAGES[1]].invoke()
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, STAGES[1])
+
     def test_missing_png_falls_back_to_emoji(self):
         """REQ-S01-93：PNG 缺失时图标钮退回 STAGE_RAIL_ICONS emoji 文本。"""
         from unittest import mock
@@ -227,6 +272,20 @@ class StageRailTests(unittest.TestCase):
         self.assertTrue(rows, '资产管理阶段应当有行')
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
         self.assertTrue(all(panel.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY for row in rows))
+
+    def test_past_and_future_file_icons_keep_the_working_stage(self):
+        from ui.desktop_page_registry import PAGE
+        self.desktop.show(PAGE['assets'])
+        panel = self.desktop.files_panel
+        panel.open_panel()
+        for stage in ('script', 'video'):
+            with self.subTest(stage=stage):
+                button = panel.stage_buttons[stage]
+                self.assertFalse(button.instate(('disabled',)))
+                button.invoke()
+                self.wait_index()
+                self.assertEqual(panel.stage_filter, stage)
+                self.assertEqual(self.desktop.page_index, PAGE['assets'])
 
     def test_selected_stage_is_highlighted(self):
         panel = self.desktop.files_panel
@@ -1106,8 +1165,8 @@ class DockContentTests(StageRailTests):
             panel.open_script_file()
         opened.assert_called_once()
 
-    def test_stage_filter_follows_page_and_keeps_user_choice(self):
-        """T9：换页跟随新页阶段；用户手选阶段保持到下一次换页。"""
+    def test_stage_filter_follows_page_until_user_pins_cross_stage_view(self):
+        """T9：默认跟随新页阶段；用户手选阶段作为跨阶段排查视图跨页保留，再点已选图标恢复跟随。"""
         panel = self.desktop.files_panel
         self.desktop.show(PAGE['video'])
         self.wait_index()
@@ -1115,13 +1174,22 @@ class DockContentTests(StageRailTests):
         panel.show_stage('assets')
         self.wait_index()
         self.assertEqual(panel.stage_filter, 'assets')
+        self.assertTrue(panel._stage_filter_pinned)
         panel.collapse()
         panel.open_panel()
         self.wait_index()
         self.assertEqual(panel.stage_filter, 'assets')
         self.desktop.show(PAGE['audio'])
         self.wait_index()
-        self.assertEqual(panel.stage_filter, 'audio')
+        self.assertEqual(panel.stage_filter, 'assets', '手选阶段是跨页保留的排查视图')
+        self.assertIn('跨阶段查看', str(panel.script_title.cget('text')))
+        panel.show_stage('assets')
+        self.wait_index()
+        self.assertFalse(panel._stage_filter_pinned)
+        self.assertEqual(panel.stage_filter, 'audio', '再点已选图标恢复跟随当前页')
+        self.desktop.show(PAGE['edit'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'edit')
 
     def test_new_file_appears_without_refresh(self):
         """T10：当前页阶段目录直接写新文件，收起再打开即出现，不点刷新。"""
@@ -1359,6 +1427,34 @@ class FileActionsTests(StageRailTests):
             panel.script_menu(tree, event)
         for label in ('打开', '在文件夹中显示', '另存为…'):
             self.assertIn(label, labels)
+
+    def test_cross_stage_index_menu_keeps_existing_controlled_actions(self):
+        """界面单卡第 14 项：跨阶段排查视图仍只提供既有受控操作，不新增自动执行入口。"""
+        from unittest.mock import patch
+        panel = self.desktop.files_panel
+        panel.show_stage('video')
+        self.desktop.show(PAGE['audio'])
+        self.wait_index()
+        self.assertEqual(panel.stage_filter, 'video')
+        iid = self._index_row('视频/clip.mp4')
+        tree = panel.script_tree
+        bbox = tree.bbox(iid)
+        labels = []
+        event = type('E', (), {'y': bbox[1] + 2, 'x_root': 0, 'y_root': 0})()
+
+        def capture(menu, _event):
+            last = menu.menu.index('end')
+            labels.extend(menu.menu.entrycget(i, 'label')
+                          for i in range(last + 1) if last is not None)
+            return 'break'
+
+        import ui_widgets
+        with patch.object(ui_widgets.ContextMenu, 'popup', capture):
+            panel.script_menu(tree, event)
+        for label in ('打开', '重命名', '添加到全局素材库', '删除', '在文件夹中显示', '另存为…'):
+            self.assertIn(label, labels)
+        self.assertNotIn('执行', labels)
+        self.assertNotIn('自动执行', labels)
 
     def test_save_as_cancel_writes_nothing(self):
         """REQ-S01-96：另存为取消＝零写入。"""

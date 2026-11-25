@@ -16,6 +16,7 @@ from responsive_ui import (FlowBar, auto_height, auto_columns, configure_check_c
                            work_rows, work_hint, view_row)
 from ui_tokens import CHAR_WIDTH, TEXT_ROWS, WRAPLENGTH, COLORS, SPACING
 from ui_widgets import SelectBox, BaseDialog, Card, DataTable, DescriptionBlock, PrimaryButton, ProgressLabel, SecondaryButton, TextArea, notify
+import ui.stage_page_simplify as stage_page_simplify
 
 def engine_name(project):
     """当前白模引擎名：读得出来就写进口径，读不出来退回空串。
@@ -195,6 +196,11 @@ class _LocalPrevisWindow:
         SecondaryButton(views,text='当前白模目录',command=self.open_current_directory).pack(side='left',padx=SPACING['xs'])
         SecondaryButton(views,text='制作记录',command=lambda:self.desktop.safe(self.logs)).pack(side='left',padx=SPACING['xs'])
         SecondaryButton(views,text='进入视频生成',command=lambda:self.desktop.show_stage('video')).pack(side='left',padx=SPACING['xs'])
+        labels=('手动制作白模','强制停止制作','线上白模入口','播放视频','打开工程调整','当前白模目录',
+                '制作记录','进入视频生成','白模环境检查','去设置')
+        stage_page_simplify.relocate_buttons(self.desktop,labels,[self.tree,self.body],stage='previs',send_label='手动制作白模',
+            hint='白模操作已收进镜头表右键菜单（Shift+F10 同效）；空输入框点发送＝手动制作白模；白模/视频文件入口在右侧项目文件。')
+        stage_page_simplify.register_files_panel(self.desktop,'previs',self.body)
         self.body.bind('<Destroy>',self.disposed,add='+')
         self.refresh()
 
@@ -208,9 +214,6 @@ class _LocalPrevisWindow:
         # 只在缺 Blender 时露出「去设置」；装好后按钮收起，状态行照旧显示成果目录摘要。
         if missing:
             self.env_line.set('需要 Blender · 未安装 · 去设置')
-            self.blender_settings_button.pack(side='left',padx=SPACING['xs'],before=self.env_label)
-        else:
-            self.blender_settings_button.pack_forget()
 
     def open_blender_settings(self):
         """打开白模设置文件；没有就先写一个带 ``blender`` 键的模板再打开。"""

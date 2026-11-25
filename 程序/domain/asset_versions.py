@@ -263,6 +263,11 @@ def _find_version_file(base, aid, target):
     return None
 
 
+def find_version_file(base, aid, target):
+    """只读定位版本摘要对应的那一张图片；供对比窗与退回共用同一套sha256判定。"""
+    return _find_version_file(base, aid, target)
+
+
 def restore_version(base, aid, n, *, gateway=None):
     """退回第 ``n`` 版：把记录过的字段与图片恢复到那一版之后的状态（DOC-D9-4）。
 

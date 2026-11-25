@@ -19,8 +19,9 @@ from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bin
 from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
-from ui_widgets import DataTable, DescriptionBlock, PrimaryButton, SelectBox
+from ui_widgets import ContextMenu, DataTable, DescriptionBlock, PrimaryButton, SelectBox
 from ui.desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
+import ui.stage_page_simplify as stage_page_simplify
 
 PAGE = pet_state.PAGE_OF
 
@@ -70,39 +71,92 @@ class _FirstFramePage:
         self.table.heading('#0',command=self.toggle_all_frames)
         bind_space_toggle(self.table,self.toggle_frame)
         self.table.grid(row=0,column=0,sticky='nsew')
-        actions=FlowBar(self.page.content);actions.pack(
-            side='bottom', fill='x', pady=SPACING['sm']
-        )
         self.target_row.pack(
             side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none'])
         )
         table_box.pack(fill='both',expand=True)
         from orchestrator.stage_models import manual_command
-        make_button=self.page.button(actions,'手动制作首帧',manual_command(self.page,'keyframe',self.make_frames,self.page.win))
-        make_button.configure(style='Tokens.Primary.TButton')
-        make_button.pack_configure(
-            padx=(SPACING['none'], SPACING['sm']), pady=SPACING['xs']
-        )
-        ui_plugin_registry.module('stage_flow').follow(make_button,'keyframe')
-        # R2942：「阶段配置」按钮＋模型下拉框删除。
+        make_action=manual_command(self.page,'keyframe',self.make_frames,self.page.win)
+        class _ActionState:
+            def __init__(self):self.state='disabled'
+            def configure(self,**kw):self.state=kw.get('state',self.state)
+        self.delete=_ActionState();self.replace_button=_ActionState()
 
+        def import_first_frames(paths):
+            result={'imported':[],'skipped':[],'rejected':[]}
+            paths=list(paths or ())
+            if len(paths)!=1:
+                for raw in paths:result['rejected'].append((Path(raw).name,'首帧一次导入一张；请先选中镜头'))
+                return result
+            try:
+                self.replace_file(Path(paths[0]))
+                result['imported'].append(Path(paths[0]))
+            except Exception as exc:
+                result['rejected'].append((Path(paths[0]).name,str(exc)))
+            return result
+
+        def show_assets_summary():
+            return self.page.notifier.info(
+                ui_plugin_registry.module('agent.shot_assets').summary(self.home(self.selected())[0],self.selected()).replace('；','\n'),
+                title='镜头资产', modal=True)
+
+        def keyframe_menu(event):
+            try:
+                x=event.x_root-self.table.winfo_rootx()
+                y=event.y_root-self.table.winfo_rooty()
+                row=self.table.identify_row(y)
+                column=self.table.identify_column(x)
+                # Treeview 的列分隔线命中区会伸进下一列。正文内按实际单元格矩形判断。
+                if row:
+                    for candidate in ('#5', '#6'):
+                        bounds = self.table.bbox(row, candidate)
+                        if bounds and bounds[0] <= x < bounds[0] + bounds[2]:
+                            column = candidate
+                            break
+            except Exception:row='';column=''
+            if (not row or not self.table.exists(row)) and getattr(event,'keysym','') in ('F10','App','Menu','Apps'):
+                row=self.table.focus()
+                if not row or not self.table.exists(row):
+                    selected=self.table.selection()
+                    row=selected[0] if selected else ''
+                column='#5'
+            if row and self.table.exists(row):
+                self.table.selection_set(row)
+                self.table.focus(row)
+                self.selection_changed()
+            menu=ContextMenu(self.page.win)
+            menu.command('手动制作首帧',make_action)
+            menu.command('刷新首帧列表',self.refresh)
+            menu.separator()
+            menu.command('查看首帧提示词',self.prompt_details)
+            menu.command('查看镜头资产',show_assets_summary)
+            menu.separator()
+            if self.replace_button.state=='normal':menu.command('导入 / 替换选中首帧…',self.replace)
+            else:menu.disabled('导入 / 替换选中首帧…')
+            if self.delete.state=='normal':menu.command('批量删除首帧',lambda:self.delete_checked_frames())
+            else:menu.disabled('批量删除首帧')
+            menu.command('恢复删除的首帧',lambda:self.restore_selected())
+            if row and self.table.exists(row):
+                menu.separator()
+                if column in ('#5','#6'):
+                    menu.command('查看',lambda sid=row,col=column:self.page.safe(lambda:self.open_cell(sid,col)))
+                menu.command('删除这一镜首帧',lambda sid=row:self.page.safe(lambda:self.delete_one(sid)))
+            return menu
+
+        menu_mouse=stage_page_simplify.bind_context_menu(self.page,[self.table,table_box,self.target_row],keyframe_menu)
+        stage_page_simplify.register_stage_send(self.page,'keyframe',make_action,self.table)
+        stage_page_simplify.register_files_panel(self.page,'keyframe',self.table,import_handler=import_first_frames)
+        stage_page_simplify.discoverability_hint(
+            self.page,'首帧操作已收进镜头表右键菜单（Shift+F10 同效）；右侧项目文件导入图片＝替换选中首帧；空输入框点发送＝手动制作首帧。')
         self.page.pet.auto_variable('auto_first_frame_var')
         self.target.bind('<<ComboboxSelected>>',self.choose_target)
-        # 选中镜头右侧：刷新与查看在前，文件维护三键在后（下行内容框改动本地图片，低频且需谨慎）。
-        self.secondary_action('刷新首帧列表',self.refresh)
-        self.secondary_action('查看首帧提示词',self.prompt_details)
-        self.secondary_action('查看镜头资产',lambda:self.page.notifier.info(ui_plugin_registry.module('agent.shot_assets').summary(self.home(self.selected())[0],self.selected()).replace('；','\n'), title='镜头资产', modal=True))
-        self.replace_button=self.secondary_action('导入 / 替换选中首帧',self.replace)
-        # 第 46 期第 9 条：这颗按钮改名「批量删除首帧」——它删的是勾选那一批（高亮不算数），
-        # 只想删一镜时用内容框上的右键菜单「删除」（目标就是右键那一行）。
-        self.delete=self.secondary_action('批量删除首帧',lambda:self.delete_checked_frames())
-        self.secondary_action('恢复删除的首帧',lambda:self.restore_selected())
         self.table.bind('<<TreeviewSelect>>',self.selection_changed)
         from cell_hover import CellHover
         link_cols=('#0','#5','#6')
         # 第 46 期第 1 条：右键＝查看（这一格）／删除（这一镜的首帧）。
         # 第 55 期第 2 条：#5（图片文件）那一列盖着缩略图，不再走高亮——打勾选框那一格照旧带图。
-        self.table.cell_hover=CellHover(self.table,link_cols,lambda sid,col:self.page.safe(lambda:self.open_cell(sid,col)),cell_image=lambda sid,col:(self.page.win._tick_images[int(self.checked.get(sid,False))] if col=='#0' else None),checked=lambda sid:self.checked.get(sid,False),toggle=self.toggle_frame,delete=lambda sid:self.page.safe(lambda:self.delete_one(sid)))
+        self.table.cell_hover=CellHover(self.table,link_cols,lambda sid,col:self.page.safe(lambda:self.open_cell(sid,col)),cell_image=lambda sid,col:(self.page.win._tick_images[int(self.checked.get(sid,False))] if col=='#0' else None),checked=lambda sid:self.checked.get(sid,False),toggle=self.toggle_frame)
+        self.table.cell_hover.menu=menu_mouse
         bind_row_toggle(self.table,self.toggle_frame,link_cols)
         # 第 53 期第 5 条：「图片文件」那一列盖一层首帧缩略图——已导入、Tk 读得出来的才盖；
         # 还没导入／图不在／格式 Tk 不认（jpg 等）就不盖，那一格退回原来写的文件名。
@@ -111,6 +165,7 @@ class _FirstFramePage:
         self.ZOOM_SIZE = ZOOM_SIZE
         self.table.cell_images=CellImages(self.table,('#5',),self.frame_thumb,hover=self.table.cell_hover,
                                      background=self.frame_row_background,zoom=self.frame_zoom)
+        stage_page_simplify.bind_context_menu(self.page,[self.table.cell_hover.overlay],keyframe_menu)
         # 第 55 期第 1 条：视图一变就重排已经收进盖图那一层（watch_view），这儿不必再交代一遍。
         self.refresh()
         requested=getattr(self.page,'pending_frame_selection',None)
@@ -233,6 +288,7 @@ class _FirstFramePage:
         for _i,_s,item,bse,one in self.rows:
             if item.resolve()==self.source.resolve():self.episode,self.base=one,bse;break
         previous=self.table.selection()
+        focused=self.table.focus()
         # 重建行以前记住内容框的滚动位置：刷新或无人值守轮询重建后，内容不应跳回顶部。
         offset=0.0;top=''
         try:offset=self.table.yview()[0];top=self.table.identify_row(1)
@@ -258,6 +314,8 @@ class _FirstFramePage:
         images=getattr(self.table,'cell_images',None)
         if images is not None:images.refresh()
         if previous and self.table.exists(previous[0]):self.table.selection_set(previous[0])
+        if focused and self.table.exists(focused):self.table.focus(focused)
+        elif previous and self.table.exists(previous[0]):self.table.focus(previous[0])
         if top and self.table.exists(top):self.table.yview_moveto(offset);self.table.see(top)
         self.selection_changed()
         # 这句话按「当下有几镜已就位」说，不按「这一次对齐新取消了几镜」——
@@ -341,9 +399,9 @@ class _FirstFramePage:
     def choose_target(self, event=None):
         if self.table.exists(self.target.get()):self.table.selection_set(self.target.get());self.table.see(self.target.get());self.selection_changed()
 
-    def replace(self, shot=None):
-        shot=shot or self.selected();path=self.page.storyboard_page_services.file_dialog(self.page.win).open_file(initialdir=self.base/'frames',filetypes=[('PNG','*.png')])
-        if not path:return
+    def replace_file(self, path, shot=None):
+        """用一份已有图片替换/导入选中镜头首帧；供右键与右侧文件面板共用。"""
+        shot=shot or self.selected()
         raw=Path(path).read_bytes()
         from stage_execution_service import replace_stage_keyframe
         result=replace_stage_keyframe(self.base,self.source,self.episode,shot,raw)
@@ -351,6 +409,11 @@ class _FirstFramePage:
         if self.source.resolve()==(self.page.studio.episode_dir/'episode.json').resolve():self.page.studio.episode=self.episode
         self.refresh();self.table.selection_set(self.iid_of(shot));self.selection_changed()
         self.page.status.set('首帧已保存为 '+shot['id']+'.png，镜头JSON已同步')
+
+    def replace(self, shot=None):
+        shot=shot or self.selected();path=self.page.storyboard_page_services.file_dialog(self.page.win).open_file(initialdir=self.base/'frames',filetypes=[('PNG','*.png')])
+        if not path:return
+        self.replace_file(path,shot)
 
     def shot_row(self, sid):
         row=self.row_ctx.get(sid)

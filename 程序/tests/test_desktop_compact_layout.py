@@ -539,7 +539,38 @@ class SidebarExpandColumnTests(unittest.TestCase):
             buttons[0].invoke()
             self.pump()
             m_roster.assert_called_once_with()
-        self.assertIsNone(getattr(d, '_sidebar_popup_win', None))
+        self.assertIsNotNone(getattr(d, '_asset_popup_win', None),
+                             '点选「资产清单」不再顺手收起入口；只能再点资产管理收起')
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        self.assertIsNone(getattr(d, '_asset_popup_win', None))
+
+    def test_asset_roster_flyout_stays_open_across_pages_until_assets_clicked(self):
+        """界面单卡第 10 项：资产清单入口跨页保留，外部点击／Esc／换页都不收，只有再点资产管理收起。"""
+        d = self.desktop
+        d.show(PAGE['assets'])
+        self.pump()
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        top = getattr(d, '_asset_popup_win', None)
+        self.assertIsNotNone(top, '点资产管理要展开资产清单入口')
+        # Esc 与主窗内其他位置点击都不再关闭这层；它要作为跨页排查入口保留。
+        self.win.event_generate('<Escape>')
+        self.pump()
+        self.assertIs(getattr(d, '_asset_popup_win', None), top)
+        d.body.event_generate('<Button-1>', x=8, y=8)
+        self.pump()
+        self.assertIs(getattr(d, '_asset_popup_win', None), top)
+        # 换页也不收：用户可以从任意页直接点进资产清单。
+        d.show(PAGE['script'])
+        self.pump()
+        self.assertIs(getattr(d, '_asset_popup_win', None), top)
+        self.assertTrue(top.winfo_exists())
+        # 只有再次点击「资产管理」主图标才收起。
+        d.nav[PAGE['assets']].invoke()
+        self.pump()
+        self.assertIsNone(getattr(d, '_asset_popup_win', None))
+        self.assertFalse(top.winfo_exists())
 
     def test_files_panel_stage_rail_shares_expand_column(self):
         """右侧文件图标列与侧栏二级列共用 ExpandIconColumn 部件。"""

@@ -3,6 +3,7 @@
 全部用真 Tk 根窗口量几何；项目根是 ``tempfile`` 空目录，不打开、不读取任何用户项目，
 也不读 ``private/`` 或真实密钥。
 """
+import sys
 import tempfile
 import tkinter as tk
 import unittest
@@ -14,7 +15,7 @@ from unittest import mock
 import infra.model_pool as model_pool
 import pet_models_ui
 import pet_settings_ui
-from skip_reasons import PLATFORM_TKINTER
+from skip_reasons import PLATFORM_TKINTER, PLATFORM_WINDOWS_ONLY
 from ui_tokens import COLORS
 
 
@@ -106,7 +107,8 @@ class FakePet:
     def agent_model_tasks(self):
         return dict(self.tasks)
 
-    def resolve_agent_model(self, _key):
+    def resolve_agent_model(self, _key, records=None):
+        self.resolved_with_records = getattr(self, 'resolved_with_records', []) + [records]
         return _Best()
 
     def save_agent_models(self, _chosen):
@@ -201,6 +203,19 @@ class ActionAreaTests(Batch7Case):
                            '保存必须在关闭右边')
         self.assertEqual(str(save.cget('style')), 'Tokens.Primary.TButton')
         self.assertEqual(str(close.cget('style')), 'Tokens.Secondary.TButton')
+
+    def test_model_settings_page_reads_the_pool_once_for_options_and_statuses(self):
+        """三虎模型配置首绘只取一次模型池快照；四个自动状态不再各自重读并重规范化。"""
+        records = {}
+        calls = []
+        def load_records():
+            calls.append('read')
+            return records
+        self.pet.agent_model_records = load_records
+        self._settings_window()
+        self.assertEqual(calls, ['read'], '模型设置页构建时只能读一次模型池')
+        self.assertEqual(getattr(self.pet, 'resolved_with_records', []), [records],
+                         '「自动」状态解析必须复用同一份快照')
 
     def test_model_manager_save_is_rightmost_primary_with_cancel_beside_it(self):
         # UX-MODEL-PAGE 契约变更：底行右对齐 [取消][保存]，保存＝写入并关闭；不再有独立「关闭」。
@@ -437,6 +452,25 @@ class HubDefaultTabTests(Batch7Case):
         self.assertFalse(win._pet_pages['basic'].winfo_ismapped(),
                          '显式传 model 时不应再摆着基础功能页')
 
+    def test_lazy_page_switch_keeps_content_frozen_until_layout_settles(self):
+        """切到未建过的设置页时旧页像素留在屏幕上，表单排版完成后一次性重画。"""
+        if sys.platform != 'win32':
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
+        win = self._open_without_tab()
+        stack = win._pet_pages['basic'].master
+        original = win._pet_page_builders['model']
+        visible_while_building = []
+        import ctypes
+        def build_model_page(frame):
+            visible_while_building.append(
+                bool(ctypes.windll.user32.IsWindowVisible(int(stack.winfo_id()))))
+            return original(frame)
+        win._pet_page_builders['model'] = build_model_page
+        pet_settings_ui.select(win, 'model')
+        self.assertEqual(visible_while_building, [False], '懒加载表单半成品不得上屏')
+        self.assertTrue(bool(ctypes.windll.user32.IsWindowVisible(int(stack.winfo_id()))),
+                        '排版完成后必须立即解冻')
+
 
 class ModelListAutoHeightTests(Batch7Case):
     """模型列表自适应高度：少几条就少几行，不再在列表下方留大片空白。"""
@@ -522,6 +556,44 @@ class ModelManagerUxTests(Batch7Case):
         buttons['API'].event_generate('<Return>')
         win.update()
         self.assertEqual(win._pet_mode.get(), 'API', '回车应切回聚焦的分段')
+
+    def test_mode_switch_filters_cached_rows_without_rereading_the_pool(self):
+        """API／Desktop／CLI 切页只换过滤条件；不重复读模型池，显式刷新仍会重读。"""
+        records = {'api-1': model_pool.record({'model': 'api-1', 'call_mode': 'API'}, 'api-1'),
+                   'desk-1': model_pool.record({'model': 'desk-1', 'call_mode': 'Desktop'}, 'desk-1')}
+        self.pet.agent_model_records = lambda: dict(records)
+        win = self._manager_window()
+        calls = []
+        original = self.pet.agent_model_records
+        def counted():
+            calls.append('read')
+            return original()
+        self.pet.agent_model_records = counted
+        win._pet_mode.set('Desktop')
+        win.update()
+        win._pet_mode.set('CLI')
+        win.update()
+        self.assertEqual(calls, [], '分段切换不得重复读模型池')
+        win._pet_reload()
+        self.assertEqual(len(calls), 1, '显式刷新仍要重读模型池')
+
+    def test_mode_switch_table_stays_frozen_until_rows_and_height_settle(self):
+        """真窗口切分段时列表区域先保持旧像素，行插入与自适应高度落定后一次性重画。"""
+        if sys.platform != 'win32':
+            self.skipTest(PLATFORM_WINDOWS_ONLY)
+        win = self._manager_window()
+        manager = win._pet_reload.__self__
+        freezer = manager._rows_paint_freeze
+        self.assertIsNotNone(freezer)
+        self.assertFalse(freezer.frozen)
+        win._pet_mode.set('Desktop')
+        self.assertTrue(freezer.frozen, '清空并重建列表期间必须冻结绘制')
+        import ctypes
+        handle = int(manager.table_shell.winfo_id())
+        self.assertFalse(ctypes.windll.user32.IsWindowVisible(handle), '半成品列表不得上屏')
+        win.update_idletasks()
+        self.assertFalse(freezer.frozen, '行高与布局落定后立即解冻，不等超时')
+        self.assertTrue(ctypes.windll.user32.IsWindowVisible(handle))
 
     def test_mode_segment_click_preserves_unsaved_changes_guard(self):
         """分段切换仍走未保存改动确认；拒绝时回到原段，表单内容不被覆盖。"""

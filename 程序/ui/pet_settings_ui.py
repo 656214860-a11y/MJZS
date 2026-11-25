@@ -25,7 +25,9 @@ import domain.usage_overview as usage_overview
 import infra.token_saver as token_saver
 from contract.app_metadata import APP_NAME
 from contract.pet_settings_contract import TABS, LEVEL_NOTES
+from ui.desktop_layout_resize import PaintFreeze
 from ui.ui_icons import IconLoader
+from ui.ui_popup import register_menu
 from ui_tokens import CHAR_WIDTH, FONTS, NAV_SECONDARY_ICON_SIZE, SPACING, TEXT_DESC, TEXT_HINT
 from ui_widgets import (BaseDialog, Card, LineInput, PrimaryButton, SecondaryButton, TextArea, SelectBox,
                         Tooltip, ask_confirmation)
@@ -59,7 +61,7 @@ TAB_ICONS = {'basic': 'settings', 'model': 'sites', 'level': 'animatic', 'token'
 # 分页次序＝用户要的次序：基础功能、模型配置、自动化等级、Token 节省、预算、SKILL 管理、开发信息。
 # 第 46 期第 6 条：第二格改名「三虎模型配置」（用户点名要的名字）。
 NOTE_HUB = '集中管理基础功能、模型、自动化、Token 节省、预算、SKILL 与开发信息。'
-NOTE_BASIC = '基础选项即改即存；主题切换后部分页面重开生效。'
+NOTE_BASIC = '主题选择立即生效。'
 NOTE_LEVEL = '选择即保存，决定哪些步骤需要你确认。'
 NOTE_BUDGET = 'Token 按天统计，其他用量按项目累计。达到上限后暂停。'
 NAME_NOTE = '界面、通知、日志一律用「三虎」。'
@@ -214,6 +216,34 @@ def parent_of(pet):
     return getattr(pet, 'win', None)
 
 
+def _remember_page_snapshot(win, key, seam):
+    """新懒加载页建好后立刻登记基线；没建过的页没有改动，不参与关窗脏检查。"""
+    saved = getattr(win, '_pet_saved', None)
+    if saved is None:
+        saved = win._pet_saved = {}
+    saved.update(_fields_snapshot({key: seam}))
+
+
+def ensure_page(win, key):
+    """按需构建设置窗某一页；已建过的页复用，切回去不重复读盘或重启后台加载。"""
+    seams = getattr(win, '_pet_seams', None)
+    if seams is None:
+        seams = win._pet_seams = {}
+    if key in seams:
+        return seams[key]
+    builders = getattr(win, '_pet_page_builders', None) or {}
+    frame = (getattr(win, '_pet_pages', None) or {}).get(key)
+    builder = builders.get(key)
+    if frame is None or builder is None:
+        return None
+    seam = builder(frame) or {}
+    seams[key] = seam
+    if key == 'model':
+        seam['manager'] = getattr(win, '_pet_manager', None)
+    _remember_page_snapshot(win, key, seam)
+    return seam
+
+
 def open_hub(pet, tab=None):
     """打开「设置」；tab 给了 'basic'／'model'／'level'／'budget' 就直接落在那一格。
 
@@ -297,24 +327,27 @@ def open_hub(pet, tab=None):
     for key, title in TABS:
         pages[key] = ttk.Frame(stack, padding=SPACING['md'])
     width = label_width()
-    seams = {'basic': basic_page(pages['basic'], pet, width),
-             'model': pet_models_ui.settings_page(pages['model'], pet, with_manager=False,
-                                                  label_width=width, show_save=False),
-             'level': level_page(pages['level'], pet, width),
-             'token': token_page(pages['token'], pet, width, show_save=False),
-             'budget': budget_page(pages['budget'], pet, width, show_save=False),
-             'skills': pet_skills_manage.skills_page(pages['skills'], pet, width),
-             'dev': dev_page(pages['dev'], pet, width)}
-    seams['model']['manager'] = manager_button          # 那颗键还在这一扇窗里，只是换了一级
+    # 首次打开只构建落到的那一格。SKILL 管理会在构建时启动后台扫描，Token／预算／模型
+    # 也各自读配置；七格一起先建会把首帧拖住，还会加载用户根本没打开的页。页面一旦建过
+    # 就留在页面栈里复用，切回去不重复读盘、不重复启动后台任务。
+    builders = {'basic': lambda frame: basic_page(frame, pet, width),
+                'model': lambda frame: pet_models_ui.settings_page(frame, pet, with_manager=False,
+                                                                    label_width=width, show_save=False),
+                'level': lambda frame: level_page(frame, pet, width),
+                'token': lambda frame: token_page(frame, pet, width, show_save=False),
+                'budget': lambda frame: budget_page(frame, pet, width, show_save=False),
+                'skills': lambda frame: pet_skills_manage.skills_page(frame, pet, width),
+                'dev': lambda frame: dev_page(frame, pet, width)}
     win._pet_tabs = tabs
     win._pet_manager = manager_button
     win._pet_nav = nav
     win._pet_pages = pages
-    win._pet_seams = seams
+    win._pet_page_builders = builders
+    win._pet_seams = {}
     win._pet_footer = footer
     win._pet_save = save_button
     win._pet_close = close_button
-    win._pet_saved = _fields_snapshot(seams)
+    win._pet_saved = {}
     select(win, tab or DEFAULT_TAB)
     return win
 
@@ -325,7 +358,16 @@ def select(win, tab=None):
     tabs = getattr(win, '_pet_tabs', None) or {}
     if tab not in pages:
         return None
+    target = pages[tab]
+    freeze = PaintFreeze(target.master)
+    frozen = False
     try:
+        # 懒加载页可能在这一步才建；冻结内容区后，旧页像素保留到表单排版完成，
+        # Windows 不会先把空页面擦成一块黑，再逐件画出输入框。
+        frozen = freeze.freeze()
+        seam = ensure_page(win, tab)
+        if seam is None:
+            return None
         for key, frame in pages.items():
             if key == tab:
                 frame.pack(fill='both', expand=True)
@@ -338,14 +380,21 @@ def select(win, tab=None):
         if save_button is not None:
             # 基础功能／开发信息改完即刻生效，没有可保存内容，按钮置灰；
             # 禁用字色由 PrimaryButton 的 disabled 映射取 disabled_text 令牌。
-            handler = save_handler((getattr(win, '_pet_seams', None) or {}).get(tab))
+            handler = save_handler(seam)
             save_button.state(['!disabled'] if handler else ['disabled'])
         picked = tabs.get(tab)
         if picked is not None:
             picked.focus_set()
+        try:
+            target.update_idletasks()
+        except tk.TclError:
+            app_logging.swallowed()
     except Exception:
         return None
-    return pages[tab]
+    finally:
+        if frozen:
+            freeze.thaw()
+    return target
 
 
 def current(win):
@@ -458,7 +507,7 @@ def basic_page(frame, pet, width=None):
             return None
         theme_box.set(theme_label(key))
         shown = THEME_LABELS.get(effective, effective)
-        pet.notice = '界面主题：%s（当前%s）；部分页面需重新打开后完全生效。' % (
+        pet.notice = '界面主题：%s（当前%s）。' % (
             theme_label(key), shown)
         hint.set(pet.notice)
         return effective
@@ -715,6 +764,7 @@ def token_page(frame, pet, width=None, show_save=True):
         var = tk.StringVar(value=str(now[key]))
         fields[key] = var
         box = ttk.OptionMenu(grid, var, str(now[key]), *[str(item) for item in choices])
+        register_menu(box.nametowidget(str(box['menu'])))
         box.configure(width=TOKEN_CHOICE_WIDTH)
         box.grid(row=row, column=1, sticky='w')
         field_widgets[key] = box

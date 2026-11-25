@@ -85,7 +85,19 @@ def _embed_choice_card(host, box, row, raw_text, candidates, truncated):
     box.insert('end', '\n')
 
 
+def refresh_bubble_tag_colors(self,box):
+    """主题切换后只补模型署名那一档定制色；token 色由 ui_theme 的统一映射处理。"""
+    try:rows=self._idea_display_rows()
+    except (OSError,ValueError,tk.TclError):return
+    for name,_text,mine,_framed in getattr(self,'_bubble_rows',[]):
+        index=self._bubble_tag_index(name)
+        if index is None or index>=len(rows):continue
+        color=COLORS['text_secondary'] if mine else self.model_chat_colors(rows[index].get('model'))[1]
+        try:box.tag_configure(name+'_meta',foreground=color)
+        except tk.TclError:pass
 class IdeaBubblesMixin:
+    refresh_bubble_tag_colors = refresh_bubble_tag_colors
+
     def _clear_bubble_view(self, box, reset_width=True):
         """清空气泡框的行台账、气泡标签与文本；重绘前调用。清屏压缩沿用当前宽度，故不重置。"""
         self._bubble_rows=[]

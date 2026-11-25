@@ -1,8 +1,8 @@
 # -*- coding: utf-8 -*-
 """「设置 → SKILL 管理」页自检（生命周期任务书 T7／R3089）。
 
-覆盖：列表渲染（三层来源与体检状态列）、说明弹窗、体检详情、删除确认
-（内置层拒绝、用户层进回收站）、导入对话框五入口与单文件安装管线。
+覆盖：树形列表（三层来源、真实包子技能、阶段入口与旧包）、筛选与详情、说明弹窗、
+体检详情、删除确认（内置层拒绝、用户层进回收站）、导入对话框五入口与单文件安装管线。
 运行：python run_selftests.py -k pet_skills_manage
 """
 from skip_reasons import PLATFORM_TKINTER
@@ -162,6 +162,8 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertTrue(all(str(values[4]).strip('— ') for values in rows.values()))
         seams = win._pet_seams['skills']
         self.assertIn('hint', seams)
+        self.assertIn('filter', seams)
+        self.assertIn('detail', seams)
 
     def test_real_package_expands_children_and_child_actions_stay_scoped(self):
         self.add_skills()

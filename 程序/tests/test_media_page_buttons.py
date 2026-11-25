@@ -126,6 +126,9 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
     def _buttons(self):
         return [w for w in _walk(self.desktop.content) if isinstance(w, ttk.Button)]
 
+    def _visible_buttons(self):
+        return [w for w in self._buttons() if w.winfo_ismapped()]
+
     def _standard_width(self):
         """同一套 Tokens 按钮样式、宽度取 STAGE_ACTION_WIDTH 的实测宽度。"""
         holder = ttk.Frame(self.desktop.content)
@@ -138,35 +141,24 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
         self.assertGreater(width, 0, '量不出标准宽度')
         return width
 
-    def _assert_standard_buttons(self, expected, label):
-        buttons = self._buttons()
+    def _assert_relocated_buttons(self, expected, stage, label):
+        """少按钮页契约：原动作入口仍由同一批按钮对象承载，但不再常驻显示。"""
+        buttons = [b for b in self._buttons() if str(b.cget('text')) in expected]
         self.assertEqual(sorted(expected), sorted(str(b.cget('text')) for b in buttons),
-                         '%s：按钮总数或文字与改前快照不一致' % label)
-        limit = self._standard_width() * 2
-        for button in buttons:
-            text = str(button.cget('text'))
-            self.assertGreater(button.winfo_width(), 0, '%s：「%s」没有实际宽度' % (label, text))
-            self.assertLessEqual(
-                button.winfo_width(), limit,
-                '%s：「%s」实际宽 %d，超过标准宽度的两倍 %d（仍是整行宽按钮）'
-                % (label, text, button.winfo_width(), limit))
-            self.assertIsInstance(
-                button.master, FlowBar,
-                '%s：「%s」应挂在 FlowBar 里，不再由页面整行铺开' % (label, text))
+                         '%s：动作入口丢失或文字改变' % label)
+        visible = [str(b.cget('text')) for b in buttons if b.winfo_ismapped()]
+        self.assertEqual([], visible, '%s：这些动作不应再常驻页面：%r' % (label, visible))
+        self.assertIsNotNone(self.desktop.shared_input.stage_action(stage),
+                             '%s：空输入框发送键应登记本阶段主动作' % label)
+        hints = [text for _widget, text in _texts(self.desktop.content) if '右键菜单' in text]
+        self.assertTrue(hints, '%s：页面应保留右键/文件面板入口提示' % label)
 
     def _assert_groups(self, groups, label):
-        for title, texts in groups.items():
+        """分组名仍作为上下文分区保留；按钮本体已隐藏，只验证分组说明没有丢。"""
+        for title in groups:
             labels = [w for w in _walk(self.desktop.content)
                       if isinstance(w, ttk.Label) and str(w.cget('text')) == title]
-            self.assertEqual(1, len(labels), '%s：应有且只有一个分组名「%s」' % (label, title))
-            bar = labels[0].master
-            self.assertIsInstance(bar, FlowBar, '%s：分组名「%s」应写在 FlowBar 行首' % (label, title))
-            buttons = [w for w in bar.winfo_children() if isinstance(w, ttk.Button)]
-            self.assertEqual(sorted(texts), sorted(str(b.cget('text')) for b in buttons),
-                             '%s：「%s」分组里的按钮与约定不一致' % (label, title))
-            rows = {b.winfo_rooty() for b in buttons}
-            self.assertEqual(1, len(rows),
-                             '%s：「%s」同组按钮应在同一行（实测 y=%r）' % (label, title, rows))
+            self.assertEqual(1, len(labels), '%s：应保留分组名「%s」作为发现性说明' % (label, title))
 
     def _assert_bars_are_rows(self, label):
         bars = [w for w in _walk(self.desktop.content) if isinstance(w, FlowBar)]
@@ -247,7 +239,7 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
     def test_11_audio_buttons_standard_and_grouped(self):
         """11：7 个整行宽按钮改标准宽度，按三组分行，行首有组名。"""
         self._open('audio')
-        self._assert_standard_buttons(AUDIO_BUTTONS, '11 配音与字幕')
+        self._assert_relocated_buttons(AUDIO_BUTTONS, 'audio', '11 配音与字幕')
         self._assert_groups(AUDIO_GROUPS, '11 配音与字幕')
 
     def test_11_audio_dialogue_reason_shown_once(self):
@@ -277,14 +269,53 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
     def test_12_editing_buttons_standard_and_grouped(self):
         """12：整行宽按钮改标准宽度并分组（分组名写进结果文件）。"""
         self._open('edit')
-        self._assert_standard_buttons(EDIT_BUTTONS, '12 后期剪辑')
+        self._assert_relocated_buttons(EDIT_BUTTONS, 'edit', '12 后期剪辑')
         self._assert_groups(EDIT_GROUPS, '12 后期剪辑')
 
     def test_13_delivery_buttons_standard_and_grouped(self):
         """13：整行宽按钮改标准宽度并分组（分组名写进结果文件）。"""
         self._open('delivery')
-        self._assert_standard_buttons(DELIVERY_BUTTONS, '13 质检与交付')
+        self._assert_relocated_buttons(DELIVERY_BUTTONS, 'delivery', '13 质检与交付')
         self._assert_groups(DELIVERY_GROUPS, '13 质检与交付')
+
+    def test_05_to_10_stage_pages_register_send_and_hide_primary_buttons(self):
+        """05–10：主动作收进右键/发送键，页面保留发现性提示（本轮有意 UI 契约变更）。"""
+        cases = {
+            'assets': ('手动制作资产',),
+            'continuity': ('手动生成连贯性清单',),
+            'final': ('手动同步资产',),
+            'keyframe': ('手动制作首帧',),
+            'previs': ('手动制作白模',),
+            'video': ('进入本地生成', '进入线上生成'),
+        }
+        for stage, labels in cases.items():
+            with self.subTest(stage=stage):
+                self._open(stage)
+                self.assertIsNotNone(self.desktop.shared_input.stage_action(stage),
+                                     '%s 应登记空输入框发送动作' % stage)
+                visible = [str(b.cget('text')) for b in self._visible_buttons()]
+                for label in labels:
+                    self.assertFalse(any(text.startswith(label) for text in visible),
+                                     '%s：「%s」不应再常驻页面（可见按钮 %r）' % (stage, label, visible))
+                hints = [text for _widget, text in _texts(self.desktop.content) if '右键菜单' in text]
+                self.assertTrue(hints, '%s：应保留右键/文件面板入口提示' % stage)
+
+    def test_reused_content_opens_only_current_stage_menu(self):
+        from unittest.mock import Mock
+        from ui.stage_page_simplify import bind_context_menu
+
+        content = ttk.Frame(self.desktop.content)
+        content.place(x=0, y=0)
+        row = ttk.Label(content, text='镜头')
+        row.pack()
+        self.win.update_idletasks()
+        old, current = Mock(), Mock()
+        bind_context_menu(self.desktop, [content], old)
+        bind_context_menu(self.desktop, [content, row], current)
+        row.event_generate('<Button-3>', x=1, y=1)
+        old.assert_not_called()
+        current.assert_called_once()
+        current.return_value.popup.assert_called_once()
 
 
 if __name__ == '__main__':

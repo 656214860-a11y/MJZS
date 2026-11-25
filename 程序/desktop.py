@@ -458,7 +458,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
                 else self.idea_chat_model())
 
     def model_chat_colors(self, model):
-        """为同一模型稳定分配一组浅色主题，切换回来仍保持原色。"""
+        """为同一模型按色相稳定分色；夜间改用高明度，模型名在深色底上仍可读。"""
         key = str(model or self.idea_chat_model() or 'AI 助手').encode('utf-8')
         hue = (int(hashlib.sha256(key).hexdigest()[:8], 16) % 360) / 360
         def hsv(saturation, value):
@@ -469,8 +469,9 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             rising = value * (1 - (1 - fraction) * saturation)
             return ((value, rising, low), (falling, value, low), (low, value, rising),
                     (low, falling, value), (rising, low, value), (value, low, falling))[section]
-        light = hsv(0.20, 1.0)
-        dark = hsv(0.54, 0.60)
+        night = ui_tokens.current_theme() == 'night'
+        light = hsv(0.34, 0.30) if night else hsv(0.20, 1.0)
+        dark = hsv(0.38, 0.84) if night else hsv(0.54, 0.60)
         to_hex = lambda rgb: '#%02x%02x%02x' % tuple(round(value * 255) for value in rgb)
         return to_hex(light), to_hex(dark)
 

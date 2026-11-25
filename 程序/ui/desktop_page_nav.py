@@ -403,11 +403,13 @@ class PageNavMixin:
     # ── 侧栏图标弹出选择层（第 R2946 期）────────────────────────────────────
     # 「05 资产管理」的二级入口「资产清单」与项目分组的项目列表都走这一个弹层：
     # 无边框 Toplevel 贴在图标下方，点外部／Esc／选中即关；锚点本身的点击放行给按钮。
-    def _open_sidebar_popup(self,anchor,fill,placement='below',compact=False):
+    def _open_sidebar_popup(self,anchor,fill,placement='below',compact=False,persistent=False):
         """在 ``anchor`` 旁开一层选择浮层；``fill(body)`` 负责填内容。返回 Toplevel。
 
         ``placement='right'``（REQ-UI-SIDEBAR-1）时贴侧栏右缘、落在居中一级图标右侧，
         用于「点击后在右侧展开一列缩小后的二级图标」；摆不下时依次退到锚点左侧、再退到下方。
+        ``persistent=True`` 只供资产清单入口使用：不挂点外部／Esc 收起监听，
+        也不随换页收起，只由再次点击「资产管理」显式关闭。
         """
         close_expand=getattr(self,'_close_sidebar_expand',None)
         if callable(close_expand):close_expand()
@@ -415,6 +417,7 @@ class PageNavMixin:
         if project_list is not None and callable(getattr(project_list,'close_card',None)):
             project_list.close_card()
         self._close_sidebar_popup()
+        if persistent:self._close_asset_popup()
         top=Flyout(self.win,compact=compact)
         fill(top.body)
         top.update_idletasks()
@@ -445,6 +448,15 @@ class PageNavMixin:
         top.geometry('%dx%d+%d+%d'%(width,height,x,y))
         self._sidebar_popup_win=top
         self._sidebar_popup_anchor=anchor
+        if persistent:
+            # 资产清单入口单独记账：项目选择层仍可照常开关，两边互不覆盖；
+            # 兼容字段 _sidebar_popup_win 在没有普通选择层时继续指向它。
+            self._asset_popup_win=top
+            self._asset_popup_anchor=anchor
+            top.bind('<Destroy>',self._asset_popup_destroyed)
+            return top
+        self._generic_popup_win=top
+        self._generic_popup_anchor=anchor
         # 监听挂在主窗自己的绑定上（bindtags 让主窗内所有控件的点击都经过它），不用 bind_all：
         # Tcl 的 bind 不支持按 funcid 摘除 all 标签上的单条绑定，unbind_all 会连坐别人的监听。
         # 主窗 unbind(seq, funcid) 能精确摘除；浮层内的点击根本到不了这条绑定，不会误关。
@@ -453,27 +465,40 @@ class PageNavMixin:
         # 浮层内控件 takefocus=0，焦点留在主窗——Esc 由上面主窗那条绑定兜住，不再给浮层单独挂。
         top.bind('<Destroy>',self._sidebar_popup_destroyed)
         return top
+    def _sync_legacy_popup_ref(self):
+        """兼容字段：普通选择层优先；没有普通层时让资产清单层仍可被旧测试／调用方定位。"""
+        generic=getattr(self,'_generic_popup_win',None)
+        asset=getattr(self,'_asset_popup_win',None)
+        try:
+            if generic is not None and generic.winfo_exists():
+                self._sidebar_popup_win=generic;self._sidebar_popup_anchor=getattr(self,'_generic_popup_anchor',None);return
+        except tk.TclError:pass
+        try:
+            if asset is not None and asset.winfo_exists():
+                self._sidebar_popup_win=asset;self._sidebar_popup_anchor=getattr(self,'_asset_popup_anchor',None);return
+        except tk.TclError:pass
+        self._sidebar_popup_win=None;self._sidebar_popup_anchor=None
     def _sidebar_popup_outside(self,event):
-        """浮层外按下左键即关；锚点按钮与浮层内部的点击放行。"""
-        top=getattr(self,'_sidebar_popup_win',None)
+        """普通浮层外按下左键即关；锚点按钮与浮层内部的点击放行。资产清单层不挂这条监听。"""
+        top=getattr(self,'_generic_popup_win',None)
         if top is None:return
         try:
             if not top.winfo_exists():
                 self._close_sidebar_popup();return
             widget=event.widget
-            if widget is getattr(self,'_sidebar_popup_anchor',None):return
+            if widget is getattr(self,'_generic_popup_anchor',None):return
             if widget is not None and widget.winfo_toplevel() is top:return
         except (tk.TclError,AttributeError):
             self._close_sidebar_popup();return
         self._close_sidebar_popup()
     def _sidebar_popup_destroyed(self,event=None):
-        """浮层被外部销毁时只清绑定，不再重复 destroy（_close 先清引用，这里自然跳过）。"""
-        top=getattr(self,'_sidebar_popup_win',None)
+        """普通浮层被外部销毁时只清绑定，不再重复 destroy（_close 先清引用，这里自然跳过）。"""
+        top=getattr(self,'_generic_popup_win',None)
         if top is None:return
         if event is not None and event.widget is not top:return
         button_bind=getattr(self,'_popup_button_bind',None)
         escape_bind=getattr(self,'_popup_escape_bind',None)
-        self._sidebar_popup_win=None;self._sidebar_popup_anchor=None
+        self._generic_popup_win=None;self._generic_popup_anchor=None
         self._popup_button_bind=None;self._popup_escape_bind=None
         if button_bind:
             try:self.win.unbind('<Button-1>',button_bind)
@@ -481,12 +506,13 @@ class PageNavMixin:
         if escape_bind:
             try:self.win.unbind('<Escape>',escape_bind)
             except tk.TclError:pass
+        self._sync_legacy_popup_ref()
     def _close_sidebar_popup(self):
-        """关掉侧栏选择浮层并摘掉点外部／Esc 监听（unbind 带 funcid，只摘自己那条）。"""
-        top=getattr(self,'_sidebar_popup_win',None)
+        """关掉普通侧栏选择浮层并摘掉点外部／Esc 监听；资产清单层按新契约不由这里收起。"""
+        top=getattr(self,'_generic_popup_win',None)
         button_bind=getattr(self,'_popup_button_bind',None)
         escape_bind=getattr(self,'_popup_escape_bind',None)
-        self._sidebar_popup_win=None;self._sidebar_popup_anchor=None
+        self._generic_popup_win=None;self._generic_popup_anchor=None
         self._popup_button_bind=None;self._popup_escape_bind=None
         if button_bind:
             try:self.win.unbind('<Button-1>',button_bind)
@@ -498,11 +524,29 @@ class PageNavMixin:
             try:
                 if top.winfo_exists():top.destroy()
             except tk.TclError:pass
+        self._sync_legacy_popup_ref()
+    def _asset_popup_destroyed(self,event=None):
+        """资产清单层被宿主销毁时只清引用；它自己没有点外部／Esc 监听要摘。"""
+        top=getattr(self,'_asset_popup_win',None)
+        if top is None:return
+        if event is not None and event.widget is not top:return
+        self._asset_popup_win=None;self._asset_popup_anchor=None
+        self._sync_legacy_popup_ref()
+    def _close_asset_popup(self):
+        """显式收起资产清单入口；唯一用户入口是再次点击侧栏「资产管理」。"""
+        top=getattr(self,'_asset_popup_win',None)
+        self._asset_popup_win=None;self._asset_popup_anchor=None
+        if top is not None:
+            try:
+                if top.winfo_exists():top.destroy()
+            except tk.TclError:pass
+        self._sync_legacy_popup_ref()
     def _assets_nav_toggle(self):
         """点「05 资产管理」图标：右侧切换显示／隐藏「资产清单」，不替换主图标。"""
-        top=getattr(self,'_sidebar_popup_win',None)
+        top=getattr(self,'_asset_popup_win',None)
         if top is not None and top.winfo_exists():
-            self._close_sidebar_popup()
+            self._close_asset_popup()
+            self._close_sidebar_popup()   # 同时清掉普通项目选择层，侧栏同一时刻不叠两层
             if getattr(self,'asset_roster',False) or getattr(self,'page_index',None)!=PAGE['assets']:
                 self.asset_roster=False
                 self.go_page(PAGE['assets'])
@@ -524,11 +568,11 @@ class PageNavMixin:
                                     hug_height=True,keys=True,
                                     icon_size=NAV_SECONDARY_ICON_SIZE)
             column.frame.pack(fill='x')
-            column.add('asset_roster',ASSET_ROSTER_ICON,'','资产清单',
-                       lambda:(self._close_sidebar_popup(),self.safe(self.open_asset_roster)),
+            column.add('asset_roster',ASSET_ROSTER_ICON,'','资产清单（点开后跨页保留；再点「资产管理」收起）',
+                       lambda:self.safe(self.open_asset_roster),
                        label='资产清单')
             column.finalize()
-        self._open_sidebar_popup(anchor,fill,placement='right',compact=True)
+        self._open_sidebar_popup(anchor,fill,placement='right',compact=True,persistent=True)
     def _open_rail_settings(self):
         """图标轨末尾的设置钮（第 R2946 期）：走三虎既有设置 hub，pet.act 保持原语义。"""
         pet=getattr(self,'pet',None)

@@ -48,8 +48,9 @@ from ui.storyboard_table_ui import (
     pick_default_document, render_document_text, tree_columns,
 )
 from ui_tokens import WRAPLENGTH, COLORS, FONTS, SPACING
-from ui_widgets import (Card, DataTable, PrimaryButton,
+from ui_widgets import (Card, ContextMenu, DataTable, PrimaryButton,
                         SecondaryButton, TextArea, ask_confirmation, notify)
+import ui.stage_page_simplify as stage_page_simplify
 from ui.ui_dialogs import FileDialog
 confirm = ask_confirmation
 # 第 46 期第 1 条：内容框的右键菜单（查看／删除）用的是 cell_hover 那一份实现，两页都要用，
@@ -219,11 +220,24 @@ class _FinalStoryboardPage:
         # layout），不认 pack 顺序——原来「阶段配置」在「刷新列表」「分镜目录」之后才建出来，
         # 画面上就落到了最右边。现在按想要的顺序建：手动同步资产 → 阶段配置 → 刷新列表 → 分镜目录。
         self.row_buttons={}
-        self.row_button('手动同步资产',lambda:self.desktop.make_final_storyboard(self.chosen()),'Primary.TButton')
-        ui_plugin_registry.module('stage_flow').follow(self.row_buttons['手动同步资产'],'final')
-        # R2942：「阶段配置」按钮＋模型下拉框删除。
-        self.row_button('刷新列表',self.refresh)
-        self.row_button('分镜目录',lambda:self.desktop.open_folder(working_dir(self.project)))
+        def sync_selected():
+            return self.desktop.safe(lambda:self.desktop.make_final_storyboard(self.chosen()))
+        def go_assets():
+            self.desktop.win.after_idle(lambda:self.desktop.safe(lambda:self.desktop.show(self.assets_page)))
+        def final_menu(event):
+            menu=ContextMenu(self.desktop.win)
+            menu.command('手动同步资产',sync_selected)
+            menu.command('刷新列表',self.refresh)
+            menu.command('打开分镜目录',lambda:self.desktop.safe(lambda:self.desktop.open_folder(working_dir(self.project))))
+            menu.separator()
+            menu.command('立即重试自动定稿',self.retry_now)
+            menu.command('去'+pet_bus.stage_step('assets')+'补资产',go_assets)
+            return menu
+        stage_page_simplify.bind_context_menu(self.desktop,[self.tree,self.viewer],final_menu)
+        stage_page_simplify.register_stage_send(self.desktop,'final',sync_selected,self.tree)
+        stage_page_simplify.register_files_panel(self.desktop,'final',self.tree)
+        stage_page_simplify.discoverability_hint(
+            self.desktop,'定稿操作已收进右键菜单（Shift+F10 同效）；空输入框点发送＝同步选中分镜资产；JSON/文档入口在右侧项目文件。')
         self.desktop.pet.auto_variable('auto_final_var')
         self.desktop.pet.auto_variable('auto_storyboard_var')
         self.tree.bind('<<TreeviewSelect>>',lambda e:self.desktop.safe(lambda:self.choose(e)))
@@ -251,13 +265,7 @@ class _FinalStoryboardPage:
         ttk.Label(bar,textvariable=self.status_text,style='Muted.TLabel',wraplength=WRAPLENGTH['lg'],
                   justify='left').pack(side='left',anchor='w')
         self.retry_button=SecondaryButton(bar,text='立即重试',command=self.retry_now)
-        self.retry_button.pack(side='left',padx=(SPACING['sm'],SPACING['xs']))
         self.assets_page=PAGE_OF['assets']
-        # 切页走 after_idle：这颗按钮自己就长在要被拆掉的那一页里，事件处理途中重建页面会抖动。
-        SecondaryButton(bar,text='去'+pet_bus.stage_step('assets')+'补资产',
-                        command=lambda:self.desktop.win.after_idle(
-                            lambda:self.desktop.safe(lambda:self.desktop.show(self.assets_page)))).pack(
-                                side='left',padx=(SPACING['none'],SPACING['xs']))
         self.refresh_state()
         tk_timers.repeat(bar,1500,self.refresh_state)
 

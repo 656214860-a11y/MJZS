@@ -99,6 +99,13 @@ def element_photo(root, fill, radius, width, height, border=None, border_width=0
                           (fill, radius, width, height, border, border_width))
 
 
+def _draw_empty_icon_lines(image, foreground, thick, side):
+    left = side // 4
+    for index, length in enumerate((side // 2, side // 2, side // 4)):
+        top = side // 3 + index * thick * 3
+        image.put(foreground, to=(left, top, left + length, top + thick))
+
+
 def empty_icon_photo(root, size, background, foreground, line, radius):
     """空态图标：圆角底上叠三道文字线（长、长、短），缩放与缓存规则同 ``rounded_photo``。"""
     base, pr = rounded_photo(root, background, radius, size, size)
@@ -109,11 +116,28 @@ def empty_icon_photo(root, size, background, foreground, line, radius):
     image = cache.get(key)
     if image is None:
         image = cache[key] = base.copy()  # 在副本上画线，缓存里的纯底图不被污染
-        left = side // 4
-        for index, length in enumerate((side // 2, side // 2, side // 4)):
-            top = side // 3 + index * thick * 3
-            image.put(foreground, to=(left, top, left + length, top + thick))
+        _draw_empty_icon_lines(image, foreground, thick, side)
+    specs = getattr(root, "_drama_empty_icon_specs", None)
+    if specs is None:
+        specs = root._drama_empty_icon_specs = {}
+    specs[str(image)] = (image, size, background, foreground, line, radius)
     return image
+
+
+def retint_empty_icons(root, mapping):
+    """主题切换后就地重画空态图标；已建在标签上的 image 引用不需要替换。"""
+    specs = getattr(root, "_drama_empty_icon_specs", None) or {}
+    for image, size, background, foreground, line, radius in list(specs.values()):
+        background = mapping.get(str(background).lower(), background)
+        foreground = mapping.get(str(foreground).lower(), foreground)
+        try:
+            factor = float(root.tk.call("tk", "scaling")) / (96.0 / 72.0)
+            pr = max(1, round(radius * factor))
+            side = max(2 * pr + 2, round(size * factor))
+            image.configure(data=rounded_png_bytes(background, pr, side, side), format='png')
+            _draw_empty_icon_lines(image, foreground, max(1, round(line * pr / radius)), side)
+        except tk.TclError:
+            specs.pop(str(image), None)
 
 
 def rounded_layout(style, name, element):

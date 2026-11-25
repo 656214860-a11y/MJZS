@@ -355,7 +355,9 @@ class UiEdgePagesTests(UiEdgeCase):
                     for _ in range(3):
                         win.update(); win.update_idletasks()
                     texts = widget_texts(d.content)
-                    self.assertIn(label, texts, "第 %02d 页的主动作叫「%s」" % (index + 1, label))
+                    stage = next(name for name in ('assets', 'keyframe', 'previs') if PAGE[name] == index)
+                    self.assertIsNotNone(d.shared_input.stage_action(stage),
+                                         "第 %02d 页应从共享输入框调用主动作" % (index + 1))
                     self.assertNotIn("阶段配置", texts, "第 %02d 页「阶段配置」按钮已删" % (index + 1))
                     self.assertIsNone(d.stage_button, "第 %02d 页 stage_button 属性不再挂按钮" % (index + 1))
             # 07 分镜定稿：主动作保留，阶段配置与页标题旁那颗都删。
@@ -739,24 +741,58 @@ class UiEdgePagesTests(UiEdgeCase):
             self.assertEqual(checked.checked(ids), ids)          # 三镜都缺首帧，默认全勾
             frame = storyboard_stage(proj) / "frames" / "SH002.png"
             frame.parent.mkdir(parents=True, exist_ok=True); frame.write_bytes(PNG)
-            buttons = []; trees = []
+            trees = []
             def walk(w):
-                if isinstance(w, ttk.Button):
-                    buttons.append(w)
                 if isinstance(w, ttk.Treeview):
                     trees.append(w)
                 for child in w.winfo_children():
                     walk(child)
             walk(d.content)
-            found = {str(b.cget("text")): b for b in buttons}
-            found["刷新首帧列表"].invoke(); win.update()
+            table = [t for t in trees if "prompt" in t["columns"]][0]
+            def refresh_from_menu():
+                from unittest.mock import patch
+                import ui_widgets
+                menus = []
+                def capture_popup(menu, _event):
+                    menus.append(menu)
+                    return 'break'
+                def capture_popup_at(menu, _x, _y):
+                    menus.append(menu)
+                    return menu
+                row = table.get_children()[0]
+                box = table.bbox(row, "#1")
+                self.assertTrue(box, "首帧表格行应真实可见")
+                x, y = box[0] + 2, box[1] + 2
+                with patch.object(ui_widgets.ContextMenu, 'popup', capture_popup), \
+                        patch.object(ui_widgets.ContextMenu, 'popup_at', capture_popup_at):
+                    table.event_generate('<Button-3>', x=x, y=y,
+                                         rootx=table.winfo_rootx() + x,
+                                         rooty=table.winfo_rooty() + y)
+                    win.update()
+                self.assertTrue(menus, "右键首帧表格应弹出上下文菜单")
+                menu = menus[-1]
+                end = menu.menu.index('end')
+                self.assertIsNotNone(end, "上下文菜单不应为空")
+                for index in range(end + 1):
+                    try:
+                        text = str(menu.menu.entrycget(index, 'label'))
+                    except Exception:
+                        continue
+                    if text != "刷新首帧列表":
+                        continue
+                    self.assertNotEqual(str(menu.menu.entrycget(index, 'state')), 'disabled',
+                                        "刷新首帧列表应处于可操作状态")
+                    menu.menu.invoke(index)
+                    win.update()
+                    return
+                self.fail("上下文菜单里没有可操作的「刷新首帧列表」")
+            refresh_from_menu()
             self.assertEqual(checked.checked(ids), ["SH001", "SH003"])   # 首帧就位的那一镜自动取消勾选
             self.assertIn("1 镜首帧已就位", d.status.get())
-            table = [t for t in trees if "prompt" in t["columns"]][0]
             self.assertEqual(table.item("SH002", "image"), (str(d.win._tick_images[0]),))
             self.assertEqual(table.item("SH001", "image"), (str(d.win._tick_images[1]),))
             checked.toggle("SH001")                              # 用户手动取消
-            found["刷新首帧列表"].invoke(); win.update()
+            refresh_from_menu()
             self.assertEqual(checked.checked(ids), ["SH003"])    # 刷新不会把它勾回来
             # 「首帧制作」弹窗提交的那一批回写：页面、下拉框与弹窗共用同一份勾选状态
             self.assertEqual(d.frame_checks_apply(frame_json, ["SH001"]), ["SH001"])
@@ -940,7 +976,7 @@ class UiEdgePagesTests(UiEdgeCase):
             for _ in range(10):
                 win.update()
             self.assertNotEqual(d.current_frame_json(), before)          # 确实换了文件并重建
-            self.assertGreaterEqual(len(heights), 2)                     # 底部两行都重排过
+            self.assertTrue(heights, "切换文档应完成当前可见工具行的布局")
             for path, values in heights.items():
                 self.assertEqual(max(values), values[-1], path)          # 没有比最终高度更高的过渡
 

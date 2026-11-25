@@ -7,9 +7,9 @@
 模型记录读写仍在 model_pool，这里只负责分段联动、列表的按调用方式过滤／模态分组，
 以及 DES《05》§15 的「未保存改动」确认守卫（ModelManagerFormGuardMixin）与新建预填默认。
 """
-from tkinter import ttk
-from ui_widgets import SecondaryButton
-from ui_tokens import SPACING
+from tkinter import ttk, font as tkfont
+from ui_widgets import LineInput, SecondaryButton
+from ui_tokens import COMBOBOX_PADDING, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X, SPACING
 import infra.model_pool as model_pool
 
 MODES = ('API', 'Desktop', 'CLI')  # 左上角分段切换顺序
@@ -51,7 +51,7 @@ class ModelManagerModeTabsMixin:
         if current in MODES:
             self.mode_tabs.select(current)
         if not self.pending['loading']:   # fill 回填期间只同步分段，不重建列表
-            self.load_rows()
+            self.load_rows(refresh=False)   # 只换过滤条件，模型池内容不因切页重新读盘
 
     def _render_mode_rows(self, records):
         """按当前调用方式过滤并插入列表行；只显示本调用方式的模型，按「功能 → Provider」分组。"""
@@ -125,7 +125,10 @@ class ModelManagerFormGuardMixin:
         if str(picked[0]) != str(self.state['id']) and not self._confirm_discard('切换编辑对象'):
             self._restore_selection()
             return None
-        item = self.pet.agent_model_records().get(picked[0]) or {}
+        records = getattr(self, '_records_cache', None)
+        if records is None:
+            records = self._records_cache = self.pet.agent_model_records()
+        item = records.get(picked[0]) or {}
         self.fill(picked[0], item)
         self.hint.set('正在改「%s」；改完点「保存这条」。' % (item.get('label') or picked[0]))
         return item
@@ -241,3 +244,37 @@ class ModeSegmentedControl(ttk.Frame):
     def _press(self, button):
         button.invoke()
         return 'break'
+
+
+def form_column_width(labels):
+    """表单标签列宽：令牌字符宽给下限，再按实际标签量出像素，避免中文标签被裁。
+
+    `FORM_LABEL_WIDTH` 是共用表单基准（skill_panel 的同名列同源）；中文标签按字符数
+    直接当像素会裁字，所以再用令牌字体实测一次，取两者较大值。标签列还要留出与输入列
+    之间的 `SPACING['md']` 间距，一并计入后同一窗口的各页才能共用同一条输入竖线。
+    """
+    measure = tkfont.Font(font=FONTS['body']).measure
+    gap = SPACING['md']
+    floor = measure('0') * FORM_LABEL_WIDTH + gap
+    return max([floor] + [measure(str(label)) + gap for label in labels])
+
+
+# 模型管理表单用紧凑输入框：纵向内边距归零，行高约为常规输入框一半，空出高度给模型列表。
+COMPACT_PREFIX = 'Compact.'
+COMPACT_COMBOBOX_STYLE = COMPACT_PREFIX + 'Tokens.Combobox.TCombobox'
+# 下拉框纵向内边距：零内边距时框高约 19px，上下各 3px 后约 25px，高出三分之一。
+COMPACT_COMBOBOX_PAD_Y = SPACING['xs'] - SPACING['xs'] // 4
+
+
+class CompactLineInput(LineInput):
+    NORMAL_STYLE = COMPACT_PREFIX + LineInput.NORMAL_STYLE
+    PLACEHOLDER_STYLE = COMPACT_PREFIX + LineInput.PLACEHOLDER_STYLE
+    ERROR_STYLE = COMPACT_PREFIX + LineInput.ERROR_STYLE
+
+
+def install_compact_form_styles(widget):
+    """派生样式只改 padding，其余颜色、边框与状态映射沿用父样式。"""
+    style = ttk.Style(widget)
+    for name in (CompactLineInput.NORMAL_STYLE, CompactLineInput.PLACEHOLDER_STYLE, CompactLineInput.ERROR_STYLE):
+        style.configure(name, padding=(INPUT_PADDING_X, SPACING['none']))
+    style.configure(COMPACT_COMBOBOX_STYLE, padding=(COMBOBOX_PADDING[0], COMPACT_COMBOBOX_PAD_Y))

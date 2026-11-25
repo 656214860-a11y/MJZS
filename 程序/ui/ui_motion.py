@@ -70,7 +70,23 @@ class RowHover:
         return (style.lookup(self.tree.cget("style") or "Treeview", "fieldbackground")
                 or style.lookup("Treeview", "fieldbackground") or COLORS["background_card"])
 
+    def _sync_theme_base(self):
+        """表格 fieldbackground 换主题后，悬停混色的起点不能继续用建页时的旧色。"""
+        current = self._field_background()
+        if current == self._base:
+            return
+        self._base = current
+        if self.row:
+            try:
+                self.tree.tag_configure(
+                    ROW_HOVER_TAG,
+                    background=blend(self._base, COLORS["surface_hover"],
+                                     max(1, self._step) / ROW_HOVER_STEPS))
+            except tk.TclError:
+                pass
+
     def _moved(self, event):
+        self._sync_theme_base()
         row = self.tree.identify_row(event.y)
         if row == self.row:
             return

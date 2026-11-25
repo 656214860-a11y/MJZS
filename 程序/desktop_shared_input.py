@@ -101,13 +101,11 @@ def _composer_shell(parent):
 
 
 class _FlowTextArea(TextArea):
-    """共享输入框的本地编辑区（REQ-S01-107）：原生 ``undo``/``autoseparators``
-    只开在这一个框上，不全局改 ``TextArea``、不影响附件路径控制器等其他框。
+    """共享输入框的本地编辑区，支持有边界的撤销和重做。"""
 
-    Tk 文本改动统一走 ``insert``/``delete``（键入、IME 提交、粘贴、语音写入、
-    程序化改写、撤销重做同路），改动后回调宿主把候选重扫与行高自适应合并
-    成一次空闲刷新——``<<Modified>>`` 不能依赖：页面绑定不带 ``add='+'``，
-    会顶掉先挂的处理器。"""
+    def _refresh_tag_colors(self, widget):
+        widget.tag_configure('shared_token', background=COLORS['primary_subtle'],
+                             foreground=COLORS['selection_text'])
 
     def __init__(self, master, **kwargs):
         self._on_flow_edit = None
@@ -582,8 +580,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.status = options.get('status') or _status_of(desktop)
         self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry()
         for _key in ('on_send', 'on_upstream_error', 'on_skill_config',
-                     'on_attachment', 'on_voice', 'continue_state',
-                     'on_quick_replies'):
+                     'on_attachment', 'on_voice', 'continue_state'):
             setattr(self, _key, options.get(_key))
         self._skills = list(options.get('skills') or ())
         self._engines = options.get('engines')
@@ -602,7 +599,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 输入法组词探针状态（best-effort，真机覆盖见验收文件）。
         self._composing = False
         self._build()
-        _extras_attach(self)   # REQ-S01-112/113：续写条＋胶囊栏＋发送键图元（唯一接线点）
+        _extras_attach(self)   # REQ-S01-112/113：续写条＋发送键图元（唯一接线点）
 
     # ── 构建 ────────────────────────────────────────────────────────────
     def _build(self):
@@ -622,9 +619,9 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
             placeholder='输入指令或补充要求，输入 / 调用技能（Enter 发送，Shift+Enter 换行）')
         self.input._on_flow_edit = self._schedule_refresh
         self.input.pack(fill='x')
-        for seq, color in (('<FocusIn>', COLORS['border_input_hover']),
-                           ('<FocusOut>', COLORS['border_default'])):
-            self.input.bind(seq, lambda _e, c=color: ring.configure(bg=c), add='+')
+        for seq, key in (('<FocusIn>', 'border_input_hover'),
+                         ('<FocusOut>', 'border_default')):
+            self.input.bind(seq, lambda _e, k=key: ring.configure(bg=COLORS[k]), add='+')
 
         row = ttk.Frame(box, style='Composer.TFrame')
         row.pack(fill='x')
@@ -656,9 +653,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self._active_token = None
         self._mention_cache = None
         # 选中候选后插入的 token 范围上共享样式（ui_tokens 取色，不写内联 hex）。
-        self.input.tag_configure('shared_token',
-                                 background=COLORS['primary_subtle'],
-                                 foreground=COLORS['selection_text'])
+        self.input._refresh_tag_colors(self.input)
         # R2971：✦／＋ 两个图标下拉与 / 补全同一卡片浮层（desktop_shared_menus）；
         # 点面板与各自图标钮之外自动收掉，图标钮自身开合仍走 command。
         self.skill_panel = SkillPickPanel(self)

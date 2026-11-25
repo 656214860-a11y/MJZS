@@ -680,20 +680,42 @@ class EndToEndTests(_Harness):
             self.assertEqual(d.asset_table.set("CHAR_001", "name"), "摄像头侠")
 
     def test_regression_the_table_still_filters_by_kind(self):
+        from types import SimpleNamespace
         with tempfile.TemporaryDirectory() as td:
             proj = project_with(td)
             d, win = self.desktop(proj)
-            d.show(d.page_of("assets")); win.update()
+            d.show(d.page_of("assets")); win.deiconify(); win.update()
             self.assertEqual(sorted(d.asset_table.get_children()),
                              ["CHAR_001", "CHAR_002", "CHAR_003",
                               "LOC_001", "LOC_002", "PROP_001", "PROP_002"])
-            d.asset_kind = "characters"
-            d.show(d.page_of("assets")); win.update()
-            self.assertEqual(sorted(d.asset_table.get_children()),
-                             ["CHAR_001", "CHAR_002", "CHAR_003"])
+            table = d.asset_table
+            event = SimpleNamespace(x_root=table.winfo_rootx() + 4,
+                                    y_root=table.winfo_rooty() + 4,
+                                    keysym='')
+            menu = d.asset_page_view.context_menu(event)
+            end = menu.index('end')
+            cascade = next(index for index in range((end if end is not None else -1) + 1)
+                           if menu.type(index) == 'cascade'
+                           and str(menu.entrycget(index, 'label')) == '筛选资产')
+            submenu = menu.nametowidget(menu.entrycget(cascade, 'menu'))
+            sub_end = submenu.index('end')
+            labels = [str(submenu.entrycget(index, 'label'))
+                      for index in range((sub_end if sub_end is not None else -1) + 1)]
+            self.assertIn('角色', labels)
+            win.focus_force(); win.update()
+            submenu.invoke(labels.index('角色'))
+            win.update_idletasks(); win.update()
+            rows = sorted(d.asset_table.get_children())
+            self.assertEqual(rows, ["CHAR_001", "CHAR_002", "CHAR_003"])
+            self.assertIn(d.asset_table.focus(), d.asset_table.get_children(),
+                          '筛选后键盘焦点行应落在新表格里')
+            self.assertIs(win.focus_get(), d.asset_table,
+                          '从菜单切换筛选后键盘焦点应回到资产表')
             for label in ("全部", "角色", "场景", "道具", "检查提示词", "识别背景人物",
                           "导入参考图", "批量删除资产", "资产目录", "手动制作资产"):
-                self.assertTrue(self.buttons(d.content, label), label)
+                self.assertFalse(self.buttons(d.content, label), label + " 应收进右键菜单")
+            self.assertIsNotNone(d.shared_input.stage_action("assets"))
+            self.assertTrue(any("右键菜单" in text for text in self.texts(d.content)))
 
 
 class RosterTests(_Harness):
@@ -731,12 +753,15 @@ class RosterTests(_Harness):
             self.assertTrue(self.buttons(d.content, "编辑这一项"), "改内容还得能进详情页")
             self.assertEqual(d.nav[index]._nav_icon_name, "assets",
                              "清单页激活时资产管理主图标保持原字形，不被替换")
-            # 再点资产管理图标回资产管理主页并在右侧显示／隐藏资产清单，图标始终为 assets。
+            # 点选后清单入口保持展开；再点资产管理才收起并回资产管理主页，图标始终为 assets。
+            self.assertIsNotNone(getattr(d, "_asset_popup_win", None), "点选资产清单后入口仍保留")
             d.nav[index].invoke(); win.update()
             self.assertFalse(d.asset_roster, "点击资产管理图标回到资产管理主页")
-            self.assertIsNotNone(getattr(d, "_sidebar_popup_win", None), "右侧显示资产清单")
+            self.assertIsNone(getattr(d, "_asset_popup_win", None), "再次点击隐藏右侧资产清单")
             d.nav[index].invoke(); win.update()
-            self.assertIsNone(getattr(d, "_sidebar_popup_win", None), "再次点击隐藏右侧资产清单")
+            self.assertIsNotNone(getattr(d, "_asset_popup_win", None), "再点一次可重新显示右侧资产清单")
+            d.nav[index].invoke(); win.update()
+            self.assertIsNone(getattr(d, "_asset_popup_win", None), "显示后再点仍然收起")
             self.assertEqual(d.nav[index]._nav_icon_name, "assets")
 
     def test_leaving_the_page_drops_the_roster_route(self):
@@ -762,7 +787,8 @@ class RosterTests(_Harness):
             self.buttons(d.content, "← 返回资产管理")[0].invoke(); win.update()
             self.assertFalse(d.asset_roster)
             self.assertIsNone(d.asset_detail_id)
-            self.assertTrue(self.buttons(d.content, "手动制作资产"), "回到资产管理主页")
+            self.assertFalse(self.buttons(d.content, "手动制作资产"), "回到资产管理主页后主动作仍在右键/发送键")
+            self.assertIsNotNone(d.shared_input.stage_action("assets"))
 
 
 class UsageBlockTests(_Harness):
@@ -1026,9 +1052,55 @@ class EvolutionBlockTests(_Harness):
             records = asset_versions.list_versions(proj, 'CHAR_001')
             dialog = asset_detail.compare_versions(d, 'CHAR_001', records, 1, 2)
             try:
-                images = [w for w in widget_list(dialog, (self.ttk.Label, self.tk.Label))
+                win.update()
+                images = [w for w in widget_list(dialog.content, (self.ttk.Label, self.tk.Label))
+                          if str(w.cget('image'))]
+                self.assertEqual(len(images), 2, '对比窗内容区只应有两版图片；窗口角标不算')
+                self.assertLess(images[0].master.winfo_x(), images[1].master.winfo_x(),
+                                '两版图片应左右并排')
+                self.assertEqual(images[0].master.winfo_y(), images[1].master.winfo_y(),
+                                 '两版图片应在同一行')
+            finally:
+                dialog.close()
+
+    def test_compare_uses_historical_file_when_same_path_is_overwritten(self):
+        """同一资产图反复覆盖同一路径时，第 1 版必须拿 sha256 对应的历史图。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = project_with(td)
+            d, win = self.desktop(proj)
+            from domain import asset_versions
+            base = d.asset_base()
+            folder = base / 'assets' / 'characters'
+            folder.mkdir(parents=True, exist_ok=True)
+            current = folder / 'CHAR_001.png'
+            history = folder / '历史版本'
+            history.mkdir(parents=True, exist_ok=True)
+            current.write_bytes(png(16, 16))
+            first = history / 'CHAR_001_第一版.png'
+            first.write_bytes(current.read_bytes())
+            summary_first = asset_versions.image_summary(first, base)
+            summary_first['path'] = current.relative_to(base).as_posix()
+            current.write_bytes(png(16, 16, color=(200, 30, 30)))
+            summary_current = asset_versions.image_summary(current, base)
+            from agent.core import save_text
+            asset_versions.append_version(
+                base, 'CHAR_001',
+                {'field': 'image', 'kind': 'image', 'before': None, 'after': summary_first},
+                source='imported', publish=save_text)
+            asset_versions.append_version(
+                base, 'CHAR_001',
+                {'field': 'image', 'kind': 'image', 'before': summary_first,
+                 'after': summary_current},
+                source='imported', publish=save_text)
+            records = asset_versions.list_versions(proj, 'CHAR_001')
+            dialog = asset_detail.compare_versions(d, 'CHAR_001', records, 1, 2)
+            try:
+                win.update()
+                images = [w for w in widget_list(dialog.content, (self.ttk.Label, self.tk.Label))
                           if str(w.cget('image'))]
                 self.assertEqual(len(images), 2)
+                self.assertIsNot(images[0].image, images[1].image,
+                                 '同一路径被覆盖时，不能把当前图同时冒充两版历史图')
             finally:
                 dialog.close()
 

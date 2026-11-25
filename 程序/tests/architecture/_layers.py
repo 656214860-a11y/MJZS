@@ -168,7 +168,7 @@ _register(2, "animatic_sketch_backends")
 
 # S04-PAGE-REDESIGN（REQ-S04-95…99／DES-S04-25）：预演页拆成独立 L4 模块；
 # desktop_media_pages.animatic_page 只做薄壳转发，业务全走 L3 网关。
-_register(4, "animatic_page")
+_register(4, "animatic_page", "animatic_player", "animatic_view_state", "stage_page_simplify")
 
 # 非运行期外围脚本：它们不会作为产品层导入；显式留名可防止新增顶层脚本绕过审计。
 TOOLS: dict[str, str] = {
@@ -208,6 +208,20 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('session_integrity', 'publication'),
     ('storage_maintenance', 'temporary_sweep'),
     ('agent_skill_sync', 'skill_registry'),
+    ('animatic_page', 'animatic_player'),
+    ('animatic_page', 'animatic_view_state'),
+    ('animatic_player', 'asset_thumbs'),
+    ('desktop_asset_pages', 'stage_page_simplify'),
+    ('desktop_media_pages', 'stage_page_simplify'),
+    ('desktop_storyboard_page', 'stage_page_simplify'),
+    ('local_previs', 'stage_page_simplify'),
+    ('pet_models_ui', 'desktop_layout_resize'),
+    ('pet_settings_ui', 'desktop_layout_resize'),
+    ('pet_settings_ui', 'ui_popup'),
+    ('stage_page_simplify', 'ui_widgets'),
+    ('storyboard_files', 'stage_page_simplify'),
+    ('ui_theme', 'desktop_layout_resize'),
+    ('ui_theme', 'ui_rounded'),
     ('animatic_page', 'asset_thumbs'),
     ('animatic_page', 'desktop_files_panel_filters'),
     ('animatic_page', 'ui_widgets'),

@@ -1,6 +1,8 @@
+# -*- coding: utf-8 -*-
 """设置页技能包的发现、筛选与树形展示。"""
 import os
 from pathlib import Path
+
 import pet_bus
 import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
@@ -114,6 +116,8 @@ def _scan_package_children(package, entry=None, layer='', parent='', stage=''):
             skill = _child_skill_from_file(path, layer=layer)
             if stage:
                 skill.meta['stage'] = stage
+            elif layer == 'legacy':
+                skill.meta['stage'] = ''
             try:
                 relative = path.relative_to(package).as_posix()
             except ValueError:
@@ -155,7 +159,9 @@ def _active_manage_item(skill, disabled=False):
            'package_root': str(package) if package is not None else '',
            'source': getattr(skill, 'layer', ''),
            'scope': _scope_text(kind, getattr(skill, 'layer', '')),
-           'action_note': ''}
+           'action_note': ('安装、启停、删除与重命名都作用于整包。' if kind == 'package'
+                           else '阶段目录总入口；不能按包删除或改名。' if kind == 'stage-entry'
+                           else '')}
     item = ManageItem(skill, row)
     if kind == 'package':
         children = _scan_package_children(package, entry=getattr(skill, 'path', None),
@@ -328,7 +334,9 @@ def _insert_manage_item(tree, state, item, children, own_hit):
 
 def render_manage_rows(tree, state):
     """按当前过滤条件重画树；只有真实包行有子节点，阶段与来源永远只是列/筛选器。"""
-    tree.delete(*tree.get_children())
+    existing = tree.get_children()
+    if existing:
+        tree.delete(*existing)
     state['rowmap'] = {}
     count = 0
     for item, children, own_hit in _visible_manage_rows(state):
@@ -339,6 +347,9 @@ def render_manage_rows(tree, state):
     tree.tag_configure('child', foreground=COLORS['text_muted'])
     table = getattr(tree, '_data_table', None)
     if table is not None:
+        empty = ('没有符合当前筛选的 SKILL；点「清空」恢复。' if _filters_active(state)
+                 else '暂无 SKILL，点「导入 SKILL…」添加。')
+        table.empty_label.configure(text=empty)
         table.refresh_empty_state()
     return count
 

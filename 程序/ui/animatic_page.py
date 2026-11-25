@@ -1,14 +1,14 @@
 # -*- coding: utf-8 -*-
 """S04 分镜预演页：少按钮三段式布局（REQ-S04-95…99，DES-S04-25）。
 
-上方播放区（无版本显示当前镜缩略图，有版本显示封面＋点击外部播放）；
+上方播放区（无版本显示当前镜缩略图，有版本点击画面原位播放/暂停）；
 中间时间线（各镜一格＋对白轨「对白超长」高亮＋音乐轨）；右侧沿用阶段
 文件面板（按后缀自动归位的导入分流、点选分镜、参考图右键）；底部共享
 输入框发送键（空＝生成预演，「只重做 SHxxx」＝单镜重做）；状态栏摘要；
 有可播放版本后才出现三项确认与「锁定」。业务一律走 L3
 ``stage_execution_service`` 网关，页面只注入回调，不新增弹窗。
 """
-import re
+import tkinter as tk
 from pathlib import Path
 from tkinter import BooleanVar, ttk
 
@@ -18,76 +18,30 @@ import ui.desktop_files_panel_filters as files_panel_filters
 from contract.pet_bus import stage_step
 from contract.stage_path_service import shared_reference_dir, write_dir
 from domain import animatic_audio
-from domain.animatic_references import CATEGORIES
+from domain.animatic_references import CATEGORIES, UNCATEGORIZED
 from domain.animatic_service import CONFIRMATIONS, MANIFEST
 from infra import file_index
 from infra.pet_state import PAGE_OF
+from ui.animatic_view_state import (
+    _TASK_FAILED, _TIMELINE_CELL_HEIGHT, _TIMELINE_THUMB_SIZE, _audio_mode,
+    _board_names, _image_versions, _quiet, _reply_note, _run_async, _safe_call,
+    _shot_image, _task_payload, _timeline_width, animatic_layout_metrics,
+    format_status_summary, parse_animatic_command,
+)
 from ui import asset_thumbs
-from ui_tokens import SPACING
+from ui.animatic_player import fit_video_preview
+from ui_tokens import COLORS, SPACING
 from ui_widgets import (ContextMenu, DescriptionBlock, HintLabel, LineInput,
                         PrimaryButton, SecondaryButton)
 
-_REDO = re.compile(r'重做[^0-9a-zA-Z]{0,8}sh?\s*(\d+)', re.IGNORECASE)
-_VERSION_NAME = re.compile(r'^v(\d+)\.', re.IGNORECASE)
 _CHECK_LABELS = (('rhythm', '已确认节奏'), ('duration', '已确认时长'),
                  ('dialogue_sync', '已确认对白同步'))
+_TIMELINE_GUTTER_WIDTH = 56
 
 
 # ── REQ-S04-96/98：指令解析与状态栏摘要（无 Tk 的纯函数）─────────────────────
 
-def parse_animatic_command(text):
-    """底栏文本解析：含「重做」与镜头号 → 单镜重做，其余 → 整片生成。"""
-    match = _REDO.search(str(text or ''))
-    if match is None:
-        return {'action': 'generate'}
-    return {'action': 'redo_shot', 'shot_id': 'SH%03d' % int(match.group(1))}
-
-
-def format_status_summary(timeline, library, audio_mode, version_tag, confirmed):
-    """状态栏摘要：镜头数／参考图数／声音来源／版本与确认状态。"""
-    shots = len((timeline or {}).get('shots') or [])
-    refs = sum(len(value) for value in (library or {}).values())
-    if version_tag:
-        tail = '%s %s' % (version_tag, '已锁定' if confirmed else '未确认')
-    else:
-        tail = '未生成'
-    return '分镜 %d 镜 / 参考图 %d 张 / 声音：%s / %s' % (
-        shots, refs, audio_mode or '静音', tail)
-
-
-# ── 小工具：安静执行与统一异常收口 ──────────────────────────────────────────
-
-def _quiet(work, fallback=None):
-    """读侧探测失败一律吞掉（页面照样能画），``fallback`` 为兜底值。"""
-    try:
-        return work()
-    except Exception:
-        return fallback
-
-
-def _safe_call(page, work):
-    """写侧动作统一收口：异常写状态栏，返回结果或 None。"""
-    try:
-        return work()
-    except Exception as exc:
-        page.status.set(str(exc))
-        return None
-
-
-def _run_async(page, work, done=None, label=None):
-    """统一经宿主 ``async_`` 后台执行；worker 占用拒绝重入。返回是否已受理。"""
-    if getattr(page, 'worker', None):
-        page.status.set('请等待当前任务完成')
-        return False
-    runner = getattr(page, 'async_', None)
-    if callable(runner):
-        runner(work, done, label=label)
-        return True
-    result = _safe_call(page, work)
-    if callable(done):
-        done(result)
-    return True
-
+# ── 小工具在 animatic_view_state：安静执行、回话区记录、后台任务成败信封 ─────
 
 def _animatic_settings(page):
     """页面设置浅拷贝：comfy_url 映射为网关约定的 url，其余键原样透传。"""
@@ -136,67 +90,6 @@ def _confirmed(manifest):
     return bool(flags) and all(bool(flags.get(key)) for key in CONFIRMATIONS)
 
 
-def _shot_dir(state, shot_id):
-    return write_dir(state['project'], 'animatic') / '镜头' / str(shot_id)
-
-
-def _image_versions(state, shot_id):
-    folder = _shot_dir(state, shot_id)
-    if not folder.is_dir():
-        return ()
-    found = []
-    for path in sorted(folder.iterdir()):
-        match = _VERSION_NAME.match(path.name) if path.is_file() else None
-        if match:
-            found.append(int(match.group(1)))
-    return found
-
-
-def _shot_image(state, shot_id, version):
-    """当前选用版本的图；未登记版本时退回目录里第一张 ``v<N>.*``。"""
-    folder = _shot_dir(state, shot_id)
-    if not folder.is_dir():
-        return None
-    prefix = ('v%d.' % int(version)).lower() if version else ''
-    fallback = None
-    for path in sorted(folder.iterdir()):
-        if not path.is_file() or not _VERSION_NAME.match(path.name):
-            continue
-        if prefix and path.name.lower().startswith(prefix):
-            return path
-        if fallback is None:
-            fallback = path
-    return fallback
-
-
-def _board_names(board):
-    """分镜表里去重的角色与场景名，供参考图导入自动归类。"""
-    characters, locations = [], []
-    for row in (board or {}).values():
-        if not isinstance(row, dict):
-            continue
-        for name in row.get('characters') or ():
-            if name and name not in characters:
-                characters.append(name)
-        location = row.get('location')
-        if location and location not in locations:
-            locations.append(location)
-    return characters, locations
-
-
-def _audio_mode(state):
-    shots = (state.get('timeline') or {}).get('shots') or []
-    root = write_dir(state['project'], 'animatic')
-    track = root / animatic_audio.SUBDIRS['track']
-    if track.is_dir() and any(track.iterdir()):
-        return '整轨'
-    if any(isinstance(row, dict) and row.get('dialogue_audio') for row in shots):
-        return '逐镜 TTS'
-    if (state.get('manifest') or {}).get('audio'):
-        return '整轨'
-    return '静音'
-
-
 # ── 布局：播放区 / 时间线 / 内联编辑条 / 信息条 / 确认锁定条 ──────────────────
 
 def _guide(page, frame):
@@ -214,14 +107,14 @@ def _build_confirm_bar(page, state):
     if state['video'] is None:
         return
     bar = ttk.Frame(state['frame'])
-    bar.pack(side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none']))
+    bar.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(bar, text='锁定',
+                    command=lambda: _lock(page, state)).pack(side='right')
     for key, label in _CHECK_LABELS:
         var = BooleanVar(value=bool(state.get('confirmed')))
         ttk.Checkbutton(bar, text=label, variable=var).pack(
             side='left', padx=(SPACING['none'], SPACING['sm']))
         state['checks'][key] = var
-    SecondaryButton(bar, text='锁定',
-                    command=lambda: _lock(page, state)).pack(side='left')
     state['confirm_bar'] = bar
 
 
@@ -230,34 +123,53 @@ def _build_player(page, state):
     box.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
     state['player_box'] = box
     box.bind('<Button-3>', lambda event: video_context_menu(page, state).popup(event))
+    _render_player(page, state)
+
+
+def _layout_metrics(page, state):
+    metrics = state.get('layout_metrics')
+    if metrics is None:
+        metrics = animatic_layout_metrics(getattr(page, 'win', None))
+        state['layout_metrics'] = metrics
+    return metrics
+
+
+def _render_player(page, state):
+    """播放区内容：有版本显示可原位播放的视频；无版本显示当前选中镜头的大图。"""
+    box = state.get('player_box')
+    if box is None or not _quiet(box.winfo_exists, False):
+        return
+    metrics = _layout_metrics(page, state)
+    for child in box.winfo_children():
+        child.destroy()
     if state['video'] is not None:
-        cover = asset_thumbs.media_thumbnail(box, state['video'], size=160)
-        if cover is not None:
-            view = ttk.Label(box, image=cover)
-            view._animatic_thumb = cover
-        else:
-            view = ttk.Label(box, text='分镜预演已生成，点击播放')
-        view.pack(anchor='w')
-        hint = ttk.Label(box, text='点击画面或右键用外部播放器打开')
-        hint.pack(anchor='w')
-        for widget in (view, hint):
-            widget.bind('<Button-1>', lambda _event: state['open_video']())
-            widget.bind('<Button-3>',
-                        lambda event: video_context_menu(page, state).popup(event))
+        from ui.animatic_player import VideoPreview
+        view = VideoPreview(box, state['video'], page.status,
+                            lambda event: video_context_menu(page, state).popup(event))
+        view._animatic_default_height = _quiet(lambda: int(float(view.cget('height') or 0)), 0)
+        fit_video_preview(view, state, metrics)
+        view.pack(fill='both', expand=True)
         state['video_view'] = view
         return
-    rows = state['timeline'].get('shots') or []
-    row = rows[0] if rows else None
+    rows = [row for row in (state['timeline'].get('shots') or [])
+            if isinstance(row, dict)]
+    selected = state.get('selected_shot')
+    row = next((item for item in rows if item.get('id') == selected), None)
+    if row is None and rows:
+        row = rows[0]
     image_path = (_shot_image(state, row.get('id'),
                               int(row.get('image_version') or 0)) if row else None)
-    image = (asset_thumbs.thumbnail(box, image_path, size=160)
+    image = (asset_thumbs.thumbnail(box, image_path, size=metrics['cover_size'])
              if image_path is not None else None)
     if image is not None:
         view = ttk.Label(box, image=image)
         view._animatic_thumb = image
         view.pack(anchor='w')
+        ttk.Label(box, text='%s 当前镜头草图' % row.get('id')).pack(anchor='w')
     else:
-        ttk.Label(box, text='尚未生成分镜预演；底栏发送键直接合成').pack(anchor='w')
+        text = ('%s 尚未生成草图；底栏发送键直接合成' % row.get('id') if row
+                else '尚未生成分镜预演；底栏发送键直接合成')
+        ttk.Label(box, text=text).pack(anchor='w')
     for widget in box.winfo_children():
         widget.bind('<Button-3>',
                     lambda event: video_context_menu(page, state).popup(event))
@@ -283,55 +195,201 @@ def _build_info(page, state):
     state['info_label'] = label
 
 
+def _sync_layout_metrics(page, state):
+    metrics = animatic_layout_metrics(getattr(page, 'win', None))
+    if metrics == state.get('layout_metrics'):
+        return
+    state['layout_metrics'] = metrics
+    view = state.get('video_view')
+    if state.get('video') is not None and view is not None and _quiet(view.winfo_exists, False):
+        fit_video_preview(view, state, metrics)
+    else:
+        _render_player(page, state)
+    focused_shot = _quiet(state['frame'].focus_get) in state.get('shot_widgets', {}).values()
+    _render_timeline(page, state)
+    target = state['shot_widgets'].get(state.get('selected_shot'))
+    if focused_shot and target is not None:
+        target.focus_set()
+    refit = getattr(page, 'fit_content', None)
+    if callable(refit):
+        refit()
+
+
+def _watch_layout_metrics(page, state):
+    state['frame'].bind('<Configure>', lambda _event: _sync_layout_metrics(page, state), add='+')
+
+
+def _track_gutter(parent, text=''):
+    gutter = tk.Frame(parent, width=_TIMELINE_GUTTER_WIDTH,
+                      bg=COLORS['background_primary'])
+    gutter.pack_propagate(False)
+    gutter.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+    if text:
+        ttk.Label(gutter, text=text).pack(side='left')
+    return gutter
+
+
 def _render_timeline(page, state):
-    """重画时间线：镜头格（宽随时长）＋对白轨（超长标记）＋音乐轨。"""
+    """重画可横向滚动时间线：镜头格（宽随时长）＋对白轨＋音乐轨。"""
     box = state['timeline_box']
+    metrics = _layout_metrics(page, state)
     for child in box.winfo_children():
         child.destroy()
     shots = [row for row in (state.get('timeline') or {}).get('shots') or []
              if isinstance(row, dict)]
-    shots_bar = ttk.Frame(box)
+    if shots and not any(row.get('id') == state.get('selected_shot') for row in shots):
+        state['selected_shot'] = shots[0].get('id')
+    state['shot_widgets'] = {}
+    canvas = tk.Canvas(box, highlightthickness=0, bg=COLORS['background_primary'])
+    scrollbar = ttk.Scrollbar(box, orient='horizontal', command=canvas.xview)
+    canvas.configure(xscrollcommand=scrollbar.set)
+    inner = ttk.Frame(canvas)
+    canvas.create_window((0, 0), window=inner, anchor='nw')
+
+    def sync_scroll_region(_event=None):
+        canvas.configure(scrollregion=canvas.bbox('all'),
+                         height=max(1, inner.winfo_reqheight()))
+
+    inner.bind('<Configure>', sync_scroll_region)
+    canvas.bind('<Shift-MouseWheel>', lambda event:
+                (canvas.xview_scroll(-1 if event.delta > 0 else 1, 'units'), 'break')[-1])
+    canvas.pack(fill='x')
+    scrollbar.pack(fill='x')
+    state['timeline_canvas'] = canvas
+    shots_bar = ttk.Frame(inner)
     shots_bar.pack(fill='x')
+    _track_gutter(shots_bar)
     for row in shots:
-        _shot_cell(page, state, shots_bar, row)
-    dialogue = ttk.Frame(box)
+        _shot_cell(page, state, shots_bar, row, metrics)
+    dialogue = ttk.Frame(inner)
     dialogue.pack(fill='x')
-    ttk.Label(dialogue, text='对白轨').pack(
-        side='left', padx=(SPACING['none'], SPACING['sm']))
+    _track_gutter(dialogue, '对白轨')
     for row in shots:
         _dialogue_cell(state, dialogue, row)
-    music = ttk.Frame(box)
+    music = ttk.Frame(inner)
     music.pack(fill='x')
-    ttk.Label(music, text='音乐轨').pack(
-        side='left', padx=(SPACING['none'], SPACING['sm']))
+    _track_gutter(music, '音乐轨')
     ttk.Label(music, text=_music_text(state)).pack(side='left')
+    sync_scroll_region()
 
 
-def _shot_cell(page, state, bar, row):
-    cell = ttk.Frame(bar)
+def _paint_shot_selection(state):
+    selected = state.get('selected_shot')
+    for sid, widget in (state.get('shot_widgets') or {}).items():
+        if not _quiet(widget.winfo_exists, False):
+            continue
+        color = COLORS['focus'] if sid == selected else COLORS['border_default']
+        _quiet(lambda w=widget, c=color: w.configure(highlightbackground=c))
+
+
+def _select_shot(page, state, shot_id, *, focus=False):
+    """选中时间线镜头格：无视频时播放区同步显示这一镜的当前草图。"""
+    rows = [item for item in (state.get('timeline') or {}).get('shots') or []
+            if isinstance(item, dict)]
+    if not any(row.get('id') == shot_id for row in rows):
+        return False
+    state['selected_shot'] = shot_id
+    widget = (state.get('shot_widgets') or {}).get(shot_id)
+    if widget is None or not _quiet(widget.winfo_exists, False):
+        _render_timeline(page, state)
+        widget = (state.get('shot_widgets') or {}).get(shot_id)
+    else:
+        _paint_shot_selection(state)
+    if state.get('video') is None:
+        _render_player(page, state)
+    if focus and widget is not None:
+        _quiet(widget.focus_set)
+    return True
+
+
+def _select_neighbor_shot(page, state, shot_id, offset):
+    rows = [item for item in (state.get('timeline') or {}).get('shots') or []
+            if isinstance(item, dict)]
+    ids = [row.get('id') for row in rows]
+    if shot_id not in ids:
+        return False
+    index = min(len(ids) - 1, max(0, ids.index(shot_id) + int(offset)))
+    return _select_shot(page, state, ids[index], focus=True)
+
+
+def _popup_shot_menu(page, state, row, widget):
+    menu = shot_context_menu(page, state, row)
+    x = widget.winfo_rootx()
+    y = widget.winfo_rooty() + widget.winfo_height()
+    return menu.popup_at(x, y)
+
+
+def _shot_cell(page, state, bar, row, metrics):
+    """时间线镜头格：宽度随秒数、缩略图、点击选中，键盘可左右移动与开菜单。"""
     seconds = float(row.get('seconds') or 0)
-    width = max(64, int(16 * seconds))
+    width = _timeline_width(seconds)
+    selected = row.get('id') == state.get('selected_shot')
+    cell = tk.Frame(bar, width=width, height=metrics['cell_height'], highlightthickness=1,
+                    bg=COLORS['background_card'],
+                    highlightbackground=(COLORS['focus'] if selected
+                                         else COLORS['border_default']),
+                    highlightcolor=COLORS['focus'])
+    cell.pack_propagate(False)
     cell.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
-    label = ttk.Label(cell, text='%s · %s 秒' % (row.get('id'), row.get('seconds')),
-                      width=max(8, width // 16))
+    shot_id = row.get('id')
+    state.setdefault('shot_widgets', {})[shot_id] = cell
+    image_path = _shot_image(state, shot_id, int(row.get('image_version') or 0))
+    image = (asset_thumbs.thumbnail(cell, image_path, size=metrics['thumb_size'])
+             if image_path is not None else None)
+    if image is not None:
+        thumb = ttk.Label(cell, image=image)
+        thumb._animatic_thumb = image
+    else:
+        thumb = ttk.Label(cell, text='未生成')
+    thumb.pack(pady=(SPACING['xs'], SPACING['none']))
+    label = ttk.Label(cell, text='%s · %s 秒' % (shot_id, row.get('seconds')))
     label.pack()
-    for widget in (cell, label):
-        widget.bind('<Button-3>', lambda event, shot=row:
-                    shot_context_menu(page, state, shot).popup(event))
+
+    def popup_current(event=None, widget=cell, shot=row):
+        return shot_context_menu(page, state, shot).popup(event) if event is not None \
+            else _popup_shot_menu(page, state, shot, widget)
+
+    def key(event, shot=row):
+        sid = shot.get('id')
+        if event.keysym in ('Return', 'space'):
+            _select_shot(page, state, sid, focus=True)
+            return 'break'
+        if event.keysym == 'Left':
+            _select_neighbor_shot(page, state, sid, -1)
+            return 'break'
+        if event.keysym == 'Right':
+            _select_neighbor_shot(page, state, sid, 1)
+            return 'break'
+        return None
+
+    for widget in (cell, thumb, label):
+        widget.bind('<Button-1>', lambda _event, sid=shot_id:
+                    _select_shot(page, state, sid, focus=True))
+        widget.bind('<Button-3>', popup_current)
+        widget.bind('<KeyPress>', key)
+        widget.bind('<Shift-F10>', lambda event, shot=row, widget=cell:
+                    (_popup_shot_menu(page, state, shot, widget), 'break')[-1])
+        widget.bind('<App>', lambda event, shot=row, widget=cell:
+                    (_popup_shot_menu(page, state, shot, widget), 'break')[-1])
+        _quiet(lambda w=widget: w.configure(takefocus=True))
 
 
 def _dialogue_cell(state, bar, row):
+    """对白轨单元与上方镜头格同宽，保持逐镜对齐；超长只标记不截断。"""
     sid = row.get('id')
+    cell = tk.Frame(bar, width=_timeline_width(row.get('seconds')),
+                    bg=COLORS['background_primary'])
+    cell.pack_propagate(False)
+    cell.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     clip = row.get('dialogue_audio')
     if not clip:
-        ttk.Label(bar, text='%s 无对白' % sid).pack(
-            side='left', padx=(SPACING['none'], SPACING['sm']))
+        ttk.Label(cell, text='%s 无对白' % sid).pack(side='left')
         return
     info = asset_thumbs.media_info(Path(state['project']) / clip)
     duration = float((info or {}).get('duration') or 0)
-    ttk.Label(bar, text='%s 对白 %.1f 秒' % (sid, duration)).pack(side='left')
+    ttk.Label(cell, text='%s 对白 %.1f 秒' % (sid, duration)).pack(side='left')
     if duration > float(row.get('seconds') or 0) + animatic_audio.OVERLONG_TOLERANCE_SECONDS:
-        HintLabel(bar, text='对白超长').pack(side='left')
+        HintLabel(cell, text='对白超长').pack(side='left')
 
 
 def _music_text(state):
@@ -392,6 +450,8 @@ def _refresh(page, state):
         page.show(state.get('page_index'))  # 版本变化要换确认条：真宿主整页重建
         return
     _render_timeline(page, state)
+    if state.get('video') is None:
+        _render_player(page, state)
     _update_summary(page, state)
 
 
@@ -406,12 +466,46 @@ def _update_summary(page, state):
         setter('animatic_note', segment, tooltip=segment)
 
 
+def _after_generate(page, state, outcome):
+    if not _is_alive(page, state):
+        return
+    result = _task_payload(page, outcome, '合成分镜预演')
+    if result is _TASK_FAILED:
+        return
+    if result:
+        name = Path(str(result)).name
+        _reply_note(page, 'artifact', '分镜预演已生成：%s' % name,
+                    path=str(result), title=name)
+    _refresh(page, state)
+
+
+def _after_redo(page, state, shot_id, outcome):
+    if not _is_alive(page, state):
+        return
+    result = _task_payload(page, outcome, '重做 %s' % shot_id)
+    if result is _TASK_FAILED:
+        return
+    if result:
+        rows = result.get('shots') if isinstance(result, dict) else []
+        row = next((item for item in rows or []
+                    if isinstance(item, dict) and item.get('id') == shot_id), {})
+        version = row.get('image_version')
+        _reply_note(page, 'progress', '%s 已重做完成%s' % (
+            shot_id, '，当前图版本 v%s' % version if version else ''))
+    _refresh(page, state)
+
+
 def _redo_shot(page, state, shot_id):
-    return _run_async(
+    _reply_note(page, 'user', '重做这一镜：%s' % shot_id)
+    accepted = _run_async(
         page,
         lambda: stage_execution_service.regenerate_animatic_shot(
             state['project'], shot_id, settings=_animatic_settings(page)),
-        lambda _result: _refresh(page, state), label='正在重做 %s' % shot_id)
+        lambda result: _after_redo(page, state, shot_id, result),
+        label='正在重做 %s' % shot_id)
+    if accepted:
+        _reply_note(page, 'progress', '正在重做 %s…' % shot_id, expand=True)
+    return accepted
 
 
 def _replace_shot_image(page, state, shot_id):
@@ -430,6 +524,8 @@ def _replace_shot_image(page, state, shot_id):
         if isinstance(result, dict):
             state['timeline'] = result
         _render_timeline(page, state)
+        if state.get('video') is None:
+            _render_player(page, state)
         _update_summary(page, state)
 
 
@@ -442,6 +538,8 @@ def _apply_shot_update(page, state, shot_id, **fields):
     if isinstance(result, dict):
         state['timeline'] = result
     _render_timeline(page, state)
+    if state.get('video') is None:
+        _render_player(page, state)
     _update_summary(page, state)
     return True
 
@@ -462,24 +560,46 @@ def _apply_sketch(page, state, value):
     settings = getattr(page, 'settings', None) or {}
     model = str(settings.get('animatic_reference_model') or '').strip()
     if not model:
-        page.status.set('请先在设置里配置参考图模型名')
+        message = '请先在设置里配置参考图模型名'
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
         return False
     url = settings.get('comfy_url')
-    return _run_async(
+    _reply_note(page, 'user', '本地生成参考草图：%s' % prompt)
+    accepted = _run_async(
         page,
         lambda: stage_execution_service.generate_animatic_reference(
             state['project'], prompt, model, {'url': url} if url else {}),
         lambda result: _after_sketch(page, state, result), label='正在生成参考草图…')
+    if accepted:
+        _reply_note(page, 'progress', '正在生成参考草图…', expand=True)
+    return accepted
 
 
-def _after_sketch(page, state, result):
+def _after_sketch(page, state, outcome):
     if not _is_alive(page, state):
+        return
+    result = _task_payload(page, outcome, '生成参考草图')
+    if result is _TASK_FAILED:
         return
     ok = getattr(result, 'ok', result is not None)
     if ok:
         page.status.set('已生成共享参考草图')
+        data = getattr(result, 'data', result)
+        if isinstance(data, (str, Path)):
+            paths = (data,)
+        else:
+            paths = tuple(data or ()) if isinstance(data, (list, tuple)) else ()
+        if paths:
+            name = Path(str(paths[0])).name
+            _reply_note(page, 'artifact', '共享参考草图已生成：%s' % name,
+                        path=str(paths[0]), title=name)
+        else:
+            _reply_note(page, 'reply', '共享参考草图已生成')
     else:
-        page.status.set(str(getattr(result, 'reason', '参考草图生成失败')))
+        message = str(getattr(result, 'reason', '参考草图生成失败'))
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
     _update_summary(page, state)
 
 
@@ -497,19 +617,32 @@ def _show_shot_info(page, state, row):
 def _lock(page, state):
     """三项未勾全只写状态栏、不调后端；全勾才走 L3 锁定事务。"""
     if not all(var.get() for var in state['checks'].values()):
-        page.status.set('请先勾选三项确认再锁定')
+        message = '请先勾选三项确认再锁定'
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
         return
-    _run_async(
+    _reply_note(page, 'user', '锁定分镜预演')
+    accepted = _run_async(
         page,
         lambda: stage_execution_service.lock_animatic(
             state['project'], rhythm=True, duration=True, dialogue_sync=True),
-        lambda _result: _locked(page, state), label='正在锁定分镜预演…')
+        lambda outcome: _lock_finished(page, state, outcome), label='正在锁定分镜预演…')
+    if accepted:
+        _reply_note(page, 'progress', '正在回写分镜时长并锁定预演…', expand=True)
+
+
+def _lock_finished(page, state, outcome):
+    if not _is_alive(page, state):
+        return
+    if _task_payload(page, outcome, '锁定分镜预演') is not _TASK_FAILED:
+        _locked(page, state)
 
 
 def _locked(page, state):
     if not _is_alive(page, state):
         return
     page.status.set('分镜预演已锁定，可以进入资产管理')
+    _reply_note(page, 'reply', '分镜预演已锁定；分镜时长已回写，可以进入资产管理')
     report = getattr(page, 'pet_report', None)
     if getattr(page, 'root', None) == state['project'] and callable(report):
         report('animatic', '节奏、时长与对白同步均已确认')
@@ -533,15 +666,22 @@ def run_command(page, state, text):
         shot_id = command['shot_id']
         shots = (state.get('timeline') or {}).get('shots') or []
         if not any(str(row.get('id')) == shot_id for row in shots):
-            page.status.set('时间线没有此镜头：%s' % shot_id)
+            message = '时间线没有此镜头：%s' % shot_id
+            page.status.set(message)
+            _reply_note(page, 'error', message, expand=True)
             return False
         return _redo_shot(page, state, shot_id)
+    spoken = str(text or '').strip()
+    _reply_note(page, 'user', spoken or '生成分镜预演')
     source = Path(state['project']) / state['source'] if state.get('source') else None
-    return _run_async(
+    accepted = _run_async(
         page,
         lambda: stage_execution_service.run_animatic_timeline(
             state['project'], source=source, settings=_animatic_settings(page)),
-        lambda _result: _refresh(page, state), label='正在合成分镜预演…')
+        lambda result: _after_generate(page, state, result), label='正在合成分镜预演…')
+    if accepted:
+        _reply_note(page, 'progress', '正在合成分镜预演…', expand=True)
+    return accepted
 
 
 # ── 右键菜单：镜头格六项＋播放区一项＋参考图挂钩 ──────────────────────────────
@@ -587,6 +727,23 @@ def _reclassify(page, state, path, category):
         page.status.set('参考图已改分类：%s' % category)
 
 
+def _rename_reference(page, state, path, value):
+    """修改参考图对应名：保留原扩展名，留在原分类，用文件名参与角色／场景匹配。"""
+    path = Path(path)
+    category = path.parent.name if path.parent.name in CATEGORIES else UNCATEGORIZED
+    name = str(value or '').strip()
+    if name and not Path(name).suffix:
+        name += path.suffix.lower()
+    result = _safe_call(page, lambda: stage_execution_service.reclassify_animatic_reference(
+        state['project'], path, category, new_name=name))
+    if result is not None:
+        try:
+            display = Path(result).name
+        except (TypeError, ValueError):
+            display = name
+        page.status.set('参考图已改名：%s' % display)
+
+
 def _reference_menu_hook(page, state):
     """DES-S04-25：参考图右键挂钩；草图常驻，改分类只认共享参考图目录里的图片。"""
     def hook(menu, ref):
@@ -602,6 +759,9 @@ def _reference_menu_hook(page, state):
                 submenu.command(category, lambda pick=category:
                                 _reclassify(page, state, path, pick))
             menu.cascade('修改参考图分类', submenu)
+            menu.command('修改参考图对应名', lambda: _open_inline_edit(
+                page, state, '对应名（角色／场景名）', path.stem,
+                lambda value: _rename_reference(page, state, path, value)))
         menu.command('本地生成参考草图', lambda: _open_inline_edit(
             page, state, '草图描述', '', lambda value: _apply_sketch(page, state, value)))
     return hook
@@ -641,6 +801,17 @@ def _import_files(page, state, paths):
             state['project'], 'animatic', rest)) or {}
         for key in ('imported', 'skipped', 'rejected'):
             result[key].extend(fallback.get(key) or ())
+    if result['imported']:
+        first = next((item for item in result['imported'] if isinstance(item, (str, Path))), None)
+        if first is not None:
+            name = Path(str(first)).name
+            _reply_note(page, 'artifact', '已导入 %d 个文件，例如：%s' % (
+                len(result['imported']), name), path=str(first), title=name)
+    if result['rejected']:
+        detail = '；'.join('%s：%s' % (name, reason)
+                          for name, reason in result['rejected'][:3])
+        _reply_note(page, 'error', '有 %d 个文件未导入：%s' % (
+            len(result['rejected']), detail), expand=True)
     _update_summary(page, state)
     return result
 
@@ -664,6 +835,7 @@ def _select_board(page, state, path):
         for var in state['checks'].values():
             var.set(bool(state['confirmed']))
         _render_timeline(page, state)
+        _render_player(page, state)
         _update_summary(page, state)
 
 
@@ -769,7 +941,10 @@ def _new_state(page, frame, project, timeline):
              'confirmed': _confirmed(manifest),
              'checks': {}, 'confirm_bar': None,
              'edit_box': None, 'edit_commit': None, 'edit_cancel': None,
-             'timeline_box': None, 'info_label': None,
+             'layout_metrics': None,
+             'timeline_box': None, 'info_label': None, 'shot_widgets': {},
+             'selected_shot': ((timeline.get('shots') or [{}])[0].get('id')
+                               if timeline.get('shots') else None),
              'select_fn': None, 'import_fn': None, 'menu_fn': None}
     state['board'] = _load_board(project, state['source'])
     state['open_video'] = lambda: _open_video(page, state)
@@ -798,6 +973,7 @@ def show(page):
     _build_tracks(page, state)
     _build_editor(page, state)
     _build_info(page, state)
+    _watch_layout_metrics(page, state)
     _register_panel(page, state)
     _register_send_key(page, state)
     _update_summary(page, state)

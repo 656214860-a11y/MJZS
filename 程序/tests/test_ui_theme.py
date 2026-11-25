@@ -13,7 +13,7 @@ import sys
 import tempfile
 import unittest
 from pathlib import Path
-from unittest.mock import Mock
+from unittest.mock import Mock, patch
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 sys.path.insert(0, HERE)
@@ -298,6 +298,20 @@ class PopupGrabSafetyTests(unittest.TestCase):
         popup.withdraw()
         self.pump(60)
         self.assertIsNone(self.win.grab_current(), '隐形窗口不得继续持有 grab')
+
+    def test_first_show_repaints_before_alpha_is_restored(self):
+        """弹窗显形前必须先有一帧真实重画；否则 Windows 会把未上色首帧合成成黑块。"""
+        seen_alpha = []
+        def repainted(widget):
+            seen_alpha.append(float(widget.attributes('-alpha')))
+            return True
+        with patch('ui.desktop_layout_resize.repaint_area', side_effect=repainted):
+            popup = tk.Toplevel(self.win)
+            self.addCleanup(self.quietly, popup.destroy)
+            ttk.Label(popup, text='首帧').pack()
+            self.pump(120)
+        self.assertEqual(seen_alpha, [0.0], '同步重画必须发生在 alpha 恢复之前')
+        self.assertEqual(float(popup.attributes('-alpha')), 1.0)
 
     def test_place_error_restores_visibility_releases_grab_and_notifies(self):
         notices = []
@@ -612,6 +626,24 @@ class ThemeRefreshTests(unittest.TestCase):
                 self.assertEqual(str(area.tag_cget(script_style.SPEAKER, 'foreground')).lower(),
                                  COLORS['primary_text'].lower())
 
+    def test_explicit_ttk_label_and_composer_reference_colors_follow_both_switches(self):
+        from desktop_shared_input import _FlowTextArea
+        from tkinter import ttk
+        ui_tokens.set_theme('day')
+        ui_theme.apply(self.win)
+        label = ttk.Label(self.win, background=COLORS['background_primary'],
+                          foreground=COLORS['text_secondary'])
+        field = _FlowTextArea(self.win)
+        field._refresh_tag_colors(field)
+        for palette in ('night', 'day'):
+            ui_tokens.set_theme(palette)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=palette):
+                self.assertEqual(str(label.cget('background')), COLORS['background_primary'])
+                self.assertEqual(str(label.cget('foreground')), COLORS['text_secondary'])
+                self.assertEqual(field.tag_cget('shared_token', 'foreground'), COLORS['selection_text'])
+
     def test_context_menu_tracks_live_theme_switch(self):
         menu = ContextMenu(self.win).menu
         for name in ('night', 'day'):
@@ -624,6 +656,74 @@ class ThemeRefreshTests(unittest.TestCase):
                 self.assertEqual(str(menu.cget('activebackground')).lower(), COLORS['selection_bg'].lower())
                 self.assertEqual(str(menu.cget('activeforeground')).lower(), COLORS['selection_text'].lower())
                 self.assertEqual(str(menu.cget('disabledforeground')).lower(), COLORS['disabled_text'].lower())
+
+    def test_cloud_shape_colors_round_trip_for_later_redraws(self):
+        from ui import pet_cloud
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(pet_cloud.SHAPE_COLORS['cloud'],
+                                 (COLORS['background_card'], COLORS['success']))
+                self.assertEqual(pet_cloud.SHAPE_COLORS['puff'],
+                                 (COLORS['background_card'], COLORS['danger']))
+                self.assertEqual(pet_cloud.SHAPE_COLORS['round'],
+                                 (COLORS['primary_subtle'], COLORS['primary']))
+                self.assertEqual(pet_cloud.SHAPE_COLORS['tag'],
+                                 (COLORS['background_card'], COLORS['warning']))
+                self.assertEqual(pet_cloud.CLOSE_FG, COLORS['on_accent'])
+                self.assertEqual(pet_cloud.CLOSE_BG, COLORS['danger'])
+
+    def test_text_margin_and_treeview_tags_round_trip(self):
+        ui_theme.apply(self.win)
+        text = TextArea(self.win)
+        text.tag_configure('bubble_0', lmargincolor=COLORS['background_card'],
+                           rmargincolor=COLORS['background_card'])
+        tree = ttk.Treeview(self.win)
+        tree.tag_configure('completed', background=COLORS['row_completed'],
+                           foreground=COLORS['text_secondary'])
+        tree.insert('', 'end', iid='shot', tags=('completed',))
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(str(text.tag_cget('bubble_0', 'lmargincolor')).lower(),
+                                 COLORS['background_card'].lower())
+                self.assertEqual(str(text.tag_cget('bubble_0', 'rmargincolor')).lower(),
+                                 COLORS['background_card'].lower())
+                self.assertEqual(str(tree.tag_configure('completed', 'background')).lower(),
+                                 COLORS['row_completed'].lower())
+                self.assertEqual(str(tree.tag_configure('completed', 'foreground')).lower(),
+                                 COLORS['text_secondary'].lower())
+
+    def test_tick_images_retint_in_place_round_trip(self):
+        from ui.ui_icons import IconLoader
+        ui_theme.apply(self.win)
+        first = self.win._tick_images[0]
+        direct = IconLoader.check_indicator(self.win, size=12, selected=False)
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                want = tuple(channel // 257 for channel in self.win.winfo_rgb(COLORS['primary']))
+                self.assertEqual(tuple(first.get(0, 0)), want)
+                self.assertEqual(tuple(direct.get(0, 0)), want)
+
+    def test_empty_icon_retints_in_place_round_trip(self):
+        from ui.ui_motion import empty_icon
+        ui_theme.apply(self.win)
+        image = empty_icon(self.win)
+        x, y = image.width() // 2, max(1, image.height() // 6)
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                want = tuple(channel // 257 for channel in self.win.winfo_rgb(COLORS['surface_hover']))
+                self.assertEqual(tuple(image.get(x, y)), want)
 
     def test_night_theme_syncs_pet_ui_reexported_tokens(self):
         from ui import pet_ui, pet_ui_support, pet_ui_view
