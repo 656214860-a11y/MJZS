@@ -128,6 +128,40 @@ class CollapsedSummaryTests(StageReplyAreaFixture):
         self.assertNotIn('补齐角色图', self.area.summary.cget('text'),
                          '别的阶段记录不串进当前页摘要')
 
+    def test_note_with_expand_true_expands_current_stage_without_persisting_expand(self):
+        import json
+        self.area.sync_stage('storyboard')
+        _pump(self.win, .05)
+        self.assertFalse(self.area.expanded)
+        self.area.note('error', 'storyboard', '请先确认结构剧本', expand=True)
+        _pump(self.win, .05)
+        self.assertTrue(self.area.expanded, '当前阶段传 expand=True 应自动展开')
+        self.assertEqual(self.area.body.winfo_manager(), 'pack')
+        self.assertEqual(self.area.toggle_button.cget('text'), '收起')
+        rendered = self.area.text.get('1.0', 'end')
+        self.assertEqual(rendered.count('请先确认结构剧本'), 1)
+        records, _cursor = stage_reply_log.read_tail(self.root, 'storyboard')
+        self.assertEqual(len(records), 1)
+        self.assertNotIn('expand', records[0], 'expand 绝不得写入 JSONL 记录')
+        log_path = stage_reply_log.stage_log_path(self.root, 'storyboard')
+        raw_rows = [json.loads(line) for line in log_path.read_text(encoding='utf-8').splitlines() if line.strip()]
+        self.assertNotIn('expand', raw_rows[-1])
+
+    def test_note_default_stays_collapsed_and_other_stage_expand_does_not_open_current(self):
+        self.area.sync_stage('storyboard')
+        _pump(self.win, .05)
+        self.area.note('progress', 'storyboard', '普通进度记录')
+        _pump(self.win, .05)
+        self.assertFalse(self.area.expanded, '默认 expand=False 保持收起态')
+        self.assertEqual(self.area.body.winfo_manager(), '')
+        self.area.note('error', 'assets', '资产缺失报错', expand=True)
+        _pump(self.win, .05)
+        self.assertFalse(self.area.expanded, '非当前阶段传 expand=True 不得误展开当前页')
+        self.assertEqual(self.area.body.winfo_manager(), '')
+        records, _cursor = stage_reply_log.read_tail(self.root, 'assets')
+        self.assertEqual([r.get('text') for r in records], ['资产缺失报错'])
+        self.assertNotIn('expand', records[0])
+
 
 class ExpandGeometryTests(StageReplyAreaFixture):
     def test_expand_caps_at_forty_percent_of_content_area(self):

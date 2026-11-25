@@ -325,6 +325,54 @@ class StoryboardPageLoadingTests(unittest.TestCase):
             self.assertFalse(page.editor.close_button.winfo_ismapped())
             self.assertEqual(board.read_text(encoding='utf-8'), original)
 
+    def test_doc_bar_uses_card_frame_contrast_title_bordered_close_and_fits_content(self):
+        """打开文件后顶部文档栏采用圆角卡片容器、主对比文件名与带框关闭钮，切显隐触发 fit_content。"""
+        import json
+        from infra.pet_state import PAGE_OF
+        sample = {
+            'episode_id': 'EP001', 'title': '雨夜重逢', 'duration': 5,
+            'shots': [
+                {'id': 'SH001', 'title': '街道远景', 'duration': 5, 'characters': ['林夏'],
+                 'location': '老街', 'dialogue': '雨下大了', 'frame_prompt': '雨夜霓虹街道'},
+            ],
+        }
+        with tempfile.TemporaryDirectory() as td:
+            win, d = self.open_desktop(td)
+            self.addCleanup(d.cancel_timers)
+            win.geometry('1100x760+40+40')
+            win.deiconify()
+            board = d.root / '03初步分镜' / '分镜拆分' / 'EP001_雨夜重逢_分镜.json'
+            board.parent.mkdir(parents=True, exist_ok=True)
+            board.write_text(json.dumps(sample, ensure_ascii=False), encoding='utf-8')
+            d.show(PAGE_OF['storyboard'])
+            page = d.storyboard_editor_page
+            self.pump(win, lambda: page.loaded)
+            if page.active_path is not None:
+                page.close_document()
+                win.update()
+            fit_calls = []
+            original_fit = d.fit_content
+            d.fit_content = lambda: (fit_calls.append('fit'), original_fit())[1]
+            page.show_document(board)
+            win.update()
+            self.assertTrue(page.editor.doc_bar.winfo_ismapped())
+            self.assertEqual(str(page.editor.doc_bar.cget('style')), 'Tokens.Card.TFrame')
+            self.assertEqual(str(page.editor.doc_title.cget('style')), 'Composer.TLabel')
+            self.assertEqual(str(page.editor.doc_title.cget('text')), board.name)
+            self.assertEqual(str(page.editor.close_button.cget('style')), 'Tokens.Secondary.TButton')
+            self.assertEqual(str(page.editor.close_button.cget('text')), '关闭')
+            muted_labels = [
+                child for child in page.editor.doc_bar.winfo_children()
+                if str(child.cget('style')) == 'Composer.Muted.TLabel'
+            ]
+            self.assertTrue(any('当前文件' in str(lbl.cget('text')) for lbl in muted_labels))
+            opened_fits = len(fit_calls)
+            self.assertGreaterEqual(opened_fits, 1, '打开文档显示 doc_bar 须触发 fit_content')
+            page.editor.close_button.invoke()
+            win.update()
+            self.assertFalse(page.editor.doc_bar.winfo_ismapped())
+            self.assertGreater(len(fit_calls), opened_fits, '关闭文档隐藏 doc_bar 须触发 fit_content')
+
 
 if __name__ == '__main__':
     unittest.main()

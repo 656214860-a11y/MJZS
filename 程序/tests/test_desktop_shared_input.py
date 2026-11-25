@@ -200,6 +200,53 @@ class StoryboardEmptySendTests(_StageActionCase):
         self.assertIsNone(self.box.request_model)
         self.assertFalse(self.box.in_flight)
 
+    def test_upstream_rejection_writes_reply_note_with_expand_for_empty_and_text_send(self):
+        notes = []
+        self.desktop.reply_note = lambda kind, stage, text='', **kw: notes.append((kind, stage, text, kw))
+        self.box.set_stage_action('storyboard', self.make)
+        with mock.patch.object(shared_send, 'upstream_send_error',
+                               return_value='请先确认结构剧本'):
+            self.assertIs(self.box.send(), False)
+            self.box.set_text('加几个眼神特写')
+            self.assertIs(self.box.send(), False)
+        self.assertEqual(
+            notes,
+            [('error', 'storyboard', '请先确认结构剧本', {'expand': True}),
+             ('error', 'storyboard', '请先确认结构剧本', {'expand': True})],
+        )
+
+    def test_upstream_rejection_falls_back_to_3arg_reply_note_and_expands_reply_area(self):
+        legacy = []
+        expanded = []
+        self.desktop.reply_note = lambda kind, stage, text: legacy.append((kind, stage, text))
+        self.desktop.reply_area = SimpleNamespace(
+            stage='storyboard', set_expanded=lambda flag: expanded.append(bool(flag)))
+        self.box.set_stage_action('storyboard', self.make)
+        with mock.patch.object(shared_send, 'upstream_send_error',
+                               return_value='请先确认结构剧本'):
+            self.assertIs(self.box.send(), False)
+        self.assertEqual(legacy, [('error', 'storyboard', '请先确认结构剧本')])
+        self.assertEqual(expanded, [True])
+
+    def test_accepted_empty_send_expands_reply_area_only_when_on_storyboard_stage(self):
+        expanded = []
+        self.desktop.reply_area = SimpleNamespace(
+            stage='storyboard', set_expanded=lambda flag: expanded.append(bool(flag)))
+        self.box.set_stage_action('storyboard', lambda: True)
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.assertIs(self.box.send(), True)
+        self.assertEqual(expanded, [True])
+        expanded.clear()
+        self.desktop.reply_area.stage = 'assets'
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.assertIs(self.box.send(), True)
+        self.assertEqual(expanded, [], '回话区不在 storyboard 阶段时不误展开')
+        self.desktop.reply_area.stage = 'storyboard'
+        self.box.set_stage_action('storyboard', lambda: False)
+        with mock.patch.object(shared_send, 'upstream_send_error', return_value=''):
+            self.assertIs(self.box.send(), False)
+        self.assertEqual(expanded, [], '动作未受理时不展开')
+
 
 class TextSendOnStageWithoutFlowTests(_StageActionCase):
     """非聊天制作阶段输入框有字发送：直连 API 按 SKILL 仅输出阶段文件；未配 API 时提示选模型。"""

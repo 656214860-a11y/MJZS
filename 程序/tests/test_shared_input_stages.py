@@ -688,6 +688,45 @@ class StoryboardSendChainTests(unittest.TestCase):
         self.assertIn('读取结构剧本输入失败', desktop.status.get())
         self.assertIn('结构剧本目录损坏', desktop.status.get())
 
+    def test_launch_storyboard_flow_expands_reply_area_on_dispatch_and_error(self):
+        """launch_storyboard_flow 在启动派发与异常报错时同步展开 storyboard 回话区，兼容 3 参桩。"""
+        expanded = []
+        notes = []
+        desktop = self.desktop()
+        desktop.page_index = pet_bus.STAGES.index('storyboard')
+        desktop.reply_area = SimpleNamespace(
+            stage='storyboard', set_expanded=lambda flag: expanded.append(bool(flag)))
+        desktop.reply_note = lambda kind, stage, text: notes.append((kind, stage, text))
+        selected, produced, prompt = self.selection_patches()
+        with selected, produced, prompt:
+            shared_send.open_storyboard_skill(desktop, request_text='补充')
+            self.finish(desktop)
+        self.assertEqual(expanded, [True])
+        self.assertTrue(any(k == 'progress' and s == 'storyboard' for k, s, _t in notes))
+
+        expanded.clear()
+        notes.clear()
+        desktop_err = self.desktop()
+        desktop_err.page_index = pet_bus.STAGES.index('storyboard')
+        desktop_err.reply_area = SimpleNamespace(
+            stage='storyboard', set_expanded=lambda flag: expanded.append(bool(flag)))
+        desktop_err.reply_note = lambda kind, stage, text: notes.append((kind, stage, text))
+        desktop_err.open_flow_agent = Mock(side_effect=ValueError('未配置分镜模型'))
+        with selected, produced, prompt:
+            shared_send.open_storyboard_skill(desktop_err, request_text='补充')
+            self.finish(desktop_err)
+        self.assertEqual(expanded, [True])
+        self.assertTrue(any(k == 'error' and '未配置分镜模型' in t for k, _s, t in notes))
+
+        expanded.clear()
+        desktop_other = self.desktop()
+        desktop_other.reply_area = SimpleNamespace(
+            stage='assets', set_expanded=lambda flag: expanded.append(bool(flag)))
+        with selected, produced, prompt:
+            shared_send.open_storyboard_skill(desktop_other, request_text='补充')
+            self.finish(desktop_other)
+        self.assertEqual(expanded, [], '非 storyboard 阶段回话区不得误展开')
+
 
 class SharedInputHostTests(unittest.TestCase):
     """宿主接线：同一实例跨页 set_stage；非阶段页隐藏；/命令落到分流。"""

@@ -10,7 +10,7 @@ from ui_tokens import (
     COLORS, FONTS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
     SCRIPT_VIEW_PADDING, SPACING, TEXT_ROWS,
 )
-from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
+from ui_widgets import Card, ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
 from ui.ui_shortcuts import ShortcutRegistry
 
 from responsive_ui import (
@@ -458,26 +458,38 @@ class S03EditorView:
         self._bind_shortcuts()
 
     def _build_doc_bar(self, parent):
-        bar = ttk.Frame(parent)
+        bar = Card(parent, padding=(SPACING['sm'], SPACING['xs']))
         self.doc_bar = bar
-        self.doc_title = ttk.Label(bar, text='', style='SidebarProjectMuted.TLabel', anchor='w')
+        self.doc_prefix = ttk.Label(bar, text='当前文件：', style='Composer.Muted.TLabel')
+        self.doc_prefix.pack(side='left', padx=(SPACING['none'], SPACING['xs'] // 2))
+        self.doc_title = ttk.Label(bar, text='', style='Composer.TLabel', anchor='w')
         self.doc_title.pack(side='left', fill='x', expand=True)
         self.close_button = SecondaryButton(
-            bar, text='关闭', width=0, style='Compact.TButton',
+            bar, text='关闭', width=0, style='Tokens.Secondary.TButton',
             command=lambda: self.page.desktop.safe(self.page.close_document))
         self.close_button.pack(side='right', padx=(SPACING['xs'], SPACING['none']))
         Tooltip(self.close_button, '关闭当前打开的文件')
 
     def set_document_header(self, path):
+        changed = False
         if path is not None:
             self.doc_title.configure(text=Path(path).name)
             if not self.doc_bar.winfo_manager():
                 anchor = self.find_bar if self.find_bar.winfo_manager() else self.body
                 self.doc_bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']), before=anchor)
+                changed = True
         else:
             self.doc_title.configure(text='')
             if self.doc_bar.winfo_manager():
                 self.doc_bar.pack_forget()
+                changed = True
+        if changed:
+            fit = getattr(getattr(self.page, 'desktop', None), 'fit_content', None)
+            if callable(fit):
+                try:
+                    fit()
+                except Exception:
+                    app_logging.swallowed()
 
     def follow_renamed(self, changed):
         page = self.page

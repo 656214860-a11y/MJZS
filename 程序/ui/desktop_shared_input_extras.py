@@ -414,6 +414,83 @@ def _default_continue_state(box):
     return continue_state(getattr(box, 'stage', ''), controller)
 
 
+def _expand_reply_area(desktop, stage):
+    """若宿主持有回话区且正停在目标制作阶段，则自动展开。"""
+    stage = str(stage or '')
+    if not stage or stage == 'script':
+        return
+    area = getattr(desktop, 'reply_area', None)
+    if area is None or not callable(getattr(area, 'set_expanded', None)):
+        return
+    current = getattr(area, 'stage', None)
+    if isinstance(current, str) and current != stage:
+        return
+    try:
+        area.set_expanded(True)
+    except Exception:
+        app_logging.swallowed()
+
+
+def _reply_note_with_expand(desktop, kind, stage, text, *, expand=False):
+    """向宿主回话区写记录并按需展开；兼容无回话区或仅收 3 参的旧桩。"""
+    stage = str(stage or '')
+    if not stage or stage == 'script':
+        return
+    note = getattr(desktop, 'reply_note', None)
+    expanded = False
+    if callable(note):
+        try:
+            if expand:
+                note(kind, stage, text, expand=True)
+                expanded = True
+            else:
+                note(kind, stage, text)
+        except TypeError:
+            try:
+                note(kind, stage, text)
+            except Exception:
+                app_logging.swallowed()
+        except Exception:
+            app_logging.swallowed()
+    if expand and not expanded:
+        _expand_reply_area(desktop, stage)
+
+
+def _wrap_upstream_error(box):
+    """包装上游门禁回调：返回非空错误时同步记入回话区并自动展开（非 script 阶段）。"""
+    gate = getattr(box, 'on_upstream_error', None)
+    if not callable(gate):
+        return
+
+    def wrapped(*args, **kwargs):
+        error = gate(*args, **kwargs) or ''
+        stage = kwargs.get('stage') if 'stage' in kwargs else (
+            args[1] if len(args) > 1 else getattr(box, 'stage', ''))
+        stage_name = str(stage or '')
+        if error and stage_name and stage_name != 'script':
+            _reply_note_with_expand(
+                getattr(box, 'desktop', None), 'error', stage_name, str(error), expand=True)
+        return error
+
+    box.on_upstream_error = wrapped
+
+
+def _wrap_stage_action(box):
+    """包装阶段动作：storyboard 空发送受理后，若当前在 storyboard 页则展开回话区。"""
+    original = getattr(box, 'run_stage_action', None)
+    if not callable(original):
+        return
+
+    def wrapped(stage=None):
+        accepted = original(stage)
+        target = str(stage or getattr(box, 'stage', '') or '')
+        if accepted and target == 'storyboard':
+            _expand_reply_area(getattr(box, 'desktop', None), 'storyboard')
+        return accepted
+
+    box.run_stage_action = wrapped
+
+
 def attach(box):
     """REQ-S01-112/113：把附加条挂进输入卡，并在既有方法尾注册薄钩子。
 
@@ -426,6 +503,8 @@ def attach(box):
     _wrap_after(box, 'set_stage', manager.stage_changed)
     _wrap_after(box, 'clear', manager.cleared)
     _wrap_after(box, '_schedule_refresh', manager.text_edited)
+    _wrap_upstream_error(box)
+    _wrap_stage_action(box)
     box.input._on_flow_edit = lambda *args: box._schedule_refresh(*args)
     box._send_art_key = None
     box.extras = manager
@@ -451,12 +530,14 @@ def launch_storyboard_flow(desktop, batch, request_text, value, kwargs, hooks):
     except Exception as exc:
         app_logging.swallowed()
         notify_error(desktop, str(exc) or '启动初步分镜失败')
+        _expand_reply_area(desktop, 'storyboard')
         return False
     if read_status(desktop) == before:
         if batch.get('named'):
             say(desktop, '点名执行：' + '、'.join(batch['named']) + '。' + str(value or ''))
         else:
             say(desktop, value)
+    _expand_reply_area(desktop, 'storyboard')
     return True
 
 
