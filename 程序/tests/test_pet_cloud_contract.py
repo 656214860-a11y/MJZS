@@ -127,6 +127,51 @@ class PetCloudContractTests(unittest.TestCase):
         self.assertEqual(pet_cloud.centered_popup_origin((100, 100, 200, 100), (2400, 1200),
                                                           (0, 0, 1920, 1080)), (0, 0))
 
+    def test_propose_remembers_the_command_stage(self):
+        """SANHU-FIX-2 S-03：三虎问的那件事带着阶段——空回车派发时照它路由。"""
+        cloud = object.__new__(pet_cloud.Cloud)
+        cloud.errors = []
+        self.assertEqual(cloud.propose('执行选中', stage='video'), '执行选中')
+        self.assertEqual(cloud.choice_stage, 'video')
+        cloud.propose('')
+        self.assertIsNone(cloud.choice_stage, '只是通知的问句把记下的阶段一并清掉')
+
+    def test_dispatch_hands_the_stage_to_a_sink_that_knows_it(self):
+        """S-03：agent.dispatch 签名认 stage 就传过去；没记阶段的句子照常不带。"""
+        seen = []
+
+        class Agent:
+            def dispatch(self, text, at=None, confirmed=False, stage=None):
+                seen.append((text, confirmed, stage))
+                return {'plan': {'stage': stage}, 'decision': {'run': True}}
+
+        class Pet:
+            agent = Agent()
+
+        cloud = object.__new__(pet_cloud.Cloud)
+        cloud.pet, cloud.errors = Pet(), []
+        cloud.dispatch('执行选中', stage='video')
+        self.assertEqual(seen, [('执行选中', True, 'video')])
+        cloud.dispatch('手打一句')
+        self.assertEqual(seen[-1], ('手打一句', True, None))
+
+    def test_dispatch_to_a_sink_without_the_parameter_still_works(self):
+        """S-03：stage 是新参数——老签名（老接口、假宠物）不认它，照旧只吃一句话。"""
+        seen = []
+
+        class Agent:
+            def dispatch(self, text):
+                seen.append(text)
+                return {'plan': {}, 'decision': {}}
+
+        class Pet:
+            agent = Agent()
+
+        cloud = object.__new__(pet_cloud.Cloud)
+        cloud.pet, cloud.errors = Pet(), []
+        self.assertIsInstance(cloud.dispatch('执行选中', stage='video'), dict)
+        self.assertEqual(seen, ['执行选中'])
+
 
 if __name__ == '__main__':
     unittest.main()

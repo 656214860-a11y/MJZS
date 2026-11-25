@@ -2,6 +2,7 @@
 import infra.app_logging as app_logging
 import pet_agent
 import contract.pet_bus as pet_bus
+import ui.pet_ask as pet_ask
 import ui.pet_cloud as pet_cloud
 import ui.pet_poll_policy as pet_poll_policy
 import orchestrator.stage_flow as stage_flow
@@ -10,7 +11,7 @@ import orchestrator.stage_parallel as stage_parallel
 from tkinter import TclError
 from uuid import uuid4
 from ui_widgets import ask_confirmation
-from ui.pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword
+from ui.pet_ui_support import ADVANCE_SECONDS, AUTO_STAGE_VARIABLES, AUTO_VARIABLE_NAMES, CONFIRM_NEED, CONFIRM_TITLE, FALLBACK_ASK, LEVEL_SWITCH_NOTES, ONE_CLICK_ASK, ONE_CLICK_TITLE, PAGE_ASKS, PAW_LEVELS, SANHU_MODES, STAGE_ASK_SECONDS, _BooleanFlag, accepts_keyword, page_stage_for, script_structure_offer
 
 
 def stage_run_action(desktop, stage, trigger, *, error=None, presentation=None, text='', unattended=False):
@@ -303,17 +304,15 @@ class PetStagesMixin:
         if stage_flow.unchecked(getattr(self.desktop, 'root', None), stage):
             return skip_unchecked(self.desktop, stage)
         kick = getattr(self.desktop, 'pet_start', None)
-        allowed = False
+        allowed, declined = False, ''
         if callable(kick):
-            try:
-                allowed = bool(self.agent.approve('stage.run', paid=stage in stage_flow.PAID_STAGES)['run'])
-            except Exception as exc:
-                self.errors.append(('start', str(exc)))
+            allowed, declined = pet_ask.approve_stage(self, stage, paid=stage in stage_flow.PAID_STAGES)
+        if declined:
+            self.advance_stage(stage, at=at)   # S-05：被拒照旧叫醒轮询一轮，回话换成那句
+            return declined
         if allowed:
-            prefix = {
-                'script_structure': '剧本结构未派发：', 'storyboard': '分镜批次未派发：',
-                'keyframe': '首帧批次未派发：',
-            }.get(stage, '阶段未派发：')
+            prefix = {'script_structure': '剧本结构未派发：', 'storyboard': '分镜批次未派发：',
+                      'keyframe': '首帧批次未派发：'}.get(stage, '阶段未派发：')
             failure_key = None
             try:
                 started = kick(stage)
@@ -497,6 +496,7 @@ class PetStagesMixin:
                 # 用户在气泡里答过「好」的话（params.confirmed）就不再弹第二次确认窗。
                 return self.one_click(at=at, confirm=not bool((plan.get('params') or {}).get('confirmed')))
             if intent in ('retry', 'skip', 'pause', 'resume', 'model', 'details'):
+                if intent == 'resume': pet_ask.declined_set(self).clear()   # S-05：「继续」把被拒的付费阶段放回可问
                 self.click(intent, at=at)     # 与气泡／菜单共用同一份实现，不再各写一遍
                 return self.notice
             if intent == 'level':
@@ -625,6 +625,7 @@ class PetStagesMixin:
         return self.notice
     def poll_test_mode(self, at=None):
         """复用 150ms pump 观察测试子进程；不创建额外线程或 Tk 定时器。"""
+        pet_ask.pump_asks()              # S-05：worker 递回来的「是/否」小窗也在心跳里领走
         if self._test_session is None:
             return ''
         try:
@@ -821,7 +822,7 @@ class PetStagesMixin:
         return self.set_level(level, at=at)
     def grant_paid(self, stage): pet_poll_policy.grant_paid(self, stage)
     def revoke_paid(self, stage): pet_poll_policy.revoke_paid(self, stage)
-    def clear_paid_grants(self): pet_poll_policy.clear_paid_grants(self)
+    def clear_paid_grants(self): pet_poll_policy.clear_paid_grants(self); pet_ask.declined_set(self).clear()
     def should_auto_run(self, stage_id):
         """按阶段 ID 判定轮询放行：全自动照旧读三虎变量，半自动按免费／授权组放行。"""
         try:
@@ -1133,7 +1134,7 @@ class PetStagesMixin:
                 self._emit('stage.paused', stage='script',
                            text='剧本文档已保存（待校验：%s）' % detail)
         self.broadcast('【完成】剧本文档已保存', at=at)
-        return self.confirm('【下一阶段】剧本已保存。现在制作分镜吗？')
+        return '' if self.level() == 'auto' else script_structure_offer(self)   # S-10：全自动不问
     def note_stage(self, page=None, at=None, force_prompt=False, intro=''):
         """第 36 期第 6 条：用户换到别的阶段，三虎看一眼「这一步要不要我自动做」。
 
@@ -1177,7 +1178,7 @@ class PetStagesMixin:
                 # 对话框开着：这一页的问句接着排进去，框里跟着换页更新（不另冒一朵、不打断用户）。
                 if command and hasattr(chat, 'propose'):
                     try:
-                        chat.propose(command)
+                        chat.propose(command, stage=page_stage_for(index))
                     except Exception as exc:
                         self.errors.append(('stage.propose', str(exc)))
                 if chat.lines and self.is_page_ask(chat.lines[-1]):
@@ -1192,7 +1193,7 @@ class PetStagesMixin:
             cloud = self.cloud()
             if cloud is not None and command and hasattr(cloud, 'propose'):
                 try:
-                    cloud.propose(command)
+                    cloud.propose(command, stage=page_stage_for(index))
                 except Exception as exc:
                     self.errors.append(('stage.propose', str(exc)))
             return self.broadcast(line, at=at, shape=pet_cloud.SHAPE_CLOUD)

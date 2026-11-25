@@ -267,7 +267,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         self.canvas = None
         self.label = None
         self.clip = None
-        self.choice = ''                   # 三虎刚问的那件事：回车就照它去做
+        self.choice, self.choice_stage = '', None   # 三虎刚问的那件事（＋它属于哪一步）：回车就照它去做
         self.reply = None                  # 回复框（第 35 期第 2 条：原来这里是确认按钮）
         self.reply_hint = ''               # 三虎问的那件事的按钮文字：按钮没了，原样记下来
         self.status = None
@@ -1149,14 +1149,15 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
             return None
         return self._render()      # _render 自己会摆窗口（见上）
 
-    def propose(self, text, label=REPLY_TIP):
+    def propose(self, text, label=REPLY_TIP, stage=None):
         """三虎抛出一个「要不要做这件事」的问句：把回车时要发出去的那句话存下来。
 
         第 35 期第 2 条：按钮没了，label 不再往控件上写，原样记进 self.reply_hint（用例与提示行
         都看它）。文字为空＝这一句只是个通知，用户空着回车就只说 EMPTY/办这一页的事。
+        S-03：问句带来的阶段一并记进 self.choice_stage，空回车派发时按它路由。
         """
         text = ' '.join(str(text or '').split())
-        self.choice = text
+        self.choice, self.choice_stage = text, stage
         self.reply_hint = str(label or REPLY_TIP)
         return text
 
@@ -1186,6 +1187,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if self.canvas is None or self.reply is None:
             return ''
         typed = ' '.join(str(self.reply.get()).split())
+        stage = None if typed else self.choice_stage     # 记下的问句带着页的阶段；手打的句子不带
         text = typed or ' '.join(str(self.choice or '').split())
         if not text:
             text = self.page_ask()
@@ -1195,7 +1197,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if self.busy:
             self.set_status(BUSY)
             return text
-        self.choice = ''
+        self.choice, self.choice_stage = '', None
         self.busy = True
         try:
             self.reply.delete(0, 'end')    # 发出去就清空，等着下一句；说过的话留在记录里
@@ -1206,17 +1208,19 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         self._arm_hold()                   # 问答开始了：收起时刻往后推，别问到一半云没了
         self.set_status(BUSY)
         self.append('您：' + text)
-        threading.Thread(target=self.ask, args=(text,), daemon=True).start()
+        threading.Thread(target=self.ask, args=(text, stage), daemon=True).start()
         return text
 
-    def dispatch(self, text):
+    def dispatch(self, text, stage=None):
         """把这句话交给编排器：认得出 confirmed 参数就带上，认不出的实现（老接口、假宠物）
         照旧只吃一句话——按一下「确认」不该因为签名不同而炸掉。先认签名再只调一次：
-        实现内部抛的 TypeError 不能被当成签名不符，让同一句话再派发一遍。"""
+        实现内部抛的 TypeError 不能被当成签名不符，让同一句话再派发一遍。
+        S-03：记下的问句带着阶段，签名认得就一并递过去。"""
         send = self.pet.agent.dispatch
-        return send(text, confirmed=True) if accepts_keyword(send, 'confirmed') else send(text)
+        extra = {'stage': stage} if stage and accepts_keyword(send, 'stage') else {}
+        return send(text, confirmed=True, **extra) if accepts_keyword(send, 'confirmed') else send(text, **extra)
 
-    def ask(self, text):
+    def ask(self, text, stage=None):
         """后台问一句：dispatch 只读状态机与台账、不碰 Tk；出错也要给一句话。
 
         第 23 期：整份结论（含要执行的动作）一起回队列——动手是界面线程的事（见 drain），
@@ -1229,7 +1233,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
             answer = getattr(self.pet, 'answer_offer', None)
             result = answer(text) if callable(answer) else None
             if result is None:
-                result = self.dispatch(text)
+                result = self.dispatch(text, stage=stage)
             lines = reply_lines(result)
         except Exception as exc:
             lines = [SPEAKER + '：这句话没处理成：' + str(exc)]
