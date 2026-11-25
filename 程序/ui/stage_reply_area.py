@@ -30,7 +30,7 @@ EXPAND_RATIO = 0.40
 SUMMARY_CHARS = 60
 
 _KIND_LABEL = {
-    'user': '你', 'reply': '助手', 'progress': '进度', 'approval': '审批',
+    'user': '您', 'reply': '助手', 'progress': '进度', 'approval': '审批',
     'artifact': '产物', 'error': '错误', 'tool': '工具', 'notice': '提示',
 }
 _KIND_COLOR = {
