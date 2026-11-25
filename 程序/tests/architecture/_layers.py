@@ -75,7 +75,7 @@ _register(1, "api_endpoints", "artifact_index", "broadcaster", "budget", "clipbo
           "native_apps", "prefetch", "resources", "seedream_api", "token_saver", "tk_timers", "global_library_service")
 _register(2, "asset_batch_settings_service", "asset_plan", "asset_resume", "audio_import_service", "edit_export", "usage_overview",
           "desktop_settings_service", "legacy_adoption_service", "offline_asr_client", "offline_asr_setup", "project_naming",
-          "projects", "script_preview_service", "script_structure_edit_controller", "script_workspace_service", "stage_workspace_service",
+          "project_archive", "projects", "script_preview_service", "script_structure_edit_controller", "script_workspace_service", "stage_workspace_service",
           "storyboard_adoption_contract", "storyboard_rows_service",
           "storyboard_storage", "subtitle_export_service", "video_lifecycle_service", "video_prompt_publication",
           "video_task_state", "workflow_context", "writing", "writing_tools", "writing_quality", "writing_stream")
@@ -707,6 +707,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('project_settings', 'publication'),
     ('project_stages', 'stage_layout'),
     ('project_stages', 'stage_path_service'),
+    ('projects', 'project_archive'),
     ('prompt_optimizer', 'ui_widgets'),
     ('prompt_templates', 'asset_contract'),
     ('prompt_window', 'ui_widgets'),

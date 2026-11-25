@@ -674,6 +674,9 @@ class ProjectPagesMixin(RecyclePanelMixin):
             menu.separator()
         menu.command('恢复回收站内容…',lambda:self.safe(self.open_recycle_recovery))
         menu.separator()
+        menu.command('导出项目…',lambda:self.safe(lambda:self.export_project_archive(item)))
+        menu.command('导入备份包…',lambda:self.safe(self.import_project_archive))
+        menu.separator()
         menu.command('删除项目及全部素材…',lambda:self.safe(lambda:self.delete_project(item)))
         return menu.popup(event)
     def clear_missing_project(self,item,confirmed=False):
@@ -696,13 +699,47 @@ class ProjectPagesMixin(RecyclePanelMixin):
         self.reload()
         self.status.set('已只清除失效项目登记。')
         return True
+    def _session_busy(self,v):
+        """删除与导出共用的在制任务判定：该会话有提交中或进行中的视频／提示词任务。"""
+        pending=any(r.get('state') in ('submitting','unknown','queued','running','succeeded') for versions in v.studio.state()['shots'].values() for r in versions)
+        return v.busy or getattr(v,'optimizer_busy',False) or pending
+    def export_project_archive(self,item):
+        """导出选中项目为 zip 备份包；在制任务未收工时拒绝（与删除同款忙碌判定）。"""
+        project=Path(item['path']).resolve()
+        if any(self._session_busy(v) for v in self.video_sessions.values()
+               if v.root.resolve().is_relative_to(project)):
+            raise ValueError('此项目仍有视频或提示词任务，请待任务结束或处理完成后再导出备份；其他页面可以正常使用。')
+        dest_dir=self.file_dialog.directory(title='选择备份包存放目录',initialdir=str(self.projects.base))
+        if not dest_dir:return None
+        from domain import project_archive
+        def job():
+            archive=project_archive.export_project(self.projects,Path(item['path']),dest_dir=Path(dest_dir))
+            return archive,project_archive.inspect_archive(archive)
+        def done(result):
+            archive,manifest=result
+            hit={row.split('#',1)[0] for row in manifest.get('redacted') or []}
+            note='，其中 %d 个配置文件的密钥已移除'%len(hit) if hit else ''
+            self.status.set('已导出项目备份：'+str(archive)+note)
+        return self.async_(job,done,label='导出项目备份')
+    def import_project_archive(self):
+        """从 zip 备份包导入一个新项目；不依赖当前选中项。"""
+        zip_path=self.file_dialog.open_file(title='选择项目备份包',filetypes=[('项目备份包','*.zip')])
+        if not zip_path:return None
+        from domain import project_archive
+        manifest=project_archive.inspect_archive(zip_path)
+        name=str(manifest.get('name') or Path(zip_path).stem)
+        if not self.project_page_services.confirm(self.win,'导入备份包',
+                '将把备份包还原为新项目 '+name+'，不会改动任何现有项目'):
+            return None
+        def done(path):
+            self.reload();self.status.set('已导入项目：'+str(path))
+        return self.async_(lambda:self._project_result_data(self.projects.import_archive(zip_path)),done,label='导入项目备份')
     def delete_project(self,item,confirmed=False):
         raw_project=Path(item['path'])
         project=raw_project.resolve()
         sessions=[(key,v) for key,v in self.video_sessions.items() if v.root.resolve().is_relative_to(project)]
-        for key,v in sessions:
-            pending=any(r.get('state') in ('submitting','unknown','queued','running','succeeded') for versions in v.studio.state()['shots'].values() for r in versions)
-            if v.busy or getattr(v,'optimizer_busy',False) or pending:raise ValueError('此项目仍有视频或提示词任务，请待任务结束或处理完成后再删除项目；其他页面可以正常使用。')
+        if any(self._session_busy(v) for _,v in sessions):
+            raise ValueError('此项目仍有视频或提示词任务，请待任务结束或处理完成后再删除项目；其他页面可以正常使用。')
         linked=False
         try:target=self.projects.deletion_target(item['path'])
         except ValueError as exc:

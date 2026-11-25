@@ -757,6 +757,16 @@
         "程序/infra/project_settings.py"
       ]
     },
+    "程序/tests/test_project_archive.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "用户级项目 zip 备份导出、manifest 清点、sha256 校验导入还原、密钥字段脱敏与项目页右键菜单入口",
+      "targets": [
+        "程序/domain/project_archive.py",
+        "程序/domain/projects.py",
+        "程序/ui/desktop_project_pages.py"
+      ]
+    },
     "程序/tests/test_skill_residue_protection.py": {
       "kind": "integration",
       "owner": "项目维护者",
