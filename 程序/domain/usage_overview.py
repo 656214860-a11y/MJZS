@@ -594,7 +594,7 @@ def summarize(project, budget=None):
             if evidence:
                 duration = evidence['duration_seconds']
             elif 'duration_seconds' not in config:
-                raise ValueError('缺交付时长：请配置 duration_seconds，或用 delivery_outputs 绑定已确认交付文件')
+                raise ValueError('缺交付时长：请填写成片秒数，或绑定已确认的交付文件')
             else:
                 duration = config['duration_seconds']
             result['cost'] = cost_per_minute(project, duration, config['price_table'], config.get('overheads'),
