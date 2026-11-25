@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4475（R4474 合并轮：合入 LOCK-LIVENESS-P0(R4469)：全量锁活性 _holder_stalled、commit_round --wait-minutes 默认 5.0 与超时诊断、6 条先红后绿回归测试及结构策略哈希同步（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。上一轮：R4473 合并轮：合入 DOC-Z1(R4470)：开启 13 阶段文档 接口/交互 全量守卫 REQUIRE_ALL=True（独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4478（R4477 合并轮：合入 RESIDUE-CLEAN-A3(R4475)：tasks_round 根下 25 项无活跃引用散落旧证据纯 git mv 归档（零删除 D=0，任务完成/ 零改动，独立 cpa verify 3/3 全绿）；断言未动；未跑全量。上一轮：R4474 合并轮：合入 LOCK-LIVENESS-P0(R4469)：全量锁活性 _holder_stalled、commit_round --wait-minutes 默认 5.0 与超时诊断、6 条先红后绿回归测试及结构策略哈希同步（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

@@ -1,0 +1,15 @@
+{
+  "round": 4475,
+  "commit_base": "68b75c964",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k taskbook_closure",
+    "exit": 0,
+    "passed": 8,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T15:56:07"
+}
