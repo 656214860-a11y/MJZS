@@ -189,11 +189,128 @@ def _import_audio_file(project, source, kind='dialogue'):
 
 
 
-def export_stage_srt(project, episode):
-    """字幕导出编排：L3 注入统一文本阶段发布器。"""
+def _episode_audio_token(episode):
+    """与逐句配音批次同一个集标识口径：episode_id 优先，老数据退回 id／episode。"""
+    if not isinstance(episode, dict):
+        return ''
+    return str(episode.get('episode_id') or episode.get('id') or episode.get('episode') or '')
+
+
+def _line_audio_batch(project, episode):
+    """当前集最近一批逐句配音目录：集标识命中的最新批次优先，否则只认无集标识的旧批次。"""
+    from contract.project_stages import audio
+    base = audio(Path(project)) / '配音分句'
+    if not base.is_dir():
+        return None
+    token, legacy = _episode_audio_token(episode), None
+    for record in sorted(base.glob('*/批次.json'), reverse=True):
+        try:
+            data = file_cache.read_json(record)
+        except (OSError, ValueError, RecursionError):
+            continue
+        if not isinstance(data, dict):
+            continue
+        marked = str(data.get('episode') or '')
+        if token and marked == token:
+            return record.parent
+        if legacy is None and not marked:
+            legacy = record.parent
+    return legacy
+
+
+def _line_manifest(batch_dir):
+    """批次逐句清单：时间轴.json 是正式清单；兼容 lines／items／entries 键的封装。"""
+    path = Path(batch_dir) / '时间轴.json'
+    if not path.is_file():
+        return []
+    try:
+        data = file_cache.read_json(path)
+    except (OSError, ValueError, RecursionError):
+        return []
+    if isinstance(data, dict):
+        data = next((data[key] for key in ('lines', 'items', 'entries')
+                     if isinstance(data.get(key), list)), [])
+    return data if isinstance(data, list) else []
+
+
+def _line_audio_paths(batch_dir, sequence):
+    """按 (镜头, 文本) 顺序消费批次成品：同镜同文本按次序配对，不重复用同一条。"""
+    from domain.tts_api import _line_file_path, line_done
+    usable = [entry for entry in _line_manifest(batch_dir) if line_done(entry, batch_dir)]
+    taken, paths = set(), []
+    for sid, text in sequence:
+        hit = next((pos for pos, entry in enumerate(usable)
+                    if pos not in taken and str(entry.get('shot_id') or '') == str(sid or '')
+                    and str(entry.get('text') or '') == str(text or '')), None)
+        paths.append(_line_file_path(batch_dir, usable[hit]['file']) if hit is not None else None)
+        if hit is not None:
+            taken.add(hit)
+    return paths
+
+
+def _ffprobe_measurer(project):
+    """项目 config.json 或环境里的 FFprobe 测时长函数；找不到返回 None。"""
+    from agent import media as agent_media
+    from contract import platform_tools
+    config = {}
+    path = Path(project) / 'config.json'
+    if path.is_file():
+        try:
+            data = file_cache.read_json(path)
+        except (OSError, ValueError, RecursionError):
+            data = None
+        if isinstance(data, dict):
+            config = data
+    ffprobe = platform_tools.tool_path('ffprobe', configured=config.get('ffprobe'))
+    if not ffprobe:
+        return None
+
+    def measure(path):
+        data = agent_media.probe(str(path), {'ffprobe': ffprobe})
+        duration = (data.get('format') or {}).get('duration')
+        return float(duration) if duration is not None else None
+
+    return measure
+
+
+def _resolve_line_audio_durations(project, episode, probe_duration=None):
+    """逐句配音成品的真实时长序列，与当前集对白逐条对齐；量不出时给跳过原因。"""
+    from domain.subtitle_timing import timed_entries
+    batch = _line_audio_batch(project, episode)
+    if batch is None:
+        return None, None
+    try:
+        entries, _estimated = timed_entries(episode)
+    except ValueError:
+        return None, None
+    if not entries:
+        return None, None
+    paths = _line_audio_paths(batch, [(sid, text) for sid, _speaker, text, _a, _b in entries])
+    if not any(paths):
+        return None, None
+    measure = probe_duration or _ffprobe_measurer(project)
+    if measure is None:
+        return None, '未配置 FFprobe'
+    durations = []
+    for path in paths:
+        try:
+            durations.append(measure(path) if path is not None else None)
+        except Exception:
+            durations.append(None)
+    return durations, None
+
+
+def export_stage_srt(project, episode, *, probe_duration=None):
+    """字幕导出编排：L3 注入统一文本阶段发布器；有逐句配音成品时按真实音频时长校准。"""
     from domain.subtitle_export_service import export_srt
-    result = export_srt(project, episode, publish=publish_stage_text)
+    audio, skip_reason = _resolve_line_audio_durations(project, episode, probe_duration)
+    result = export_srt(project, episode, publish=publish_stage_text, audio=audio)
     if result.ok:
+        if skip_reason and isinstance(result.data[1], dict):
+            report = result.data[1]
+            report['audio_skip_reason'] = skip_reason
+            if isinstance(report.get('source'), dict):
+                report['source']['audio_skip_reason'] = skip_reason
         refresh_audio_manifests(project)
     return result
 

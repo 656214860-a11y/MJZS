@@ -144,8 +144,13 @@ def subtitle_status(report):
         return '字幕时间按镜头时长估算，属草稿，请在剪映中听校。' if report else '字幕时间已按分镜时间生成。'
     pending = report.get('uncalibrated') or []
     if pending:
-        basis = '句长' if report.get('mode') == 'length' else '镜头时长'
-        return '字幕时间暂按%s估算，还有 %d 句未按实际配音校准，导出前请先听校。' % (basis, len(pending))
+        if report.get('mode') == 'mixed' and report.get('audio'):
+            head = '已按实际配音校准 %d 句' % report.get('audio')
+        else:
+            head = '字幕时间暂按%s估算' % ('句长' if report.get('mode') == 'length' else '镜头时长')
+        reason = str(report.get('audio_skip_reason') or '')
+        tail = '还有 %d 句未按实际配音校准' % len(pending)
+        return '%s，%s%s，导出前请先听校。' % (head, tail, ('（%s）' % reason) if reason else '')
     return '字幕时间已按实际配音／作者标注校准，共 %d 句。' % report.get('calibrated', 0)
 
 

@@ -134,6 +134,21 @@ class SubtitleStatusTests(unittest.TestCase):
         self.assertIn('按镜头时长估算', media.subtitle_status({'uncalibrated': [1], 'mode': 'shot'}))
         self.assertIn('共 5 句', media.subtitle_status({'calibrated': 5}))
 
+    def test_mixed_mode_reports_calibrated_and_pending(self):
+        status = media.subtitle_status({'mode': 'mixed', 'audio': 2, 'calibrated': 2,
+                                        'uncalibrated': [{'shot': 'SH001'}]})
+        self.assertIn('已按实际配音校准 2 句', status)
+        self.assertIn('还有 1 句未按实际配音校准', status)
+
+    def test_audio_skip_reason_is_explained_and_short(self):
+        status = media.subtitle_status({'mode': 'length', 'uncalibrated': [{}, {}],
+                                        'audio_skip_reason': '未配置 FFprobe'})
+        self.assertIn('按句长估算', status)
+        self.assertIn('还有 2 句未按实际配音校准', status)
+        self.assertIn('未配置 FFprobe', status)
+        fixed = len([char for char in status if not char.isspace()])  # copy_rules 口径：非空白字数 ≤45
+        self.assertLessEqual(fixed, 45)
+
 
 class DialogueAvailabilityTests(unittest.TestCase):
     def test_three_outcomes(self):

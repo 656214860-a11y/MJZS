@@ -1,4 +1,5 @@
 from tests.architecture._scan import parse_desktop, desktop_text  # R1505：Desktop 方法分布在 desktop.py 与迁出的 Mixin 模块
+import json
 import tempfile
 import unittest
 import inspect
@@ -163,6 +164,123 @@ class SubtitleExportServiceTests(unittest.TestCase):
             with patch('stage_execution_service.' + service, return_value=success((target, True))):
                 self.assertEqual(namespace[name](app), target)
             app.status.set.assert_called_once()
+
+
+class StageSrtLineAudioTests(unittest.TestCase):
+    """FIX-S11-E9：导出字幕前查最近一批逐句配音成品，有真实音频就按它校准。"""
+
+    def _episode(self, texts, episode_id='EP01'):
+        return {'episode_id': episode_id, 'title': '集',
+                'shots': [{'id': 'SH001', 'title': '初见', 'duration': 10,
+                           'dialogue': [{'speaker': 'A', 'text': text} for text in texts]}]}
+
+    def _line(self, shot, text, file='', state='failed'):
+        return {'shot_id': shot, 'speaker': 'A', 'name': '角色', 'text': text,
+                'start': 0.0, 'end': 1.0, 'file': file, 'state': state}
+
+    def _batch(self, project, name, entries, episode=None):
+        from contract.project_stages import audio
+        folder = audio(Path(project)) / '配音分句' / name
+        folder.mkdir(parents=True, exist_ok=True)
+        meta = {'signature': 'sig', 'lines': len(entries)}
+        if episode is not None:
+            meta['episode'] = episode
+        (folder / '批次.json').write_text(json.dumps(meta, ensure_ascii=False), encoding='utf-8')
+        (folder / '时间轴.json').write_text(json.dumps(entries, ensure_ascii=False), encoding='utf-8')
+        for entry in entries:
+            if entry.get('file'):
+                (folder / entry['file']).write_bytes(b'audio')
+        return folder
+
+    def test_export_uses_measured_line_durations(self):
+        with tempfile.TemporaryDirectory() as folder:
+            episode = self._episode(['你好', '再见'])
+            self._batch(folder, '配音批次_20260101', [
+                self._line('SH001', '你好', file='001.mp3', state='ok'),
+                self._line('SH001', '再见', file='002.mp3', state='ok')], episode='EP01')
+            durations = {'001.mp3': 1.2, '002.mp3': 3.4}
+            result = export_stage_srt(folder, episode,
+                                      probe_duration=lambda path: durations[Path(path).name])
+            self.assertTrue(result.ok)
+            target, report = result.data
+            self.assertEqual(report['mode'], 'audio')
+            self.assertEqual(report['audio'], 2)
+            text = target.read_text(encoding='utf-8-sig')
+            self.assertIn('00:00:00,000 --> 00:00:01,200', text)
+            self.assertIn('00:00:01,200 --> 00:00:04,600', text)
+
+    def test_partial_finished_lines_export_mixed_report(self):
+        with tempfile.TemporaryDirectory() as folder:
+            episode = self._episode(['你好', '再见'])
+            self._batch(folder, '配音批次_20260101', [
+                self._line('SH001', '你好', file='001.mp3', state='ok'),
+                self._line('SH001', '再见')], episode='EP01')
+            result = export_stage_srt(folder, episode, probe_duration=lambda path: 2.0)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'mixed')
+            self.assertEqual(report['audio'], 1)
+            self.assertEqual(len(report['uncalibrated']), 1)
+            self.assertEqual(report['uncalibrated'][0]['text'], '再见')
+
+    def test_no_line_batch_keeps_length_estimate(self):
+        with tempfile.TemporaryDirectory() as folder:
+            probe = Mock(return_value=9.9)
+            result = export_stage_srt(folder, self._episode(['你好']), probe_duration=probe)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'length')
+            self.assertEqual(report['audio'], 0)
+            probe.assert_not_called()
+
+    def test_finished_lines_without_ffprobe_fall_back_with_reason(self):
+        with tempfile.TemporaryDirectory() as folder:
+            episode = self._episode(['你好'])
+            self._batch(folder, '配音批次_20260101', [
+                self._line('SH001', '你好', file='001.mp3', state='ok')], episode='EP01')
+            with patch('contract.platform_tools.tool_path', return_value=None):
+                result = export_stage_srt(folder, episode)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'length')
+            self.assertEqual(report['audio_skip_reason'], '未配置 FFprobe')
+            self.assertEqual(report['source']['audio_skip_reason'], '未配置 FFprobe')
+            from orchestrator import media_page_controller
+            status = media_page_controller.subtitle_status(report)
+            self.assertIn('未配置 FFprobe', status)
+            self.assertIn('估算', status)
+
+    def test_other_episode_batch_is_not_mismatched(self):
+        with tempfile.TemporaryDirectory() as folder:
+            episode = self._episode(['你好'], episode_id='EP01')
+            self._batch(folder, '配音批次_20260102', [
+                self._line('SH001', '你好', file='001.mp3', state='ok')], episode='EP02')
+            result = export_stage_srt(folder, episode, probe_duration=lambda path: 7.0)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'length')
+            self.assertEqual(report['audio'], 0)
+            self._batch(folder, '配音批次_20260101', [
+                self._line('SH001', '你好', file='001.mp3', state='ok')], episode='EP01')
+            seen = []
+            result = export_stage_srt(
+                folder, episode,
+                probe_duration=lambda path: seen.append(Path(path).parent.name) or 7.0)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'audio')
+            self.assertEqual(seen, ['配音批次_20260101'], '只能配对本集批次，不是更新的别集批次')
+
+    def test_legacy_batch_without_episode_still_applies(self):
+        with tempfile.TemporaryDirectory() as folder:
+            episode = self._episode(['你好'])
+            self._batch(folder, '配音批次_20260101', [
+                self._line('SH001', '你好', file='001.mp3', state='ok')])
+            result = export_stage_srt(folder, episode, probe_duration=lambda path: 2.5)
+            self.assertTrue(result.ok)
+            _target, report = result.data
+            self.assertEqual(report['mode'], 'audio')
+            self.assertEqual(report['audio'], 1)
 
 
 if __name__ == '__main__':
