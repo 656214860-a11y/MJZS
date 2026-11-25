@@ -10,7 +10,7 @@ import ui.pet_ui_support as pet_ui_support
 import infra.project_settings as project_settings
 import stage_flow
 import orchestrator.stage_exec as stage_exec
-from orchestrator.desktop_auto_state import AutoStateHolderMixin
+from orchestrator.desktop_auto_state import AutoStateHolderMixin, UNATTENDED_SWITCH_SETTERS
 from ui.desktop_auto_flows import AutoFlowsMixin
 from ui.desktop_automation_tick import AutomationTickMixin
 from ui.desktop_pet_bridge import PetBridgeMixin
@@ -251,6 +251,111 @@ class SanhuCopyWordingTests(unittest.TestCase):
         shared = (root / 'desktop_shared_input.py').read_text(encoding='utf-8')
         self.assertIn('_toggle_skill_default', shared)
         self.assertIn('技能', shared)
+
+
+class SanhuSemiPollTests(unittest.TestCase):
+    """半自动档轮询放行（S-01）与无人值守开关失败回报（S-15 第一条）。
+
+    半自动走手动控制面（mode='manual'、页面自动开关全关），但免费轮询组
+    仍须放行；付费轮询组（assets/video）仅当本次运行获授权才放行，
+    完成/失败/切档即撤销；auto_submit/auto_review 半自动恒不放行。
+    """
+
+    def setUp(self):
+        self.temp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.temp.cleanup)
+        self.project = Path(self.temp.name) / 'project'
+        (self.project / 'episode').mkdir(parents=True)
+        (self.project / 'episode' / 'assets.json').write_text('{}', encoding='utf-8')
+        self.host = _AutomationHost(self.project)
+        self.pet = pet_ui.Pet(self.host)
+        self.pet.program = Path(self.temp.name)
+        self.host.pet = self.pet
+        for name in ('broadcast', 'whisper', 'announce', 'draw_paws', 'draw', 'refresh_menu_labels'):
+            setattr(self.pet, name, lambda *args, **kwargs: None)
+        patcher = mock.patch.object(pet_agent, 'save_settings', lambda *args, **kwargs: None)
+        patcher.start()
+        self.addCleanup(patcher.stop)
+        self.pet.auto = stage_flow.Auto(order=[])
+        self.pet.set_paw_level('semi')
+        self.assertEqual((self.pet.mode, self.pet.agent.level), ('manual', 'semi'))
+
+    def test_semi_unattended_start_then_final_poll_allowed(self):
+        """S-01：三虎说「已自动开始」的免费阶段，半自动下轮询必须放行。"""
+        started = self.host._execute_unattended_stage('final', 'auto')
+        self.assertTrue(started.startswith('已自动开始'), started)
+        self.assertTrue(self.pet.should_auto_run('final'))
+
+    def test_semi_free_poll_group_all_allowed(self):
+        for stage in ('auto_adopt', 'final', 'keyframe', 'previs', 'edit', 'delivery'):
+            with self.subTest(stage=stage):
+                self.assertTrue(self.pet.should_auto_run(stage))
+        # storyboard／audio 不在半自动自动链上：未登记一律不放行。
+        self.assertFalse(self.pet.should_auto_run('storyboard'))
+        self.assertFalse(self.pet.should_auto_run('audio'))
+
+    def test_semi_paid_poll_group_runs_only_when_granted(self):
+        self.assertFalse(self.pet.should_auto_run('assets'))
+        self.assertFalse(self.pet.should_auto_run('video'))
+        self.pet.grant_paid('assets')
+        self.assertTrue(self.pet.should_auto_run('assets'))
+        self.assertFalse(self.pet.should_auto_run('video'))
+        self.pet._auto_stage_completed({'stage': 'assets'})
+        self.assertFalse(self.pet.should_auto_run('assets'))
+        self.pet.grant_paid('02_assets')          # 授权也认 process_id
+        self.assertTrue(self.pet.should_auto_run('assets'))
+        self.pet._auto_stage_failed({'stage': 'assets', 'error': '磁盘满'})
+        self.assertFalse(self.pet.should_auto_run('assets'))
+        self.pet.grant_paid('assets')
+        self.pet.set_level('hint')
+        self.pet.set_level('semi')
+        self.assertFalse(self.pet.should_auto_run('assets'))
+        self.pet.grant_paid('video')
+        self.pet.set_paw_level('hint')
+        self.pet.set_paw_level('semi')
+        self.assertFalse(self.pet.should_auto_run('video'))
+
+    def test_semi_submit_and_review_never_run(self):
+        for stage in ('auto_submit', 'auto_review'):
+            with self.subTest(stage=stage):
+                self.assertFalse(self.pet.should_auto_run(stage))
+        self.pet.grant_paid('auto_submit')
+        self.pet.grant_paid('auto_review')
+        self.assertFalse(self.pet.should_auto_run('auto_submit'))
+        self.assertFalse(self.pet.should_auto_run('auto_review'))
+
+    def test_hint_level_allows_no_poll(self):
+        self.pet.set_paw_level('hint')
+        for stage in ('auto_adopt', 'final', 'keyframe', 'previs', 'edit',
+                      'delivery', 'assets', 'video', 'auto_submit', 'auto_review'):
+            with self.subTest(stage=stage):
+                self.assertFalse(self.pet.should_auto_run(stage))
+
+    def test_auto_level_still_reads_the_sanhu_variables(self):
+        """全自动口径不变：照旧读三虎变量本身，不看免费／付费分组。"""
+        self.pet.set_paw_level('auto')
+        self.assertTrue(self.pet.should_auto_run('final'))
+        self.assertTrue(self.pet.should_auto_run('assets'))
+        self.pet.auto_variable('auto_asset_var').set(False)
+        self.assertFalse(self.pet.should_auto_run('assets'))
+
+    def test_switch_write_failure_reports_undispatched_and_stage_failed(self):
+        """S-15：开关写失败不再谎报「已自动开始」，回报前缀触发 stage.failed。"""
+        def raise_oserror(root, enabled):
+            raise OSError('开关写入被拒绝')
+        events = []
+        self.pet._emit = lambda kind, **payload: events.append((kind, payload))
+        with mock.patch.dict(UNATTENDED_SWITCH_SETTERS, {'auto_final': raise_oserror}):
+            started = self.host._execute_unattended_stage('final', 'auto')
+            self.assertTrue(started.startswith('阶段未派发：'), started)
+            self.assertIn('开关写入被拒绝', started)
+            with mock.patch.object(stage_flow, 'selected_skills', return_value=['s1']):
+                result = self.pet.start_stage('final')
+            self.assertTrue(str(result).startswith('阶段未派发：'), result)
+        failed = [payload for kind, payload in events if kind == 'stage.failed']
+        self.assertEqual(len(failed), 1)
+        self.assertEqual(failed[0]['stage'], 'final')
+        self.assertTrue(failed[0]['error'].startswith('阶段未派发：'))
 
 
 if __name__ == '__main__':
