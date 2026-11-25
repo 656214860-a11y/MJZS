@@ -2,7 +2,7 @@
   "schema_version": 1,
   "source_commit": "79fa309b3237ab9a08534a3df0265eeb3fd7c5da",
   "inventory_sha256": "c32fd2f6b4d1703d9e03731dc7a7f6c0b9204bb62dc943454d20f709bc77a8e6",
-  "policy_sha256": "2e4e40c8721270f8fdfabc8479bc5837a021d556e1893675583b65c2a50c579e",
+  "policy_sha256": "7eb7677dd7f575ad3764f0ce84b0a4bb58cac6a8ba68a0e55d22bf6224f63d6d",
   "violations": [
     {
       "rule_id": "STR003",

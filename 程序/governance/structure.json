@@ -807,6 +807,15 @@
         "程序/scripts/installer/漫剧制作助手.iss",
         "程序/scripts/installer_build.py"
       ]
+    },
+    "程序/tests/test_selftest_lock_liveness.py": {
+      "kind": "module",
+      "owner": "项目维护者",
+      "contract": "锁活性判定：陈旧/新鲜/旧格式/未来心跳与提交等锁默认上限5分钟",
+      "targets": [
+        "程序/selftest_env.py",
+        "程序/scripts/commit_round.py"
+      ]
     }
   },
   "packaging": {
