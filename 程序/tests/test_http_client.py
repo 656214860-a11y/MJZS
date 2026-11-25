@@ -4,6 +4,8 @@ import io
 import json
 import os
 import socket
+import ssl
+import tempfile
 import threading
 import unittest
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
@@ -626,6 +628,72 @@ class RequestsTransportTests(unittest.TestCase):
         result = http_client.request_json('GET', self.base, timeout=1, opener=_Opener([error]))
         self.assertFalse(result.ok)
         self.assertTrue(stream.closed)
+
+
+class RequestsTlsCacheTests(unittest.TestCase):
+    """_requests_tls_adapter 的 SSLContext 缓存：同 verify 复用、CA 路径按 (路径, mtime) 隔离、有界。"""
+
+    def setUp(self):
+        self.cache = getattr(platform_tools, '_TLS_CACHE', {})
+        self.cache.clear()
+        if hasattr(platform_tools, '_TLS_CACHE'):
+            self.addCleanup(platform_tools._TLS_CACHE.clear)
+
+    def test_verify_true_builds_ssl_context_once(self):
+        with mock.patch.object(ssl, 'create_default_context',
+                               wraps=ssl.create_default_context) as create:
+            platform_tools._requests_tls_adapter(True)
+            platform_tools._requests_tls_adapter(True)
+        self.assertEqual(create.call_count, 1)
+
+    def test_concurrent_verify_true_still_builds_once(self):
+        barrier = threading.Barrier(4)
+        with mock.patch.object(ssl, 'create_default_context',
+                               wraps=ssl.create_default_context) as create:
+            def worker():
+                barrier.wait(timeout=10)
+                platform_tools._requests_tls_adapter(True)
+            threads = [threading.Thread(target=worker, daemon=True) for _ in range(4)]
+            for thread in threads:
+                thread.start()
+            for thread in threads:
+                thread.join(timeout=30)
+        self.assertEqual(create.call_count, 1)
+
+    def test_custom_ca_file_isolated_by_path_and_rebuilt_on_mtime_change(self):
+        import certifi
+        with tempfile.TemporaryDirectory() as directory:
+            ca_a = os.path.join(directory, 'ca-a.pem')
+            ca_b = os.path.join(directory, 'ca-b.pem')
+            with open(certifi.where(), 'rb') as source:
+                bundle = source.read()
+            for path in (ca_a, ca_b):
+                with open(path, 'wb') as target:
+                    target.write(bundle)
+            loaded = []
+            real_load = ssl.SSLContext.load_verify_locations
+
+            def spy(context, *args, **kwargs):
+                loaded.append(dict(kwargs))
+                return real_load(context, *args, **kwargs)
+
+            with mock.patch.object(ssl.SSLContext, 'load_verify_locations', spy):
+                platform_tools._requests_tls_adapter(ca_a)
+                platform_tools._requests_tls_adapter(ca_a)
+                platform_tools._requests_tls_adapter(ca_b)
+                self.assertEqual([kw.get('cafile') for kw in loaded], [ca_a, ca_b])
+                os.utime(ca_a, (os.path.getatime(ca_a), os.path.getmtime(ca_a) + 4))
+                platform_tools._requests_tls_adapter(ca_a)
+            self.assertEqual([kw.get('cafile') for kw in loaded], [ca_a, ca_b, ca_a])
+
+    def test_context_cache_stays_bounded(self):
+        limit = getattr(platform_tools, '_TLS_CACHE_MAX', 8)
+        for index in range(limit):
+            self.cache[('ca-%d.pem' % index, index)] = object()
+        platform_tools._requests_tls_adapter(True)
+        self.assertLessEqual(len(self.cache), limit)
+        self.assertIsNotNone(self.cache.get((True, None)), '新槽位必须写入；最旧项应被逐出')
+        self.assertNotIn(('ca-0.pem', 0), self.cache)
 
 
 if __name__ == '__main__':

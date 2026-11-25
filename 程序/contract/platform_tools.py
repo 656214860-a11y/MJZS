@@ -117,8 +117,7 @@ def downloads_directory():
     registry = windows_registry()
     if registry is not None:
         try:
-            with registry.OpenKey(registry.HKEY_CURRENT_USER,
-                                  r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
+            with registry.OpenKey(registry.HKEY_CURRENT_USER, r'Software\Microsoft\Windows\CurrentVersion\Explorer\User Shell Folders') as key:
                 value, _kind = registry.QueryValueEx(key, _DOWNLOADS_FOLDER_ID)
             folder = Path(os.path.expandvars(str(value)))
             if folder.is_dir():
@@ -147,9 +146,7 @@ def launch_background(command, *, cwd=None, stdin=None, stdout=None, stderr=None
     """
     execution_checkpoint()
     runner = popen or subprocess.Popen
-    return runner(command, cwd=None if cwd is None else str(cwd),
-                  creationflags=hidden_console_flags(),
-                  stdin=stdin, stdout=stdout, stderr=stderr, env=env)
+    return runner(command, cwd=None if cwd is None else str(cwd), creationflags=hidden_console_flags(), stdin=stdin, stdout=stdout, stderr=stderr, env=env)
 
 
 def launch_text_process(command, *, cwd=None, stdin=None, stdout=None, stderr=None, env=None):
@@ -188,9 +185,8 @@ def terminate_process_tree(process, *, timeout=3):
         process.terminate()
         return True
     try:
-        result = subprocess.run(
-            ['taskkill', '/PID', str(process.pid), '/F', '/T'],
-            capture_output=True, timeout=timeout, creationflags=hidden_console_flags())
+        result = subprocess.run(['taskkill', '/PID', str(process.pid), '/F', '/T'],
+                                capture_output=True, timeout=timeout, creationflags=hidden_console_flags())
     except (OSError, subprocess.SubprocessError):
         return False
     return result.returncode == 0
@@ -206,8 +202,7 @@ def communicate_or_kill(process, data, timeout, on_output=None):
         control = current_execution()
         if control is not None:
             from contract.process_wait import controlled_communicate
-            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic,
-                       subprocess.TimeoutExpired)
+            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic, subprocess.TimeoutExpired)
             return controlled_communicate(process, data, timeout, control, runtime)
         try:
             return process.communicate(data, timeout=timeout)
@@ -255,8 +250,7 @@ def _stream_communicate_or_kill(process, data, timeout, on_output):
             process.wait(timeout=timeout)
         else:
             from contract.process_wait import controlled_wait
-            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic,
-                       subprocess.TimeoutExpired)
+            runtime = (terminate_process_tree, ExecutionStopped, time.monotonic, subprocess.TimeoutExpired)
             controlled_wait(process, timeout, control, runtime)
     except subprocess.TimeoutExpired:
         terminate_process_tree(process)
@@ -342,8 +336,7 @@ def reveal_in_folder(path):
     if not target.exists():
         raise ValueError('要定位的文件或目录不存在：' + str(target))
     if os.name == 'nt':
-        subprocess.Popen(['explorer', '/select,', str(target.resolve())],
-                         stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+        subprocess.Popen(['explorer', '/select,', str(target.resolve())], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
         return str(target)
     if sys.platform == 'darwin':
         command = ['open', '-R', str(target)]
@@ -483,6 +476,7 @@ def probe_http_endpoint(base_url, *, timeout=8):
 
 _CREDENTIAL_HEADERS = frozenset({'authorization', 'proxy-authorization', 'cookie'})
 _HTTP_CACHE = {}
+_TLS_CACHE, _TLS_LOCK, _TLS_CACHE_MAX = {}, threading.Lock(), 8
 
 
 def _origin(url):
@@ -628,18 +622,26 @@ class _RequestsJsonResponse:
 
 
 def _requests_tls_adapter(verify):
-    """Default trust is system + certifi; an explicit CA path replaces both."""
+    """Default trust is system + certifi; an explicit CA path replaces both; SSLContext 按 (verify, CA mtime) 复用。"""
     import certifi
     import ssl
     from requests.adapters import HTTPAdapter
 
-    if verify is True:
-        context = ssl.create_default_context()
-        context.load_verify_locations(certifi.where())
-    else:
-        context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
-        locations = {'capath' if os.path.isdir(verify) else 'cafile': verify}
-        context.load_verify_locations(**locations)
+    def build():
+        if verify is True:
+            context = ssl.create_default_context()
+            context.load_verify_locations(certifi.where())
+        else:
+            context = ssl.SSLContext(ssl.PROTOCOL_TLS_CLIENT)
+            context.load_verify_locations(**{'capath' if os.path.isdir(verify) else 'cafile': verify})
+        return context
+
+    with _TLS_LOCK:
+        has_path = verify is not True and (os.path.isdir(verify) or os.path.isfile(verify))
+        key = (verify, os.path.getmtime(verify) if has_path else None)
+        context = _TLS_CACHE.get(key)
+        if context is None: context = _TLS_CACHE.setdefault(key, build())
+        if len(_TLS_CACHE) >= _TLS_CACHE_MAX: _TLS_CACHE.pop(next(iter(_TLS_CACHE)))
 
     class VerifiedAdapter(HTTPAdapter):
         def init_poolmanager(self, connections, maxsize, block=False, **pool_kwargs):
@@ -671,8 +673,7 @@ class RequestsJsonOpener:
         try:
             # Empty auth tuples are falsy and still permit netrc to replace Authorization.
             session.auth = lambda prepared: prepared
-            prepared = session.prepare_request(requests.Request(
-                request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
+            prepared = session.prepare_request(requests.Request(request.get_method(), request.full_url, data=request.data, headers=dict(request.header_items())))
             settings = session.merge_environment_settings(prepared.url, {}, True, True, None)
             host = urllib.parse.urlparse(prepared.url).hostname or ''
             if host in ('localhost', '127.0.0.1', '::1'):
@@ -854,8 +855,7 @@ def launch_windows_app(executable, feature, *, args=None, cwd=None, env=None, cr
     if not command or command[0] != str(executable):
         raise ValueError(str(feature) + '启动命令必须以已定位的程序开头：' + str(executable))
     try:
-        return subprocess.Popen(command, cwd=str(cwd or executable.parent), env=env,
-                                creationflags=creationflags)
+        return subprocess.Popen(command, cwd=str(cwd or executable.parent), env=env, creationflags=creationflags)
     except OSError as exc:
         raise ValueError('无法启动' + str(feature) + '：' + str(exc)) from exc
 
@@ -958,8 +958,7 @@ class MicrophoneRecorder:
             winmm.waveInPrepareHeader(handle, ctypes.byref(header), ctypes.sizeof(header))
             winmm.waveInAddBuffer(handle, ctypes.byref(header), ctypes.sizeof(header))
         winmm.waveInStart(handle)
-        self.thread = threading.Thread(target=self._collect, args=(winmm, handle, buffers, headers),
-                                       name='voice-record', daemon=True)
+        self.thread = threading.Thread(target=self._collect, args=(winmm, handle, buffers, headers), name='voice-record', daemon=True)
         self.thread.start()
         return ''
 
