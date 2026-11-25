@@ -48,8 +48,11 @@ class WritingApiTests(unittest.TestCase):
     def test_custom_desktop_model_uses_its_program_without_api(self):
         """REQ-S01-30：桌面模型走桌面调用方式，不落 API 配置，直接投给该程序。"""
         record = {'label': 'gemini', 'model': 'Google Gemini 4 Argon', 'provider': 'desktop',
-                  'call_mode': 'Desktop', 'program': 'C:/Apps/Gemini.exe', 'base_url': ''}
+                  'call_mode': 'Desktop', 'program': '', 'base_url': ''}
         with tempfile.TemporaryDirectory() as td, patch('model_pool.pool', return_value={'gemini': record}):
+            fake_exe = Path(td) / 'Gemini.exe'
+            fake_exe.write_bytes(b'')
+            record['program'] = str(fake_exe)
             project = make_project(td)
             stage_config.put(project, 'script', model='gemini')
             self.assertEqual(writing_api.selected_model(project), ('', {}))

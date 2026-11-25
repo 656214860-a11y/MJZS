@@ -841,16 +841,16 @@ def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_a
         config = current(project, stage, direct_api=direct_api, model_snapshot=model_snapshot)
         if adjust is not None:
             adjust(config)
-    if 'program' in config and not config.get('api') and not direct_api:
-        try:
-            program = str(find_program(config) or '').strip()
-            pinned = bool(str(config.get('program') or '').strip()) or Path(program).is_absolute()
-            engine_missing = not program or (pinned and not Path(program).is_file())
-        except (OSError, ValueError):
-            engine_missing = True
-        if engine_missing:
-            import infra.model_router as model_router
-            raise ValueError(model_router.missing_setup_hint())
+        if 'program' in config and not config.get('api') and not direct_api:
+            try:
+                program = str(find_program(config) or '').strip()
+                pinned = bool(str(config.get('program') or '').strip()) or Path(program).is_absolute()
+                engine_missing = not program or (pinned and not Path(program).is_file())
+            except (OSError, ValueError):
+                engine_missing = True
+            if engine_missing:
+                import infra.model_router as model_router
+                raise ValueError(model_router.missing_setup_hint())
     if not freezing:
         return config
     record = model_snapshot[1] if isinstance(model_snapshot, tuple) else model_snapshot

@@ -57,7 +57,9 @@ class LoginGateMixin:
         if pet is not None and pet.cloud_visible():
             pet.close_chat()               # R2051：闸门出现前已冒出的三虎云朵收掉（R2069 改走公开接口）
         self._build_login_form(inner, self._login_gate_passed, wrap=DESKTOP_LAYOUT['login_gate_wrap'])
-        self._arm_gate_unreachable_notice()
+        arm = getattr(self, '_arm_gate_unreachable_notice', None)
+        if callable(arm):
+            arm()
 
     def _login_gate_passed(self):
         gate, self.login_gate, self.login_gate_active = self.login_gate, None, False

@@ -1,0 +1,15 @@
+{
+  "round": 4441,
+  "commit_base": "ee2066ee3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k workflow desktop_send_ledger claude_writing_session idea_semantic_brief writing_api pet_login_quiet login_gate",
+    "exit": 0,
+    "passed": 284,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T10:16:18"
+}
