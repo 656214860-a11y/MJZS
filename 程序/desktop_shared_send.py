@@ -13,6 +13,7 @@ from pathlib import Path
 
 import infra.app_logging as app_logging
 import domain.skill_command as skill_command
+import ui.desktop_shared_input_extras as input_extras
 from contract import pet_bus
 from orchestrator.storyboard_plan_service import storyboard_work_plan
 from orchestrator.storyboard_selection import selected_many, sync_structured_script
@@ -27,12 +28,13 @@ FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets':
 # 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步，并说明文字
 # 用不上（%s＝阶段名）；文字留在输入框里，不清空。
 STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
-# 初步分镜页及各阶段共享输入框占位提示（参考主流 Agent 输入框：说明发送／换行与 / 技能入口）。
-STORYBOARD_PLACEHOLDER = '输入补充要求或 / 调用技能后发送制作分镜，空输入按结构剧本生成（Enter 发送）'
-DEFAULT_STAGE_PLACEHOLDER = '输入阶段修改要求或 / 调用技能（直接按技能输出阶段文件，Enter 发送，Shift+Enter 换行）'
+# 初步分镜页及各阶段共享输入框占位提示（REQ-S01-114：统一前缀＋阶段尾句，全部由
+# ui.desktop_shared_input_extras.stage_placeholder 派生，接口与取值语义不变）。
+STORYBOARD_PLACEHOLDER = input_extras.stage_placeholder('storyboard')
+DEFAULT_STAGE_PLACEHOLDER = input_extras.stage_placeholder('')
 STAGE_PLACEHOLDERS = {
-    'script': '输入故事创意或修改要求，输入 / 调用技能、@ 引用文件（Enter 发送，Shift+Enter 换行）',
-    'script_structure': '输入结构化整理或修改要求，或 / 调用技能（直接按技能输出结构剧本文件，Enter 发送）',
+    'script': input_extras.stage_placeholder('script'),
+    'script_structure': input_extras.stage_placeholder('script_structure'),
     'storyboard': STORYBOARD_PLACEHOLDER,
 }
 _STORYBOARD_PREP_ATTR = '_storyboard_send_prep'
@@ -938,7 +940,7 @@ def _attachments(desktop):
             except Exception as exc:
                 _notify_error(desktop, '附件选择失败：%s' % exc)
                 return
-    _say(desktop, '附件请在当前阶段页面的制作入口中添加')
+    _say(desktop, input_extras.ATTACHMENT_UNSUPPORTED)
 
 
 def _voice(desktop, box, button):
@@ -981,6 +983,9 @@ def host_options(desktop):
             'stage_action_fallback': lambda stage: (empty_send_action(desktop, stage)
                                                     if stage in EMPTY_SEND_STAGES else None),
             'on_attachment': lambda: _attachments(desktop),
+            'continue_state': lambda box: input_extras.continue_state(
+                getattr(box, 'stage', ''),
+                getattr(getattr(box, 'desktop', None), 'idea_chat_controller', None)),
             'on_voice': lambda button: _voice(desktop,
                                               getattr(desktop, 'shared_input').input,
                                               button)}

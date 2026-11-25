@@ -8,6 +8,8 @@ from types import SimpleNamespace
 
 import desktop_shared_input as shared_input
 import desktop_shared_send as shared_send
+import ui.desktop_shared_input_extras as input_extras
+from contract import pet_bus
 from ui_shortcuts import ShortcutRegistry
 from unittest import mock
 
@@ -65,22 +67,27 @@ class SharedInputLayoutTests(unittest.TestCase):
         row = box.input.master.winfo_children()[-1]
         self.assertEqual(row.winfo_class(), 'TFrame')
 
-    def test_send_outline_is_circular_and_matches_icon_row(self):
-        """REQ-S01-62: send/stop use an unfilled circle, not a solid PNG tile."""
+    def test_send_art_is_filled_circle_and_matches_icon_row(self):
+        """REQ-S01-62/REQ-S01-112：发送键仍是与图标行同高的圆形底图——
+        契约变更（UX-CHAT-INPUT-EXTRAS）：由「无图元描边圆环」改为
+        ``element_photo`` 实心圆＋居中 MDL2 字形（``compound='center'``）。"""
         from tkinter import ttk
         from ui_tokens import COLORS
         box = self._make()
         self.win.deiconify()
         self.win.update()
         button = box.send_button
-        self.assertFalse(str(button.cget('image')), '发送键只绘制 MDL2 字形，不再加载导航 PNG')
+        input_extras.sync_send_art(box)
+        self.assertTrue(str(button.cget('image')), '发送键应有实心圆底图（契约变更）')
+        self.assertEqual(str(button.cget('compound')), 'center')
         style = ttk.Style(self.win)
         name = str(button.cget('style'))
         self.assertAlmostEqual(button.winfo_width(), button.winfo_height(), delta=2)
         self.assertAlmostEqual(button.winfo_rooty() + button.winfo_height() / 2,
                                box.voice_button.winfo_rooty() + box.voice_button.winfo_height() / 2,
                                delta=3)
-        self.assertEqual(style.lookup(name, 'foreground', ('active',)), COLORS['primary'])
+        # REQ-S01-112 契约变更：实心圆底图上字形走 on_accent，禁用仍 disabled_text。
+        self.assertEqual(style.lookup(name, 'foreground', ('active',)), COLORS['on_accent'])
         self.assertEqual(style.lookup(name, 'foreground', ('disabled',)), COLORS['disabled_text'])
         self.assertEqual(str(box.voice_button.cget('style')), 'Tokens.Composer.Icon.TButton')
 
@@ -1360,6 +1367,199 @@ class SharedInputFlowDefectTests(unittest.TestCase):
         box.destroy()
         self._settle()
         self.assertEqual(runs, [], '销毁后不得再执行已排队的刷新回调')
+
+
+class ComposerExtrasTests(unittest.TestCase):
+    """REQ-S01-112/113/114（UX-CHAT-INPUT-EXTRAS）：占位统一前缀、附件明确文案、
+    续写提示条、快捷答复胶囊栏、发送键三态圆形视觉。"""
+
+    def setUp(self):
+        self.win = tk.Tk()
+        self.win.withdraw()
+        self.addCleanup(self.win.destroy)
+        self.tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.tmp.cleanup)
+        self.root = Path(self.tmp.name) / 'project'
+        self.root.mkdir()
+        self.desktop = SimpleNamespace(root=self.root,
+                                       status=tk.StringVar(master=self.win, value=''),
+                                       win=self.win)
+        self.sent = []
+
+    def _make(self, stage='script', **kwargs):
+        options = kwargs.pop('options', {})
+        base = {'on_send': lambda text, parsed: self.sent.append(text) or True,
+                'on_upstream_error': shared_send.upstream_send_error}
+        base.update(options)
+        box = shared_input.SharedStageInput(self.win, desktop=self.desktop,
+                                            stage=stage, options=base)
+        box.pack(fill='x')
+        self.win.update_idletasks()
+        self.addCleanup(box.destroy)
+        return box
+
+    # ── REQ-S01-114：占位统一前缀 ────────────────────────────────────────
+    def test_placeholders_share_base_prefix_across_13_stages(self):
+        """REQ-S01-114：十三阶段占位都以 ``COMPOSER_BASE_PLACEHOLDER`` 开头。"""
+        for stage in pet_bus.STAGES:
+            with self.subTest(stage=stage):
+                text = input_extras.stage_placeholder(stage)
+                self.assertTrue(text.startswith(input_extras.COMPOSER_BASE_PLACEHOLDER))
+                self.assertIn('/', text)
+        self.assertEqual(shared_send.STORYBOARD_PLACEHOLDER,
+                         input_extras.stage_placeholder('storyboard'))
+        self.assertEqual(shared_send.DEFAULT_STAGE_PLACEHOLDER,
+                         input_extras.stage_placeholder(''))
+        for stage in pet_bus.STAGES:
+            with self.subTest(stage=stage):
+                box = self._make(stage=stage)
+                shared_send.sync_stage_placeholder(box.input, stage)
+                self.assertTrue(str(box.input._placeholder).startswith(
+                    input_extras.COMPOSER_BASE_PLACEHOLDER),
+                    f'{stage} 阶段占位缺统一前缀')
+
+    # ── REQ-S01-113：附件明确文案 ────────────────────────────────────────
+    def test_attachment_unsupported_hint_on_non_script_stages(self):
+        """REQ-S01-113：非剧本阶段点「添加附件」状态栏明确「本阶段暂不支持附件」。"""
+        for index, stage in enumerate(pet_bus.STAGES):
+            if stage == 'script':
+                continue
+            with self.subTest(stage=stage):
+                desktop = SimpleNamespace(page_index=index, status=self.desktop.status)
+                shared_send._attachments(desktop)
+                self.assertEqual(self.desktop.status.get(),
+                                 input_extras.ATTACHMENT_UNSUPPORTED)
+                self.assertIn('暂不支持附件', self.desktop.status.get())
+
+    def test_open_attachments_without_callback_uses_same_hint(self):
+        """REQ-S01-113：输入框「添加附件」无回调兜底与分流同一文案。"""
+        box = self._make(stage='storyboard')
+        box.open_attachments()
+        self.assertEqual(self.desktop.status.get(), input_extras.ATTACHMENT_UNSUPPORTED)
+
+    def test_skill_and_add_icons_stay_available_on_all_stages(self):
+        """REQ-S01-113：十三阶段共用同一套 ✦/＋ 入口，切阶段不消失。"""
+        box = self._make(stage='script')
+        for stage in pet_bus.STAGES:
+            with self.subTest(stage=stage):
+                box.set_stage(stage)
+                self.assertEqual(box.stage, stage)
+                self.assertEqual(box.skill_button.winfo_manager(), 'pack')
+                self.assertEqual(box.attachment_button.winfo_manager(), 'pack')
+
+    # ── REQ-S01-112：自动接入续写条 ──────────────────────────────────────
+    def test_continue_state_only_for_script_with_can_continue(self):
+        """REQ-S01-112：数据源＝剧本页＋``can_continue``；文案取 ``continue_plan``
+        显式键，缺省回默认指令；纯判定不碰 Tk。"""
+        controller = SimpleNamespace(can_continue=True,
+                                     continue_plan=lambda: {'prompt': '从断点继续写'})
+        self.assertEqual(input_extras.continue_state('script', controller),
+                         {'text': '从断点继续写'})
+        controller.can_continue = False
+        self.assertIsNone(input_extras.continue_state('script', controller))
+        controller.can_continue = True
+        self.assertIsNone(input_extras.continue_state('storyboard', controller))
+        self.assertIsNone(input_extras.continue_state('script', None))
+        self.assertEqual(input_extras.continue_state(
+            'script', SimpleNamespace(can_continue=True, continue_plan=lambda: None))['text'],
+            input_extras.CONTINUE_PROMPT)
+
+    def _continue_box(self, controller):
+        return self._make(options={'continue_state': lambda b: input_extras.continue_state(
+            getattr(b, 'stage', ''), controller)})
+
+    def test_continue_bar_shows_and_click_sends_then_hides(self):
+        """REQ-S01-112：``can_continue`` 为真才出现提示条；点击发出续写消息即收。"""
+        controller = SimpleNamespace(can_continue=True, continue_plan=lambda: {})
+        box = self._continue_box(controller)
+        self.win.update()
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), 'pack')
+        button = next(w for w in box.extras.continue_bar.winfo_children()
+                      if w.winfo_class() == 'TButton')
+        button.invoke()
+        self.win.update()
+        self.assertEqual(self.sent, [input_extras.CONTINUE_PROMPT])
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), '')
+
+    def test_continue_bar_follows_source_and_stage(self):
+        """REQ-S01-112：数据源转假收起；切到非剧本阶段恒收起。"""
+        controller = SimpleNamespace(can_continue=True, continue_plan=lambda: {})
+        box = self._continue_box(controller)
+        self.win.update()
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), 'pack')
+        controller.can_continue = False
+        box.set_stage('script')
+        self.win.update()
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), '')
+        controller.can_continue = True
+        box.set_stage('storyboard')
+        self.win.update()
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), '')
+        box.set_stage('script')
+        self.win.update()
+        self.assertEqual(box.extras.continue_bar.winfo_manager(), 'pack')
+
+    # ── REQ-S01-112：快捷答复胶囊栏 ──────────────────────────────────────
+    def test_quick_replies_fill_input_without_sending(self):
+        """REQ-S01-112：胶囊点击只填入输入框不自动发送；最多 3 条。"""
+        box = self._make(options={'on_quick_replies': lambda b: ('甲方案', '乙方案', '丙方案', '丁方案')})
+        self.win.update()
+        buttons = [w for w in _descendants(box.extras.quick_bar)
+                   if w.winfo_class() == 'TButton']
+        self.assertEqual(len(buttons), input_extras.QUICK_REPLY_LIMIT)
+        buttons[0].invoke()
+        self.win.update()
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '甲方案')
+        self.assertEqual(self.sent, [])
+
+    def test_quick_replies_hide_on_typing_and_return_on_clear(self):
+        """REQ-S01-112：输入框有正文胶囊隐藏；清空后按需恢复。"""
+        box = self._make(options={'on_quick_replies': lambda b: ('继续',)})
+        self.win.update()
+        self.assertEqual(box.extras.quick_bar.winfo_manager(), 'pack')
+        box.input.insert('1.0', '自己写')
+        self.win.update()
+        self.assertEqual(box.extras.quick_bar.winfo_manager(), '')
+        box.clear()
+        self.win.update()
+        self.assertEqual(box.extras.quick_bar.winfo_manager(), 'pack')
+
+    def test_quick_reply_rules_are_local_and_capped(self):
+        """REQ-S01-112：规则表纯本地判定——无项目/无法制锁提示/缺自然剧本建议。"""
+        self.assertEqual(input_extras.quick_reply_rules('script', {}), ())
+        rules = input_extras.quick_reply_rules(
+            'script', {'has_project': True, 'missing_locks': ('交付形态', '赛道'),
+                       'has_natural_script': False})
+        self.assertLessEqual(len(rules), input_extras.QUICK_REPLY_LIMIT)
+        self.assertTrue(any('制作锁' in text for text in rules))
+        self.assertIn(input_extras.QUICK_REPLY_SCRIPT, rules)
+        stage_rules = input_extras.quick_reply_rules(
+            'storyboard', {'has_project': True})
+        self.assertIn('按结构剧本生成分镜', stage_rules)
+
+    # ── REQ-S01-112：发送键三态圆形视觉 ──────────────────────────────────
+    def test_send_button_circular_art_three_states(self):
+        """REQ-S01-112：实心圆底图＋居中字形；禁用换低对比圆面，运行中仍强调色。"""
+        from tkinter import ttk
+        from ui_tokens import COLORS
+        box = self._make(stage='edit')
+        button = box.send_button
+        style = ttk.Style(box.winfo_toplevel())
+        name = str(button.cget('style'))
+        input_extras.sync_send_art(box)
+        self.assertTrue(str(button.cget('image')))
+        self.assertEqual(str(button.cget('compound')), 'center')
+        self.assertEqual(style.lookup(name, 'foreground'), COLORS['on_accent'])
+        self.assertEqual(style.lookup(name, 'foreground', ('disabled',)),
+                         COLORS['disabled_text'])
+        idle_image = str(button.cget('image'))
+        button.state(['disabled'])
+        input_extras.sync_send_art(box)
+        self.assertNotEqual(str(button.cget('image')), idle_image)
+        button.state(['!disabled'])
+        box._send_interrupt = True
+        input_extras.sync_send_art(box)
+        self.assertEqual(str(button.cget('image')), idle_image)
 
 
 if __name__ == '__main__':

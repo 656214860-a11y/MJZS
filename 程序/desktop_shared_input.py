@@ -24,6 +24,8 @@ import domain.skill_command as skill_command
 import infra.tk_timers as tk_timers
 import infra.ui_plugin_registry as ui_plugin_registry
 from contract import pet_bus
+from ui.desktop_shared_input_extras import (ATTACHMENT_UNSUPPORTED,
+                                            attach as _extras_attach)
 from ui.desktop_shared_menus import (AddMenuPanel, CandidatePopup, SkillPickPanel,
                                      _MenuFlow)
 from ui_popup import apply_noactivate, make_passive_popup, monitor_bounds
@@ -579,11 +581,10 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         self.stage = str(stage or 'script')
         self.status = options.get('status') or _status_of(desktop)
         self.shortcuts = shortcuts if shortcuts is not None else ShortcutRegistry()
-        self.on_send = options.get('on_send')
-        self.on_upstream_error = options.get('on_upstream_error')
-        self.on_skill_config = options.get('on_skill_config')
-        self.on_attachment = options.get('on_attachment')
-        self.on_voice = options.get('on_voice')
+        for _key in ('on_send', 'on_upstream_error', 'on_skill_config',
+                     'on_attachment', 'on_voice', 'continue_state',
+                     'on_quick_replies'):
+            setattr(self, _key, options.get(_key))
         self._skills = list(options.get('skills') or ())
         self._engines = options.get('engines')
         self.in_flight = False
@@ -601,6 +602,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
         # 输入法组词探针状态（best-effort，真机覆盖见验收文件）。
         self._composing = False
         self._build()
+        _extras_attach(self)   # REQ-S01-112/113：续写条＋胶囊栏＋发送键图元（唯一接线点）
 
     # ── 构建 ────────────────────────────────────────────────────────────
     def _build(self):
@@ -895,7 +897,7 @@ class SharedStageInput(_CandidateFlow, _StageActions, ttk.Frame):
     def open_attachments(self):
         if callable(self.on_attachment):
             return self.on_attachment()
-        _say(self.status, '附件入口由当前页面提供')
+        _say(self.status, ATTACHMENT_UNSUPPORTED)
         return None
 
     def _toggle_voice(self):

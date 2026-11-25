@@ -12,6 +12,10 @@ def install_composer_styles(style, root, configure_button):
     style.configure("Composer.TFrame", background=card)
     style.configure("Composer.TLabel", background=card, foreground=COLORS["text_primary"])
     style.configure("Composer.Muted.TLabel", background=card, foreground=COLORS["text_secondary"])
+    # REQ-S01-112：续写提示条——输入卡内一条 primary_subtle 细条，文案走 hint 档。
+    style.configure("Composer.Notice.TFrame", background=COLORS["primary_subtle"])
+    style.configure("Composer.Notice.TLabel", background=COLORS["primary_subtle"],
+                    foreground=COLORS["text_secondary"], font=FONTS["hint"])
     style.configure("Composer.Chip.Icon.TLabel", background=card, font=ICON_FONT,
                     foreground=COLORS["text_secondary"])
     style.configure("Composer.Chip.Close.TLabel", background=card, font=ICON_FONT_SMALL,
@@ -69,10 +73,12 @@ def install_composer_styles(style, root, configure_button):
         ("Button.focus", {"sticky": "nswe", "children": [
             ("Button.label", {"sticky": ""})]})]})])
     style.configure(name, font=ICON_FONT, padding=0, width=0, background=card,
-                    foreground=COLORS["border_input_hover"], focuscolor=COLORS["focus"])
+                    foreground=COLORS["on_accent"], focuscolor=COLORS["focus"])
+    # REQ-S01-112：发送键改实心圆底图后，字形须与 primary 圆面保持对比——
+    # 常态/悬停/聚焦都用 on_accent；禁用态由 disabled_bg 圆面配 disabled_text。
     style.map(name, foreground=[("disabled", COLORS["disabled_text"]),
-                                ("active", COLORS["primary"]),
-                                ("focus", COLORS["focus"])])
+                                ("active", COLORS["on_accent"]),
+                                ("focus", COLORS["on_accent"])])
     # 模型选择器触发钮（R2964）：卡片底同色＝无外框文字钮，悬停才透出圆角底。
     configure_button(style, "Tokens.Composer.Model.TButton", font=FONTS["body"],
                       background=card, foreground=COLORS["text_secondary"],
