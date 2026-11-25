@@ -1,0 +1,15 @@
+{
+  "round": 4491,
+  "commit_base": "b52fdd59f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k login_gate account_page account_inputs account_entry",
+    "exit": 0,
+    "passed": 89,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T18:11:41"
+}

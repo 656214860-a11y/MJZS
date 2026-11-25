@@ -14,7 +14,7 @@ from contract.app_metadata import APP_NAME
 from ui.desktop_page_registry import PAGE_ACCOUNT
 from ui_tokens import DESKTOP_LAYOUT, FONTS, SPACING
 
-LOGIN_GATE_NOTE = '请先登录账号；没有账号请点「注册」。新账号免费试用 3 天；项目和素材始终留在本机，不上传。'
+LOGIN_GATE_NOTE = '新账号免费试用 3 天 · 项目与素材仅存本机，不上传'
 
 
 class LoginGateMixin:
@@ -47,10 +47,11 @@ class LoginGateMixin:
         gate = ttk.Frame(self.win)
         gate.place(relx=0, rely=0, relwidth=1, relheight=1)
         inner = ttk.Frame(gate)
-        inner.place(relx=0.5, rely=0.45, anchor='center', width=DESKTOP_LAYOUT['login_gate_width'])
-        ttk.Label(inner, text=APP_NAME, font=FONTS['heading_1']).pack(anchor='w', pady=(SPACING['none'], SPACING['xs']))
+        inner.place(relx=0.5, rely=0.46, anchor='center', width=DESKTOP_LAYOUT['login_gate_width'])
+        ttk.Label(inner, text=APP_NAME, font=FONTS['heading_1'], anchor='center',
+                  justify='center').pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         ttk.Label(inner, text=LOGIN_GATE_NOTE, style='Muted.TLabel', wraplength=DESKTOP_LAYOUT['login_gate_wrap'],
-                  justify='left').pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
+                  anchor='center', justify='center').pack(fill='x', pady=(SPACING['none'], SPACING['md']))
         self.login_gate, self.login_gate_active = gate, True
         gate.lift()
         pet = getattr(self, 'pet', None)

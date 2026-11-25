@@ -109,6 +109,58 @@ class LoginGateTests(unittest.TestCase):
                            d.account_password_input.winfo_rooty(),
                            '错误提示在输入框下方一行')
 
+    def test_gate_auth_card_segmented_tabs_full_width_primary_and_inline_code_row(self):
+        """UX-LOGIN-CLEAN：极简居中登录卡——等宽双段胶囊页签、全宽主按钮、底部同行链接、内联验证码行与精简标题。"""
+        from ui.desktop_account_page import LOGIN_VIEWS
+        d=self.desktop
+        self.use(_Client())
+        d.begin_startup_or_login(True,lambda:None);self.pump()
+        gate=d.login_gate
+        # ① 顶部等宽双段式胶囊页签（不再置灰当前页签）
+        self.assertEqual(str(d.account_login_tab.cget('style')),'Selected.RailIcon.TButton')
+        self.assertNotIn('disabled',d.account_login_tab.state())
+        self.assertEqual(str(d.account_register_tab.cget('style')),'RailIcon.TButton')
+        self.assertLessEqual(abs(d.account_login_tab.winfo_width()-d.account_register_tab.winfo_width()),4,
+                             '登录／注册胶囊页签应等宽')
+        self.assertLessEqual(abs(d.account_login_tab.winfo_rooty()-d.account_register_tab.winfo_rooty()),4)
+        # ② 主按钮铺满卡片主体宽度，底部文字链接位于主按钮下方同一水平行
+        email_w=d.account_email_input.winfo_width()
+        self.assertGreater(email_w,0)
+        self.assertGreaterEqual(d.account_password_login_button.winfo_width(),email_w*0.85,
+                                '主登录按钮应全宽铺满卡片主体')
+        primary_y=d.account_password_login_button.winfo_rooty()
+        code_link_y=d.account_use_code_button.winfo_rooty()
+        forgot_link_y=d.account_forgot_button.winfo_rooty()
+        self.assertLessEqual(abs(code_link_y-forgot_link_y),4,'底部辅助链接应在同一水平行')
+        self.assertGreater(code_link_y,primary_y,'底部辅助链接应位于主按钮下方')
+        self.assertGreater(forgot_link_y,primary_y,'底部辅助链接应位于主按钮下方')
+        # ⑤ 视图标题简洁（无超过 12 字的冗长括号说明）
+        for key,heading in LOGIN_VIEWS.items():
+            self.assertLessEqual(len(heading),12,f'视图 {key} 标题过长：{heading!r}')
+            self.assertNotIn('（',heading,f'视图 {key} 标题不应含冗长括号说明：{heading!r}')
+        self.assertIn(LOGIN_VIEWS['pw'],[_text(w) for w in _walk(gate) if isinstance(w,ttk.Label) and w.winfo_ismapped()])
+        # ③ 切到注册视图：胶囊切换且验证码框与发码钮同一水平行
+        d.account_register_tab.invoke();self.pump()
+        self.assertEqual(str(d.account_register_tab.cget('style')),'Selected.RailIcon.TButton')
+        self.assertNotIn('disabled',d.account_register_tab.state())
+        self.assertEqual(str(d.account_login_tab.cget('style')),'RailIcon.TButton')
+        self.assertLessEqual(
+            abs(d.account_register_code_input.winfo_rooty()-d.account_register_send_button.winfo_rooty()),8,
+            '注册视图验证码框与发码按钮应在同一水平行')
+        self.assertGreater(d.account_register_send_button.winfo_rootx(),d.account_register_code_input.winfo_rootx(),
+                           '注册视图发码按钮应在验证码框右侧')
+        self.assertGreaterEqual(d.account_register_button.winfo_width(),d.account_email_input.winfo_width()*0.85)
+        # ④ 切到找回密码视图：验证码框与发码钮同一水平行
+        d.account_login_tab.invoke();self.pump()
+        d.account_forgot_button.invoke();self.pump()
+        self.assertEqual(d.account_login_view['view'],'reset')
+        self.assertLessEqual(
+            abs(d.account_reset_code_input.winfo_rooty()-d.account_reset_send_button.winfo_rooty()),8,
+            '找回密码视图验证码框与发码按钮应在同一水平行')
+        self.assertGreater(d.account_reset_send_button.winfo_rootx(),d.account_reset_code_input.winfo_rootx(),
+                           '找回密码视图发码按钮应在验证码框右侧')
+        self.assertGreaterEqual(d.account_reset_button.winfo_width(),d.account_email_input.winfo_width()*0.85)
+
     def test_gate_closes_visible_cloud_via_public_pet_api(self):
         class Pet:                                   # 只有公开接口，没有 _cloud
             closed=0

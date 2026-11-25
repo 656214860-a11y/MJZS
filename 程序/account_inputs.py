@@ -2,16 +2,16 @@
 
 - ``EmailInput``：左边填账号，右边是可下拉的邮箱后缀（@qq.com 等主流邮箱，也可自己改）。
   ``get()`` 返回拼好的完整邮箱；整串地址（含 ``@``）粘进账号框或 ``insert`` 时会自动拆开。
-- ``PasswordInput``：密码框，右侧一个小图标按钮切换明文／遮挡。
+- ``PasswordInput``：密码框，右侧一个无框文字按钮切换明文／遮挡。
 两者对外保持 ``LineInput`` 的用法（get／insert／delete／set_error／clear_error／bind／cget）。
 """
 from tkinter import ttk
 
-from ui_tokens import SPACING
+from ui_tokens import CHAR_WIDTH, SPACING
 from ui_widgets import LineInput, SecondaryButton, SelectBox
 
 PASSWORD_MASK = '•'
-PASSWORD_SHOWN_ICON, PASSWORD_HIDDEN_ICON = '🙈', '👁'      # 明文显示中／遮挡中（按钮上画的是点一下会变成的另一种）
+PASSWORD_SHOWN_ICON, PASSWORD_HIDDEN_ICON = '隐藏', '显示'
 
 EMAIL_SUFFIXES = ('@qq.com', '@163.com', '@126.com', '@gmail.com', '@outlook.com',
                   '@foxmail.com', '@hotmail.com', '@sina.com', '@icloud.com', '@yeah.net')
@@ -22,7 +22,7 @@ class EmailInput(ttk.Frame):
         super().__init__(master, **kwargs)
         self.local = LineInput(self, placeholder=placeholder)
         self.local.pack(side='left', fill='x', expand=True)
-        self.suffix = SelectBox(self, values=suffixes, state='normal')
+        self.suffix = SelectBox(self, values=suffixes, state='normal', width=CHAR_WIDTH['xl'])
         self.suffix.set(suffixes[0])
         self.suffix.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
 
@@ -67,8 +67,10 @@ class PasswordInput(ttk.Frame):
         self.local = LineInput(self, placeholder=placeholder, mask=mask, **entry_options)
         self.local.pack(side='left', fill='x', expand=True)
         self.shown = False
-        self.toggle_button = SecondaryButton(self, text=PASSWORD_HIDDEN_ICON, takefocus=False,
-                                             command=self.toggle)
+        self.toggle_button = SecondaryButton(
+            self, text=PASSWORD_HIDDEN_ICON, width=0,
+            style='Tokens.Text.TButton', takefocus=False, command=self.toggle,
+        )
         self.toggle_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
 
     def toggle(self):

@@ -310,5 +310,5 @@
 |---|---|
 | 应用入口弹窗 | `desktop_launcher.entry_dialog`：单列说明文本＋一个强调色主按钮＋可选文字式次按钮；安全启动二选一经 `entry_confirm` 注入 `diagnostic_capture.startup_gate(ask=)`，按 Win32 `_IDYES`／0 返回；FATAL 自检提示同路（Tk 起不来时回退 `notify_startup_fatal`） |
 | 设置弹窗 | 左侧分类列（`win._pet_nav`）＋竖分隔线＋右侧内容区；底部动作区保留「关闭（左）／保存（右，Primary）」；保存＝写入并关闭（`save_and_close`），关闭有脏先确认（`request_close`＋`ui_widgets.ask_confirmation`） |
-| 登录面板 | 邮箱＋口令／验证码＋一个主按钮＋文字式换登录方式入口（忘记密码／用验证码登录／返回密码登录）；错误提示在输入框下方一行；服务不可达提示＋重试按钮照旧（提示文本按前缀匹配） |
+| 登录面板 | 居中定宽单卡（`DESKTOP_LAYOUT['login_gate_width']`）：顶部等宽双段式胶囊页签（登录／注册，`Selected.RailIcon.TButton`／`RailIcon.TButton`，不再置灰当前页签）＋精简短标题＋紧凑邮箱后缀与无框文字密码显隐钮＋内联验证码行（左输入框、右 `Tokens.Secondary.TButton` 发码钮同行）＋错误提示在输入框下方／主按钮上方＋全宽强调色主按钮（每屏唯一 `Tokens.Primary.TButton`）＋单行底部极简文字链接栏（`Tokens.Text.TButton`：用验证码登录／忘记密码／返回密码登录）；服务不可达提示＋重试按钮照旧（提示文本按前缀匹配） |
 | 会员界面 | 当前方案与到期时间一块、用量一块、操作按钮一行；「立即续签」唯一强调色主按钮；「兑换」与低频工具入口（修改密码／已绑定设备／导出账号数据）文字样式；「注销账号」`Tokens.Danger.TButton` 单独一组；证书到期告警位保留（FIX-AUD-CERT-WIRE 接线点） |
