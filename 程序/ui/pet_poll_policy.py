@@ -42,10 +42,11 @@ def allowed(level, mode, stage_id, granted=(), *, read_auto_var=None):
         return True
     if name not in PAID_SEMI_VARS:
         return False
+    granted_items = tuple(granted or ())
     aliases = {key, name}
     aliases.update(k for k, v in AUTO_STAGE_VARIABLES.items() if v == name)
-    return bool(aliases & {str(g).strip() for g in granted}
-                or name in {canonical_var(g) for g in granted})
+    return bool(aliases & {str(g).strip() for g in granted_items}
+                or name in {canonical_var(g) for g in granted_items})
 
 
 def grants(host):
@@ -59,7 +60,7 @@ def grants(host):
 def grant_paid(host, stage):
     """授权一个付费轮询阶段：规范阶段名（'assets'／'video'）或对应 process_id。"""
     name = canonical_var(stage)
-    if name:
+    if name in PAID_SEMI_VARS:
         grants(host).add(name)
 
 

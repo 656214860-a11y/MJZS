@@ -1,0 +1,15 @@
+{
+  "round": 4454,
+  "commit_base": "bd1587d77",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_command_contract sanhu_mode pet_agent desktop_automation_service copy_rules",
+    "exit": 0,
+    "passed": 191,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T14:12:31"
+}

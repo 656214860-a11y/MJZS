@@ -5,6 +5,7 @@ from pathlib import Path
 from unittest import mock
 
 import pet_agent
+import ui.pet_poll_policy as pet_poll_policy
 import ui.pet_ui as pet_ui
 import ui.pet_ui_support as pet_ui_support
 import infra.project_settings as project_settings
@@ -356,6 +357,17 @@ class SanhuSemiPollTests(unittest.TestCase):
         self.assertEqual(len(failed), 1)
         self.assertEqual(failed[0]['stage'], 'final')
         self.assertTrue(failed[0]['error'].startswith('阶段未派发：'))
+
+    def test_policy_defends_none_granted_and_non_paid_grants(self):
+        """allowed 容忍 granted=None；grant_paid 不得把非付费变量写进授权集。"""
+        self.assertFalse(pet_poll_policy.allowed('semi', 'manual', 'assets', granted=None))
+        self.pet.grant_paid('auto_submit')
+        self.pet.grant_paid('auto_review')
+        self.pet.grant_paid('final')
+        self.pet.grant_paid('unknown_stage')
+        self.assertEqual(pet_poll_policy.grants(self.pet), set())
+        self.pet.grant_paid('assets')
+        self.assertEqual(pet_poll_policy.grants(self.pet), {'auto_asset_var'})
 
 
 if __name__ == '__main__':

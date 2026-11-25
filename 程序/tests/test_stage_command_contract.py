@@ -214,17 +214,17 @@ class DesktopBridgeActionTests(unittest.TestCase):
                 action.assert_called_once_with(**options)
         self.host.pet_advance.assert_not_called()
 
-    def test_poll_switch_runs_once_before_wake_even_after_handled_error(self):
+    def test_poll_switch_runs_once_before_wake(self):
         from orchestrator.desktop_auto_state import UNATTENDED_SWITCH_SETTERS
 
-        for failure, awakened, expected in (
-            (None, 'advanced', '已自动开始'),
-            (OSError('write failed'), '', '已经在跑'),
+        for awakened, expected in (
+            ('advanced', '已自动开始'),
+            ('', '已经在跑'),
         ):
-            with self.subTest(failure=failure):
+            with self.subTest(awakened=awakened):
                 self.host.pet = Mock()
                 self.host.pet_advance.reset_mock()
-                setter = Mock(side_effect=failure)
+                setter = Mock()
 
                 def wake(stage):
                     setter.assert_called_once_with(self.host.root, True)
@@ -236,6 +236,20 @@ class DesktopBridgeActionTests(unittest.TestCase):
                 self.host.pet_advance.assert_called_once_with('assets')
                 self.host.pet.bus.begin_run.assert_called_once_with('assets')
                 self.host.pet._emit.assert_not_called()
+
+    def test_poll_switch_write_failure_stops_wake_and_reports_undispatched(self):
+        from orchestrator.desktop_auto_state import UNATTENDED_SWITCH_SETTERS
+
+        self.host.pet = Mock()
+        self.host.pet_advance.reset_mock()
+        setter = Mock(side_effect=OSError('write failed'))
+        with patch.dict(UNATTENDED_SWITCH_SETTERS, {'auto_asset': setter}):
+            result = self.host.pet_start('assets')
+        self.assertEqual(result, '阶段未派发：write failed')
+        setter.assert_called_once_with(self.host.root, True)
+        self.host.pet_advance.assert_not_called()
+        self.host.pet.bus.begin_run.assert_called_once_with('assets')
+        self.host.pet._emit.assert_not_called()
 
 
 class StageCommandContractTests(unittest.TestCase):
