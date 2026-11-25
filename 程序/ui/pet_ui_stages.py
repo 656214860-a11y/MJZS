@@ -3,6 +3,7 @@ import infra.app_logging as app_logging
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
+import ui.pet_poll_policy as pet_poll_policy
 import orchestrator.stage_flow as stage_flow
 import orchestrator.stage_handler_registry as stage_handler_registry
 import orchestrator.stage_parallel as stage_parallel
@@ -96,7 +97,7 @@ class PetStagesMixin:
     def _auto_stage_completed(self, item):
         """自动链只在成功收场后推进，并预告下一阶段给心跳安全启动。"""
         stage = str((item or {}).get('stage') or '')
-        self.auto.done(stage, True)
+        self.revoke_paid(stage); self.auto.done(stage, True)
         if self.mode != 'auto' or not self.auto.armed or self.auto.paused:
             return None
         pending = self.auto.pending()
@@ -111,7 +112,7 @@ class PetStagesMixin:
         """任一阶段失败均阻塞自动链，直到用户修复后手动恢复或重试。"""
         stage = str((item or {}).get('stage') or '')
         error = ' '.join(str((item or {}).get('error') or '').split())
-        self.auto.done(stage, False, error)
+        self.revoke_paid(stage); self.auto.done(stage, False, error)
         name = pet_bus.STAGE_NAMES.get(stage, stage or '当前阶段')
         detail = error or '该阶段未完成，等待用户处理'
         self.broadcast('【阻塞】%s 未完成，自动执行已停止：%s' % (name, detail))
@@ -792,8 +793,7 @@ class PetStagesMixin:
             # 仅允许窗口销毁竞态静默；变量类型或调用线程错误必须继续暴露。
             pass
         # 复用既有审批与自动推进链：手动＝只提醒，全自动＝全自动等级。
-        if not keep_active:
-            self.set_level('auto' if mode == 'auto' else 'hint', at=at)
+        if not keep_active: self.set_level('auto' if mode == 'auto' else 'hint', at=at)
         failed = self.enable_all_auto_actions() if mode == 'auto' else self.disable_all_auto_actions()
         label = '全自动' if mode == 'auto' else '手动'
         self.broadcast('【模式】已切换到%s模式' % label, at=at)
@@ -816,17 +816,17 @@ class PetStagesMixin:
         return self.mode
     def set_paw_level(self, level, at=None):
         """猫爪是唯一自动化入口：全自动同步开启，其他两档回到手动控制面。"""
-        if level not in PAW_LEVELS:
-            return None
-        self.set_mode('auto' if level == 'auto' else 'manual', at=at)
+        if level not in PAW_LEVELS: return None
+        self.clear_paid_grants(); self.set_mode('auto' if level == 'auto' else 'manual', at=at)
         return self.set_level(level, at=at)
+    def grant_paid(self, stage): pet_poll_policy.grant_paid(self, stage)
+    def revoke_paid(self, stage): pet_poll_policy.revoke_paid(self, stage)
+    def clear_paid_grants(self): pet_poll_policy.clear_paid_grants(self)
     def should_auto_run(self, stage_id):
-        """按阶段 ID 读取三虎变量；全自动以外一律不自动执行。"""
-        if self.mode != 'auto':
-            return False
+        """按阶段 ID 判定轮询放行：全自动照旧读三虎变量，半自动按免费／授权组放行。"""
         try:
-            name = AUTO_STAGE_VARIABLES.get(str(stage_id or '').strip())
-            return bool(name and self.auto_variable(name).get())
+            return pet_poll_policy.allowed(self.agent.level, self.mode, stage_id, pet_poll_policy.grants(self),
+                                           read_auto_var=lambda name: bool(self.auto_variable(name).get()))
         except (AttributeError, RuntimeError, TypeError, ValueError):
             return False
     def set_level(self, level, at=None):
@@ -834,9 +834,8 @@ class PetStagesMixin:
 
         第 19 期：猫爪按钮与右键菜单都走这里，提醒改用圆形气泡，猫爪的填色与头像颜色都立刻跟着变。
         """
-        if level not in pet_agent.LEVELS:
-            return None
-        self.session_level = level         # 第 67 期任务 4：这一次运行照用户刚选的这一档
+        if level not in pet_agent.LEVELS: return None
+        self.clear_paid_grants(); self.session_level = level  # 第 67 期任务 4：这一次运行照用户刚选的这一档
         try:
             self.agent.set_level(level)
         except Exception as exc:

@@ -70,7 +70,7 @@ CLASS_CAPS = {
     ('app.py', 'App'): 1388,
     ('desktop.py', 'Desktop'): 813,  # S03：旧按钮实现移除后实测 798，登记下调并保留 15 行余量
     ('skill_panel.py', 'Panel'): 646,  # R2942：阶段配置按钮工厂删除后实测 631，登记 646
-    ('pet_ui_stages.py', 'PetStagesMixin'): 1161,  # R3614：实测 1146，保留 15 行余量
+    ('pet_ui_stages.py', 'PetStagesMixin'): 1159,  # SANHU-FIX-1B：半自动授权组下沉 pet_poll_policy 后实测 1144，保留 15 行余量
     ('pet_ui_voice.py', 'PetVoiceMixin'): 1119,
     ('desktop_media_pages.py', 'MediaPagesMixin'): 803,  # S04-PAGE-REDESIGN：旧 04 页拆出后实测 788，保留 15 行余量
     ('pet_ui_view.py', 'PetViewMixin'): 732,  # R2933：猫爪列迁入侧栏 pet_dock 后实测 717，登记 732

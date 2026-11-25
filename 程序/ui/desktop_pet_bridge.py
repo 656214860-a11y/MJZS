@@ -83,8 +83,8 @@ class PetBridgeMixin:
             return ''
         try:
             UNATTENDED_SWITCH_SETTERS[name](self.root, True)
-        except (OSError, ValueError, KeyError, TypeError):
-            pass
+        except (OSError, ValueError, KeyError, TypeError) as exc:
+            return '阶段未派发：' + str(exc)
         title = stage_name(stage)
         awakened = self.pet_advance(stage)
         if awakened:
