@@ -12,8 +12,8 @@
 - R5 最后一格以 ⬜ 或 🟡 开头的，这一格里必须有「来源：」或「建议，待确认」。
 - R6 最后一格以 ✅ 开头的，整行至少有一处反引号包住的内容。
 
-两节一个都没有时 ``problems`` 返回空清单；``REQUIRE_ALL = True`` 时缺节即报
-（DOC-Z1 收口轮再把常量改成 True）。
+两节一个都没有且 ``REQUIRE_ALL = False`` 时 ``problems`` 返回空清单；
+``REQUIRE_ALL`` 自 DOC-Z1 收口轮起默认为 ``True``，缺节即报。
 """
 from __future__ import annotations
 
@@ -24,7 +24,7 @@ from unittest.mock import patch
 
 from tests.architecture.test_requirement_traceability import stage_files
 
-REQUIRE_ALL = False
+REQUIRE_ALL = True
 
 _IFACE_SECTIONS = ('读入', '写出', '完成判定与交接', '对外调用')
 _UX_SECTIONS = ('页面区域', '控件与操作', '页面状态', '键盘、右键与拖放')
@@ -199,7 +199,10 @@ class StageDocSectionsTests(unittest.TestCase):
 
     def test_t4_require_all_flags_missing_sections(self):
         sample = '## 需求\n\n- **REQ-S01-01** ✅\n\n## 设计\n\n设计条目。\n'
-        self.assertEqual(problems(sample, 'S01'), [])
+        self.assertIs(REQUIRE_ALL, True)
+        self.assertTrue(problems(sample, 'S01'))
+        with patch.object(sys.modules[__name__], 'REQUIRE_ALL', False):
+            self.assertEqual(problems(sample, 'S01'), [])
         with patch.object(sys.modules[__name__], 'REQUIRE_ALL', True):
             self.assertTrue(problems(sample, 'S01'))
 
