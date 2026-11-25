@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""UsageIndicator／用量详情弹窗：标签文本、隐藏规则、三档颜色、点击弹窗、CSV 导出、几何不重叠。
+"""UsageIndicator／用量悬停卡片：标签文本、隐藏规则、三档颜色、点击不弹窗、悬停卡片、CSV 导出、几何不重叠。
 
 含 Tk，由运行器自动隐藏桌面执行（scripts/gui_hidden.py）。
 """
@@ -7,14 +7,16 @@ import tempfile
 import time
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import tkinter as tk
-from tkinter import font as tkfont
+from tkinter import font as tkfont, ttk
 
 from ui_tokens import COLORS, SPACING, STATUS_BAR_FONT, STATUS_BAR_SEPARATOR, STATUS_BAR_SEPARATOR_GAP
 from infra.usage_snapshot import get_snapshot
 from ui.ui_status_bar import StatusBar
 from ui.ui_status_bus import StatusBus
+import ui.ui_usage_detail as ui_usage_detail
 from ui.ui_usage_detail import TodayDetailsDialog, UsageDetailDialog
 from ui.ui_usage_indicator import UsageIndicator
 
@@ -103,15 +105,165 @@ class UsageIndicatorTests(unittest.TestCase):
             self.assertEqual(self.indicator._labels['token'].cget('fg'), _color,
                              'tokens=%d' % target)
 
-    def test_click_opens_detail_dialog(self):
+    @staticmethod
+    def _walk_widgets(widget):
+        out = [widget]
+        for child in widget.winfo_children():
+            out.extend(UsageIndicatorTests._walk_widgets(child))
+        return out
+
+    def _widget_texts(self, root_widget):
+        texts = []
+        for widget in self._walk_widgets(root_widget):
+            try:
+                text = str(widget.cget('text'))
+            except tk.TclError:
+                continue
+            if text:
+                texts.append(text)
+        return texts
+
+    def _pump(self, seconds=0.12):
+        deadline = time.monotonic() + seconds
+        while time.monotonic() < deadline:
+            self.root.update()
+            time.sleep(0.005)
+
+    def test_click_does_not_open_detail_dialog(self):
+        self.snapshot._balance = {'amount': '9', 'currency': 'CNY'}
         self.snapshot.record_call('a', 'm', 100, cost='0.1', currency='CNY')
-        self.indicator._open_detail()
+        self.indicator.pack()
+        self.indicator.refresh()
         self.root.update()
-        dialogs = [w for w in self.root.winfo_children()
-                   if isinstance(w, UsageDetailDialog)]
-        self.assertEqual(len(dialogs), 1)
-        dialogs[0].close()
+        targets = [self.indicator, *self.indicator._labels.values()]
+        try:
+            for target in targets:
+                target.event_generate('<Button-1>', x=2, y=2)
+                self.root.update()
+            dialogs = [w for w in self.root.winfo_children()
+                       if isinstance(w, UsageDetailDialog)]
+            self.assertEqual(dialogs, [], '点击底部 Token 指示器或其子标签不应再弹出 UsageDetailDialog')
+        finally:
+            for w in list(self.root.winfo_children()):
+                if isinstance(w, UsageDetailDialog):
+                    w.close()
+            self.root.update()
+
+    def test_hover_card_shows_passive_overview_and_live_refresh(self):
+        self.assertTrue(hasattr(ui_usage_detail, 'UsageHoverCard'), '缺少 UsageHoverCard 类')
+        self.assertTrue(hasattr(self.indicator, 'hover_card'), 'UsageIndicator 应暴露 hover_card')
+        card = self.indicator.hover_card
+        self.assertIsInstance(card, ui_usage_detail.UsageHoverCard)
+        self.assertEqual(card.mode, 'card')
+        self.assertFalse(card.pin_on_click)
+
+        self.snapshot.record_call('script', 'gpt-x', 1200, cost='0.82', currency='CNY')
+        self.indicator.pack()
+        self.indicator.refresh()
         self.root.update()
+
+        card.delay_ms = 0
+        self.indicator._labels['token'].event_generate('<Enter>', x=2, y=2)
+        self.root.update()
+        tip = card._window
+        self.assertIsNotNone(tip, '悬停在 Token 子标签应弹出悬停卡片')
+        self.assertTrue(bool(tip.overrideredirect()), '悬停卡片应为无边框浮层')
+        self.assertTrue(getattr(tip, '_positioned_once', False), '悬停卡片应走被动弹层')
+        self.assertIsNone(tip.grab_current(), '悬停卡片不得抢占 grab')
+
+        texts = self._widget_texts(tip)
+        joined = '\n'.join(texts)
+        self.assertIn('用量概览', texts)
+        self.assertIn('今日：', texts)
+        self.assertIn('项目累计：', texts)
+        self.assertIn('Token 1,200 (0.1万) · ¥0.82 · 1 次', joined)
+        self.assertNotIn('余额', joined)
+
+        # 实时刷新：新增调用与余额后，已展开卡片同步更新
+        self.snapshot._balance = {'amount': '9', 'currency': 'CNY'}
+        self.snapshot.record_call('assets', 'gpt-y', 800, cost='0.18', currency='CNY')
+        self.indicator.refresh()
+        self.root.update()
+        self.assertIs(card._window, tip)
+        joined = '\n'.join(self._widget_texts(tip))
+        self.assertIn('Token 2,000 (0.2万) · ¥1 · 2 次', joined)
+        self.assertIn('余额：', joined)
+        self.assertIn('¥9', joined)
+
+        # 余额移除后实时刷新不再展示余额
+        self.snapshot._balance = {}
+        self.indicator.refresh()
+        self.root.update()
+        self.assertNotIn('余额', '\n'.join(self._widget_texts(tip)))
+        card.hide()
+
+    def test_hover_card_action_opens_today_details_and_hides_card(self):
+        self.assertTrue(hasattr(self.indicator, 'hover_card'), 'UsageIndicator 应暴露 hover_card')
+        self.snapshot.record_call('script', 'gpt-x', 1200, cost='0.82', currency='CNY')
+        self.indicator.pack()
+        self.indicator.refresh()
+        self.root.update()
+
+        card = self.indicator.hover_card
+        tip = card.show()
+        self.assertIsNotNone(tip)
+        self.root.update()
+
+        buttons = [w for w in self._walk_widgets(tip)
+                   if isinstance(w, ttk.Button) and str(w.cget('text')) == '查看今日明细']
+        self.assertEqual(len(buttons), 1, '悬停卡片应提供唯一「查看今日明细」轻按钮')
+        self.assertEqual(str(buttons[0].cget('style')), 'Tokens.Text.TButton')
+
+        buttons[0].invoke()
+        self.root.update()
+        self.assertIsNone(card._window, '点击「查看今日明细」后应先收起悬停卡片')
+        today_dialogs = [w for w in self.root.winfo_children()
+                         if isinstance(w, TodayDetailsDialog)]
+        detail_dialogs = [w for w in self.root.winfo_children()
+                          if isinstance(w, UsageDetailDialog)]
+        self.assertEqual(len(today_dialogs), 1)
+        self.assertEqual(detail_dialogs, [])
+        today_dialogs[0].close()
+        self.root.update()
+
+    def test_hover_card_hides_on_leave_hide_and_indicator_destroy(self):
+        self.assertTrue(hasattr(self.indicator, 'hover_card'), 'UsageIndicator 应暴露 hover_card')
+        self.snapshot.record_call('script', 'gpt-x', 1200, cost='0.82', currency='CNY')
+        self.indicator.pack()
+        self.indicator.refresh()
+        self.root.update()
+
+        card = self.indicator.hover_card
+        card.delay_ms = 0
+        card.close_delay_ms = 25
+
+        # 指针仍在控件/卡片上时，Leave 经过 grace 仍保留卡片
+        card.show()
+        self.assertIsNotNone(card._window)
+        with mock.patch.object(card, '_pointer_over', return_value=True):
+            self.indicator._labels['token'].event_generate('<Leave>')
+            self._pump(0.1)
+            self.assertIsNotNone(card._window, '指针移入卡片或仍在指示器上时不应关闭')
+
+        # 指针离开控件和卡片后，经 close_delay 自动关闭
+        with mock.patch.object(card, '_pointer_over', return_value=False):
+            self.indicator._labels['token'].event_generate('<Leave>')
+            self._pump(0.1)
+            self.assertIsNone(card._window, '指针移出后应自动收起悬停卡片')
+
+        # 显式 hide() 与销毁 indicator 均干净关闭无残留
+        tip = card.show()
+        self.assertIsNotNone(tip)
+        card.hide()
+        self.assertIsNone(card._window)
+        self.assertFalse(tip.winfo_exists())
+
+        tip2 = card.show()
+        self.assertIsNotNone(tip2)
+        self.indicator.destroy()
+        self.root.update()
+        self.assertIsNone(card._window)
+        self.assertFalse(tip2.winfo_exists())
 
     def test_csv_export_writes_utf8_sig(self):
         self.snapshot.record_call('script', 'gpt-x', 1200)
