@@ -102,6 +102,20 @@ class RouteTests(unittest.TestCase):
             with self.subTest(text=text):
                 self.assertEqual(pet_agent.route(text)["stage"], stage)
 
+    def test_a_stage_hint_overrides_the_context_stage_for_routing(self):
+        """SANHU-FIX-2 S-03：页面问句带着它的阶段——给了 stage 就盖过 context['stage']；
+        手打的句子不给 stage，照旧按状态机当前阶段。"""
+        plan = pet_agent.route('执行选中', context={'stage': 'assets'}, stage='video')
+        self.assertEqual((plan['intent'], plan['stage']), ('skill', 'video'))
+        plan = pet_agent.route('执行选中', context={'stage': 'assets'})
+        self.assertEqual(plan['stage'], 'assets', '手打句子不带 stage：照旧按状态机当前阶段')
+
+    def test_dispatch_carries_the_stage_hint_down_to_route(self):
+        """S-03：云朵框递下来的阶段一路进 route——dispatch 的 stage 参数同样盖过状态机。"""
+        agent = pet_agent.Agent(level='semi', persist=False)
+        plan = agent.dispatch('执行选中', stage='video')['plan']
+        self.assertEqual(plan['stage'], 'video')
+
     def test_project_questions_stay_in_rules(self):
         """第 37 期第 1 条：三虎要「记住所有项目」——问「有哪些项目」命中规则，不花 Token。"""
         spy = SpyClient(content='{"intent": "未知"}')

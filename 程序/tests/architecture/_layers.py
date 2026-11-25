@@ -91,6 +91,8 @@ _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboar
           "writing_page_controller")
 # SANHU-FIX-1B：三虎半自动轮询放行策略（纯逻辑：pet_ui_stages→pet_poll_policy→pet_ui_support）。
 _register(4, "pet_poll_policy")
+# SANHU-FIX-2：三虎「是/否、列表选一个」小窗与半自动付费放行裁决（pet_ui_stages→pet_ask→pet_ui_support/ui_widgets）。
+_register(4, "pet_ask")
 _register(5, "desktop_launcher")
 # R1895：账户会员客户端（设计文档 docs/specs/07_业务域规格.md §5.1）。
 _register(1, "lease_verifier", "account_store", "session_integrity", "update_notice")
@@ -603,6 +605,8 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('native_assets', 'ui_widgets'),
     ('offline_asr_setup', 'offline_asr_client'),
     ('pet_agent', 'pet_agent_rules'),
+    ('pet_ask', 'pet_ui_support'),
+    ('pet_ask', 'ui_widgets'),
     ('pet_cloud', 'pet_agent'),
     ('pet_cloud', 'pet_cloud_geometry'),
     ('pet_cloud', 'pet_cloud_hint'),
@@ -670,6 +674,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_ui_settings', 'skill_panel'),
     ('pet_poll_policy', 'pet_ui_support'),
     ('pet_ui_stages', 'pet_agent'),
+    ('pet_ui_stages', 'pet_ask'),
     ('pet_ui_stages', 'pet_cloud'),
     ('pet_ui_stages', 'pet_poll_policy'),
     ('pet_ui_stages', 'pet_ui_support'),

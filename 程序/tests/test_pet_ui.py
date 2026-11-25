@@ -10,7 +10,7 @@ from skip_reasons import (
     PLATFORM_WORKING_SET,
     REQUIRES_BUNDLED_SKILL,
 )
-import datetime, json, os, re, sys, tempfile, time, unittest
+import datetime, json, os, re, sys, tempfile, threading, time, unittest
 from pathlib import Path
 from types import SimpleNamespace
 
@@ -23,7 +23,7 @@ import infra.model_pool as model_pool
 import model_secrets
 import pet_models_ui
 import pet_agent, pet_bus, pet_report, ui.pet_ui as pet_ui, stage_flow
-from ui import pet_cloud
+from ui import pet_ask, pet_cloud
 import ui.pet_context_facts as pet_context_facts
 import ui.pet_ui_support as pet_ui_support
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
@@ -3878,7 +3878,8 @@ class ModelPoolTests(PetTestCase):
     def test_save_and_close_right_after_delete_does_not_save_it_back(self):
         """R2166：删完表单还停在那一条，紧接着点「保存并关闭」会把它按表单内容存回模型池。
 
-        R2167 起底栏的「保存并关闭」拆成了「保存这条」和只关窗的「关闭」，这里依次点这两个。"""
+        R2167 起底栏的「保存并关闭」拆成了「保存这条」和只关窗的「关闭」；
+        R4394(DES《05》§15.2) 把只关窗的那颗改名「取消」，这里依次点「保存这条」与「取消」。"""
         win = self.pet.open_model_manager()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
         self.pet.asker = lambda _title, _text: True
@@ -3901,7 +3902,7 @@ class ModelPoolTests(PetTestCase):
                     if child.winfo_class() == 'TButton' and str(child.cget('text')) == text][0]
         button('保存这条').invoke()
         self.assertNotIn('delete-then-close', model_pool.pool(program=self.pet.program))
-        button('关闭').invoke()
+        button('取消').invoke()
         self.assertFalse(win.winfo_exists())
         self.assertNotIn('delete-then-close', model_pool.pool(program=self.pet.program))
 
@@ -4249,6 +4250,55 @@ class ConfirmDoesTheTaskTests(PetTestCase):
         cloud.show(pinned=True)
         self.assertTrue(cloud.win.attributes('-topmost'),
                         '每次冒出来都要重新压一遍置顶，否则按钮点不到')
+
+    def test_the_pages_confirm_routes_to_the_pages_stage(self):
+        """S-03：「视频生成」页空着回车，派发带上 'video'——不是状态机当下停着的那一步。"""
+        self.fake.page_index = list(pet_bus.STAGES).index('video')
+        cloud = self.pet.cloud()
+        cloud.show(pinned=True)
+        cloud.propose(pet_ui.PAGE_ASKS[self.fake.page_index][1], stage='video')
+        seen = []
+        original = self.pet.agent.dispatch
+
+        def spy(text, at=None, confirmed=False, stage=None):
+            seen.append(stage)
+            return original(text, at=at, confirmed=confirmed, stage=stage)
+
+        self.pet.agent.dispatch = spy
+        self.addCleanup(setattr, self.pet.agent, 'dispatch', original)
+        self.addCleanup(self.wait_for_the_reply, cloud)
+        self.assertEqual(cloud.submit(), '执行选中')
+        deadline = time.time() + 5
+        while cloud.busy and time.time() < deadline:
+            cloud.drain()
+            time.sleep(0.01)
+        self.assertEqual(seen, ['video'], '记下的问句带着页的阶段一路进 dispatch')
+        self.assertEqual(self.pet.agent.decisions[-1]['stage'], 'video',
+                         '路由按问句带来的阶段走，不按状态机')
+
+    def test_a_typed_sentence_keeps_the_state_machine_stage(self):
+        """S-03：手打的句子不带 stage——照旧按状态机当前阶段路由。"""
+        self.fake.page_index = list(pet_bus.STAGES).index('video')
+        cloud = self.pet.cloud()
+        cloud.show(pinned=True)
+        cloud.propose(pet_ui.PAGE_ASKS[self.fake.page_index][1], stage='video')
+        seen = []
+        original = self.pet.agent.dispatch
+
+        def spy(text, at=None, confirmed=False, stage=None):
+            seen.append(stage)
+            return original(text, at=at, confirmed=confirmed, stage=stage)
+
+        self.pet.agent.dispatch = spy
+        self.addCleanup(setattr, self.pet.agent, 'dispatch', original)
+        self.addCleanup(self.wait_for_the_reply, cloud)
+        cloud.reply.insert(0, '现在到哪一步了')
+        cloud.submit()
+        deadline = time.time() + 5
+        while cloud.busy and time.time() < deadline:
+            cloud.drain()
+            time.sleep(0.01)
+        self.assertEqual(seen, [None], '手打句子不带 stage，照旧用状态机当前阶段')
 
 class ChatLandsTests(PetTestCase):
     """第 23 期：对话不能只出一句结论——「听懂了」之后要真的做掉那一步。"""
@@ -5778,6 +5828,22 @@ class PageAskTests(PetTestCase):
         self.assertEqual(cloud.lines[:len(before)], before, '再开一次只往后接一句，不刷新记录')
         self.assertEqual(cloud.lines[0], pet_cloud.WELCOME)
 
+    def test_every_page_question_knows_its_stage(self):
+        """SANHU-FIX-2 S-03：PAGE_STAGES 与 PAGE_ASKS 一一等长对应——页表之外认不出为 None。"""
+        self.assertEqual(len(pet_ui_support.PAGE_STAGES), len(pet_ui.PAGE_ASKS))
+        for stage in pet_ui_support.PAGE_STAGES:
+            self.assertIn(stage, pet_bus.STAGES)
+        self.assertIsNone(pet_ui_support.page_stage_for(len(pet_ui.PAGE_ASKS)))
+        self.assertIsNone(pet_ui_support.page_stage_for(-1))
+
+    def test_opening_the_chat_hands_the_pages_stage_to_the_reply_box(self):
+        """S-03：三虎问的那件事带着这一页的阶段——空着回车按它派发。"""
+        self.fake.page_index = list(pet_bus.STAGES).index('video')
+        cloud = self.pet.cloud()
+        self.pet.open_chat()
+        self.assertEqual(cloud.choice, pet_ui.PAGE_ASKS[self.fake.page_index][1])
+        self.assertEqual(cloud.choice_stage, 'video')
+
 
 class FadeAndReadTests(PetTestCase):
     """第 24 期第 8 条：四种对话框都留够读完的时间，然后延时淡出去。"""
@@ -7173,11 +7239,30 @@ class AutoStartTests(PetTestCase):
         self.assertFalse(self.pet.auto.armed, '只提醒档不再替用户开阶段')
 
     def test_script_download_is_the_only_storyboard_prompt_time(self):
-        """REQ-S01-76：模型回话不弹完成框；剧本自动存档（每份新剧本一次）后才问要不要制作分镜。"""
+        """REQ-S01-76：模型回话不弹完成框；剧本自动存档（每份新剧本一次）后才问下一步。
+
+        SANHU-FIX-2 S-10：问句改口——原来直接问「制作分镜」，现在先问「要不要把
+        剧本原稿整理成结构化正稿」（与第 02 阶段 script_structure 对齐）。"""
         prompts = []
         self.pet.confirm = lambda text, **kwargs: prompts.append(text) or text
         self.pet.script_downloaded('剧本.md')
-        self.assertEqual(prompts, ['【下一阶段】剧本已保存。现在制作分镜吗？'])
+        self.assertEqual(prompts, ['【下一阶段】剧本已保存。要不要我把这份剧本原稿整理成结构化正稿？'])
+
+    def test_the_script_download_offer_carries_the_structure_stage(self):
+        """S-10：问句带 'script_structure'——空着回车派发按剧本结构路由。"""
+        self.pet.confirm = lambda text, **kwargs: text
+        self.pet.script_downloaded('剧本.md')
+        cloud = self.pet.cloud()
+        self.assertEqual(cloud.choice, '执行选中')
+        self.assertEqual(cloud.choice_stage, 'script_structure')
+
+    def test_the_fully_automatic_level_does_not_ask_after_saving_the_script(self):
+        """S-10：全自动档不问——自动链自己往下走。"""
+        prompts = []
+        self.pet.confirm = lambda text, **kwargs: prompts.append(text) or text
+        self.pet.agent.set_level('auto')
+        self.pet.script_downloaded('剧本.md')
+        self.assertEqual(prompts, [], '全自动不问：链自己往下走')
 
     def test_downloading_a_real_script_completes_the_automatic_script_stage(self):
         saved = self.fake.root / 'writing' / '创意_20260926' / '项目_EP001_20260926.md'
@@ -7191,7 +7276,14 @@ class AutoStartTests(PetTestCase):
                          ['script.completed', 'stage.completed'])
 
     def test_the_free_steps_are_started_by_themselves(self):
-        """第 67 期任务 5：自动档不是「叫一声」，真的把这一步开起来；付费那步只叫醒。"""
+        """第 67 期任务 5：自动档不是「叫一声」，真的把这一步开起来；付费那步只叫醒。
+
+        SANHU-FIX-2 S-05：半自动的付费步骤现在先问一句「现在做吗」——这里同步换成
+        假回答（用户没点头）：断言照旧：不代跑、照旧退成「提前叫醒一轮」。
+        """
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: False
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
         self.script_done()
         self.pet.set_level('semi')
         self.pet.start_stage('storyboard', at=self.now)
@@ -7199,6 +7291,79 @@ class AutoStartTests(PetTestCase):
         self.pet.start_stage('assets', at=self.now)
         self.assertEqual(self.started, ['storyboard'], '半自动的付费步骤不代跑')
         self.assertIn('assets', self.fake.advances, '付费那一步退成「提前叫醒一轮」')
+
+    def test_the_semi_paid_step_asks_once_before_running(self):
+        """S-05：半自动付费步骤先问一句「现在做吗」——点头后授权并带 confirmed 派发。"""
+        self.script_done()
+        self.pet.set_level('semi')
+        asks = []
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: asks.append(args[2] if len(args) > 2 else '') or True
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(len(asks), 1, '这一步只问一次')
+        self.assertIn('资产管理', asks[0])
+        self.assertIn('要花钱', asks[0])
+        self.assertIn('assets', self.started, '点头后带 confirmed=True 重审派发')
+        self.assertTrue(self.pet.should_auto_run('assets'), 'grant_paid 已把本阶段授权记上')
+
+    def test_a_declined_paid_step_waits_and_stops_asking(self):
+        """S-05：没点头 → 回「等您点头再开始」、记进被拒集合，本档不再自动追问。"""
+        self.script_done()
+        self.pet.set_level('semi')
+        asks = []
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: asks.append(1) or False
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
+        text = self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(text, '「资产管理」要花钱，等您点头再开始')
+        self.assertNotIn('assets', self.started)
+        self.assertEqual(asks, [1], '问了就一次')
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(asks, [1], '本档内被拒过的阶段不再自动追问')
+        self.assertIn('assets', self.fake.advances, '照旧只把轮询提前叫醒一轮')
+
+    def test_an_unanswered_paid_question_also_counts_as_a_decline(self):
+        """S-05：没等到回答（超时）与「不」同路——记被拒、不再追问。"""
+        self.script_done()
+        self.pet.set_level('semi')
+        asks = []
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: asks.append(1) or None
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
+        text = self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(text, '「资产管理」要花钱，等您点头再开始')
+        self.assertNotIn('assets', self.started)
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(asks, [1])
+
+    def test_saying_continue_lets_the_paid_step_ask_again(self):
+        """S-05：用户说「继续」＝被拒集合清空，这一阶段重新可问。"""
+        self.script_done()
+        self.pet.set_level('semi')
+        asks = []
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: asks.append(1) or False
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(asks, [1])
+        self.pet.run_plan({'plan': {'intent': 'resume'}, 'decision': {'run': True}}, at=self.now)
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(asks, [1, 1], '说过「继续」之后再被问到')
+
+    def test_switching_the_level_clears_the_declined_step(self):
+        """S-05：切档＝授权与被拒集合一起清，这一阶段回到可问状态。"""
+        self.script_done()
+        self.pet.set_level('semi')
+        asks = []
+        original = pet_ask.ask_yes
+        pet_ask.ask_yes = lambda *args, **kwargs: asks.append(1) or False
+        self.addCleanup(setattr, pet_ask, 'ask_yes', original)
+        self.pet.start_stage('assets', at=self.now)
+        self.pet.set_level('hint')
+        self.pet.set_level('semi')
+        self.pet.start_stage('assets', at=self.now)
+        self.assertEqual(len(asks), 2, '切档之后这一阶段重新可问')
 
     def test_automatic_keyframe_dispatch_marks_its_trigger(self):
         calls = []
@@ -7485,6 +7650,80 @@ class StallVoiceTests(PetTestCase):
         for _ in range(200):
             self.pet.pump(at=self.now)
         self.assertEqual(self.pet.cloud().transcript().count('停滞'), said, '同一波不重播')
+
+
+class PetAskTests(PetTestCase):
+    """SANHU-FIX-2：三虎的「是/否」小窗与列表小窗——主线程同步弹，子线程切回主线程再弹。"""
+
+    def test_ask_yes_returns_the_answer_on_the_main_thread(self):
+        answers = iter((True, False))
+        original = pet_ask.ask_confirmation
+        pet_ask.ask_confirmation = lambda *args, **kwargs: next(answers)
+        self.addCleanup(setattr, pet_ask, 'ask_confirmation', original)
+        self.assertIs(pet_ask.ask_yes(self.win, '标题', '问一句'), True)
+        self.assertIs(pet_ask.ask_yes(self.win, '标题', '问一句'), False)
+
+    def test_ask_yes_hops_to_the_main_thread_from_a_worker(self):
+        """非界面线程经 win.after／心跳队列切回主线程弹完再拿到回答。"""
+        original = pet_ask.ask_confirmation
+        pet_ask.ask_confirmation = lambda *args, **kwargs: True
+        self.addCleanup(setattr, pet_ask, 'ask_confirmation', original)
+        box = {}
+        worker = threading.Thread(
+            target=lambda: box.setdefault('answer', pet_ask.ask_yes(self.win, 't', 'x', wait=5.0)),
+            daemon=True)
+        worker.start()
+        deadline = time.time() + 5.0
+        while worker.is_alive() and time.time() < deadline:
+            pet_ask.pump_asks()      # 生产里由 Pet.pump 心跳领走；测试里手动领
+            self.win.update()
+            time.sleep(0.01)
+        worker.join(timeout=2.0)
+        self.assertIs(box.get('answer'), True)
+
+    def test_ask_yes_times_out_to_none(self):
+        """wait 秒内没人答出来就回 None（迟到的回切只标完成、不再弹窗）。"""
+        calls = []
+        original = pet_ask.ask_confirmation
+        pet_ask.ask_confirmation = lambda *args, **kwargs: calls.append(1) or True
+        self.addCleanup(setattr, pet_ask, 'ask_confirmation', original)
+        box = {}
+        worker = threading.Thread(
+            target=lambda: box.setdefault('answer', pet_ask.ask_yes(self.win, 't', 'x', wait=0.05)),
+            daemon=True)
+        worker.start()
+        worker.join(timeout=5.0)
+        self.assertIsNone(box.get('answer'))
+        pet_ask.pump_asks()          # 收掉那条迟到的回切
+        self.win.update()
+        self.assertEqual(calls, [], '超时之后迟到的回切不再把窗弹出来')
+
+    def test_ask_choice_returns_the_picked_index(self):
+        """Toplevel 列表＋确定：选哪一行就回哪一行的序号。"""
+        def walk(widget):
+            for child in widget.winfo_children():
+                yield child
+                yield from walk(child)
+        def drive():
+            tops = [w for w in self.win.winfo_children() if w.winfo_class() == 'Toplevel']
+            dialog = tops[-1]
+            listing = [w for w in walk(dialog) if w.winfo_class() == 'Treeview'][0]
+            listing.selection_set('2')
+            for button in dialog.winfo_children()[-1].winfo_children():
+                if str(button.cget('text')) == '确定':
+                    button.invoke()
+                    return
+        self.win.after(0, drive)
+        self.assertEqual(pet_ask.ask_choice(self.win, '标题', '挑一个', ['甲', '乙', '丙']), 2)
+
+    def test_ask_choice_cancel_or_close_returns_none(self):
+        """取消／关窗／没有选项都回 None。"""
+        def drive():
+            tops = [w for w in self.win.winfo_children() if w.winfo_class() == 'Toplevel']
+            tops[-1].close()
+        self.win.after(0, drive)
+        self.assertIsNone(pet_ask.ask_choice(self.win, '标题', '挑一个', ['甲', '乙']))
+        self.assertIsNone(pet_ask.ask_choice(self.win, '标题', '挑一个', []), '没有选项直接 None')
 
 
 if __name__ == "__main__":

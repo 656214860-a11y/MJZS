@@ -1,0 +1,15 @@
+{
+  "round": 4489,
+  "commit_base": "930f3bc7a",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k pet_ui pet_agent pet_cloud sanhu_mode stage_command_contract",
+    "exit": 0,
+    "passed": 839,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T17:31:54"
+}

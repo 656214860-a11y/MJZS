@@ -255,12 +255,13 @@ def parse_intent(text):
             'reply': str(data.get('reply') or ''), 'source': 'llm'}
 
 
-def route(text, client=None, context=None, project=None):
+def route(text, client=None, context=None, project=None, stage=None):
     """先规则后模型：规则命中就不花 Token；未命中且给了客户端时才问一次 Flash 抽意图。
 
     第 28 期第 7 条：SKILL 点名放在规则前头——「把首帧批量生成跑一下」里的「首帧」会先把
     切页那条规则勾走，可用户要的是跑 SKILL 而不是翻页；能对上注册表的点名更具体，先问它。
     """
+    context = dict(context or {}, stage=stage) if stage else context  # 给了就把路由用 context['stage'] 换成它
     hit = match_skill(text, current=(context or {}).get('stage'), project=project)  # project 传目录；context['project'] 只是名字
     if hit:
         return hit
@@ -268,8 +269,7 @@ def route(text, client=None, context=None, project=None):
     if hit:
         return hit
     body = strip_space(text)
-    unknown = {'intent': 'unknown', 'stage': None, 'params': {'text': body},
-               'reply': UNKNOWN_REPLY, 'source': 'none'}
+    unknown = {'intent': 'unknown', 'stage': None, 'params': {'text': body}, 'reply': UNKNOWN_REPLY, 'source': 'none'}
     if client is None:
         return unknown
     result = client.ask('intent.route', body, context=context)
@@ -1026,14 +1026,14 @@ class Agent:
             return None
         return stage if self.approve('stage.run', level=level)['run'] else None
 
-    def dispatch(self, text, at=None, confirmed=False):
+    def dispatch(self, text, at=None, confirmed=False, stage=None):
         """输入框一句话 → 规则/模型意图 → 审批 → 可执行动作。
 
         第 23 期：这里只出结论，不碰界面也不跑任务（它可能在后台线程被调用）；真的动手由
         Pet.run_plan 在界面线程按 action 落地——「听懂了」与「真的做了」就此接上。
         第 31 期第 6 条：confirmed=True＝用户自己按的「确认」，等级不再挡（见 approve）。
         """
-        plan = route(text, client=self.client, context=self.context(), project=self.project)
+        plan = route(text, client=self.client, context=self.context(), project=self.project, stage=stage)
         action = action_for(plan)
         decision = self.approve(action, confirmed=confirmed)
         self.decisions.append({'at': float(self.clock() if at is None else at), 'text': str(text),

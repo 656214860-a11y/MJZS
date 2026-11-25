@@ -13,7 +13,7 @@ import infra.pet_state as pet_state
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 from pathlib import Path
 from tkinter import TclError
-from ui.pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, GREET_SETTLE_POLLS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, shot_stats
+from ui.pet_ui_support import AWAY_PAUSE_SECONDS, BANNER_HOUR, BROADCAST_BUSY, BROADCAST_IDLE, CAPTION_INK, CHAT_HINT, FALLBACK_ASK, GAP_SECONDS, GREET_DELAY_MS, GREET_QUIET_SECONDS, GREET_SETTLE_POLLS, LEVEL_CAPTIONS, OFFER_BACKOFF_MAX, OFFER_MAX_CHARS, OFFER_NO, OFFER_REPEAT, OFFER_SECONDS, OFFER_YES, PAGE_ASKS, PAUSED_CAPTION, PROGRESS_GAPS, PROGRESS_SECONDS, PROJECT_CACHE_SECONDS, PROJECT_CLOSED, PROJECT_LIMIT, PROJECT_OPEN, REPORT_QUIET_SECONDS, SPEAK_GAP_SECONDS, SPOKEN_KEEP, WEEKLY_FROM, asset_counts, duration, page_stage_for, shot_stats
 
 
 def offer_verdict(word):
@@ -1019,7 +1019,7 @@ class PetVoiceMixin:
         cloud = self.cloud()
         if cloud is not None and hasattr(cloud, 'propose'):
             try:
-                cloud.propose(command)
+                cloud.propose(command, stage=page_stage_for(getattr(self.desktop, 'page_index', 0)))
             except Exception as exc:
                 self.errors.append(('chat.propose', str(exc)))
         return '%s：%s' % (pet_agent.PET_NAME, ask)

@@ -405,7 +405,7 @@
   {
    "module": "desktop.py",
    "covered": 0,
-   "total": 743,
+   "total": 741,
    "percent": 0.0
   },
   {
@@ -2475,7 +2475,7 @@
   {
    "module": "ui/desktop_idea_attachments.py",
    "covered": 0,
-   "total": 164,
+   "total": 167,
    "percent": 0.0
   },
   {
@@ -3368,9 +3368,9 @@
   },
   {
    "module": "ui/pet_ui_stages.py",
-   "covered": 76,
-   "total": 893,
-   "percent": 8.5
+   "covered": 77,
+   "total": 897,
+   "percent": 8.6
   },
   {
    "module": "ui/ui_composer_style.py",
@@ -3505,6 +3505,12 @@
    "percent": 16.0
   },
   {
+   "module": "ui/pet_ask.py",
+   "covered": 16,
+   "total": 97,
+   "percent": 16.5
+  },
+  {
    "module": "ui/pet_cloud_timing.py",
    "covered": 34,
    "total": 203,
@@ -3513,14 +3519,14 @@
   {
    "module": "pet_agent.py",
    "covered": 123,
-   "total": 706,
+   "total": 707,
    "percent": 17.4
   },
   {
    "module": "ui/pet_cloud.py",
    "covered": 146,
-   "total": 835,
-   "percent": 17.5
+   "total": 837,
+   "percent": 17.4
   },
   {
    "module": "infra/metrics.py",
@@ -3812,9 +3818,9 @@
   },
   {
    "module": "ui/pet_ui_support.py",
-   "covered": 152,
-   "total": 408,
-   "percent": 37.3
+   "covered": 155,
+   "total": 421,
+   "percent": 36.8
   },
   {
    "module": "infra/model_pool.py",
@@ -4015,15 +4021,15 @@
    "percent": 87.8
   },
   {
-   "module": "infra/executors.py",
-   "covered": 210,
-   "total": 237,
-   "percent": 88.6
-  },
-  {
    "module": "agent/publication.py",
    "covered": 219,
    "total": 246,
+   "percent": 89.0
+  },
+  {
+   "module": "infra/executors.py",
+   "covered": 211,
+   "total": 237,
    "percent": 89.0
   },
   {
@@ -4165,6 +4171,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 134,
- "modules_total": 691
+ "modules_covered": 135,
+ "modules_total": 692
 }

@@ -241,8 +241,30 @@ PAGE_ASKS = (
 )
 # 认不出的页（比如第 13 页参考网站）：不硬凑一件制作上的事，只报一报进度。
 FALLBACK_ASK = ('要不要我报一下当前进度？', '进度面板')
+# S-03：每一页的问句带着它的制作阶段（与 PAGE_ASKS 一一等长、顺序对齐 pet_bus.STAGES）——
+# 空着回车派发时按它路由，不按状态机当下停着的那一步；认不出的页给 None。
+PAGE_STAGES = (
+    'script', 'script_structure', 'storyboard', 'animatic', 'assets', 'continuity', 'final',
+    'keyframe', 'previs', 'video', 'audio', 'edit', 'delivery',
+)
 CONFIRM_TITLE = '三虎 · 要您点个头'   # 需要用户确认时的通知气泡标题
 CONFIRM_NEED = '要您点个头'             # 记录里给「需要确认」补的一句后缀
+def page_stage_for(index):
+    """页序号 → 该页问句带的制作阶段（S-03）。口径与 chat_task 一致：序号读不出来当第一页；
+    页表之外（参考网站那类）没有对应阶段，返回 None。"""
+    try:
+        index = int(index)
+    except (TypeError, ValueError):
+        index = 0
+    return PAGE_STAGES[index] if 0 <= index < len(PAGE_STAGES) else None
+def script_structure_offer(pet):
+    """剧本保存后的问句（S-10）：先把「执行选中·剧本结构」递给回复框，再照旧问那一句。"""
+    try:
+        pet.cloud().propose(PAGE_ASKS[PAGE_STAGES.index('script_structure')][1],
+                            stage='script_structure')
+    except Exception as exc:
+        pet.errors.append(('script.propose', str(exc)))
+    return pet.confirm('【下一阶段】剧本已保存。要不要我把这份剧本原稿整理成结构化正稿？')
 def paw_parts(x, y, size=PAW_SIZE):
     """一个猫爪的图元：一个掌垫 ＋ 四个脚趾（都是 ('oval', cx, cy, r)，画布坐标）。
 
