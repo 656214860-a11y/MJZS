@@ -279,9 +279,9 @@ V1.1（R3944）：§0.1a 增加合入治理分支时实录的六条事实 F19–
 ## 6. 验收勾选清单
 
 ### G0
-- [ ] `concurrency_report.py` 可重复输出全部基线指标
-- [ ] H1 至 H6 逐条有结论和证据
-- [ ] 《全量锁卡死治理任务书》P0 至 P2 的真实进度已对账
+- [x] `concurrency_report.py` 可重复输出全部基线指标（R4459：新增只读脚本 `程序/scripts/concurrency_report.py`，连跑两次退出码 0、stdout 与 `logs/concurrency_report.md` diff 均为空，详见 `tasks_round_4459_result.md`）
+- [x] H1 至 H6 逐条有结论和证据（R4459：孤立临时仓库＋只读台账实测——H1 成立、H2 不成立、H3 不成立、H4 成立、H5 成立、H6 不成立，实测数据与降级建议见 `tasks_round_4459_result.md`）
+- [x] 《全量锁卡死治理任务书》P0 至 P2 的真实进度已对账（R4459：已按源码与测试逐项核对并在该书 §6 打勾与标注现状，未落地项保留空白，详见 `tasks_round_4459_result.md`）
 
 ### G1
 - [ ] `--no-verify` 的非轮次提交写不进主干
