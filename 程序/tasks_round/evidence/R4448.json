@@ -1,0 +1,15 @@
+{
+  "round": 4448,
+  "commit_base": "4baf35dfd",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k script_contract script_preparation_manifest_scope script_structure_scope storyboard_scope",
+    "exit": 0,
+    "passed": 95,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T10:40:09"
+}

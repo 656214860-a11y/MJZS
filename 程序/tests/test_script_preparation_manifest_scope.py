@@ -2,16 +2,19 @@
 import unittest
 from pathlib import Path
 
-from contract.script_manifest_schema import PRODUCERS
+from contract.script_manifest_schema import PRODUCERS, normalize_producer
 
 ROOT = Path(__file__).resolve().parents[1]
 
 
 class ScriptPreparationManifestScopeTests(unittest.TestCase):
     def test_only_emotion_curve_from_preparation_skill(self):
-        mine = sorted(name for name, (skill, _stage) in PRODUCERS.items()
-                      if skill == 'pipeline-script-preparation')
+        mine = sorted(name for name, (producer, stage) in PRODUCERS.items()
+                      if producer == 'stage:script' and stage == '01剧本准备')
         self.assertEqual(mine, ['emotion_curve.json'])
+        self.assertNotIn('pipeline-script-preparation',
+                         {producer for producer, _stage in PRODUCERS.values()})
+        self.assertEqual(normalize_producer('pipeline-script-preparation'), 'stage:script')
 
     def test_other_manifests_owned_by_later_skills(self):
         for name in ('character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'):

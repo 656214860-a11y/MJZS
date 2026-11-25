@@ -129,9 +129,47 @@ class AuditTests(unittest.TestCase):
 
     def test_every_producer_skill_exists_in_the_registry(self):
         from skill_registry import default_registry
+        import pet_bus
         registry = default_registry(HERE)
-        for skill, _folder in sc.PRODUCERS.values():
+        for skill in sc.PRODUCER_SKILLS:
             self.assertIsNotNone(registry.getById(skill), skill)
+        self.assertNotIn("pipeline-script-preparation", sc.PRODUCER_SKILLS)
+        self.assertNotIn("stage:script", sc.PRODUCER_SKILLS)
+        self.assertEqual(sc.PRODUCERS["emotion_curve.json"], ("stage:script", "01剧本准备"))
+        for name, (producer, _folder) in sc.PRODUCERS.items():
+            if producer in sc.PRODUCER_SKILLS:
+                continue
+            self.assertTrue(sc.is_stage_producer(producer), name)
+            self.assertIn(sc.producer_stage_key(producer), pet_bus.STAGES, name)
+
+    def test_stage_producer_helpers_classify_normalize_and_extract(self):
+        self.assertEqual(sc.STAGE_PRODUCER_PREFIX, "stage:")
+        self.assertEqual(sc.LEGACY_STAGE_PRODUCERS,
+                         {"pipeline-script-preparation": "stage:script"})
+        for value in ("stage:script", "  stage:script  ", "stage:storyboard"):
+            self.assertTrue(sc.is_stage_producer(value), value)
+        for value in (None, "", "   ", "stage:", "stage:  ",
+                      "script-character-extraction", "pipeline-script-preparation"):
+            self.assertFalse(sc.is_stage_producer(value), value)
+        self.assertEqual(sc.normalize_producer("pipeline-script-preparation"), "stage:script")
+        self.assertEqual(sc.normalize_producer("  pipeline-script-preparation "), "stage:script")
+        self.assertEqual(sc.normalize_producer("script-character-extraction"),
+                         "script-character-extraction")
+        self.assertEqual(sc.normalize_producer(" stage:script "), "stage:script")
+        self.assertEqual(sc.normalize_producer(None), "")
+        self.assertEqual(sc.normalize_producer(""), "")
+        self.assertEqual(sc.producer_stage_key("stage:script"), "script")
+        self.assertEqual(sc.producer_stage_key("pipeline-script-preparation"), "script")
+        self.assertEqual(sc.producer_stage_key("  stage:storyboard "), "storyboard")
+        for value in (None, "", "stage:", "script-character-extraction"):
+            self.assertEqual(sc.producer_stage_key(value), "", value)
+
+    def test_skill_report_runs_under_stage_producer_contract(self):
+        rows = report.manifest_rows(HERE)
+        self.assertTrue(rows)
+        self.assertTrue(all(row["skill"] for row in rows))
+        self.assertNotIn("stage:script", {row["skill"] for row in rows})
+        self.assertTrue(report.audit_rows(HERE))
 
     def test_the_stage_layout_prints_the_five_outputs(self):
         import stage_layout

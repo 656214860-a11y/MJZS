@@ -131,7 +131,7 @@ R3721（L1 任务书轮 I19，L1-H5 作业库实现与试点）：新增 L1 `inf
 
 ### 阶段专属全流程 SKILL
 
-`skills/01 剧本准备SKILL/`、`02剧本整理SKILL/`、`03初步分镜SKILL/`、`05资产管理SKILL/`、`06连贯性SKILL/`、`07分镜定稿SKILL/`、`08首帧管理SKILL/`、`09白模预演SKILL/`、`10视频生成SKILL/`、`11配音字幕SKILL/`、`12后期剪辑SKILL/` 与 `13质检交付SKILL/` 各含一个 `pipeline-*.skill.md`。剧本准备另有 `screenplay-production-line`、`screenplay-writer`、`script-forging`、`短剧编剧搭子`、`编剧技能集` 五个外部包总入口；其审计归属统一以 `script_contract.AUDIT` 为准，均不产生 manifest。
+`skills/01 剧本准备SKILL/`、`02剧本整理SKILL/`、`03初步分镜SKILL/`、`05资产管理SKILL/`、`06连贯性SKILL/`、`07分镜定稿SKILL/`、`08首帧管理SKILL/`、`09白模预演SKILL/`、`10视频生成SKILL/`、`11配音字幕SKILL/`、`12后期剪辑SKILL/` 与 `13质检交付SKILL/` 各含一个 `pipeline-*.skill.md`。剧本准备另有 `screenplay-production-line`、`screenplay-writer`、`script-forging`、`短剧编剧搭子`、`编剧技能集` 五个外部包总入口；其审计归属统一以 `script_contract.AUDIT` 为准，均不产生 manifest。五类 manifest 的产出者唯一口径是 `script_manifest_schema.PRODUCERS`：`emotion_curve.json` 的产出者为显式阶段产出者 `stage:script`（剧本准备阶段整体产出，仍落 `01剧本准备/output`；旧值 `pipeline-script-preparation` 经 `LEGACY_STAGE_PRODUCERS` 与 `normalize_producer()` 只读兼容，不改写既有 manifest），`PRODUCER_SKILLS` 只含实际在册的产出技能（`script-character-extraction`、`storyboard-scene-breakdown`），不含阶段产出者。
 它们由各阶段技能本地说明承担创作、核验和交接职责，并以 `dependsOn` 表达强前置关系；
 `pipeline-editing` 同时依赖视频与配音字幕。R3820 删除内建总控资源与五个专用工具，保留通用 `skill_orchestrator`、注册器与 `production_locks`；阶段方法已在本目录各阶段 SKILL 中自包含。`/engine` 消费现有注册器返回的用户／项目层合法 SKILL.md 包，扁平清单仍走 `/skill`；解析、补全和发送不另扫目录，不回退任意 README 或执行脚本。`skill_registry.Registry.files()`
 只扫描 `skills/01`—`13` 阶段目录内的常规 `.skill.md`；根目录遗留 `.skill.md` 只在该懒扫描中按 frontmatter `stage` 安全归档，无法归档则保留并报告。其他根目录资料包不扫描。阶段下外部包只登记根部 `SKILL.md`（集合包可用根部 README）为一个总入口，不展开内部子目录。该扫描仅由阶段配置面板显式触发，未进入启动路径。

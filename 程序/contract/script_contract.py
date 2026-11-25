@@ -26,7 +26,7 @@
 | manifest | 产出 SKILL | 这一步在哪一阶段 |
 |:---|:---|:---|
 | character_manifest.json／scene_manifest.json／prop_manifest.json | script-character-extraction（角色与设定提取） | 剧本结构 |
-| emotion_curve.json | pipeline-script-preparation（全流程AIGC·剧本） | 剧本准备 |
+| emotion_curve.json | stage:script（剧本准备阶段产出；旧值 pipeline-script-preparation 只读兼容） | 剧本准备 |
 | scene_breakdown.json | storyboard-scene-breakdown（场次拆分） | 初步分镜 |
 
 场次拆分那个 SKILL 归在「初步分镜」，产物按契约落在 03初步分镜/output（由已采用分镜派生并核验），
@@ -1054,7 +1054,7 @@ def stage_lock_definitions(stage, definitions):
                                if item['key'] in required and item['key'] not in known)
 
 
-from contract.script_manifest_schema import AUDIT, CATEGORIES, HINTS, ID_FIELD, MERGED, MERGED_SKILLS, MERGE_LANDING, MERGE_OWNER, MERGE_PART, PATTERN, PHYSICAL_KEYS, PHYSICAL_LABELS, PREFIX, PREFIX_OF, PRODUCERS, PRODUCER_SKILLS, SAMPLE, SPLIT, STAGE, STORYBOARD_STAGE, STRUCTURE_STAGE, completeness, defaults, duplicate_ids, field_features, id_field, id_of, items_of, kind_of_id, manifest, manifest_name, new_id, normalize, reassign_ids, sample_character_manifest, schema, split_features, unique_ids, validate
+from contract.script_manifest_schema import AUDIT, CATEGORIES, HINTS, ID_FIELD, LEGACY_STAGE_PRODUCERS, MERGED, MERGED_SKILLS, MERGE_LANDING, MERGE_OWNER, MERGE_PART, PATTERN, PHYSICAL_KEYS, PHYSICAL_LABELS, PREFIX, PREFIX_OF, PRODUCERS, PRODUCER_SKILLS, SAMPLE, SPLIT, STAGE, STAGE_PRODUCER_PREFIX, STORYBOARD_STAGE, STRUCTURE_STAGE, completeness, defaults, duplicate_ids, field_features, id_field, id_of, is_stage_producer, items_of, kind_of_id, manifest, manifest_name, new_id, normalize, normalize_producer, producer_stage_key, reassign_ids, sample_character_manifest, schema, split_features, unique_ids, validate
 
 # ── 任务 1～4 的表（从真注册表读，报告与代码同源）──────────────────────────
 def program_root(program=None):
