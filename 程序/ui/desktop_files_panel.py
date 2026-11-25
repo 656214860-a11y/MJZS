@@ -247,6 +247,43 @@ class FilesPanelImportMixin:
     def _ask_import_conflict(self, name):
         return _ask_import_conflict(getattr(self.page, 'win', None), name)
 
+    def set_import_handler(self, stage, handler):
+        """阶段页登记的导入分流：``handler(路径列表) -> 结果 dict``，随页码失效。
+
+        DES-S04-25：只登记当前页；``page_index`` 变化后登记自动视为失效，
+        行为回落到 ``import_into_stage`` 默认导入，其他阶段完全不变。
+        """
+        if not hasattr(self, '_import_handlers'):
+            self._import_handlers = {}
+        if handler is None:
+            self._import_handlers.pop(stage, None)
+        else:
+            self._import_handlers[stage] = (getattr(self.page, 'page_index', None), handler)
+
+    def set_menu_handler(self, stage, hook):
+        """阶段页登记的文件右键挂钩：``hook(menu, 绝对路径)``，同样随页码失效。"""
+        if not hasattr(self, '_menu_handlers'):
+            self._menu_handlers = {}
+        if hook is None:
+            self._menu_handlers.pop(stage, None)
+        else:
+            self._menu_handlers[stage] = (getattr(self.page, 'page_index', None), hook)
+
+    def _registered_hook(self, kind, key):
+        """当前页登记的挂钩：登记页码与当前页不一致时视为已失效。"""
+        entry = getattr(self, '_' + kind + '_handlers', {}).get(key)
+        if entry is None or entry[0] != getattr(self.page, 'page_index', None):
+            return None
+        return entry[1]
+
+    def _offer_menu_hooks(self, menu, path):
+        """索引行右键：把当前页登记的文件挂钩逐个放行，挂钩自己判定路径范围。"""
+        if path is None:
+            return
+        for entry in (getattr(self, '_menu_handlers', None) or {}).values():
+            if entry[0] == getattr(self.page, 'page_index', None):
+                entry[1](menu, path)
+
     def import_files(self):
         """入口动作：多选本机文件，复制进当前阶段写入目录，走面板现有索引刷新。"""
         root = getattr(self.page, 'root', None)
@@ -266,7 +303,11 @@ class FilesPanelImportMixin:
             filetypes=[('可导入文件', patterns), ('全部文件', '*.*')])
         if not paths:
             return
-        result = import_into_stage(root, stage, paths, conflict=self._ask_import_conflict)
+        handler = self._registered_hook('import', stage)
+        if handler is not None:
+            result = handler(list(paths))
+        else:
+            result = import_into_stage(root, stage, paths, conflict=self._ask_import_conflict)
         if getattr(self, 'library_view', False):
             self.show_stage(stage)
         else:
@@ -840,6 +881,9 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
                 menu.command('删除', lambda: self.page.safe(self.delete_index_files))
             menu.command('在文件夹中显示', lambda: self.page.safe(self.show_in_folder))
             menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
+            # DES-S04-25：阶段页登记的文件右键挂钩（如 S04 参考图改分类），仅单选放行。
+            if len(tree.selection()) == 1:
+                self._offer_menu_hooks(menu, self._row_abs_path(row))
             return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。

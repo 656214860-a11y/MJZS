@@ -36,9 +36,8 @@ from ui.desktop_page_registry import PAGE  # noqa: E402
 from ui.desktop_page_support import STAGE_ACTION_WIDTH  # noqa: E402
 from ui_widgets import DescriptionBlock  # noqa: E402
 
-# 改前快照：按钮文字（顺序按页面原顺序，断言时按集合比较）。
-ANIMATIC_BUTTONS = ('导入共享参考图', '选择分镜初稿', '选择临时音频', '本地生成参考草图',
-                    '生成分镜预演', '观看预演视频', '确认预演（SG-B）')
+# 04 页改版（REQ-S04-95…99）：页面常驻按钮收口到底栏发送键与右键菜单，
+# 生成可播放版本后只在页底出现三项确认与一颗「锁定」。
 
 AUDIO_BUTTONS = ('手动制作配音', '生成配音（TTS）', '逐句配音（分句）', '配音设置',
                  '导入配音 / 音乐', '校验并确认本阶段成果', '导出对白字幕 SRT',
@@ -194,18 +193,53 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
                 '%s：「%s」必须落在页面可视区内（底沿 %d）' % (label, name, bottom))
 
     # ── 四页各一条 ───────────────────────────────────────────────
+    def _write_animatic_bundle(self):
+        """一份「已合成」的预演成果：镜头图＋版本视频＋临时音频＋清单（REQ-S04-84）。"""
+        import json
+        from stage_execution_service import load_or_sync_animatic_timeline
+        from contract.stage_path_service import write_dir
+        from domain.animatic_service import CONFIRMATIONS, MANIFEST, digest
+        root = self.project
+        timeline = load_or_sync_animatic_timeline(root)
+        folder = write_dir(root, 'animatic')
+        files = {}
+        for row in timeline['shots']:
+            image = '镜头/%s/v1.png' % row['id']
+            target = folder / image
+            target.parent.mkdir(parents=True, exist_ok=True)
+            target.write_bytes(b'image-' + row['id'].encode())
+            files[image] = target.read_bytes()
+        (folder / '版本').mkdir(parents=True, exist_ok=True)
+        (folder / '版本' / 'animatic_v001.mp4').write_bytes(b'video')
+        (folder / 'assets').mkdir(parents=True, exist_ok=True)
+        (folder / 'assets' / 'temporary_audio.wav').write_bytes(b'audio')
+        files['版本/animatic_v001.mp4'] = b'video'
+        files['assets/temporary_audio.wav'] = b'audio'
+        manifest = {'version': 1, 'kind': 'animatic', 'source': timeline['source'],
+                    'source_sha256': digest((root / timeline['source']).read_bytes()),
+                    'shots': [{'id': row['id'], 'image': '镜头/%s/v1.png' % row['id'],
+                               'seconds': row['seconds'], 'image_version': 1}
+                              for row in timeline['shots']],
+                    'video': '版本/animatic_v001.mp4', 'audio': 'assets/temporary_audio.wav',
+                    'files': {name: digest(raw) for name, raw in files.items()},
+                    'confirmed': dict.fromkeys(CONFIRMATIONS, False)}
+        (folder / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
+
     def test_04_animatic_grouped_buttons_and_confirm_visible(self):
-        """04：按钮不再竖排；880×600 下「确认预演」与三个勾选可见。"""
+        """04：少按钮布局——常驻按钮 ≤1、未生成时确认条隐藏；版本后三勾选＋「锁定」可见。"""
         self._open('animatic')
-        self._assert_standard_buttons(ANIMATIC_BUTTONS, '04 分镜预演')
-        self._assert_bars_are_rows('04 分镜预演')
+        self.assertLessEqual(len(self._buttons()), 1, '04 页常驻按钮应不超过一颗')
+        self.assertEqual([], [w for w in _walk(self.desktop.content) if isinstance(w, ttk.Checkbutton)],
+                         '04 页未生成版本时不应出现确认勾选')
+        self._write_animatic_bundle()
+        self._open('animatic')
         self.win.geometry('880x600+0+0')
         tk_test_support.pump(self.win, .8)
-        confirms = [b for b in self._buttons() if str(b.cget('text')) == '确认预演（SG-B）']
-        self.assertEqual(1, len(confirms), '04 页应有且只有一颗「确认预演（SG-B）」')
+        locks = [b for b in self._buttons() if str(b.cget('text')) == '锁定']
+        self.assertEqual(1, len(locks), '04 页应有且只有一颗「锁定」')
         checks = [w for w in _walk(self.desktop.content) if isinstance(w, ttk.Checkbutton)]
         self.assertEqual(3, len(checks), '04 页应有三个确认勾选')
-        self._assert_visible(confirms + checks, '04 分镜预演 880×600')
+        self._assert_visible(locks + checks, '04 分镜预演 880×600')
 
     def test_11_audio_buttons_standard_and_grouped(self):
         """11：7 个整行宽按钮改标准宽度，按三组分行，行首有组名。"""
