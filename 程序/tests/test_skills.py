@@ -578,7 +578,7 @@ class RouterTests(unittest.TestCase):
         self.assertEqual(self.router().select(item, {}).model, 'fake-cheap')
         choice = model_router.ModelRouter(adapters=[]).select(item, {})
         self.assertFalse(choice.ok)
-        self.assertIn('没有可用模型', choice.reason)
+        self.assertEqual(choice.reason, model_router.missing_setup_hint())
 
     def test_select_stops_when_the_budget_is_gone(self):
         with tempfile.TemporaryDirectory() as td:

@@ -843,7 +843,9 @@ def resolve_for_send(project, stage, *, config=None, intake_only=False, direct_a
             adjust(config)
     if 'program' in config and not config.get('api') and not direct_api:
         try:
-            engine_missing = not Path(str(find_program(config))).is_file()
+            program = str(find_program(config) or '').strip()
+            pinned = bool(str(config.get('program') or '').strip()) or Path(program).is_absolute()
+            engine_missing = not program or (pinned and not Path(program).is_file())
         except (OSError, ValueError):
             engine_missing = True
         if engine_missing:
