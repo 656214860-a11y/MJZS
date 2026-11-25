@@ -229,13 +229,26 @@ def wait_for_lock(common: Path, timeout: float, *, poll: float = POLL_SECONDS,
     return True
 
 
+def _lock_wait_diagnosis(common: Path, waited_seconds: float) -> str:
+    """等锁超时的诊断：锁持有者 PID、已等时长、心跳距今（字段缺失写未知）。"""
+    holder = run_selftests.lock_holder(str(common / run_selftests.FULL_SAFE_LOCK_NAME))
+    beat = holder.get("heartbeat_at")
+    if beat is None:
+        beat = holder.get("heartbeat")
+    try:
+        heartbeat = "%.0f 秒" % max(0.0, time.time() - float(beat))
+    except (TypeError, ValueError):
+        heartbeat = "未知"
+    return "持有者 PID %s，已等 %.0f 秒，心跳距今 %s" % (holder.get("pid", "?"), waited_seconds, heartbeat)
+
+
 def main(argv=None) -> int:
     parser = argparse.ArgumentParser(description=__doc__.splitlines()[0])
     parser.add_argument("-m", "--message", required=True, help="提交说明，首行须为 R<轮次>: 说明")
     parser.add_argument("--tests", nargs="*", default=[], metavar="关键词",
                         help="定向测试的模块关键词（run_selftests.py -k），用于生成轮次证据")
     parser.add_argument("--agent", default="", help="本次改动的来源（模型／工具名），写入提交信息的 Agent: 行")
-    parser.add_argument("--wait-minutes", type=float, default=30.0, help="最多等验收锁多少分钟")
+    parser.add_argument("--wait-minutes", type=float, default=5.0, help="最多等验收锁多少分钟")
     parser.add_argument("files", nargs="*", help="要暂存的 repo 内路径；省略则只提交已暂存内容")
     args = parser.parse_args(argv)
 
@@ -318,7 +331,9 @@ def commit(args, receipt=None):
     lock_applies = branch in ("", "master", "main")
     while True:
         if lock_applies and not wait_for_lock(common, max(0.0, deadline - time.monotonic())):
-            print("等待全量验收锁超过 %.0f 分钟，未提交；暂存区保留。" % args.wait_minutes, file=sys.stderr)
+            waited = args.wait_minutes * 60 - max(0.0, deadline - time.monotonic())
+            print("等待全量验收锁超过 %.0f 分钟（%s），未提交；暂存区保留。"
+                  % (args.wait_minutes, _lock_wait_diagnosis(common, waited)), file=sys.stderr)
             return 3
         if receipt:
             receipt.check()

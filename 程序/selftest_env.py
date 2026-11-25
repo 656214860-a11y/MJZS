@@ -277,6 +277,33 @@ def holder_is_live(holder, now=None):
     return lock_lease.is_live(holder, now=now, legacy_pid_alive=_pid_is_alive)
 
 
+def _holder_stalled(holder, now=None, stale=lock_lease.LOCK_STALE_SECONDS):
+    """持有者超过 stale 秒没有心跳 → 卡死，与 lock_lease.is_live 同一静默口径。
+
+    心跳字段兼容 heartbeat_at／heartbeat；没有心跳的旧锁退回 started_at／created_at
+    的年龄；时间戳在未来不按卡死处理；空或非法 holder 按不活跃处理（True）。
+    """
+    moment = time.time() if now is None else now
+    if not isinstance(holder, dict) or not holder:
+        return True
+    beat = holder.get('heartbeat_at')
+    if beat is None:
+        beat = holder.get('heartbeat')
+    if beat is not None:
+        try:
+            return (moment - float(beat)) >= stale
+        except (TypeError, ValueError):
+            return True
+    for key in ('started_at', 'created_at'):
+        if holder.get(key) is None:
+            continue
+        try:
+            return (moment - float(holder[key])) >= stale
+        except (TypeError, ValueError):
+            return True
+    return True
+
+
 def inspect_lock(path):
     return lock_lease.inspect(path, legacy_pid_alive=_pid_is_alive)
 
