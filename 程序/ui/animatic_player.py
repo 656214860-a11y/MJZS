@@ -7,7 +7,7 @@ import tkinter as tk
 from tkinter import ttk
 
 import asset_thumbs
-from ui_tokens import COLORS
+from ui_tokens import COLORS, SPACING
 
 
 class EmbeddedVideo:
@@ -70,7 +70,7 @@ class VideoPreview(tk.Frame):
     """点击或空格播放/暂停，离开页面释放视频与音轨。"""
 
     def __init__(self, master, path, status, context_menu):
-        super().__init__(master, height=196, background=COLORS['background_card'], takefocus=True)
+        super().__init__(master, height=SPACING['2xl'] * 6, background=COLORS['background_card'], takefocus=True)
         self.pack_propagate(False)
         self.path, self.status, self.player = path, status, None
         self.ready_job = None

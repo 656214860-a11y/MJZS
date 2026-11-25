@@ -411,8 +411,8 @@ def page_title(frame, text, note):
 
 def basic_page(frame, pet, width=None):
     """基础功能：名字（只读）、贴片动画、免打扰时段、立刻安静、开机自启。"""
-    heading = ttk.Label(frame, text='基础功能', font=FONTS['title'])
-    heading.pack(anchor='w', pady=(0, SPACING['sm']))
+    heading = ttk.Label(frame, text='基础功能', style='Tokens.Title.TLabel')
+    heading.pack(anchor='w', pady=(SPACING['none'], SPACING['sm']))
     Tooltip(heading, NOTE_BASIC)
     now = pet.pet_settings()
     hint = tk.StringVar(value='')

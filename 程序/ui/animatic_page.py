@@ -220,8 +220,7 @@ def _watch_layout_metrics(page, state):
 
 
 def _track_gutter(parent, text=''):
-    gutter = tk.Frame(parent, width=_TIMELINE_GUTTER_WIDTH,
-                      bg=COLORS['background_primary'])
+    gutter = ttk.Frame(parent, width=_TIMELINE_GUTTER_WIDTH)
     gutter.pack_propagate(False)
     gutter.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     if text:
@@ -278,8 +277,8 @@ def _paint_shot_selection(state):
     for sid, widget in (state.get('shot_widgets') or {}).items():
         if not _quiet(widget.winfo_exists, False):
             continue
-        color = COLORS['focus'] if sid == selected else COLORS['border_default']
-        _quiet(lambda w=widget, c=color: w.configure(highlightbackground=c))
+        style = 'SelectedShot.TFrame' if sid == selected else 'Card.TFrame'
+        widget.configure(style=style)
 
 
 def _select_shot(page, state, shot_id, *, focus=False):
@@ -324,11 +323,8 @@ def _shot_cell(page, state, bar, row, metrics):
     seconds = float(row.get('seconds') or 0)
     width = _timeline_width(seconds)
     selected = row.get('id') == state.get('selected_shot')
-    cell = tk.Frame(bar, width=width, height=metrics['cell_height'], highlightthickness=1,
-                    bg=COLORS['background_card'],
-                    highlightbackground=(COLORS['focus'] if selected
-                                         else COLORS['border_default']),
-                    highlightcolor=COLORS['focus'])
+    cell = ttk.Frame(bar, width=width, height=metrics['cell_height'],
+                     style='SelectedShot.TFrame' if selected else 'Card.TFrame')
     cell.pack_propagate(False)
     cell.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     shot_id = row.get('id')
@@ -377,8 +373,7 @@ def _shot_cell(page, state, bar, row, metrics):
 def _dialogue_cell(state, bar, row):
     """对白轨单元与上方镜头格同宽，保持逐镜对齐；超长只标记不截断。"""
     sid = row.get('id')
-    cell = tk.Frame(bar, width=_timeline_width(row.get('seconds')),
-                    bg=COLORS['background_primary'])
+    cell = ttk.Frame(bar, width=_timeline_width(row.get('seconds')))
     cell.pack_propagate(False)
     cell.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
     clip = row.get('dialogue_audio')

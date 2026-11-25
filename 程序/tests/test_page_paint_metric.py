@@ -45,6 +45,7 @@ class PagePaintMetricTests(unittest.TestCase):
             'active': None, 'projects': [],
         }), encoding='utf-8')
         desktop = Desktop(window, root=app)
+        self.addCleanup(self._cleanup, window, desktop)
         desktop.startup_controller.cancel()
         return window, desktop
 
@@ -60,6 +61,14 @@ class PagePaintMetricTests(unittest.TestCase):
             except Exception:
                 pass
 
+    def _wait_for_paint(self, window, metric):
+        deadline = time.monotonic() + 8
+        while time.monotonic() < deadline:
+            window.update()
+            if metric in app_logging.metrics_snapshot():
+                return
+            time.sleep(.005)
+
     def test_page_switch_records_paint_metric_with_page_key(self):
         from desktop import PAGE
         app_logging._metrics.clear()
@@ -67,8 +76,7 @@ class PagePaintMetricTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='page-paint-metric-') as td:
             window, desktop = self._make_desktop(td)
             desktop.show(PAGE['script_structure'])
-            window.update_idletasks()
-            window.update()
+            self._wait_for_paint(window, 'page.paint.script_structure.boot')
         snap = app_logging.metrics_snapshot()
         # R3008：每实例首个画完的页记 .boot 相位名。
         self.assertIn('page.paint.script_structure.boot', snap)
@@ -84,10 +92,7 @@ class PagePaintMetricTests(unittest.TestCase):
         with tempfile.TemporaryDirectory(prefix='page-paint-fit-') as td:
             window, desktop = self._make_desktop(td)
             desktop.show(PAGE['script_structure'])
-            window.update_idletasks()
-            window.update()
-            for _ in range(30):
-                window.update()
+            self._wait_for_paint(window, 'page.paint.script_structure.boot')
         snap = app_logging.metrics_snapshot()
         counters = snap.get('counters') or {}
         self.assertIn('page.paint.script_structure.boot.fitwaits', counters)
@@ -103,8 +108,7 @@ class PagePaintMetricTests(unittest.TestCase):
             window, desktop = self._make_desktop(td)
             desktop.show(PAGE['script'])
             desktop.show(PAGE['script_structure'])
-            window.update_idletasks()
-            window.update()
+            self._wait_for_paint(window, 'page.paint.script_structure.boot')
         snap = app_logging.metrics_snapshot()
         self.assertIn('page.paint.script_structure.boot', snap)
         self.assertNotIn('page.paint.script', snap)

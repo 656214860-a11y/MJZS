@@ -46,6 +46,7 @@ def apply(win):
     s.configure('TFrame',background=BG)
 
     s.configure('Card.TFrame',background=COLORS['background_card'])
+    s.configure('SelectedShot.TFrame',background=COLORS['focus'],padding=1)
 
     s.configure('TLabel',background=BG,foreground=INK)
 

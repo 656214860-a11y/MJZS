@@ -399,14 +399,15 @@ class EllipsisLabel(ttk.Label):
 
     def _render(self, _event=None):
         from tkinter.font import Font
+        from ui.ui_popup import measure_text_width
         font = Font(root=self, font=self.cget('font') or ttk.Style(self).lookup(self.cget('style') or 'TLabel', 'font'))
         room = max(0, self.winfo_width() - SPACING['xs'])
         text = self.full_text
-        if font.measure(text) > room:
+        if measure_text_width(font, [text]) > room:
             lo, hi = 0, len(text)
             while lo < hi:
                 mid = (lo + hi + 1) // 2
-                if font.measure(text[:mid] + '…') <= room:lo = mid
+                if measure_text_width(font, [text[:mid] + '…']) <= room:lo = mid
                 else:hi = mid - 1
-            text = text[:lo] + '…' if font.measure('…') <= room else ''
+            text = text[:lo] + '…' if measure_text_width(font, ['…']) <= room else ''
         if self.cget('text') != text:self.configure(text=text)

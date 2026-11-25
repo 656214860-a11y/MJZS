@@ -414,8 +414,7 @@ class TimelineInteractionTests(_PageCase):
             current = state['shot_widgets']['SH002']
             self.assertIs(self.win.focus_get(), current,
                           '方向键选中下一镜后键盘焦点应跟着走')
-            self.assertEqual(current.winfo_rgb(animatic_page.COLORS['focus']),
-                             current.winfo_rgb(str(current.cget('highlightbackground'))),
+            self.assertEqual('SelectedShot.TFrame', str(current.cget('style')),
                              '选中镜头格应有可见焦点边框')
             self.assertTrue(any('SH002 当前镜头草图' in text for text in _labels(self.page.content)),
                             '播放区应跟随当前选中镜头换大图')

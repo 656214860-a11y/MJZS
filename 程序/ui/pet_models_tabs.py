@@ -7,7 +7,7 @@
 模型记录读写仍在 model_pool，这里只负责分段联动、列表的按调用方式过滤／模态分组，
 以及 DES《05》§15 的「未保存改动」确认守卫（ModelManagerFormGuardMixin）与新建预填默认。
 """
-from tkinter import ttk, font as tkfont
+from tkinter import ttk
 from ui_widgets import LineInput, SecondaryButton
 from ui_tokens import COMBOBOX_PADDING, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X, SPACING
 import infra.model_pool as model_pool
@@ -253,10 +253,10 @@ def form_column_width(labels):
     直接当像素会裁字，所以再用令牌字体实测一次，取两者较大值。标签列还要留出与输入列
     之间的 `SPACING['md']` 间距，一并计入后同一窗口的各页才能共用同一条输入竖线。
     """
-    measure = tkfont.Font(font=FONTS['body']).measure
+    from ui.ui_popup import measure_text_width
     gap = SPACING['md']
-    floor = measure('0') * FORM_LABEL_WIDTH + gap
-    return max([floor] + [measure(str(label)) + gap for label in labels])
+    floor = measure_text_width(FONTS['body'], ['0']) * FORM_LABEL_WIDTH
+    return max(floor, measure_text_width(FONTS['body'], labels)) + gap
 
 
 # 模型管理表单用紧凑输入框：纵向内边距归零，行高约为常规输入框一半，空出高度给模型列表。

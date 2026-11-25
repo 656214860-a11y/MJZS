@@ -248,13 +248,13 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
 
     picked = {}
     states = {}
-    hint = tk.StringVar(value='改完点「保存」立刻生效，不用重启。')
-    cert_var = tk.BooleanVar(value=model_pool.require_certified(program))
+    hint = tk.StringVar(master=parent, value='改完点「保存」立刻生效，不用重启。')
+    cert_var = tk.BooleanVar(master=parent, value=model_pool.require_certified(program))
     for key, label, note in model_pool.TASK_FIELDS:
         pairs = choices['default'] if key == 'default' else choices['plain']
         values = [text for _model_id, text in pairs]
         import orchestrator.workflow_settings as workflow_settings
-        var = tk.StringVar(value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
+        var = tk.StringVar(master=parent, value=model_pool.label_of(tasks.get(key) or model_pool.TASKS_DEFAULT[key],
                                                      records, labeler=workflow_settings.desktop_model_label))
         picked[key] = var
         ttk.Label(body, text=label).grid(row=row, column=0, sticky='w', pady=(SPACING['xs'], SPACING['none']))

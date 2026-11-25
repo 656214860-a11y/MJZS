@@ -246,8 +246,9 @@ def skills_page(frame, pet, width=None):
     tree.bind('<<TreeviewClose>>', _remember_expansion(tree, state, False), add='+')
     tree.bind('<space>', toggle_row, add='+')
     tree.bind('<Return>', open_selected, add='+')
-    tree.bind('<Control-f>', focus_filter, add='+')
-    frame.winfo_toplevel().bind('<Control-f>', focus_filter, add='+')
+    from ui.ui_shortcuts import ShortcutRegistry
+    ShortcutRegistry().bind(frame.winfo_toplevel(), ('<Control-f>',), focus_filter,
+                            scope='skill_manager', name='filter')
     update_delete_state()
     update_detail(tree, state)
     ttk.Label(frame, textvariable=hint, style='Muted.TLabel',
