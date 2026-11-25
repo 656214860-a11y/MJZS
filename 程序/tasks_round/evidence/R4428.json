@@ -1,0 +1,15 @@
+{
+  "round": 4428,
+  "commit_base": "02ec82451",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k flow_agent_launch skill_budget_send_entries test_skills login_gate video_ui",
+    "exit": 0,
+    "passed": 270,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T08:31:51"
+}

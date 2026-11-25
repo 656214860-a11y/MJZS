@@ -120,7 +120,9 @@ class SkillBudgetSendEntriesTests(unittest.TestCase):
         self.assertEqual(parsed['kind'], 'engine')
         with patch.object(shared, '_skill_items', return_value=[SimpleNamespace(
                 name='short-drama-director', stage='script', path=self.target, layer='user')]), \
-                patch.object(_FlowAgentLaunch, 'prepare', prepared):
+                patch.object(_FlowAgentLaunch, 'prepare', prepared), \
+                patch('writing_api.capture_request_model', return_value={'id': ''}), \
+                patch('ui.desktop_direct_dispatch.dispatch', return_value=False):
             accepted = shared.send(host, 'script', raw, parsed)
         if rejection:
             self.assertFalse(accepted)

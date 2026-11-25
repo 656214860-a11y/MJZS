@@ -1118,7 +1118,7 @@ class VideoEntryTests(unittest.TestCase):
             self.assertGreaterEqual(button.winfo_height(), button.image.height())
             style = ttk.Style(win)
             pixel = button.image.get(20, 15)
-            self.assertEqual(tuple(pixel), tuple(c // 257 for c in win.winfo_rgb(COLORS['primary'])))
+            self.assertEqual(tuple(pixel), tuple(c // 257 for c in win.winfo_rgb(COLORS['text_primary'])))
 
             def luminance(rgb):
                 channels = [channel / 255 for channel in rgb]
