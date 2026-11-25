@@ -320,15 +320,23 @@ class ScriptPagesMixin:
         if button is None or not button.winfo_exists():
             return
         if self.script_task_active():
+            shared._send_interrupt = True
             button.configure(text=ICON_STOP, command=lambda: self.safe(self.interrupt_script_agent))
             button.state(['!disabled'])
             return
+        shared._send_interrupt = False
         button.configure(text=ICON_SEND, command=lambda: self.safe(shared.send))
         try:
             missing = self._idea_live_missing()
         except Exception:
             missing = ()
-        button.state(['disabled'] if missing else ['!disabled'])
+        # REQ-S02-41（SEND-2）：本阶段正在执行时发送键同样置灰，只动可用态不动图标。
+        running = False
+        try:
+            running = ui_plugin_registry.module('stage_flow').running(getattr(shared, 'stage', ''))
+        except Exception:
+            running = False
+        button.state(['disabled'] if (missing or running) else ['!disabled'])
     def refresh_script_workspace(self):
         """刷新剧本聊天和文件表；旧 Claude 思考块会先清洗，必要时仅重发一次正文请求。"""
         import domain.idea_chat as idea_chat
@@ -497,7 +505,8 @@ class ScriptPagesMixin:
         def received(result):
             self._receive_structure_stage_result(pet,result,refresh_page=refresh_page)
         self.async_(work,received,label='三虎正在整理结构化剧本…')
-        return ('已自动开始' if trigger == 'auto' else '已开始') + '「剧本结构」：正在整理原稿'
+        return (('已自动开始' if trigger == 'auto' else '已开始')
+                + '「剧本结构」：正在整理原稿「' + source.name + '」')
     def _receive_structure_stage_result(self,pet,result,refresh_page=False):
         """处理结构剧本后台任务结果，并保持三虎阶段事件与页面状态一致。"""
         if bool((result or {}).get('ok')):
@@ -558,7 +567,7 @@ class _ScriptStructurePage:
         self.source = structure.source
         self.page.script_structure_page = self
         def run_send():
-            """底部发送键在本页承载的制作入口：已配置 API 模型时直连按 SKILL 输出结构剧本，否则退回本地规则整理（无弹窗）。"""
+            """底部发送键承载「手动制作结构剧本」入口（REQ-S02-37 撤掉页面按钮后入口并入这里）：已配置 API 模型时直连按 SKILL 输出结构剧本，否则退回本地规则整理（无弹窗）。"""
             sender = getattr(self.page, 'send_stage_file', None)
             if callable(sender) and sender('script_structure', ''):
                 return True

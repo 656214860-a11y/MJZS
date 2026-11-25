@@ -130,6 +130,41 @@ class ApplyTextTests(unittest.TestCase):
         self.assertEqual(button.state, 'disabled')
 
 
+class ApplyStateTests(unittest.TestCase):
+    """SEND-2／REQ-S02-41：apply_state 只管可用态——文字与「别的闸门置的灰」都不动。"""
+
+    def setUp(self):
+        stage_flow.reset()
+        self.addCleanup(stage_flow.reset)
+
+    def test_a_running_stage_greys_without_touching_the_label(self):
+        button = FakeButton('发送')
+        stage_flow.mark('edit', 'stage.executing', 'auto')
+        self.assertTrue(stage_flow.apply_state(button, 'edit'))
+        self.assertEqual(button.state, 'disabled')
+        self.assertEqual(button.text, '发送')
+        self.assertFalse(stage_flow.apply_state(button, 'edit'), '第二次没变化')
+
+    def test_the_button_comes_back_when_the_stage_settles(self):
+        button = FakeButton('发送')
+        stage_flow.mark('edit', 'stage.executing', 'manual')
+        stage_flow.apply_state(button, 'edit')
+        stage_flow.mark('edit', 'stage.completed')
+        self.assertTrue(stage_flow.apply_state(button, 'edit'))
+        self.assertEqual(button.state, 'normal')
+        self.assertEqual(button.text, '发送')
+
+    def test_someone_elses_disabled_button_is_never_lit_up(self):
+        """别的闸门先置的灰：运行期盖着它压一次，收场后照旧归那道闸。"""
+        button = FakeButton('发送', state='disabled')
+        stage_flow.apply_state(button, 'edit')
+        stage_flow.mark('edit', 'stage.executing', 'auto')
+        stage_flow.apply_state(button, 'edit')
+        stage_flow.mark('edit', 'stage.completed')
+        stage_flow.apply_state(button, 'edit')
+        self.assertEqual(button.state, 'disabled')
+
+
 class ListenTests(unittest.TestCase):
     """附件二第 5 条：状态同步的来源就是总线那四条事件。"""
 
@@ -226,6 +261,16 @@ class SummaryTests(unittest.TestCase):
         self.assertEqual(self.module.DEPENDS['script_structure'], ('script',))
         self.assertEqual(self.module.DEPENDS['storyboard'], ('script_structure',))
         self.assertEqual(self.module.DEPENDS['delivery'], ('edit',))
+
+    def test_script_structure_summary_names_the_source_script(self):
+        """SEND-2 补 REQ-S02-41：确认窗写明这一次用哪份自然剧本。"""
+        with tempfile.TemporaryDirectory() as td:
+            proj = self.project(td)
+            writing = proj / 'writing'
+            writing.mkdir(parents=True)
+            (writing / '剧本.md').write_text('# 自然剧本\n正文', encoding='utf-8')
+            lines = self.module.summary_lines(self.desktop(proj), 'script_structure')
+            self.assertTrue(any('剧本.md' in line for line in lines), str(lines))
 
 
 class UncheckedTests(unittest.TestCase):

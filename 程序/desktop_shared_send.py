@@ -187,6 +187,52 @@ def _goto_stage(desktop, stage):
     return False
 
 
+# SEND-2／REQ-S01-105：没登记发送动作、也没有对话流程的阶段，空发送＝手动制作入口。
+EMPTY_SEND_STAGES = ('animatic', 'continuity', 'final', 'edit', 'delivery')
+
+
+def empty_send_action(desktop, stage, parent=None):
+    """空发送＝这一阶段的手动制作动作；真正开始制作才受理（REQ-S01-105）。"""
+    if stage not in EMPTY_SEND_STAGES:
+        return None
+    from orchestrator.stage_models import manual_command
+    def action(stage=stage):
+        if stage not in ('animatic', 'continuity', 'final', 'edit', 'delivery'):
+            raise ValueError('未登记空发送动作的阶段：%r' % stage)
+        reason = _account_block(desktop, stage)
+        if reason:
+            _say(desktop, reason)
+            return False
+        if stage == 'animatic':
+            # 注册器的 animatic 呈现分支需要注入 L4 动作；这里直接用同一呈现语义切页。
+            present = getattr(desktop, 'present_stage', None)
+            if callable(present):
+                from orchestrator.stage_handler_registry import StagePresentation
+                if present(StagePresentation.SHOW_ANIMATIC, '') is False:
+                    return False
+            _say(desktop, '已切到「分镜预演」：在页面上选择参考图与临时声音，再点「生成分镜预演」。')
+            return ''
+        import orchestrator.stage_handler_registry as stage_handler_registry
+        result = stage_handler_registry.start(desktop, stage, trigger='manual')
+        if result is False:
+            return False
+        if isinstance(result, str) and result:
+            _say(desktop, result)
+            return False
+        if stage == 'continuity':
+            produce = getattr(desktop, 'generate_continuity_ledger', None)
+        elif stage == 'final':
+            produce = getattr(desktop, 'make_final_storyboard', None)
+        else:
+            import orchestrator.stage_exec as stage_exec
+            produce = lambda: stage_exec.show(desktop, stage, parent)
+        if not callable(produce):
+            return False
+        safe = getattr(desktop, 'safe', None)
+        return safe(produce) if callable(safe) else produce()
+    return manual_command(desktop, stage, action, parent)
+
+
 def _open_flow(desktop, stage, prompt):
     """派发到 ``open_flow_agent``；失败回 False 让输入框保留原文。"""
     flow = FLOW_FOR_STAGE.get(stage)
@@ -932,6 +978,8 @@ def host_options(desktop):
     return {'on_send': on_send,
             'on_upstream_error': lambda project, stage, status=None: upstream_send_error(
                 project, stage, status),
+            'stage_action_fallback': lambda stage: (empty_send_action(desktop, stage)
+                                                    if stage in EMPTY_SEND_STAGES else None),
             'on_attachment': lambda: _attachments(desktop),
             'on_voice': lambda button: _voice(desktop,
                                               getattr(desktop, 'shared_input').input,

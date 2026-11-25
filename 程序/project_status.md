@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4430（R4429 合并轮：合入 FIX-SEND-AFFECTED-REDS(R4428)：修复主干 7 条 --affected 既有红（resolve_for_send 兼容非绝对桩、test_skills 对齐 REL-03、test_skill_budget_send_entries CLI 隔离、test_video_ui:1121 对齐图标重染色）；断言未动；未跑全量。上一轮：R4427 合并轮：合入 UX-L5-DIALOGS(R4419)：入口弹窗、设置弹窗、登录面板与会员界面简约布局及不可达前缀匹配修复（独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4433（R4432 合并轮：合入 SEND-2(R4424)：十三阶段发送全链路盘点、五阶段空发送兜底入口与 S02-41 发送键置灰/剧本名汇总（独立 cpa verify 3/3 全绿）；断言未动；未跑全量。上一轮：R4429 合并轮：合入 FIX-SEND-AFFECTED-REDS(R4428)：修复主干 7 条 --affected 既有红（resolve_for_send 兼容非绝对桩、test_skills 对齐 REL-03、test_skill_budget_send_entries CLI 隔离、test_video_ui:1121 对齐图标重染色）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

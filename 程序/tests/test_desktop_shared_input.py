@@ -289,5 +289,118 @@ class TextSendOnStageWithoutFlowTests(_StageActionCase):
         self.assertEqual(self.desktop.opened, [])
 
 
+class EmptySendFallbackEntryTests(_StageActionCase):
+    """REQ-S01-105（SEND-2）：分镜预演／连贯性／定稿／剪辑／交付五个阶段
+    页面没登记发送动作时，空发送仍走本阶段手动制作入口（registry 统一链路）。"""
+
+    def _switch(self, stage):
+        self.box.set_stage(stage)
+        self.desktop.page_index = pet_bus.STAGES.index(stage)
+
+    def test_animatic_empty_send_opens_the_animatic_page(self):
+        """分镜预演：空发送＝切到预演页（REQ-S04-03：手动只开页，不代按生成）。"""
+        from orchestrator.stage_handler_registry import StagePresentation
+        self._switch('animatic')
+        self.desktop.present_stage = mock.Mock(return_value='')
+        self.assertIs(self.box.send(), True)
+        self.desktop.present_stage.assert_called_once_with(
+            StagePresentation.SHOW_ANIMATIC, '')
+        self.assertIn('分镜预演', self.status())
+
+    def test_continuity_empty_send_generates_the_ledger(self):
+        self._switch('continuity')
+        self.desktop.generate_continuity_ledger = mock.Mock(return_value='镜头 5 个')
+        self.assertIs(self.box.send(), True)
+        self.desktop.generate_continuity_ledger.assert_called_once_with()
+
+    def test_final_empty_send_makes_the_final_storyboard(self):
+        self._switch('final')
+        self.desktop.make_final_storyboard = mock.Mock(return_value=None)
+        self.assertIs(self.box.send(), True)
+        self.desktop.make_final_storyboard.assert_called_once_with()
+
+    def test_edit_and_delivery_empty_send_opens_the_execution_page(self):
+        for stage in ('edit', 'delivery'):
+            with self.subTest(stage=stage):
+                self._switch(stage)
+                with mock.patch('orchestrator.stage_exec.show',
+                                return_value='window') as show:
+                    self.assertIs(self.box.send(), True)
+                show.assert_called_once_with(self.desktop, stage, None)
+
+    def test_a_running_stage_is_not_started_twice(self):
+        self._switch('edit')
+        stage_flow.mark('edit', 'stage.executing', 'manual')
+        with mock.patch('orchestrator.stage_exec.show') as show:
+            self.assertIs(self.box.send(), False)
+        show.assert_not_called()
+        self.assertIn('正在执行', self.status())
+        stage_flow.mark('edit', 'stage.completed')
+        with mock.patch('orchestrator.stage_exec.show', return_value='window'):
+            self.assertIs(self.box.send(), True)
+
+    def test_an_account_gate_rejection_keeps_the_send_unaccepted(self):
+        self._switch('animatic')
+        self.desktop.account = SimpleNamespace(stage_gate=lambda stage: '需要登录')
+        self.desktop.present_stage = mock.Mock(return_value='')
+        self.assertIs(self.box.send(), False)
+        self.desktop.present_stage.assert_not_called()
+        self.assertEqual(self.status(), '需要登录')
+
+    def test_stages_without_an_entry_still_do_nothing(self):
+        """兜底只管有去处的五个阶段；assets 等未登记阶段照旧不受理。"""
+        self._switch('assets')
+        self.assertIs(self.box.send(), False)
+        self.assertEqual(self.status(), '')
+
+
+class SendButtonRunningStateTests(_StageActionCase):
+    """S02-41 剩余项：本阶段在跑→发送键置灰＋悬停写明；收场恢复；
+    只动可用态与悬停，图标与剧本页中断模式不归这条链管。"""
+
+    def _switch(self, stage):
+        self.box.set_stage(stage)
+        self.desktop.page_index = pet_bus.STAGES.index(stage)
+
+    def test_running_stage_greys_the_button_and_explains_on_hover(self):
+        self._switch('edit')
+        stage_flow.mark('edit', 'stage.executing', 'manual')
+        self.box._sync_send_state()
+        self.assertTrue(self.box.send_button.instate(['disabled']))
+        self.assertIn('正在执行', self.box._send_tooltip.text)
+        stage_flow.mark('edit', 'stage.completed')
+        self.box._sync_send_state()
+        self.assertFalse(self.box.send_button.instate(['disabled']))
+        self.assertNotIn('正在执行', self.box._send_tooltip.text)
+
+    def test_the_icon_is_never_rewritten(self):
+        glyph = self.box.send_button.cget('text')
+        self._switch('edit')
+        stage_flow.mark('edit', 'stage.executing', 'auto')
+        self.box._sync_send_state()
+        self.assertEqual(self.box.send_button.cget('text'), glyph)
+        stage_flow.mark('edit', 'stage.failed')
+        self.box._sync_send_state()
+        self.assertEqual(self.box.send_button.cget('text'), glyph)
+
+    def test_interrupt_mode_is_not_forced_grey(self):
+        """剧本页中断模式下（STOP 图标）这条链不抢可用态。"""
+        self.box._send_interrupt = True
+        self.box.send_button.state(['!disabled'])
+        stage_flow.mark('script', 'stage.executing', 'manual')
+        self.box._sync_send_state()
+        self.assertFalse(self.box.send_button.instate(['disabled']))
+
+    def test_another_gates_disabled_button_is_not_lit_up(self):
+        """别的闸门（如简报必填）置的灰，这条链收场后不许点亮。"""
+        self._switch('edit')
+        self.box.send_button.state(['disabled'])
+        stage_flow.mark('edit', 'stage.executing', 'auto')
+        self.box._sync_send_state()
+        stage_flow.mark('edit', 'stage.completed')
+        self.box._sync_send_state()
+        self.assertTrue(self.box.send_button.instate(['disabled']))
+
+
 if __name__ == '__main__':
     unittest.main()
