@@ -1,0 +1,15 @@
+{
+  "round": 4467,
+  "commit_base": "f7c27bb8f",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_completion_service skill_orchestrator_completion delivery_scope",
+    "exit": 0,
+    "passed": 60,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T15:18:06"
+}
