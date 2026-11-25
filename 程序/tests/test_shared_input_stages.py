@@ -604,6 +604,90 @@ class StoryboardSendChainTests(unittest.TestCase):
             modal_plan.assert_not_called()
             modal_ask.assert_not_called()
 
+    def test_finish_reports_open_flow_agent_error_instead_of_raising(self):
+        """open_storyboard_skill 的 finish() 遇到 open_flow_agent 抛错时不冒出，经 notifier 或状态栏提示。"""
+        for with_notifier in (True, False):
+            with self.subTest(with_notifier=with_notifier):
+                desktop = self.desktop()
+                errors = []
+                if with_notifier:
+                    desktop.notifier = SimpleNamespace(error=errors.append)
+                desktop.open_flow_agent = Mock(side_effect=ValueError('未配置分镜模型，请先设置'))
+                selected, produced, prompt = self.selection_patches()
+                with selected, produced, prompt:
+                    shared_send.open_storyboard_skill(desktop, request_text='补充')
+                    self.finish(desktop)
+                if with_notifier:
+                    self.assertEqual(len(errors), 1)
+                    self.assertIn('未配置分镜模型', errors[0])
+                else:
+                    self.assertIn('未配置分镜模型', desktop.status.get())
+                self.assertFalse(getattr(desktop, '_storyboard_send_prep', False))
+
+    def test_finish_preserves_status_written_by_open_flow_agent(self):
+        """open_flow_agent 已写直连 API 状态后，finish() 不得用默认提示将其覆盖。"""
+        desktop = self.desktop()
+        direct_msg = '正在直连 API 制作初步分镜（后台进行，可点「强制停止制作」中断）…'
+
+        def fake_open(stage, label, prompt, followup=None, **kwargs):
+            desktop.opened.append((stage, label, prompt, followup, kwargs))
+            desktop.status.set(direct_msg)
+
+        desktop.open_flow_agent = fake_open
+        selected, produced, prompt = self.selection_patches()
+        with selected, produced, prompt:
+            shared_send.open_storyboard_skill(desktop)
+            self.finish(desktop)
+        self.assertEqual(len(desktop.opened), 1)
+        self.assertEqual(desktop.status.get(), direct_msg)
+
+    def test_named_skill_ignores_writing_dict_request_model_snapshot(self):
+        """shared_input.request_model 为 writing_api.capture_request 风格的 dict 时，/技能发送不因解包崩溃。"""
+        desktop = self.desktop()
+        skill = SimpleNamespace(name='C', stage='storyboard', path=Path('skills') / 'C.md')
+        desktop.skills = [skill]
+        desktop.shared_input.request_model = {
+            'id': 'gpt-4o', 'record': {'context_length': 8192},
+            'label': 'GPT-4o', 'provider': 'openai', 'settings': {'engine': 'qwen'},
+        }
+        registry = Mock()
+        registry.getById.return_value = skill
+        registry.getAll.return_value = [skill]
+        lock, plan = self.registry_patches()
+        selected, produced, prompt = self.selection_patches()
+        seen_snapshots = []
+
+        def strict_current(project, stage='previs', *, direct_api=False, model_snapshot=None):
+            seen_snapshots.append(model_snapshot)
+            if model_snapshot is not None:
+                _selected, _item = model_snapshot
+            return {'model': 'storyboard-model', 'skills': ['A'], 'stage_skills': ['a']}
+
+        with lock, plan, selected, produced, prompt, \
+                unittest.mock.patch('orchestrator.skill_registry.default_registry', return_value=registry), \
+                unittest.mock.patch('orchestrator.workflow_settings.current', side_effect=strict_current), \
+                unittest.mock.patch('orchestrator.stage_config.save') as save:
+            parsed = {'kind': 'skill', 'name': 'C', 'stage': 'storyboard', 'rest': ''}
+            self.assertTrue(shared_send.send(desktop, 'storyboard', '/C', parsed))
+            self.finish(desktop)
+        self.assertEqual(seen_snapshots, [None])
+        self.assertEqual(len(desktop.opened), 1)
+        self.assertEqual(desktop.opened[0][4]['_config']['named_skills'], ['C'])
+        self.assertNotIn('too many values to unpack', desktop.status.get())
+        save.assert_not_called()
+
+    def test_start_storyboard_batch_reports_work_plan_error_to_status(self):
+        """storyboard_work_plan 读取失败时，_start_storyboard_batch 须把原因写入状态栏而非静默。"""
+        desktop = self.desktop()
+        desktop.start_storyboard_send = Mock(return_value=False)
+        with unittest.mock.patch.object(shared_send, 'selected_many', return_value=[self.script]), \
+                unittest.mock.patch.object(shared_send, 'storyboard_work_plan',
+                                           side_effect=ValueError('结构剧本目录损坏')):
+            started = shared_send._start_storyboard_batch(desktop, self.project, '', None, None)
+        self.assertFalse(started)
+        self.assertIn('读取结构剧本输入失败', desktop.status.get())
+        self.assertIn('结构剧本目录损坏', desktop.status.get())
+
 
 class SharedInputHostTests(unittest.TestCase):
     """宿主接线：同一实例跨页 set_stage；非阶段页隐藏；/命令落到分流。"""

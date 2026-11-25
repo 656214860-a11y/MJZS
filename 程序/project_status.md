@@ -1,6 +1,6 @@
 # 项目状态（可独立接续）
 
-更新：2026-11-25｜当前轮次：4487（R4486 合并轮：合入 UX-REPLY-AREA(R4480+R4482)：第 2–13 页统一「过程与回话区」（L2 分阶段尾部 200 条 JSONL 记录层＋L4 单实例可折叠 StageReplyArea 挂载 input_dock 复用 ui_part_renderers＋敬称文案修正过 copy_rules＋纯记录不进 prompt 守护＋覆盖率基线 689->691；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。上一轮：R4478 合并轮：合入 FIX-FULLSAFE-IDEA-CHAT-AND-PAGES(R4476)：清零主干全量 UI 剩余 2 文件 5 条既有红（desktop_idea_attachments 清空引用残留 @ 行真缺陷修复与单测守护 + R4386 空态与 R4396 输入框自动撑高上限契约同步；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
+更新：2026-11-25｜当前轮次：4488（R4487 合并轮：合入 FIX-S03-SEND-SILENT(R4481)：修复初步分镜页点击发送无反应（切页发送键复位、剧本门禁隔离、异步异常捕获与状态保护、模型快照字典兼容与读取异常透出；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。上一轮：R4486 合并轮：合入 UX-REPLY-AREA(R4480+R4482)：第 2–13 页统一「过程与回话区」（L2 分阶段尾部 200 条 JSONL 记录层＋L4 单实例可折叠 StageReplyArea 挂载 input_dock 复用 ui_part_renderers＋敬称文案修正过 copy_rules＋纯记录不进 prompt 守护＋覆盖率基线 689->691；独立 cpa verify 2/2 全绿）；断言未动；未跑全量。）
 
 历史接续记录：R3308 修复槽位泄漏 bug 并优化慢测试超时，定向测试 46/46 通过。
 

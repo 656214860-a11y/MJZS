@@ -1,0 +1,15 @@
+{
+  "round": 4481,
+  "commit_base": "84bed5cf2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop_shared_input shared_input_stages idea_send_gate script_composer stage_command_contract",
+    "exit": 0,
+    "passed": 119,
+    "failed": 0
+  },
+  "generated_at": "2026-11-25T16:56:23"
+}

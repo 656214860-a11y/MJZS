@@ -229,6 +229,10 @@ class _ComposerExtras:
         self.box = box
         self._continue_muted = False
         self._quick_muted = False
+        try:
+            self._send_idle_glyph = str(box.send_button.cget('text') or '')
+        except (AttributeError, tk.TclError):
+            self._send_idle_glyph = ''
         card = box.input_card
         self.continue_bar = ttk.Frame(card, style='Composer.Notice.TFrame')
         ttk.Label(self.continue_bar, text=CONTINUE_HINT,
@@ -365,7 +369,30 @@ class _ComposerExtras:
         self._quick_muted = False
         self.refresh_quick()
 
+    def _reset_send_button(self):
+        """切离剧本准备页时复位共享发送键，避免 01 必填置灰或中断态残留。"""
+        box = self.box
+        if str(getattr(box, 'stage', '') or '') == 'script':
+            return
+        box._send_interrupt = False
+        button = getattr(box, 'send_button', None)
+        if button is not None and button.winfo_exists():
+            try:
+                if self._send_idle_glyph:
+                    button.configure(text=self._send_idle_glyph, command=box.send)
+                else:
+                    button.configure(command=box.send)
+                button.state(['!disabled'])
+            except tk.TclError:
+                app_logging.swallowed()
+            button._stage_flow_forced = False
+        sync = getattr(box, '_sync_send_state', None)
+        if callable(sync):
+            sync()
+        sync_send_art(box)
+
     def stage_changed(self):
+        self._reset_send_button()
         self._continue_muted = False
         self._quick_muted = False
         self.sync_continue()
@@ -406,7 +433,35 @@ def attach(box):
     return manager
 
 
+def normalize_stage_model_snapshot(snapshot):
+    """仅保留 workflow_settings.current 约定的 2 元组快照，过滤 script 阶段 dict。"""
+    if isinstance(snapshot, tuple) and len(snapshot) == 2:
+        return snapshot
+    return None
+
+
+def launch_storyboard_flow(desktop, batch, request_text, value, kwargs, hooks):
+    """异步分镜准备收尾：捕获 open_flow_agent 异常并避免覆盖其已写状态栏。"""
+    read_status, say, notify_error = hooks
+    before = read_status(desktop)
+    desktop._storyboard_request_text = request_text
+    try:
+        desktop.open_flow_agent(
+            'storyboard', '初步分镜', batch['prompt'], batch['followup'], **kwargs)
+    except Exception as exc:
+        app_logging.swallowed()
+        notify_error(desktop, str(exc) or '启动初步分镜失败')
+        return False
+    if read_status(desktop) == before:
+        if batch.get('named'):
+            say(desktop, '点名执行：' + '、'.join(batch['named']) + '。' + str(value or ''))
+        else:
+            say(desktop, value)
+    return True
+
+
 __all__ = ['ATTACHMENT_UNSUPPORTED', 'COMPOSER_BASE_PLACEHOLDER', 'CONTINUE_LABEL',
            'CONTINUE_PROMPT', 'QUICK_REPLY_LIMIT', 'attach', 'collect_quick_context',
            'continue_prompt', 'continue_state', 'default_quick_replies',
+           'launch_storyboard_flow', 'normalize_stage_model_snapshot',
            'quick_reply_rules', 'stage_placeholder', 'sync_send_art']

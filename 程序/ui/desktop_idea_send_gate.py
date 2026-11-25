@@ -30,6 +30,9 @@ class IdeaSendGateMixin:
 
     def _apply_idea_send_state(self):
         self._idea_send_state_after = None
+        stage = getattr(getattr(self, 'shared_input', None), 'stage', None)
+        if isinstance(stage, str) and stage and stage != 'script':
+            return
         try:
             missing = self._idea_live_missing()
         except Exception:
