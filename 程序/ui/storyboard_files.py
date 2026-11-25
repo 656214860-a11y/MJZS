@@ -654,7 +654,7 @@ class _StoryboardFilesPage:
         removed = self.controller.prune_invalid_adoptions()
         if removed:
             self.desktop.status.set('已取消采用 %d 份未关联当前分镜初稿的历史 JSON；文件保留' % len(removed))
-        self.loaded = self.raw_json_mode = self.editing = False
+        self.loaded = self.raw_json_mode = self.editing = self._user_closed_document = False
         self.catalogs = {'script': [], 'storyboard': []}
         self.active_path = self.active_board_json = None
         self.catalog_scan = {'busy': False, 'revision': 0, 'pending': False, 'stopped': False}
@@ -681,6 +681,7 @@ class _StoryboardFilesPage:
     def zoom_by(self, delta): self.editor.zoom_by(delta)
     def on_context_menu(self, event): return self.editor.popup_context_menu(event, document_dir_fn=document_dir)
     def open_any_document(self): self.editor.open_any_document()
+    def close_document(self): return self.editor.close_current(confirm_fn=confirm)
     def _pick_default_document(self, catalogs): return pick_default_document(self.controller.adopted(), catalogs)
 
     def _register_storyboard_send_action(self):
@@ -736,7 +737,7 @@ class _StoryboardFilesPage:
             return
         if self.editing:
             self.exit_edit()
-        self.active_path = target
+        self.active_path, self._user_closed_document = target, False
         self.active_board_json = self._matching_board_json(target)
         # 若点选的是结构剧本，顺手记作本阶段当前输入，直接点发送即可按这份剧本制作分镜。
         script_paths = {Path(e['path']).resolve() for e in (self.catalogs.get('script') or ())}
@@ -754,6 +755,7 @@ class _StoryboardFilesPage:
             target, raw_json=self.raw_json_mode, adopted=adopted,
             read_json_fn=read, read_text_fn=read_text)
         self._set_viewer_text(text, editable=False)
+        self.editor.set_document_header(target if (target is not None and target.is_file()) else None)
 
     def _update_status_segment(self):
         summary = self.controller.summary()
@@ -774,6 +776,7 @@ class _StoryboardFilesPage:
             self.raw_json_mode = True
             self._render_active_document()
         self.viewer.configure(state='normal')
+        self.viewer.edit_modified(False)
         self.editing = True
         self.shortcut_hint.configure(text=S03_HINT_EDIT)
         self.viewer.focus_set()
@@ -798,6 +801,7 @@ class _StoryboardFilesPage:
         else:
             from agent.core import save_text as write_text
             write_text(self.active_path, content + '\n')
+        self.viewer.edit_modified(False)
         self.desktop.status.set('已保存：' + self.active_path.name)
 
     def toggle_json_view(self):
@@ -817,7 +821,9 @@ class _StoryboardFilesPage:
 
     def apply_catalogs(self, catalogs, automatic=False):
         from stage_execution_service import normalize_storyboard_for_desktop
-        if normalize_storyboard_for_desktop(self.desktop):
+        changed = normalize_storyboard_for_desktop(self.desktop)
+        if changed:
+            self.editor.follow_renamed(changed)
             if automatic:
                 self.catalog_scan['pending'] = True
                 return False
@@ -827,14 +833,14 @@ class _StoryboardFilesPage:
         if not self.controller.selection('script'):
             sync_structured_script(self.project)
         self.loaded = True
-        if self.active_path is None or not self.active_path.is_file():
+        if not self._user_closed_document and (self.active_path is None or not self.active_path.is_file()):
             chosen = self._pick_default_document(catalogs)
             if chosen is not None:
                 self.active_path = chosen
                 self.active_board_json = self._matching_board_json(chosen)
                 self._register_files_panel_handler(default_path=chosen)
                 self._render_active_document()
-        elif not self.editing:
+        elif self.active_path is not None and not self.editing:
             self.active_board_json = self._matching_board_json(self.active_path)
         self._update_status_segment()
         return True

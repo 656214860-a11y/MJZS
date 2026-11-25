@@ -10,7 +10,7 @@ from ui_tokens import (
     COLORS, FONTS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
     SCRIPT_VIEW_PADDING, SPACING, TEXT_ROWS,
 )
-from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea
+from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
 from ui.ui_shortcuts import ShortcutRegistry
 
 from responsive_ui import (
@@ -433,6 +433,7 @@ class S03EditorView:
         self.shortcut_hint = ttk.Label(
             frame, text=S03_HINT_READ, style='SidebarProjectMuted.TLabel', anchor='w')
         self.shortcut_hint.pack(side='bottom', fill='x', pady=(SPACING['xs'] // 2, SPACING['none']))
+        self._build_doc_bar(frame)
         self._build_find_bar(frame)
         body = ttk.Frame(frame)
         body.pack(fill='both', expand=True)
@@ -455,6 +456,60 @@ class S03EditorView:
         self.viewer.bind('<Button-3>', self.page.on_context_menu, add='+')
         self.viewer.bind('<Escape>', self._on_escape, add='+')
         self._bind_shortcuts()
+
+    def _build_doc_bar(self, parent):
+        bar = ttk.Frame(parent)
+        self.doc_bar = bar
+        self.doc_title = ttk.Label(bar, text='', style='SidebarProjectMuted.TLabel', anchor='w')
+        self.doc_title.pack(side='left', fill='x', expand=True)
+        self.close_button = SecondaryButton(
+            bar, text='关闭', width=0, style='Compact.TButton',
+            command=lambda: self.page.desktop.safe(self.page.close_document))
+        self.close_button.pack(side='right', padx=(SPACING['xs'], SPACING['none']))
+        Tooltip(self.close_button, '关闭当前打开的文件')
+
+    def set_document_header(self, path):
+        if path is not None:
+            self.doc_title.configure(text=Path(path).name)
+            if not self.doc_bar.winfo_manager():
+                anchor = self.find_bar if self.find_bar.winfo_manager() else self.body
+                self.doc_bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']), before=anchor)
+        else:
+            self.doc_title.configure(text='')
+            if self.doc_bar.winfo_manager():
+                self.doc_bar.pack_forget()
+
+    def follow_renamed(self, changed):
+        page = self.page
+        moved = {Path(old).resolve(): Path(new).resolve() for old, new in (changed or ())}
+        if page.active_path in moved:
+            page.active_path = moved[page.active_path]
+            page.active_board_json = page._matching_board_json(page.active_path)
+            self.set_document_header(page.active_path)
+
+    def close_current(self, *, confirm_fn):
+        page = self.page
+        if page.active_path is None:
+            return False
+        dirty = bool(page.editing and self.viewer.edit_modified())
+        if dirty and not confirm_fn(
+            page.desktop.win, '关闭当前文档',
+            '当前文档有未保存的修改，确定不保存直接关闭吗？', dangerous=True,
+        ):
+            return False
+        page.active_path = None
+        page.active_board_json = None
+        page.raw_json_mode = False
+        page.editing = False
+        page._user_closed_document = True
+        self.set_document_header(None)
+        if self.find_bar.winfo_manager():
+            self.hide_find_bar()
+        self.shot_nav.hide(by_user=False)
+        page._set_viewer_text(S03_EMPTY_TEXT, editable=False)
+        page._update_status_segment()
+        page.desktop.status.set('已关闭当前文档')
+        return True
 
     def _build_find_bar(self, parent):
         bar = ttk.Frame(parent)
@@ -601,6 +656,7 @@ class S03EditorView:
         self.viewer.insert('1.0', content)
         apply_storyboard_highlights(self.viewer, content)
         self.viewer.edit_reset()
+        self.viewer.edit_modified(False)
         self.viewer.configure(state='normal' if editable else 'disabled')
         self.shortcut_hint.configure(text=S03_HINT_EDIT if editable else S03_HINT_READ)
         self.shot_nav.set_text(content)
@@ -618,6 +674,8 @@ class S03EditorView:
         if page.active_path is not None and page.active_path.suffix.lower() == '.json':
             label = '切换为分镜阅读视图' if page.raw_json_mode else '切换为原始 JSON'
             menu.command(label, lambda: page.desktop.safe(page.toggle_json_view))
+        if page.active_path is not None:
+            menu.command('关闭当前文档', lambda: page.desktop.safe(page.close_document))
         menu.separator()
         if page.active_board_json is not None or page.catalogs.get('storyboard'):
             adopted = set(page.controller.adopted())
