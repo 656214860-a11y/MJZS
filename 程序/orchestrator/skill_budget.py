@@ -13,10 +13,11 @@ import time
 import infra.budget as budget_engine
 from contextlib import contextmanager
 from pathlib import Path
+from uuid import uuid4
 
 import contract.stage_layout as stage_layout
 from agent.core import save
-from contract.pet_bus import read_json
+from contract.pet_bus import STAGE_NAMES, read_json
 
 PROGRAM = Path(__file__).resolve().parents[1]
 BUDGET_PATH = (stage_layout.WORKFLOW_DIR, 'SKILL', '预算.json')
@@ -254,3 +255,94 @@ class Budget:
         data['updated_at'] = float(self.clock())
         save(path, data)
         return path
+
+
+# ── REL-09：全自动档付费步骤的一次一授权（pet 与 desktop 两侧共用同一份实现）─────────
+# 行数门禁倒逼的落点：pet_ui_stages 已到体量上限、desktop_pet_bridge 反向 import 会成环，
+# 只有 L3 的这里两侧都进得来。「三虎五类配额接线」本身是配额判定，与本模块职责一致。
+PAID_STAGE_KINDS = {'assets': ('image', '生图'), 'video': ('video', '视频'), 'audio': ('voice', '配音')}
+PAID_STEP_TOKENS = 500        # 一次付费派发的估算 Token（正整数安全默认；实际消耗以派发后台账为准）
+PAID_STEP_STEPS = {'assets': '约 1 次生图', 'video': '约 1 段视频', 'audio': '约 1 条配音'}
+
+
+def paid_quota_text(budget, kind, label, estimate):
+    """REL-09 确认框的「剩余额度」行：阶段配额与 Token（每天）各按 remaining/limit 列。"""
+    quota, tokens = budget.check(kind), budget.check('tokens', estimate)
+    return '剩余额度：%s %d/%d；Token（每天）%d/%d' % (
+        label, quota['remaining'], quota['limit'], tokens['remaining'], tokens['limit'])
+
+
+def paid_stage_guard(host, stage, var=None):
+    """REL-09：全自动档付费步骤的一次性授权闸——问、记、开、收场都在这一处。
+
+    先按当次估算查阶段配额与 Token 日额（剩余 ≤0 或小于估算都算见底），见底不弹窗，
+    直接 spend/pause＋stage.failed 转人工；弹出的确认写明四件事——步骤名、当次数量
+    （原单位）、估算 Token、剩余额度——并声明授权只对这一次步骤有效。弹窗失败、超时
+    没等到、用户拒绝一律按未授权收场；授权后记一格配额（越线同样转人工），再打开这
+    一步自己的无人值守开关，返回 True。其余一律返回那句人话（已 pause＋stage.failed），
+    绝不派发。host 是三虎侧对象（.agent／.errors／.asker／.auto_variable／.confirm_start）。
+    """
+    agent, entry = getattr(host, 'agent', None), PAID_STAGE_KINDS.get(stage)
+    name = STAGE_NAMES.get(stage, stage) or '这一步'
+    if agent is None or entry is None:
+        return True                                    # 非付费步骤／没有账本就不拦
+    kind, label = entry
+    budget = agent.budget
+    budget.sync_tokens(getattr(getattr(agent, 'client', None), 'ledger', None))
+    quota = budget.check(kind)
+    if not quota['ok']:
+        agent.spend(kind, stage=stage)                 # spend 会 pause＋budget.exceeded＋stage.failed
+        return '「%s」的%s配额不够（%d/%d）：这一步转人工' % (name, label, quota['used'], quota['limit'])
+    tokens = budget.check('tokens', PAID_STEP_TOKENS)
+    if not tokens['ok']:
+        reason = '「%s」预计消耗 Token %d，今天的 Token 见底（剩 %d/%d）：这一步转人工' % (
+            name, PAID_STEP_TOKENS, tokens['remaining'], tokens['limit'])
+        agent.pause(reason, stage=stage)
+        return reason
+    text = ('「%s」这一步要花钱：本次%s，预计消耗 Token %d。%s。授权只对这一次步骤有效，'
+            '现在做吗？' % (name, PAID_STEP_STEPS.get(stage, '约 1 次'), PAID_STEP_TOKENS,
+                           paid_quota_text(budget, kind, label, PAID_STEP_TOKENS)))
+    asker = getattr(host, 'asker', None)
+    try:
+        granted = (bool(asker('确认付费步骤', text)) if callable(asker)
+                   else host.confirm_start('确认付费步骤', text))
+    except Exception as exc:
+        errors = getattr(host, 'errors', None)
+        if errors is not None:
+            errors.append(('paid.ask', str(exc)))
+        granted = False
+    if not granted:
+        reason = '「%s」是付费步骤，您没有授权：这一步转人工' % name
+        agent.pause(reason, stage=stage)
+        return reason
+    if not agent.spend(kind, stage=stage)['ok']:         # 越线时 spend 已 pause＋stage.failed
+        return '「%s」的%s配额刚用完：这一步转人工' % (name, label)
+    try:
+        flag = host.auto_variable(var) if var else None
+        if flag is not None:
+            flag.set(True)
+    except Exception as exc:
+        errors = getattr(host, 'errors', None)
+        if errors is not None:
+            errors.append(('paid.var', str(exc)))
+    return True
+
+
+def run_stage_kick(host, stage, kick):
+    """REL-09 自 PetStagesMixin.start_stage 抽出：授权后的派发与失败收口（宿主无关）。"""
+    prefix = {'script_structure': '剧本结构未派发：', 'storyboard': '分镜批次未派发：',
+              'keyframe': '首帧批次未派发：'}.get(stage, '阶段未派发：')
+    failure_key = None
+    try:
+        started = kick(stage)
+    except Exception as exc:
+        host.errors.append(('start', str(exc)))
+        started = prefix + str(exc)
+        failure_key = uuid4().hex
+    if started is False:
+        started = prefix + '运行登记或启动动作未成功'
+        failure_key = uuid4().hex
+    started = str(started or '')
+    if started and started.startswith(prefix):
+        host._emit('stage.failed', stage=stage, error=started, key=failure_key)
+    return started

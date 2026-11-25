@@ -9,6 +9,8 @@ sys.path.insert(0, HERE)
 os.chdir(HERE)
 
 import pet_agent, pet_bus, infra.pet_llm as pet_llm, infra.pet_state as pet_state
+import ui.pet_ui_stages as pet_ui_stages
+import ui.desktop_pet_bridge as desktop_pet_bridge
 
 # 第 45 期：这些用例读的（并会写的）是全局配置目录里那一份三虎设置。原来 program 指向本机真
 # 安装目录，于是「出厂默认档是半自动」这类断言会被用户机上那份配置左右（那里存过 hint 就红）。
@@ -396,8 +398,15 @@ class ApprovalTests(unittest.TestCase):
         self.assertTrue(agent.approve("stage.run")["run"])
 
     def test_auto_runs_paid_steps(self):
+        """REL-09-SYNC（有意契约变更）：全自动档付费步骤同样先要用户点头——
+        approve 给「需确认」，授权后才放行；授权前绝不执行。"""
         agent = pet_agent.Agent(level="auto", persist=False)
-        self.assertTrue(agent.approve("video.generate")["run"])
+        decision = agent.approve("video.generate")
+        self.assertFalse(decision["run"], "全自动档付费步骤授权前绝不放行")
+        self.assertTrue(decision["confirm"], "全自动档付费步骤一样要确认")
+        self.assertIn("全自动", decision["reason"])
+        self.assertTrue(agent.approve("video.generate", confirmed=True)["run"],
+                        "confirmed=True 是用户本人按下的确认，照常放行")
 
     def test_unknown_level_falls_back_to_the_default(self):
         agent = pet_agent.Agent(level="乱写", persist=False)
@@ -785,6 +794,208 @@ class StageAndLevelRuleTests(unittest.TestCase):
                 reply = pet_agent.rule_reply("goto", stage)
                 self.assertIn(pet_agent.SHORT_NAMES[stage], reply)
                 self.assertNotEqual(reply, "切到对应页面。")
+
+
+class _PaidFakeDesktop:
+    """与 test_pet_ui 同款的桩桌面：会派发（pet_start），但没接授权桥。"""
+
+    def __init__(self):
+        self.root = None
+        self.started = []
+
+    def pet_start(self, stage):
+        self.started.append(stage)
+        return '已自动开始「资产管理」'
+
+
+class _BridgeFakeDesktop(desktop_pet_bridge.PetBridgeMixin):
+    """接了真授权桥的桩桌面：派发入口换成记账桩，授权走 PetBridgeMixin 真实现。"""
+
+    def __init__(self):
+        self.root = None
+        self.started = []
+        self.pet = None
+
+    def pet_start(self, stage):
+        self.started.append(stage)
+        return '已自动开始「资产管理」'
+
+
+class AutoPaidAuthorizationTests(unittest.TestCase):
+    """REL-09-SYNC：全自动档付费步骤的「一次一授权」护栏（N769 Token 边界＋N796 四要素文案）。
+
+    auto 档遇到付费阶段（assets／video／audio）必须经 ``desktop.authorize_paid_stage``
+    独立授权：确认框写清步骤名＋当次数量／秒数＋估算 Token＋剩余额度，授权只对这一次
+    步骤有效；拒绝／弹窗抛错／超时／配额或 Token 见底一律暂停转人工，绝不派发、绝不
+    产生真实付费请求。
+    """
+
+    def setUp(self):
+        self.bus = pet_bus.Bus()
+        self.events = []
+        self.bus.subscribe('*', self.events.append)
+
+    def tearDown(self):
+        self.bus.release()
+
+    def event_kinds(self):
+        self.bus.pump()
+        return [item['kind'] for item in self.events]
+
+    def make_agent(self, **kwargs):
+        kwargs.setdefault('level', 'auto')
+        kwargs.setdefault('persist', False)
+        kwargs.setdefault('bus', self.bus)
+        return pet_agent.Agent(**kwargs)
+
+    def make_host(self, agent, asker=None, desktop=None):
+        """start_stage 走到的最小真宿主：PetStagesMixin 真方法＋按需注入的接缝。"""
+        host = pet_ui_stages.PetStagesMixin()
+        host.desktop = desktop if desktop is not None else _PaidFakeDesktop()
+        host.agent = agent
+        host.errors = []
+        host.asker = asker
+        host.win = None
+        host._auto_variables = {}
+        host._emit = lambda kind, **payload: pet_bus.emit_safe(self.bus, host.errors, kind, **payload)
+        host.advance_stage = lambda stage, at=None: '已提前叫醒'
+        return host
+
+    def test_authorized_paid_stage_spends_quota_and_dispatches(self):
+        desktop = _PaidFakeDesktop()
+        asked = []
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: asked.append((title, text)) or True,
+                              desktop=desktop)
+        reply = host.start_stage('assets')
+        self.assertEqual(desktop.started, ['assets'], '授权通过才派发')
+        self.assertIn('资产管理', reply)
+        self.assertEqual(len(asked), 1, '先问一句再放行')
+        self.assertEqual(agent.budget.used['image'], 1, '授权后记一格生产配额')
+        self.assertTrue(host._auto_variables['auto_asset_var'].get(),
+                        '授权后打开这一步自己的自动开关')
+        self.assertFalse(agent.paused)
+
+    def test_the_desktop_authorize_paid_stage_is_the_real_path(self):
+        """真桌面接缝：desktop.authorize_paid_stage(stage, var) 是同一份授权实现。"""
+        desktop = _BridgeFakeDesktop()
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: True, desktop=desktop)
+        desktop.pet = host
+        self.assertIs(desktop.authorize_paid_stage('assets', 'auto_asset_var'), True)
+        self.assertEqual(agent.budget.used['image'], 1)
+        self.assertTrue(host._auto_variables['auto_asset_var'].get())
+
+    def test_start_stage_prefers_the_desktop_authorize_paid_stage(self):
+        desktop = _BridgeFakeDesktop()
+        asked = []
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: asked.append(text) or True,
+                              desktop=desktop)
+        desktop.pet = host
+        reply = host.start_stage('assets')
+        self.assertEqual(len(asked), 1)
+        self.assertEqual(desktop.started, ['assets'])
+        self.assertIn('资产管理', reply)
+
+    def test_the_authorization_is_valid_for_one_step_only(self):
+        desktop = _PaidFakeDesktop()
+        asked = []
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: asked.append(text) or True,
+                              desktop=desktop)
+        host.start_stage('assets')
+        host.start_stage('assets')
+        self.assertEqual(len(asked), 2, '一次一授权：第二个付费步骤要再问一遍')
+        self.assertEqual(desktop.started, ['assets', 'assets'])
+        self.assertEqual(agent.budget.used['image'], 2)
+
+    def test_refusal_pauses_the_chain_and_never_dispatches(self):
+        desktop = _PaidFakeDesktop()
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: False, desktop=desktop)
+        reply = host.start_stage('assets')
+        self.assertEqual(desktop.started, [], '没授权绝不派发')
+        self.assertEqual(agent.budget.used['image'], 0, '没授权就不记账、不产生付费请求')
+        self.assertTrue(agent.paused)
+        self.assertIn('stage.failed', self.event_kinds())
+        self.assertIn('转人工', reply)
+
+    def test_a_broken_dialog_counts_as_unauthorized(self):
+        def boom(title, text):
+            raise RuntimeError('弹窗组件坏了')
+
+        desktop = _PaidFakeDesktop()
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=boom, desktop=desktop)
+        host.start_stage('assets')
+        self.assertEqual(desktop.started, [])
+        self.assertEqual(agent.budget.used['image'], 0)
+        self.assertTrue(agent.paused)
+        self.assertIn('stage.failed', self.event_kinds())
+
+    def test_no_answer_within_the_wait_is_unauthorized(self):
+        desktop = _PaidFakeDesktop()
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: None, desktop=desktop)
+        host.start_stage('assets')
+        self.assertEqual(desktop.started, [])
+        self.assertEqual(agent.budget.used['image'], 0)
+        self.assertTrue(agent.paused)
+        self.assertIn('stage.failed', self.event_kinds())
+
+    def test_quota_exhaustion_skips_the_dialog_and_pauses(self):
+        agent = self.make_agent(settings={'budget_limits': {'image': 1}})
+        agent.spend('image')                          # 把这一步的阶段配额先用完
+        asked = []
+        desktop = _PaidFakeDesktop()
+        host = self.make_host(agent, asker=lambda title, text: asked.append(text) or True,
+                              desktop=desktop)
+        host.start_stage('assets')
+        self.assertEqual(asked, [], '阶段配额见底不许弹窗——直接转人工')
+        self.assertEqual(desktop.started, [])
+        self.assertTrue(agent.paused)
+        kinds = self.event_kinds()
+        self.assertIn('budget.exceeded', kinds)
+        self.assertIn('stage.failed', kinds)
+
+    def test_token_edge_blocks_the_step_without_a_dialog(self):
+        """N769：Token 见底＝剩余 ≤0 或小于本次估算消耗，都不许弹窗、绝不派发。"""
+        limit = self.make_agent().budget.limits['tokens']
+        for used in (limit, limit - 1):
+            with self.subTest(used=used):
+                self.setUp()
+                try:
+                    asked = []
+                    agent = self.make_agent()
+                    agent.budget.used['tokens'] = used
+                    desktop = _PaidFakeDesktop()
+                    host = self.make_host(agent, asker=lambda t, x: asked.append(x) or True,
+                                          desktop=desktop)
+                    host.start_stage('assets')
+                    self.assertEqual(asked, [], 'Token 见底不许弹窗')
+                    self.assertEqual(desktop.started, [])
+                    self.assertEqual(agent.budget.used['image'], 0)
+                    self.assertTrue(agent.paused)
+                    self.assertIn('stage.failed', self.event_kinds())
+                finally:
+                    self.tearDown()
+
+    def test_the_dialog_lists_all_four_facts_and_the_one_step_rule(self):
+        """N796：确认框必须同屏写清步骤名＋当次数量／秒数＋估算 Token＋剩余额度＋仅本次。"""
+        asked = []
+        agent = self.make_agent()
+        host = self.make_host(agent, asker=lambda title, text: asked.append(text) or True,
+                              desktop=_PaidFakeDesktop())
+        host.start_stage('assets')
+        self.assertEqual(len(asked), 1)
+        text = asked[0]
+        self.assertIn('资产管理', text, '① 步骤名')
+        self.assertIn('1 次', text, '② 当次数量／秒数（原单位）')
+        self.assertIn('预计消耗 Token', text, '③ 估算 Token（正整数）')
+        self.assertIn('Token（每天）', text, '④ Token 剩余额度')
+        self.assertIn('生图', text, '④ 阶段配额剩余额度')
+        self.assertIn('授权只对这一次步骤有效', text, '授权仅对这一次步骤有效的声明')
 
 
 if __name__ == "__main__":

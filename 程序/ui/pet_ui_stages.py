@@ -6,6 +6,7 @@ import ui.pet_ask as pet_ask
 import ui.pet_cloud as pet_cloud
 import ui.pet_poll_policy as pet_poll_policy
 import orchestrator.stage_flow as stage_flow
+import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_handler_registry as stage_handler_registry
 import orchestrator.stage_parallel as stage_parallel
 from tkinter import TclError
@@ -30,7 +31,6 @@ def stage_run_action(desktop, stage, trigger, *, error=None, presentation=None, 
         return reason
     bus = getattr(pet, 'bus', None)
     return False if bus is not None and bus.begin_run(stage) is False else None
-
 
 def skip_unchecked(desktop, stage):
     """先保存 skipped，再推进和播报。完成事件仍由产物核验决定。"""
@@ -305,29 +305,16 @@ class PetStagesMixin:
             return skip_unchecked(self.desktop, stage)
         kick = getattr(self.desktop, 'pet_start', None)
         allowed, declined = False, ''
-        if callable(kick):
+        if callable(kick) and self.agent.level == 'auto' and stage in stage_flow.PAID_STAGES:
+            allowed, declined = self._authorize_paid_stage(stage)     # REL-09：一次一授权
+        elif callable(kick):
             allowed, declined = pet_ask.approve_stage(self, stage, paid=stage in stage_flow.PAID_STAGES)
         if declined:
             self.advance_stage(stage, at=at)   # S-05：被拒照旧叫醒轮询一轮，回话换成那句
             return declined
         if allowed:
-            prefix = {'script_structure': '剧本结构未派发：', 'storyboard': '分镜批次未派发：',
-                      'keyframe': '首帧批次未派发：'}.get(stage, '阶段未派发：')
-            failure_key = None
-            try:
-                started = kick(stage)
-            except Exception as exc:
-                self.errors.append(('start', str(exc)))
-                started = prefix + str(exc)
-                failure_key = uuid4().hex
-            if started is False:
-                started = prefix + '运行登记或启动动作未成功'
-                failure_key = uuid4().hex
-            started = str(started or '')
-            if started:
-                if started.startswith(prefix):
-                    self._emit('stage.failed', stage=stage, error=started, key=failure_key)
-                return started
+            started = skill_budget.run_stage_kick(self, stage, kick)
+            if started: return started
         advanced = self.advance_stage(stage, at=at)
         if advanced:
             return advanced
@@ -337,6 +324,19 @@ class PetStagesMixin:
             self._emit('stage.failed', stage=stage, error=error)
             return error
         return ''
+    def _authorize_paid_stage(self, stage):
+        """REL-09：全自动档付费步骤的独立授权路径——一次一授权，授权前绝不派发。
+
+        desktop.authorize_paid_stage 问授权、记配额、打开这一步自己的无人值守开关；
+        拒绝／弹窗失败／超时／配额或 Token 见底都已在里面收成 pause＋stage.failed 转
+        人工，绝不派发。桩宿主没接这条桥（比如自检的假桌面）时用同一份实现
+        skill_budget.paid_stage_guard 审——同口径问一句、记一格、开开关。返回值与
+        pet_ask.approve_stage 同一形状：(放行, 人话)，人话＝没授权，照旧走「被拒叫醒」。
+        """
+        method = getattr(self.desktop, 'authorize_paid_stage', None)
+        verdict = (method(stage, AUTO_STAGE_VARIABLES.get(stage)) if callable(method)
+                   else skill_budget.paid_stage_guard(self, stage, AUTO_STAGE_VARIABLES.get(stage)))
+        return (True, '') if verdict is True else (False, str(verdict or ''))
     def auto_stage(self):
         """这一拍该推哪一步（附件四）：自动推进那条链武装了就按它走，否则退回状态机。
 
