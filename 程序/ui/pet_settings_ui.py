@@ -62,7 +62,7 @@ TAB_ICONS = {'basic': 'settings', 'model': 'sites', 'level': 'animatic', 'token'
 # 第 46 期第 6 条：第二格改名「三虎模型配置」（用户点名要的名字）。
 NOTE_HUB = '集中管理基础功能、模型、自动化、Token 节省、预算、SKILL 与开发信息。'
 NOTE_BASIC = '主题选择立即生效。'
-NOTE_LEVEL = '选择即保存，决定哪些步骤需要你确认。'
+NOTE_LEVEL = '选择需要确认的步骤，更改后自动保存。'
 NOTE_BUDGET = 'Token 按天统计，其他用量按项目累计。达到上限后暂停。'
 NAME_NOTE = '界面、通知、日志一律用「三虎」。'
 # REQ-UI-THEME-1：界面主题三选——跟随系统（默认）／日间／夜间；选择经既有设置

@@ -1568,6 +1568,24 @@
    "reference": ""
   },
   {
+   "file": "tests/test_ui_batch7_settings_models.py",
+   "test": "HubDefaultTabTests.test_lazy_page_switch_keeps_content_frozen_until_layout_settles",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reference": "",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行"
+  },
+  {
+   "file": "tests/test_ui_batch7_settings_models.py",
+   "test": "ModelManagerUxTests.test_mode_switch_table_stays_frozen_until_rows_and_height_settle",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_WINDOWS_ONLY",
+   "reference": "",
+   "reason": "受测功能只在 Windows 上存在（如系统托盘）；在 Windows 上运行时应恢复执行"
+  },
+  {
    "file": "tests/test_ui_batch8_video_ui_tokens.py",
    "test": "Batch8TokenTests.test_white_model_title_font_token_measures_in_real_tk",
    "ordinal": 1,
@@ -2394,6 +2412,15 @@
    "reason_constant": "PLATFORM_TKINTER",
    "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
    "reference": ""
+  },
+  {
+   "file": "tests/test_ui_edges_tables.py",
+   "test": "UiEdgeTablesTests.test_keyframe_shift_f10_menu_and_refresh_keep_item_focus",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reference": "",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行"
   },
   {
    "file": "tests/test_ui_motion.py",
