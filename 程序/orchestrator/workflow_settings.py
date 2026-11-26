@@ -441,6 +441,10 @@ def current(project,stage='previs', *, direct_api=False, model_snapshot=None):
     display_model = (model_pool.label_of(selected, {selected: item}) if explicit_engine
                      else str(profile.get('model') or '').strip() or ENGINES[engine])
     result = {'engine':engine, 'stage':stage, 'display_model':display_model, **profile}
+    if item.get('client_accounts'):
+        result['client_accounts'] = item['client_accounts']
+    if selected.startswith('gflow-') and item.get('modality') == 'image' and item.get('profiles'):
+        result['gflow_model'] = selected
     budget = _skill_inline_budget(result, record=item)
     result['skill_budget'] = ({key: budget[key] for key in ('context_length', 'source', 'model')}
                               if budget is not None else dict(context_length=0, source='unknown', model=result.get('model', '')))

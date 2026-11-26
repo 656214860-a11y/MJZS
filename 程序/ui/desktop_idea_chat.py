@@ -956,10 +956,12 @@ class _FlowAgentLaunch:
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':
                 app = self.config.get('display_model') or '桌面模型'
+                from infra.client_accounts import account_args
+                launch_args = account_args(self.config)
                 deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
                                      clipboard_text, program, app,
                                      (self.config.get('delivery') or 'paste') if self.desktop_paste else 'clipboard',
-                                     attachment)
+                                     attachment, **({'launch_args': launch_args} if launch_args else {}))
                 return
             launch_windows_app(program, 'Claude Desktop')
             from codex_paste import paste_existing

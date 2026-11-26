@@ -42,7 +42,7 @@ def attachment_hint(attachment):
 
 
 def deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
-                        program, app, delivery='paste', attachment=''):
+                        program, app, delivery='paste', attachment='', launch_args=None):
     """启动 Desktop 程序；发送入口启用时尝试粘贴，失败如实回落为手动粘贴。"""
     from contract.platform_tools import launch_windows_app
     app = str(app or '桌面模型')
@@ -51,7 +51,12 @@ def deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
         finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
         host.notifier.info(message,title='请手动粘贴')
         return
-    launch_windows_app(program, app)
+    if launch_args:
+        launch_windows_app(program, app, args=[program, *launch_args])
+        # A process-name match cannot distinguish windows belonging to two accounts.
+        delivery = 'clipboard'
+    else:
+        launch_windows_app(program, app)
     if delivery != 'paste':
         message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'+attachment_hint(attachment)
         finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)

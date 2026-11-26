@@ -25,5 +25,5 @@ def run_image_direct(host, direct):
             host.pet_report('assets', text)
 
     state['job'] = launch(host.root, {'engine': 'qwen'}, manifest=direct['image'])
-    host.status.set('正在后台制作图片（程序直接调用 ComfyUI，可点「强制停止制作」中断）…')
+    host.status.set('正在通过 %s 制作图片，可点「强制停止制作」中断。' % direct.get('backend', 'ComfyUI'))
     host.win.after(500, drain)

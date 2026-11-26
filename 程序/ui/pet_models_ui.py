@@ -498,6 +498,11 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin,
             title_box.pack(side='left')
             heading(title_box, MANAGER_TITLE, NOTE_MANAGER, columns=1)
         self.mode_tabs = ModeSegmentedControl(top, MODES, command=self._on_tab_changed)
+        from ui.model_connections import open_client_accounts, open_flow
+        SecondaryButton(top, text='Google Flow…', command=lambda: open_flow(self)).pack(side='right')
+        self.account_button = SecondaryButton(top, text='客户端账号…',
+            command=lambda: open_client_accounts(self, self.read_form()))
+        self.account_button.pack(side='right')
         self.mode_tabs.pack(side='left', padx=(SPACING['none'] if self._embedded else SPACING['md'], SPACING['none']))
 
     def _build_left_pane(self, split):
@@ -854,6 +859,10 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin,
         value['program'] = self.program_entry.get().strip()
         if self.desktop_mode():
             value['provider'] = 'desktop'
+            existing = (self._records_cache or {}).get(self.state['id'], {})
+            for field in ('profiles', 'flow_project', 'client_accounts'):
+                if field in existing:
+                    value[field] = existing[field]
             value['provider_label'] = self.local_provider.get().strip()
             value['base_url'] = ''
             value['key_env'] = ''

@@ -145,7 +145,9 @@ def launch(app,source,shot_id=None,shot_ids=None):
         abandon_tasks({sid:waiting[sid] for sid in blocked})
     shot_ids=[shot['id'] for shot in shots]
     if shot_id and not frame_prompt(shots[0]):raise ValueError('当前镜头缺少首帧图片提示词，请先在分镜JSON中补齐frame_prompt')
-    if current(app.root,'assets')['engine']=='qwen':
+    config = current(app.root,'assets')
+    flow_model = config.get('gflow_model')
+    if not flow_model and config['engine']=='qwen':
         if not app.launch_comfy(silent=True):return                 # 第 62 期任务 8：静默拉起，不弹选择框
     folder=project/'workflows/首帧批次'/uuid.uuid4().hex[:12];folder.mkdir(parents=True)
     from domain.keyframe_evidence import source_evidence
@@ -154,17 +156,20 @@ def launch(app,source,shot_id=None,shot_ids=None):
             'source_evidence':source_evidence(source,episode,shot)} for shot in shots]
     # Validate IDs before constructing any output path.
     if any(not re.fullmatch(r'(?:EP\d+_)?SH\d+',item['shot_id']) for item in items):raise ValueError('镜头编号格式无效')
-    manifest=folder/'批次.json';save(manifest,{'source':str(source),'items':items})
+    manifest=folder/'批次.json';save(manifest,{'source':str(source),'items':items,'gflow_model':flow_model})
     outputs={item['shot_id']:folder/item['output'] for item in items}
     task=keyframe_image_prompt(project,source,shot_id,outputs,shot_ids=shot_ids)
-    if current(app.root,'assets')['engine']=='qwen':
+    if not flow_model and config['engine']=='qwen':
         from image_agent_runner import task_instruction
         config_file=Path(__file__).resolve().parents[1]/'batch_frames_tool/config.json'
         cfg=read(config_file)
         if not cfg.get('api_settings_saved'):cfg['url']=app.settings.get('comfy_url',cfg['url'])
         payload=read(manifest);payload['comfy_config']=cfg;save(manifest,payload)
         task+='\n'+task_instruction(project,manifest)
-    if current(app.root,'assets')['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S08-52
+    if flow_model:
+        from ui.desktop_image_direct import run_image_direct
+        run_image_direct(app, {'image': manifest, 'backend': 'Google Flow'})
+    elif config['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S08-52
     else:app.open_flow_agent('assets','资产管理',task)
     watch(app,manifest)
     return True
