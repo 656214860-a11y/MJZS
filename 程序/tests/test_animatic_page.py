@@ -357,9 +357,9 @@ class LayoutTests(_PageCase):
         segment = self.page.segments.get('animatic_note', ('',))[0]
         self.assertIn('分镜 1 镜', segment)
         self.assertIn('未生成', segment)
-        buttons = [w for w in _walk(self.page.content)
-                   if isinstance(w, (PrimaryButton, SecondaryButton))]
-        self.assertLessEqual(len(buttons), 1, '常驻按钮应不超过一颗')
+        toolbar = self.state.get('toolbar')
+        self.assertIsNotNone(toolbar, 'REQ-S04-116：应构建页顶紧凑工具条')
+        self.assertLessEqual(len(toolbar['controls']), 5, '页顶工具条顶级入口不得超过 5 项')
         self.assertEqual([], [w for w in _walk(self.page.content) if isinstance(w, ttk.Checkbutton)],
                          '未生成版本时确认条应隐藏')
 
@@ -1387,13 +1387,22 @@ class PaginationAndDialoguePerfTests(_PageCase):
         state['timeline'] = {
             'source': state['source'],
             'shots': [{'id': 'SH%04d' % i, 'seconds': 3, 'image_version': 0}
+                      for i in range(1, 22)],
+        }
+        animatic_page._render_timeline(self.page, state)
+        total_21 = len(list(_walk(self.frame)))
+        state['timeline'] = {
+            'source': state['source'],
+            'shots': [{'id': 'SH%04d' % i, 'seconds': 3, 'image_version': 0}
                       for i in range(1, 3001)],
         }
         animatic_page._render_timeline(self.page, state)
         self.assertEqual(20, len(state['shot_widgets']))
         total_widgets = len(list(_walk(self.frame)))
-        self.assertLessEqual(total_widgets, 140,
-                             f'3000 镜常驻控件应恒定 ≤140，实际 {total_widgets}')
+        self.assertEqual(total_widgets, total_21,
+                         '3000 镜与 21 镜常驻控件数必须恒定 O(1) 相等')
+        self.assertLessEqual(total_widgets, 180,
+                             f'3000 镜工作台常驻控件应恒定 ≤180，实际 {total_widgets}')
 
     def test_shot_dialogue_seconds_prefers_recorded_and_falls_back(self):
         from ui.animatic_view_state import shot_dialogue_seconds
@@ -1569,8 +1578,14 @@ class PrefsBarTests(_PageCase):
 class DebounceAndPanelPerfTests(_PageCase):
     """REQ-S04-108/109/111：<Configure> 150ms 防抖、销毁不迟到重绘与四分组折叠边界。"""
 
+    def _settle_initial_map(self):
+        from ui.animatic_view_state import cancel_debounced_layout
+        self.win.update()
+        cancel_debounced_layout(self.state)
+
     def test_five_configure_events_coalesce_to_one_sync(self):
         frame = self.show()
+        self._settle_initial_map()
         with patch.object(animatic_page, '_sync_layout_metrics') as sync:
             for _ in range(5):
                 frame.event_generate('<Configure>')
@@ -1581,6 +1596,7 @@ class DebounceAndPanelPerfTests(_PageCase):
 
     def test_destroy_cancels_pending_debounced_configure(self):
         frame = self.show()
+        self._settle_initial_map()
         with patch.object(animatic_page, '_sync_layout_metrics') as sync:
             frame.event_generate('<Configure>')
             self.win.update()
@@ -1768,6 +1784,148 @@ class ToolbarAndInspectorTests(_PageCase):
             state['edit_commit']()
         self.assertEqual(self.page.settings.get('animatic_sketch_backend'), 'text_card')
         self.assertIs(self.page.settings.get('animatic_use_tts'), False)
+
+
+class WorkbenchFusionTests(_PageCase):
+    """REQ-S04-116：S04 同页左右分栏工作台、打破封面锁死、时间线筛选与宽窄屏几何验收。"""
+
+    def _two_scene_board(self):
+        board = {'episode_id': 'EP001', 'title': '集', 'shots': [
+            {'id': 'SH001', 'title': '镜一', 'duration': 3, 'scene_id': 'SC01',
+             'shot_size': '中景', 'camera_movement': '缓推',
+             'characters': ['林夏'], 'location': '茶馆',
+             'frame': 'frames/SH001.png', 'video_prompt': '茶馆开场', 'dialogue': []},
+            {'id': 'SH002', 'title': '镜二', 'duration': 4, 'scene_id': 'SC02',
+             'shot_size': '特写', 'camera_movement': '固定',
+             'characters': ['顾城'], 'location': '雨巷',
+             'frame': 'frames/SH002.png', 'video_prompt': '雨巷特写', 'dialogue': []},
+            {'id': 'SH003', 'title': '镜三', 'duration': 3, 'scene_id': 'SC02',
+             'shot_size': '全景', 'camera_movement': '左摇',
+             'characters': [], 'location': '雨巷',
+             'frame': 'frames/SH003.png', 'video_prompt': '空镜', 'dialogue': []},
+        ]}
+        self.source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+
+    def test_req_s04_116_clicking_shot_updates_inspector_without_locking_by_video_cover(self):
+        """REQ-S04-116：已有视频版本后点选 SH002，右栏大图与元信息实时切到 SH002，左栏封面不变。"""
+        from PIL import Image
+        from contract.stage_path_service import write_dir
+        from stage_execution_service import load_or_sync_animatic_timeline, update_animatic_shot
+        self._two_scene_board()
+        timeline = load_or_sync_animatic_timeline(self.project)
+        folder = _animatic_bundle(self.project, timeline)
+        from domain.animatic_service import MANIFEST, digest
+        manifest = json.loads((folder / MANIFEST).read_text(encoding='utf-8'))
+        for sid, color in (('SH001', (30, 60, 90)), ('SH002', (90, 40, 30))):
+            img_path = write_dir(self.project, 'animatic') / '镜头' / sid / 'v1.png'
+            Image.new('RGB', (160, 90), color).save(img_path, format='PNG')
+            manifest['files']['镜头/%s/v1.png' % sid] = digest(img_path.read_bytes())
+            update_animatic_shot(self.project, sid, image_version=1)
+        (folder / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
+        import infra.file_cache as file_cache
+        file_cache.published(folder / MANIFEST)
+        self.show()
+        state = self.state
+        cover_before = state.get('player_cover')
+        self.assertIsNotNone(cover_before, '左栏应保留整片视频封面')
+        inspector = state.get('inspector')
+        self.assertIsNotNone(inspector, '右栏应构建镜头检查器')
+        self.assertIn('SH001', str(inspector['title_label'].cget('text')))
+
+        animatic_page._select_shot(self.page, state, 'SH002')
+        self.assertIs(state.get('player_cover'), cover_before, '切选镜头不得锁死或重建左栏封面')
+        self.assertIn('SH002', str(inspector['title_label'].cget('text')))
+        meta_text = str(inspector['meta_label'].cget('text'))
+        self.assertIn('SC02', meta_text)
+        self.assertIn('雨巷', meta_text)
+
+    def test_req_s04_116_timeline_filters_redo_revisions_and_lock_guard(self):
+        """REQ-S04-116/115：场次与状态筛选准确，批量重做只跑需修改镜，存在需修改镜时锁定拦截。"""
+        from stage_execution_service import load_or_sync_animatic_timeline, update_animatic_shot
+        self._two_scene_board()
+        timeline = load_or_sync_animatic_timeline(self.project)
+        _animatic_bundle(self.project, timeline)
+        update_animatic_shot(self.project, 'SH001', image_version=1, review_status='approved')
+        update_animatic_shot(self.project, 'SH002', image_version=1, review_status='needs_revision')
+        self.show()
+        state = self.state
+        state['timeline']['shots'][0]['dialogue_seconds'] = 4.2
+        animatic_page._render_timeline(self.page, state)
+
+        # 镜头格显示审核状态角标
+        sh002_labels = _labels(state['shot_widgets']['SH002'])
+        self.assertTrue(any('需修改' in t for t in sh002_labels))
+
+        # 按场次筛选
+        animatic_page.set_timeline_filter(self.page, state, scene='SC02')
+        self.assertEqual(list(state['shot_widgets']), ['SH002', 'SH003'])
+        # 按需修改筛选
+        animatic_page.set_timeline_filter(self.page, state, scene='', status='needs_revision')
+        self.assertEqual(list(state['shot_widgets']), ['SH002'])
+        # 按对白超长筛选
+        animatic_page.set_timeline_filter(self.page, state, scene='', status='overlong')
+        self.assertEqual(list(state['shot_widgets']), ['SH001'])
+        # 按缺草图筛选
+        animatic_page.set_timeline_filter(self.page, state, scene='', status='missing_image')
+        self.assertEqual(list(state['shot_widgets']), ['SH003'])
+        animatic_page.set_timeline_filter(self.page, state, scene='', status='all')
+        self.assertEqual(list(state['shot_widgets']), ['SH001', 'SH002', 'SH003'])
+
+        # 存在需修改镜头时点锁定拦截并写状态栏（零弹窗）
+        for var in state['checks'].values():
+            var.set(True)
+        lock_btn = next(w for w in _walk(state['confirm_bar'])
+                        if isinstance(w, SecondaryButton) and str(w.cget('text')) == '锁定')
+        lock_btn.invoke()
+        self.assertIn('需修改', self.page.status.get())
+        self.assertEqual([], [w for w in self.win.winfo_children()
+                              if isinstance(w, tk.Toplevel)])
+
+        # 点「重做全部需修改」只调用批量重做网关
+        with patch('stage_execution_service.regenerate_revision_shots',
+                   return_value=state['timeline']) as redo_rev:
+            redo_btn = state['filter_controls']['redo_revisions_btn']
+            redo_btn.invoke()
+        redo_rev.assert_called_once()
+
+    def test_req_s04_116_wide_split_narrow_stack_geometry_and_cleanup(self):
+        """REQ-S04-116：隐藏桌面实测 1440x900 左右并排与 1100x760 上下堆叠无裁切，离页清空回调。"""
+        self._two_scene_board()
+        self.win.geometry('1440x900')
+        self.win.update()
+        frame = self.show()
+        self.win.update()
+        state = self.state
+        # 无视频时左栏显示 3 步空态引导
+        left_texts = ' '.join(_labels(state['player_box']))
+        self.assertIn('1', left_texts)
+        self.assertIn('生成分镜预演', left_texts)
+
+        left = state['player_box']
+        right = state['inspector_box']
+        self.assertTrue(state['layout_metrics']['split'], '1440x900 应启用左右分栏')
+        self.assertGreater(right.winfo_x(), left.winfo_x(), '宽屏右栏应在左栏右侧')
+        self.assertGreater(left.winfo_width(), 100)
+        self.assertGreater(right.winfo_width(), 100)
+        self.assertGreater(left.winfo_height(), 40)
+        self.assertGreater(right.winfo_height(), 40)
+        self.assertLessEqual(right.winfo_x() + right.winfo_width(),
+                             state['workbench_box'].winfo_width() + 4)
+
+        self.win.geometry('1100x760')
+        self.win.update()
+        animatic_page._sync_layout_metrics(self.page, state)
+        self.win.update()
+        self.assertFalse(state['layout_metrics']['split'], '1100x760 应自动切换上下堆叠')
+        self.assertGreater(right.winfo_y(), left.winfo_y(), '窄屏右栏应在左栏下方')
+        self.assertGreater(left.winfo_width(), 100)
+        self.assertGreater(right.winfo_width(), 100)
+        self.assertGreater(right.winfo_height(), 40)
+
+        frame.destroy()
+        tk_test_support.pump(self.win, .2)
+        self.assertIsNone(state.get('resize_job'))
+        self.assertIsNone(self.page.shared_input.stage_action('animatic'))
 
 
 if __name__ == '__main__':

@@ -8,7 +8,7 @@ from tkinter import StringVar, ttk
 
 from ui import asset_thumbs
 from ui.animatic_view_state import _image_versions, _quiet, _shot_image
-from ui_tokens import FONTS, SPACING, WRAPLENGTH
+from ui_tokens import SPACING, WRAPLENGTH
 from ui_widgets import HintLabel, SecondaryButton, SelectBox
 
 REVIEW_LABELS = (
@@ -115,7 +115,7 @@ def _render_refs(handles, ref_badges):
             source = str(badge.get('source') or '未分类')
             name = str(badge.get('label') or '').strip()
             text = '[%s] %s' % (source, name) if name else '[%s]' % source
-            item_label = ttk.Label(box, text=text, font=FONTS['hint'])
+            item_label = HintLabel(box, text=text)
             item_label.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
             labels.append(item_label)
     handles['ref_labels'] = labels
@@ -151,7 +151,7 @@ def build_inspector(parent, page, state, callbacks):
 
     header = ttk.Frame(card)
     header.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-    title_label = ttk.Label(header, text='当前镜头', font=FONTS['body_bold'])
+    title_label = ttk.Label(header, text='当前镜头', style='Tokens.Title.TLabel')
     title_label.pack(side='left')
     handles['title_label'] = title_label
 
@@ -184,7 +184,7 @@ def build_inspector(parent, page, state, callbacks):
 
     ref_head = ttk.Frame(card)
     ref_head.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
-    ttk.Label(ref_head, text='命中参考图', font=FONTS['body_bold']).pack(side='left')
+    ttk.Label(ref_head, text='命中参考图').pack(side='left')
     open_dir_btn = SecondaryButton(
         ref_head, text='打开草图目录', width=0,
         command=lambda: (fire('on_open_shot_dir', handles['current_shot_id'])

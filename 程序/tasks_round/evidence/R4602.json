@@ -1,0 +1,15 @@
+{
+  "round": 4602,
+  "commit_base": "46cd3546b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_page ui_edges_pages copy_rules taskbook_closure requirement_traceability http_boundary text_component_boundary layer_relations module_size_ratchet button_boundary ui_icons_boundary dialog_boundary complexity_ratchet",
+    "exit": 0,
+    "passed": 222,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T05:15:57"
+}
