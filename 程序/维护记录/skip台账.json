@@ -1641,7 +1641,7 @@
   },
   {
    "file": "tests/test_ui_edges_autopilot.py",
-   "test": "BatchContinuationTests.test_the_manual_asset_button_is_grey_when_everything_is_made",
+   "test": "BatchContinuationTests.test_the_manual_asset_menu_allows_checked_remakes",
    "ordinal": 1,
    "kind": "平台限制",
    "reason_constant": "PLATFORM_TKINTER",
