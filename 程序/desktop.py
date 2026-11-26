@@ -241,7 +241,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         win.minsize(DESKTOP_LAYOUT['min_width'],DESKTOP_LAYOUT['min_height']);apply_theme(win);setup_styles(win);install_window_placement(win)
         self._build_sidebar(win)
         side=self.sidebar
-        # 项目区＝单个「项目」图标＋项目名称列表；四个二级图标在项目区内部展开，不挤占聊天区。
+        # 项目区＝顶部当前项目胶囊（悬停／点击展开宽项目卡片，含分组筛选、列表与新建／打开／管理），不挤占聊天区。
         self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
