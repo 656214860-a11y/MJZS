@@ -639,12 +639,13 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         sizer = getattr(self, 'script_width_sizer', None)
         if tree is None or sizer is None or not tree.winfo_exists():
             return
-        groups = tree.get_children()
-        rows = tuple(groups) + tuple(item for group in groups for item in tree.get_children(group))
         full_labels = getattr(self, '_full_labels', {})
-        texts = [full_labels.get(item) or str(tree.item(item, 'values')[0] or '')
-                 for item in rows]
-        widest = measure_text_width(self._script_list_font(), texts) if texts else 0
+        roots = tree.get_children()
+        group_labels = [tree.set(item, 'name') for item in roots if item not in full_labels]
+        font = self._script_list_font()
+        widths = {label: measure_text_width(font, (label,))
+                  for label in set(full_labels.values()).union(group_labels)}
+        widest = max(widths.values(), default=0)
         name_need = max(SCRIPT_NAME_MIN_WIDTH, widest + SCRIPT_NAME_CELL_PAD)
         preview_w = (int(tree.column('#0', 'width'))
                      if 'tree' in str(tree.cget('show')) else 0)
@@ -677,7 +678,23 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         col_width = min(name_need, name_visible)
         if int(tree.column('name', 'width')) != col_width:
             tree.column('name', width=col_width)
-        self._apply_name_labels(rows, name_visible, measure_text_width)
+        self._apply_name_labels(name_visible, widths, measure_text_width)
+        self._fit_whole_file_rows()
+
+    def _fit_whole_file_rows(self):
+        """表体按完整行收尾，让 Tk 9 的 Treeview 直接绘制，避免每次滚动额外复制整块位图。"""
+        tree = self.script_tree
+        padding = 0
+        if len(getattr(self, '_full_labels', {})) > SCRIPT_FILE_MAX_ROWS:
+            cell_height = self.script_list.grid_bbox(0, 0)[3]
+            row = tree.identify_row(tree.winfo_height() // 2)
+            box = tree.bbox(row) if row else ()
+            if box and box[3] > 0 and box[0] >= 0 and cell_height > 2 * box[3]:
+                # 当前样式的四边内框等宽；任一可见行的顶边与表体顶边相差整行。
+                padding = (cell_height - box[1] - box[0]) % box[3]
+        if padding != getattr(self, '_file_row_padding', 0):
+            self._file_row_padding = padding
+            tree.grid_configure(pady=(0, padding))
 
     def _on_files_area_resize(self, event=None):
         """内容区宽度变化（窗口缩放）时去抖重算面板宽；只在面板开着时跑。"""

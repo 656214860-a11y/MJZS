@@ -18,7 +18,7 @@ from infra.workflow_process_registry import spawn, forget_process
 import tkinter as tk
 from pathlib import Path
 from infra.file_cache import read_json, remove_temporary_file
-from infra import prefetch as _prefetch
+from infra import executors, prefetch as _prefetch
 from agent.core import save, save_bytes
 DEFAULT_SIZE = 36
 LIMIT = 1200
@@ -50,6 +50,7 @@ _PENDING = {}
 _PUMP = None
 _PUMP_ID = None
 _PENDING_CURSOR = 0   # 分批轮询 pending 的起点，避免永远只检查队首
+_WORKER_START = None  # 仅 Tk 线程调度和清理启动任务
 _WORKER = None        # 后台进程句柄
 _WORKER_AT = 0.0
 _WORKER_BAD = False   # 失败启动进入有限冷却；回收失败保留句柄
@@ -339,7 +340,7 @@ def request_media(master, key, path, size, stamp, token, configured=None):
         return True                    # 已经在队列里，不重复登记
     if len(_PENDING) >= QUEUE_LIMIT:
         return None
-    if not _ensure_worker():
+    if not _queue_worker_start():
         return False
     kind = media_kind(path)
     cfg = configured or {}
@@ -543,7 +544,7 @@ def request(master, key, path, size, stamp, token):
         return True                    # 已经在队列里，不重复登记
     if len(_PENDING) >= QUEUE_LIMIT:
         return None
-    if not _ensure_worker():
+    if not _queue_worker_start():
         return False
     spec = {'src': str(path), 'size': int(size), 'stamp': stamp}
     try:
@@ -626,7 +627,7 @@ def update(master=None):
             app_logging.swallowed()
     if not _PENDING:
         return 0
-    gone = _worker_gone()
+    gone = (_WORKER_START is None or _WORKER_START.done()) and _worker_gone()
     landed = []
     jobs = list(_PENDING.items())
     start = _PENDING_CURSOR % len(jobs) if jobs else 0
@@ -650,7 +651,7 @@ def update(master=None):
                 try:
                     if not spec_path.exists():
                         save(spec_path, job['spec'], durable=False)
-                    if _ensure_worker():
+                    if _queue_worker_start():
                         continue
                 except OSError:
                     pass
@@ -738,6 +739,14 @@ def reset_worker(timeout=2.0):
     句柄已回收（没有进程，或进程确认退出）。
     """
     global _WORKER, _WORKER_AT, _WORKER_BAD
+    global _WORKER_START
+    if _WORKER_START is not None:
+        if not _WORKER_START.cancel():
+            try:
+                _WORKER_START.result(timeout=timeout)
+            except TimeoutError:
+                return False
+        _WORKER_START = None
     worker = _WORKER
     # I9a：_WORKER 现在是 SupervisedProcess 包装；等待/终止须落在底层 Popen 上，
     # 否则 wait 超时返回 None 而非抛 TimeoutExpired，kill 升级路径会失效。
@@ -795,12 +804,31 @@ atexit.register(reset_worker)
 
 
 # ── 后台进程（Round 1）──────────────────────────────────────────────────
+def _worker_blocked():
+    return _WORKER_BAD and (not _WORKER_AT or time.monotonic() - _WORKER_AT < FALLBACK_SECONDS
+                            or (_WORKER is not None and _WORKER.poll() is None))
+
+
+def _queue_worker_start():
+    """将首次启动及进程登记移出 Tk 回调，多张图共享一个启动任务。"""
+    global _WORKER_START
+    if _WORKER_START is not None and not _WORKER_START.done():
+        return True
+    if _worker_blocked():
+        return False
+    if _WORKER is not None and _WORKER.poll() is None:
+        return True
+    try:
+        _WORKER_START = executors.submit('io', _ensure_worker, label='启动缩略图进程')
+    except RuntimeError:
+        return False
+    return True
+
+
 def _ensure_worker():
     """后台进程在不在：不在（或已经退了）就起一个；失败后冷却再试。"""
     global _WORKER, _WORKER_AT, _WORKER_BAD
-    if _WORKER_BAD and (not _WORKER_AT or time.monotonic() - _WORKER_AT < FALLBACK_SECONDS):
-        return False
-    if _WORKER_BAD and _WORKER is not None and _WORKER.poll() is None:
+    if _worker_blocked():
         return False
     _WORKER_BAD = False
     if _WORKER is not None and _WORKER.poll() is None:

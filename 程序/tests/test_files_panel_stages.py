@@ -547,6 +547,16 @@ class IndexLifecycleTests(StageRailTests):
                                   panel._index_context(root, library))
         self.win.update()
 
+    def test_missing_media_uses_filename_space_until_a_preview_exists(self):
+        from contract.file_index_contract import FileRow
+        path = '05资产管理/assets/素材.png'
+        self.render_rows([FileRow(path=path, stage='assets', kind='资产', missing=True)])
+        tree = self.desktop.files_panel.script_tree
+        self.assertTrue(tree.exists(path))
+        self.assertNotIn('tree', str(tree.cget('show')))
+        self.render_rows([FileRow(path=path, stage='assets', kind='资产')])
+        self.assertIn('tree', str(tree.cget('show')))
+
     def test_metadata_columns_use_index_fields_and_keep_filename_id(self):
         from datetime import datetime
         from contract.file_index_contract import FileRow

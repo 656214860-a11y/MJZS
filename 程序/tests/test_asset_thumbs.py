@@ -205,6 +205,29 @@ class ThumbnailTests(unittest.TestCase):
         self.addCleanup(asset_thumbs.reset_worker)
         self.addCleanup(asset_thumbs.forget)
 
+    def test_requests_share_background_start_and_reset_waits_for_it(self):
+        from threading import Event, get_ident
+        entered, release = Event(), Event()
+        thread_ids = []
+        def start():
+            thread_ids.append(get_ident())
+            entered.set()
+            release.wait(5)
+            return True
+        with mock.patch.object(asset_thumbs, '_ensure_worker', side_effect=start):
+            try:
+                for name in ('first.png', 'second.png'):
+                    path = self.write(name, png(32, 32))
+                    asset_thumbs.thumbnail(self.win, path)
+                self.assertTrue(entered.wait(2))
+                self.assertEqual(asset_thumbs.pending(), 2)
+                self.assertEqual(len(thread_ids), 1)
+                self.assertNotEqual(thread_ids[0], get_ident())
+                self.assertFalse(asset_thumbs.reset_worker(timeout=0))
+            finally:
+                release.set()
+                self.assertTrue(asset_thumbs.reset_worker())
+
     def test_timeout_and_worker_exit_never_decode_on_tk(self):
         for timeout in (True, False):
             with self.subTest(timeout=timeout):
@@ -375,11 +398,11 @@ class ThumbnailTests(unittest.TestCase):
         self.addCleanup(setattr, asset_thumbs, "build", real)
         box = asset_thumbs.thumbnail(self.win, path, 72)
         self.assertEqual(asset_thumbs.pending(), 1, "任务已经交给后台进程")
-        self.assertIsNotNone(asset_thumbs._WORKER, "后台进程起来了")
         self.assertIsNotNone(box, "这一拍先摆一个空盒子，页面不必等图")
         self.assertEqual((box.width(), box.height()), (67, 34), "盒子与成品严丝合缝")
         asset_thumbs.build = real
         self.assertTrue(asset_thumbs.settle(self.win, seconds=60))
+        self.assertIsNotNone(asset_thumbs._WORKER, "后台进程起来了")
         self.assertEqual(colors(box), PICTURE, "落地之后真图贴进了页面上那个盒子")
 
     def test_the_finished_thumbnail_is_painted_into_the_box_on_the_page(self):
