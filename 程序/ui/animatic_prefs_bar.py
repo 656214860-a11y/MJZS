@@ -103,7 +103,7 @@ def open_prefs_bar(page, state, *, container, on_saved=None):
     row1.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
     ttk.Label(row1, text='草图引擎').pack(side='left', padx=(SPACING['none'], SPACING['xs']))
     engine_var = StringVar(value=_label_for_key(
-        SKETCH_ENGINE_OPTIONS, settings.get('animatic_sketch_backend'), 'comfy_local'))
+        SKETCH_ENGINE_OPTIONS, settings.get('animatic_sketch_backend'), 'text_card'))
     engine_box = SelectBox(
         row1, values=[label for _key, label in SKETCH_ENGINE_OPTIONS],
         textvariable=engine_var)
@@ -141,6 +141,9 @@ def open_prefs_bar(page, state, *, container, on_saved=None):
     overlay_var = BooleanVar(value=bool(settings.get('animatic_burn_overlay', True)))
     ttk.Checkbutton(row2, text='烧录镜号与字幕', variable=overlay_var).pack(
         side='left', padx=(SPACING['none'], SPACING['sm']))
+    tts_var = BooleanVar(value=bool(settings.get('animatic_use_tts', True)))
+    ttk.Checkbutton(row2, text='逐镜临时 TTS', variable=tts_var).pack(
+        side='left', padx=(SPACING['none'], SPACING['sm']))
 
     def close(_event=None):
         state['edit_commit'] = None
@@ -153,11 +156,12 @@ def open_prefs_bar(page, state, *, container, on_saved=None):
         chosen_gflow = gflow_var.get().strip()
         patch = {
             'animatic_sketch_backend': _key_for_label(
-                SKETCH_ENGINE_OPTIONS, engine_var.get(), 'comfy_local'),
+                SKETCH_ENGINE_OPTIONS, engine_var.get(), 'text_card'),
             'animatic_gflow_model': '' if chosen_gflow == GFLOW_EMPTY_OPTION else chosen_gflow,
             'animatic_reference_model': ref_entry.get().strip(),
             'animatic_ken_burns': bool(motion_var.get()),
             'animatic_burn_overlay': bool(overlay_var.get()),
+            'animatic_use_tts': bool(tts_var.get()),
             'animatic_player_mode': _key_for_label(
                 PLAYER_MODE_OPTIONS, player_var.get(), 'external'),
         }

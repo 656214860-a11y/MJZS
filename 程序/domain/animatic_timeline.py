@@ -156,6 +156,32 @@ def _is_overlong(row):
     return float(dialogue) > float(row.get('seconds') or 0) + 0.1
 
 
+def _matches_scene(row, scene_key, board_map):
+    if not scene_key:
+        return True
+    meta = board_map.get(str(row.get('id') or ''), {})
+    candidates = {
+        str(meta.get(field) or '').strip()
+        for field in ('scene_id', 'scene', 'location')
+        if str(meta.get(field) or '').strip()
+    }
+    return scene_key in candidates
+
+
+def _matches_status(row, status_key):
+    if status_key in ('', 'all'):
+        return True
+    if status_key == 'needs_revision':
+        return review_status_of(row) == 'needs_revision'
+    if status_key == 'overlong':
+        return _is_overlong(row)
+    if status_key == 'missing_image':
+        return int(row.get('image_version') or 0) <= 0
+    if status_key in REVIEW_STATES:
+        return review_status_of(row) == status_key
+    return False
+
+
 def filter_shots(timeline, board, *, scene='', status=''):
     """REQ-S04-115：按场次与状态筛选时间线镜头（保序返回行列表）。"""
     rows = [row for row in (timeline.get('shots') or () if isinstance(timeline, dict) else ())
@@ -163,32 +189,8 @@ def filter_shots(timeline, board, *, scene='', status=''):
     scene_key = str(scene or '').strip()
     status_key = str(status or '').strip()
     board_map = _board_shot_map(board) if scene_key else {}
-    matched = []
-    for row in rows:
-        if scene_key:
-            meta = board_map.get(str(row.get('id') or ''), {})
-            candidates = {
-                str(meta.get(field) or '').strip()
-                for field in ('scene_id', 'scene', 'location')
-                if str(meta.get(field) or '').strip()
-            }
-            if scene_key not in candidates:
-                continue
-        if status_key in ('', 'all'):
-            matched.append(row)
-        elif status_key == 'needs_revision':
-            if review_status_of(row) == 'needs_revision':
-                matched.append(row)
-        elif status_key == 'overlong':
-            if _is_overlong(row):
-                matched.append(row)
-        elif status_key == 'missing_image':
-            if int(row.get('image_version') or 0) <= 0:
-                matched.append(row)
-        elif status_key in REVIEW_STATES:
-            if review_status_of(row) == status_key:
-                matched.append(row)
-    return matched
+    return [row for row in rows
+            if _matches_scene(row, scene_key, board_map) and _matches_status(row, status_key)]
 
 
 def next_version(existing_files):

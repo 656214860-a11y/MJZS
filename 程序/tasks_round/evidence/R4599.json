@@ -1,0 +1,15 @@
+{
+  "round": 4599,
+  "commit_base": "7ff41edb1",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_page animatic_timeline copy_rules layer_relations button_boundary ui_icons_boundary dialog_boundary module_size_ratchet coverage_baseline complexity_ratchet",
+    "exit": 0,
+    "passed": 186,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T04:26:05"
+}
