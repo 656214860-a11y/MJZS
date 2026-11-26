@@ -210,7 +210,15 @@ def rebase_onto_master(branch: str, cwd: Path = PROGRAM) -> int:
     if wt is not None and wt.resolve() == Path(cwd).resolve():
         print("分支 %s 正检出在当前主干工作树，已退回车道，未领号。" % branch, file=sys.stderr)
         return REBASE_RETURNED
-    if ancestor and wt is None:
+    if ancestor:
+        # 分支已含 master：变基是空操作。车道未检出或干净即直接放行，
+        # 不再 _rebase_in 做无谓重放（保合并提交）；脏树口径与 _rebase_in 一致仍退回。
+        if wt is None:
+            return 0
+        dirty = commit_round._git("status", "--porcelain", "--untracked-files=no", cwd=wt)
+        if dirty.stdout.strip():
+            print("分支 %s 的工作树有未提交改动，已退回车道，未领号。" % branch, file=sys.stderr)
+            return REBASE_RETURNED
         return 0
     if wt is not None:
         return _rebase_in(wt, upstream, branch)

@@ -300,6 +300,15 @@ class RebaseOntoMasterTests(unittest.TestCase):
         self.assertEqual(_git(self.root, "rev-parse", "side"), before)
         self.assertEqual(_git(self.root, "symbolic-ref", "--short", "HEAD"), "master")
 
+    def test_clean_lane_already_containing_master_skips_rebase(self):
+        """W6：分支已含 master 且车道干净时直接放行，不做多余变基（保合并提交、免无谓重放）。"""
+        lane_tip = _git(self.lane, "rev-parse", "HEAD")
+        with mock.patch.object(merge_round, "_rebase_in") as rebase_in:
+            self.assertEqual(merge_round.rebase_onto_master("feature", self.root), 0)
+        rebase_in.assert_not_called()
+        self.assertEqual(_git(self.lane, "rev-parse", "HEAD"), lane_tip)
+        self.assertFalse(merge_round.rebase_in_progress(self.lane))
+
 
 class MergeOrderTests(unittest.TestCase):
     def _git(self, events, *, dirty_after_ci):

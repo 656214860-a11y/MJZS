@@ -1,0 +1,15 @@
+{
+  "round": 4537,
+  "commit_base": "faa0434ce",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k selftests_gui_token merge_round lane_merge_queue",
+    "exit": 0,
+    "passed": 62,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T15:24:07"
+}

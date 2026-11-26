@@ -154,8 +154,19 @@ def _gui_queue_is_first(queue, ticket):
     return bool(tickets) and os.path.join(queue, tickets[0]) == ticket
 
 
+def _gui_heartbeat_text(holder):
+    """持锁者心跳年龄：有 heartbeat_at（旧记录兼容 heartbeat）报距今秒数；缺或不可读报未知。"""
+    beat = holder.get('heartbeat_at')
+    if beat is None:
+        beat = holder.get('heartbeat')
+    try:
+        return '心跳距今 %.0f 秒' % max(0.0, time.time() - float(beat))
+    except (TypeError, ValueError):
+        return '心跳未知'
+
+
 def _gui_wait_report(common, waited, queue, ticket):
-    """每 30 秒左右告诉等待者：谁占着、占了多久、自己等了多久。"""
+    """每 30 秒左右告诉等待者：谁占着、占了多久、心跳多大龄、自己等了多久。"""
     holder = env.lock_holder(os.path.join(common, env.GUI_LOCK_NAME))
     pid = holder.get('pid', '?')
     try:
@@ -167,9 +178,10 @@ def _gui_wait_report(common, waited, queue, ticket):
     else:
         started_text = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(started_at))
         held_text = '%.0f 秒' % max(0.0, time.time() - started_at)
-    print('[GUI_WAIT] 等待跨树 GUI 令牌：占用者 PID %s，自 %s 起（已占 %s），'
+    print('[GUI_WAIT] 等待跨树 GUI 令牌：占用者 PID %s，自 %s 起（已占 %s，%s），'
           '本进程已等 %.0f 秒（队列第 %d 位）' %
-          (pid, started_text, held_text, waited, _gui_queue_position(queue, ticket)), flush=True)
+          (pid, started_text, held_text, _gui_heartbeat_text(holder), waited,
+           _gui_queue_position(queue, ticket)), flush=True)
 
 
 def foreign_full_suite(common):
@@ -183,11 +195,15 @@ def foreign_full_suite(common):
     return env.holder_is_live(holder)
 
 
-def _gui_deferred(reason, capped):
+def _gui_deferred(reason, capped, common=None):
+    heartbeat = ''
+    if common:
+        heartbeat = '（持锁者%s）' % _gui_heartbeat_text(
+            env.lock_holder(os.path.join(common, env.GUI_LOCK_NAME)))
     if capped:
-        print('[GUI_DEFERRED] 全量测试正在占用 GUI，本会话不再等待：%s' % reason)
+        print('[GUI_DEFERRED] 全量测试正在占用 GUI，本会话不再等待：%s%s' % (reason, heartbeat))
     else:
-        print('[GUI_DEFERRED] GUI 令牌等待超时：%s' % reason)
+        print('[GUI_DEFERRED] GUI 令牌等待超时：%s%s' % (reason, heartbeat))
 
 
 def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
@@ -209,7 +225,7 @@ def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
         print('[GUI_WAIT] 全量测试正在占用 GUI，本会话最多再等 %.0f 秒' % wait, flush=True)
     deadline = time.monotonic() + wait
     if time.monotonic() >= deadline:
-        _gui_deferred(holder_error, capped)
+        _gui_deferred(holder_error, capped, common)
         return None
     queue = _gui_queue_dir(common)
     ticket = _join_gui_queue(queue)
@@ -228,7 +244,7 @@ def acquire_gui_lock(common_dir=None, wait=env.GUI_WAIT_SECONDS):
             waited = time.monotonic() - entered
             remaining = deadline - time.monotonic()
             if remaining <= 0:
-                _gui_deferred(holder_error, capped)
+                _gui_deferred(holder_error, capped, common)
                 return None
             if last_report is None or waited - last_report >= env.GUI_WAIT_NOTICE_SECONDS:
                 _gui_wait_report(common, waited, queue, ticket)

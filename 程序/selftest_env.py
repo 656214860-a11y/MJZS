@@ -102,7 +102,7 @@ GUI_QUEUE_NAME = 'gui-selftest.queue'
 GUI_QUEUE_SUFFIX = '.ticket'
 
 
-GUI_WAIT_SECONDS = 1800   # R-B2：车道之间排队仍可等到 30 分钟，避免整队被标成 DEFERRED
+GUI_WAIT_SECONDS = 300    # P1-1：跨树排队最多等 5 分钟；30 分钟占队是全量锁卡死主因，超时按 DEFERRED 记
 GUI_FULL_SUITE_WAIT_SECONDS = 60   # 别人正在跑全量时，本会话最多再等一分钟，不等完整段 Tk
 
 

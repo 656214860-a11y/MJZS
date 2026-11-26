@@ -22,8 +22,10 @@ _EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox",
 # `voice_asr_venv` 是离线 ASR 运行时按需创建的第三方 venv（data/voice_asr_venv/，
 # pip 装出的 jieba/_yaml/cffi 等约 7700 个 .py）：不是本仓产品代码，任何生产门禁
 # 都不该把它当模块扫（R2990 合并阻断修复）。
+# `logs`／`data`／`outputs` 是 .gitignore 忽略的运行目录（日志、运行数据、可共享输出），
+# 运行期落进去的 .py（调试脚本、探针等）不是产品模块，不计入生产门禁计数（R2-G4）。
 EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__",
-                            "voice_asr_venv"})
+                            "voice_asr_venv", "logs", "data", "outputs"})
 
 
 def production_files_recursive() -> tuple[Path, ...]:
