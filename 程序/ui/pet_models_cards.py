@@ -109,6 +109,9 @@ STATE_DOT = {
 
 def set_input_value(entry, text):
     """向 CompactLineInput 或 EditablePresetBox 安全写入值，回填期间静音 on_change。"""
+    if not hasattr(entry, 'delete'):
+        entry.set(str(text or ''))
+        return
     prev_mute = getattr(entry, '_mute_change', False)
     entry._mute_change = True
     try:

@@ -361,7 +361,8 @@ class _AssetBatchWindow:
             if callable(reporter):
                 reporter('assets', result)
         if self.skill_mode:
-            if self.qwen_images or self.backend.get() in self.MODELS:
+            selected = ui_plugin_registry.module('workflow_settings').current(self.project, 'assets')
+            if not selected.get('gflow_model') and (self.qwen_images or self.backend.get() in self.MODELS):
                 Comfy(options['url'])
                 if self.backend.get()==self.LOCAL and any(not a.get('reference_images') for _,a in items) and not options['workflow'] and not options['model']:raise ValueError('请先选择图像模型或 ComfyUI API 工作流')
                 if self.backend.get() in self.MODELS:

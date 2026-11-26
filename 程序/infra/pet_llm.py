@@ -503,7 +503,25 @@ class Client:
                 def send(url, payload, head, timeout, _inner=inner_send, _budget=attempt_budget):
                     return _inner(url, payload, head, timeout, attempt_budget=_budget)
             url = endpoint(cfg)
-            head = headers(cfg, self.program)
+            routes = iter(cfg.get('connections') or [])
+            def use_route():
+                nonlocal cfg, url, head
+                for row in routes:
+                    if not row.get('key_env') or not row.get('base_url'):
+                        continue
+                    candidate = {**cfg, **row}
+                    try:
+                        next_head = headers(candidate, self.program)
+                    except ValueError:
+                        continue
+                    cfg, url, head = candidate, endpoint(candidate), next_head
+                    return True
+                return False
+            try:
+                head = headers(cfg, self.program)
+            except ValueError:
+                if not use_route():
+                    raise
             timeout = cfg.get('timeout', DEFAULTS['timeout'])
             model = model_for(tier, cfg)
             payload = self.payload(task, text, context, model=model, config=cfg)
@@ -521,6 +539,11 @@ class Client:
                                      attempt_tier, cfg, metadata, at)
 
             result = send_attempt(tier)
+            while (not result.get('ok') and result.get('status') in (401, 429)
+                   and result.get('accepted') is not True and not result.get('provider_task_id')
+                   and not result.get('task_id') and use_route()):
+                payload = self.payload(task, text, context, model=model, config=cfg)
+                result = send_attempt(tier)
             degraded = False
             if not result.get('ok') and result.get('kind') != 'budget' and tier == 'pro' and is_retryable(result.get('status')):
                 degraded = True

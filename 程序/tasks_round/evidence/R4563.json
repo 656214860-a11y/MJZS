@@ -1,0 +1,15 @@
+{
+  "round": 4563,
+  "commit_base": "99140b357",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k model_connections",
+    "exit": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T00:10:21"
+}

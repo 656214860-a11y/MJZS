@@ -51,7 +51,10 @@ def deliver_desktop_app(host, finish, receipt, task_file, title, clipboard_text,
         finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)
         host.notifier.info(message,title='请手动粘贴')
         return
-    launch_windows_app(program, app)
+    launch_windows_app(program[0], app, args=program) if isinstance(program, list) else launch_windows_app(program, app)
+    # Matching by process name alone cannot distinguish account-specific windows.
+    if isinstance(program, list):
+        delivery = 'clipboard'
     if delivery != 'paste':
         message = '已打开 '+app+'，任务已复制到剪贴板；请切到该窗口粘贴并手动发送。'+attachment_hint(attachment)
         finish(receipt,'prepared',message,task_file=task_file); host.status.set(message)

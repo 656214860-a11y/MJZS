@@ -51,7 +51,7 @@ def execute(project,manifest,stop=None):
         try:msvcrt.locking(lock.fileno(),msvcrt.LK_NBLCK,1)
         except OSError:raise ValueError('已有图片 Agent 批次运行，请等待完成后继续') from None
         try:
-            save(manifest.parent/'执行状态.json',{'state':'running','message':'已执行生图命令，正在连接 ComfyUI','updated':time.time()})
+            save(manifest.parent/'执行状态.json',{'state':'running','message':'已执行生图命令，正在连接图片生成服务','updated':time.time()})
             _execute(project,manifest,stop)
             save(manifest.parent/'执行状态.json',{'state':'complete','message':'生成完成，等待助手自动导入','updated':time.time()})
         except Exception as exc:
@@ -63,6 +63,21 @@ def execute(project,manifest,stop=None):
 
 def _execute(project,manifest,stop=None):
     data=read(manifest);stop=stop if stop is not None else threading.Event()
+    flow = None
+    if data.get('gflow_model'):
+        from infra.model_pool import pool
+        from infra.gflow_images import generate
+        model_id = data['gflow_model']
+        row = pool().get(model_id, {})
+        if not model_id.startswith('gflow-') or not row.get('profiles') or row.get('modality') != 'image':
+            raise ValueError('请在模型管理中重新配置该 Google Flow 模型')
+        flow = {**row, 'model': model_id[6:]}
+    def render(item, prompt, refs):
+        output = contained(manifest.parent, manifest.parent/item['output'])
+        from agent.media import png_complete
+        if not png_complete(output):
+            generate(flow, prompt, [contained(project, ref) for ref in refs], output, stop)
+
     if 'assets' in data:
         from orchestrator.asset_batch_execution import run_batch
         base=contained(project,data['base'])
@@ -73,6 +88,10 @@ def _execute(project,manifest,stop=None):
             aid=item['id'];current=planned.get(aid)
             if not current or not requires_asset(aid,current):raise ValueError(aid+' 已移除或改为普通道具，请重新建立批次')
             if any(current.get(k)!=item['asset'].get(k) for k in ('name','description','image_prompt','negative_prompt','reference_images','reference_roles')):raise ValueError(aid+' 定义已变化，请重新建立批次')
+        if flow:
+            for item in pending:
+                render(item, item['prompt'], item.get('reference_images', []))
+            return
         registry=read(base/'assets.json') if (base/'assets.json').is_file() else {}
         def ready(item):
             image=registry.get(item['id'],{}).get('image')
@@ -101,6 +120,14 @@ def _execute(project,manifest,stop=None):
             shot=next((s for s in ep['shots'] if s['id']==item['shot_id']),None)
             if shot is None or fingerprint(shot)!=item['shot_signature']:raise ValueError('镜头已修改，请重新创建首帧批次：'+item['shot_id'])
             selected.append(copy.deepcopy(shot))
+        if flow:
+            from agent.shot_assets import assets, asset_rows
+            from domain.keyframe_batch import frame_prompt
+            rows = asset_rows(source)
+            for item, shot in zip(items, selected):
+                refs = [ref['path'] for ref in assets(source, shot, strict=True)]
+                render(item, frame_prompt(shot, rows), refs)
+            return
         if not selected:return
         snapshot=manifest.parent/'agent_source.json'
         if not snapshot.exists():

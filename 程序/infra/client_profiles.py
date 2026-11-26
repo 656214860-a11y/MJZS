@@ -503,6 +503,11 @@ def stdin_text(profile_row, prompt=''):
     return ''
 
 
+def account_command(item, exe, config):
+    from infra.client_accounts import account_args
+    return executable_command(item, exe) + account_args(config)
+
+
 def executable_command(profile_row, executable):
     """Wrap .cmd/.bat launchers so they can be started without a shell string."""
     exe = str(executable)

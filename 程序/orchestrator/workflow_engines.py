@@ -82,7 +82,7 @@ def _client_command(config, project, output, report, prompt_file='', prompt=''):
     if not item.get('invoke'):
         raise ValueError('该命令行程序未识别投递参数；请改用手动制作入口打开交互式窗口，或在模型管理重新检测')
     exe = find_program(config)
-    args = client_profiles.executable_command(item, exe)
+    args = client_profiles.account_command(item, exe, config)
     args += client_profiles.build_invocation(item, prompt, prompt_file,
                                              title=str(config.get('title') or ''),
                                              model=str(config.get('model') or ''))
@@ -448,7 +448,7 @@ def launch_interactive(project,stage,title,prompt,config,followup=None,slot=None
         folder.mkdir(parents=True)
         task=folder/'任务.md';save_text(task,prompt);save(folder/'调用配置.json',config)
         exe=find_program(config)
-        args=client_profiles.executable_command(item,exe)
+        args=client_profiles.account_command(item,exe,config)
         args+=client_profiles.build_invocation(item,prompt,str(task),title=title,
                                                model=str(config.get('model') or ''))
         slot=slot or reserve_stage_process_slot(project, stage)

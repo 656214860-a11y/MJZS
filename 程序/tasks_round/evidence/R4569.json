@@ -1,0 +1,15 @@
+{
+  "round": 4569,
+  "commit_base": "07875b512",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k subprocess_timeout_boundary",
+    "exit": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T00:43:54"
+}
