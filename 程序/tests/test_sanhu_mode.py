@@ -40,7 +40,7 @@ class SanhuModeTests(unittest.TestCase):
         self.pet = pet_ui.Pet(_Desktop(self.project))
         self.levels = []
         self.messages = []
-        self.pet.set_level = lambda level, at=None: self.levels.append(level) or level
+        self.pet.set_level = lambda level, at=None, announce=True: self.levels.append(level) or level
         self.pet.broadcast = lambda text, **_kwargs: self.messages.append(text) or text
 
     def test_auto_mode_enables_every_registered_auto_action(self):
@@ -51,8 +51,7 @@ class SanhuModeTests(unittest.TestCase):
                             for key in project_settings.DEFAULTS))
         self.assertTrue(all(self.pet.auto_variable(name).get() is True
                             for name in pet_ui.AUTO_VARIABLE_NAMES))
-        self.assertIn('【模式】已切换到全自动模式', self.messages)
-        self.assertIn('【模式】已打开全部自动制作开关', self.messages)
+        self.assertEqual(self.messages, ['【模式】已切换到全自动模式，已打开全部自动制作开关'])
 
     def test_manual_mode_disables_every_registered_auto_action(self):
         self.pet.set_mode('auto')
@@ -63,8 +62,7 @@ class SanhuModeTests(unittest.TestCase):
                             for key in project_settings.DEFAULTS))
         self.assertTrue(all(self.pet.auto_variable(name).get() is False
                             for name in pet_ui.AUTO_VARIABLE_NAMES))
-        self.assertIn('【模式】已切换到手动模式', self.messages)
-        self.assertIn('【模式】已关闭全部自动制作开关', self.messages)
+        self.assertEqual(self.messages, ['【模式】已切换到手动模式，已关闭全部自动制作开关'])
 
     def test_unknown_mode_does_not_change_the_current_mode(self):
         self.assertIsNone(self.pet.set_mode('semi'))
@@ -97,7 +95,7 @@ class SanhuModeTests(unittest.TestCase):
         self.pet.run_plan({'decision': {'run': True},
                            'plan': {'intent': 'level', 'params': {'level': 'auto'}}})
         self.assertEqual(self.pet.mode, 'auto')
-        self.assertEqual(self.levels, ['auto', 'auto'])
+        self.assertEqual(self.levels, ['auto'])
         self.assertTrue(all(project_settings.get(self.project, key) is True
                             for key in project_settings.DEFAULTS))
         self.assertTrue(all(self.pet.auto_variable(name).get() is True
@@ -110,7 +108,7 @@ class SanhuModeTests(unittest.TestCase):
         self.pet.run_plan({'decision': {'run': True},
                            'plan': {'intent': 'level', 'params': {'level': 'semi'}}})
         self.assertEqual(self.pet.mode, 'manual')
-        self.assertEqual(self.levels, ['hint', 'semi'])
+        self.assertEqual(self.levels, ['semi'])
         self.assertTrue(all(project_settings.get(self.project, key) is False
                             for key in project_settings.DEFAULTS))
         self.assertTrue(all(self.pet.auto_variable(name).get() is False

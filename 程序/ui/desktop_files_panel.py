@@ -553,6 +553,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         if not self._open:
             return
         self._open = False
+        self._displayed_index_context = None
         self.cancel_script_load()
         self._unbind_outside()
         self.script_box.pack_forget()

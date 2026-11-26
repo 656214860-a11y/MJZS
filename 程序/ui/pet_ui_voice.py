@@ -1010,11 +1010,7 @@ class PetVoiceMixin:
         return ['%s|%s|%s%s' % (row['name'], row['status'], row.get('stage') or '未开工',
                                 '' if not row['active'] else '|当前') for row in rows]
     def chat_hello(self):
-        """开对话框时三虎主动问的那一句（第 24 期第 1 条；第 29 期第 5 条改成问当前页的流程）。
-
-        问句与「按下确认要做的那件事」一起从 chat_task 取；取到就顺手递给云朵框（propose），
-        按钮上于是写着「确认」。返回说出口的那句话——一句提问不该把「打开对话框」弄坏。
-        """
+        """提出当前页待办，并将对应命令交给云朵的回复入口。"""
         ask, command = self.chat_task()
         cloud = self.cloud()
         if cloud is not None and hasattr(cloud, 'propose'):

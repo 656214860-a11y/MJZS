@@ -781,8 +781,10 @@ class PetStagesMixin:
         """切换三虎手动／全自动模式，并统一接管页面自动制作开关。"""
         if mode not in SANHU_MODES:
             return None
-        # 已有阶段在执行时，重复点“全自动”只是重复确认模式，不能重新 arm_auto()
-        # 把 active 清空；否则下面的立即派发会把同一阶段再提交一次。
+        return self._switch_mode(mode, 'auto' if mode == 'auto' else 'hint', at)
+
+    def _switch_mode(self, mode, level, at):
+        # 重复选择全自动时保留正在执行的阶段。
         keep_active = (mode == 'auto' and self.mode == 'auto' and self.auto.armed
                        and bool(self.auto.active))
         self.mode = mode
@@ -794,14 +796,17 @@ class PetStagesMixin:
             # 仅允许窗口销毁竞态静默；变量类型或调用线程错误必须继续暴露。
             pass
         # 复用既有审批与自动推进链：手动＝只提醒，全自动＝全自动等级。
-        if not keep_active: self.set_level('auto' if mode == 'auto' else 'hint', at=at)
+        if not keep_active:
+            self.set_level(level, at=at, announce=False)
         failed = self.enable_all_auto_actions() if mode == 'auto' else self.disable_all_auto_actions()
-        label = '全自动' if mode == 'auto' else '手动'
-        self.broadcast('【模式】已切换到%s模式' % label, at=at)
-        self.broadcast('【模式】已%s全部自动制作开关' % ('打开' if mode == 'auto' else '关闭'), at=at)
-        # 上面两句模式反馈会打开三虎气泡；若只等 tune_advance，气泡可见这一项
-        # 门禁又会把刚武装的链路挡住，表现为用户切到全自动却没有任何制作开始。
-        # 因此切换成功时立刻派发第一项；之后仍由正常心跳推进后续阶段。
+        label = {'auto': '全自动', 'hint': '手动', 'semi': '半自动'}[level]
+        feedback = '【模式】已切换到%s模式' % label
+        if failed:
+            feedback += '，未能同步自动制作开关：' + '、'.join(failed)
+        else:
+            feedback += '，已%s全部自动制作开关' % ('打开' if mode == 'auto' else '关闭')
+        self.broadcast(feedback, at=at)
+        # 模式反馈会打开气泡，首次派发不能等待空闲心跳。
         if mode == 'auto' and not keep_active and self.auto.armed and not self.auto.paused:
             try:
                 stage = self.auto_stage()
@@ -811,15 +816,13 @@ class PetStagesMixin:
                         self.notice = started
             except Exception as exc:
                 self.errors.append(('mode.start', str(exc)))
-        if failed:
-            self.broadcast('【警告】未能同步自动制作开关：' + '、'.join(failed), at=at)
         self.refresh_menu_labels()
         return self.mode
     def set_paw_level(self, level, at=None):
         """猫爪是唯一自动化入口：全自动同步开启，其他两档回到手动控制面。"""
         if level not in PAW_LEVELS: return None
-        self.clear_paid_grants(); self.set_mode('auto' if level == 'auto' else 'manual', at=at)
-        return self.set_level(level, at=at)
+        self._switch_mode('auto' if level == 'auto' else 'manual', level, at)
+        return level
     def grant_paid(self, stage): pet_poll_policy.grant_paid(self, stage)
     def revoke_paid(self, stage): pet_poll_policy.revoke_paid(self, stage)
     def clear_paid_grants(self): pet_poll_policy.clear_paid_grants(self); pet_ask.declined_set(self).clear()
@@ -830,11 +833,8 @@ class PetStagesMixin:
                                            read_auto_var=lambda name: bool(self.auto_variable(name).get()))
         except (AttributeError, RuntimeError, TypeError, ValueError):
             return False
-    def set_level(self, level, at=None):
-        """直接切到某一档自动化等级：切完必须把「现在是哪一档」说出来。
-
-        第 19 期：猫爪按钮与右键菜单都走这里，提醒改用圆形气泡，猫爪的填色与头像颜色都立刻跟着变。
-        """
+    def set_level(self, level, at=None, *, announce=True):
+        """更新授权、自动推进和头像；独立切档时播报一次。"""
         if level not in pet_agent.LEVELS: return None
         self.clear_paid_grants(); self.session_level = level  # 第 67 期任务 4：这一次运行照用户刚选的这一档
         try:
@@ -847,13 +847,10 @@ class PetStagesMixin:
             pet_agent.save_settings({'level': level}, self.program)
         except Exception as exc:
             self.errors.append(('settings.level', str(exc)))
-        # 第 67 期任务 5：切到半自动／全自动就按项目现状把那条链武装起来——剧本早就做完的
-        # 项目里，script.completed 那条事件不会再来，不补这一下自动档会一直什么都不开始。
+        # 已经完成剧本的项目也需要按当前进度启动。
         if level in stage_flow.AUTO_LEVELS:
             try:
                 if self.arm_auto():
-                    # 切到自动档是明确的「现在开始」操作，不能被上一轮心跳留下的
-                    # 推进节流挡住；下一个 UI 心跳应立即派发当前待办阶段。
                     self.bstate.reset_advance()
             except Exception as exc:
                 self.errors.append(('level.arm', str(exc)))
@@ -863,7 +860,9 @@ class PetStagesMixin:
         self.draw()                        # 头像颜色＝等级：这一下要立刻变色，不等下一帧
         text = LEVEL_SWITCH_NOTES.get(level, '已切换自动化等级')
         self.notice = text
-        return self.whisper(text, at=at) or self.agent.level
+        if announce:
+            return self.whisper(text, at=at) or self.agent.level
+        return self.agent.level
     def one_click(self, at=None, confirm=True):
         """一键执行：把今天该收的尾一次做完——有失败项先重试，缺口交本地引擎补，再出一份当日日报。
 

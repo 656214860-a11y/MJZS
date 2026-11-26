@@ -79,8 +79,11 @@ class FilesPanelTests(unittest.TestCase):
         self.assertLessEqual(abs(rail.winfo_rooty() - area.winfo_rooty()), 2)
         self.assertLessEqual(abs(rail.winfo_height() - area.winfo_height()), 2,
                              '图标列与画布同高')
-        self.assertLessEqual(button.winfo_rooty() - rail.winfo_rooty(),
-                             SPACING['sm'] + 2, '图标钮在列顶')
+        script = d.nav[PAGE['script']]
+        row_center = script.winfo_rooty() + d.sidebar_canvas.canvasy(0) + script.winfo_height() // 2
+        self.assertLessEqual(abs(button.winfo_rooty() + button.winfo_height() // 2 - row_center), 1)
+        ordered = d.sidebar.pack_slaves()
+        self.assertEqual(ordered.index(d.account_button), ordered.index(d.settings_rail_button) + 1)
         self.assertGreater(rail.winfo_height(), button.winfo_height() + SPACING['lg'],
                            '列内下方预留空间给后续图标')
 
