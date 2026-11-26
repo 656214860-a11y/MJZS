@@ -1807,5 +1807,133 @@ class StageFileIconTests(unittest.TestCase):
         self.assertEqual(changed, [], f'重跑生成脚本改动了: {changed}')
 
 
+class AnimaticMediaDbViewTests(StageRailTests):
+    """FIX-S04-MEDIA-DB-VIEW：S04 参考图补齐、4 语义分组、默认折叠与缩略图预取限流。"""
+
+    def test_load_index_empty_ref_library_and_in_place_promotion(self):
+        """空参考库正常返回；有参考图时 S04 就地补齐/转正不重复，不改其他阶段且不写盘。"""
+        from ui.desktop_files_panel_index import load_index
+        with tempfile.TemporaryDirectory(prefix='s04-load-index-') as tmp:
+            root = Path(tmp)
+            file_index.rebuild(root)
+            rows, _cats, _labels = load_index(root, stage='animatic')
+            self.assertIsInstance(rows, list)
+            ref_dir = root / '_shared' / 'reference_images' / '角色'
+            ref_dir.mkdir(parents=True)
+            ref_file = ref_dir / '林夏.png'
+            ref_file.write_bytes(b'\x89PNG-ref')
+            uncat_file = root / '_shared' / 'reference_images' / '未分类.png'
+            uncat_file.write_bytes(b'\x89PNG-uncat')
+            # 场景 1：磁盘索引未含参考图（只增量 discover animatic）
+            rows_missing, _, _ = load_index(root, stage='animatic')
+            ref_rel = '_shared/reference_images/角色/林夏.png'
+            uncat_rel = '_shared/reference_images/未分类.png'
+            matched = [r for r in rows_missing if r.path == ref_rel]
+            self.assertEqual(len(matched), 1, '缺失于索引的参考图应补齐一条')
+            self.assertEqual((matched[0].stage, matched[0].kind), ('animatic', '资产'))
+            self.assertTrue(any(r.path == uncat_rel and r.stage == 'animatic'
+                                for r in rows_missing))
+            # 场景 2：重建索引后 _shared 已有 stage='' 行，load_index(stage='animatic') 就地转正不重复
+            file_index.rebuild(root)
+            cached_before = file_index.rows(root)
+            self.assertTrue(any(r.path == ref_rel and r.stage == '' for r in cached_before))
+            rows_promoted, _, _ = load_index(root, stage='animatic')
+            promoted = [r for r in rows_promoted if r.path == ref_rel]
+            self.assertEqual(len(promoted), 1, '同 path 已有 stage="" 行时应就地转正不重复')
+            self.assertEqual((promoted[0].stage, promoted[0].kind), ('animatic', '资产'))
+            # 不改写磁盘索引，其他阶段零变化
+            rows_assets, _, _ = load_index(root, stage='assets')
+            self.assertTrue(any(r.path == ref_rel and r.stage == '' for r in rows_assets),
+                            '非 animatic 阶段不得改变参考图行归属')
+
+    def _reset_animatic_fixture(self, root):
+        import shutil
+        from contract.stage_path_service import shared_reference_dir, write_dir
+        for folder in (shared_reference_dir(root), write_dir(root, 'animatic')):
+            if folder.exists():
+                shutil.rmtree(folder, ignore_errors=True)
+
+    def test_animatic_panel_four_groups_collapse_and_prefetch_throttle(self):
+        """S04 面板 4 组归位无重复，参考图库/预演版本默认展开，镜头草图/临时声音折叠且不进预取。"""
+        from unittest.mock import patch
+        from contract.stage_path_service import shared_reference_dir, write_dir
+        panel = self.desktop.files_panel
+        root = Path(self.desktop.root)
+        self._reset_animatic_fixture(root)
+        self.addCleanup(self._reset_animatic_fixture, root)
+        ref_role = shared_reference_dir(root) / '角色'
+        ref_role.mkdir(parents=True, exist_ok=True)
+        (ref_role / '林夏.png').write_bytes(b'\x89PNG-role')
+        (shared_reference_dir(root) / '草图未分类.png').write_bytes(b'\x89PNG-uncat')
+        anim_root = write_dir(root, 'animatic')
+        (anim_root / '版本').mkdir(parents=True, exist_ok=True)
+        (anim_root / '版本' / 'animatic_v001.mp4').write_bytes(b'mp4-v1')
+        for idx in range(1, 51):
+            shot_dir = anim_root / '镜头' / f'SH{idx:03d}'
+            shot_dir.mkdir(parents=True, exist_ok=True)
+            (shot_dir / 'v1.png').write_bytes(b'\x89PNG-shot')
+        dlg_dir = anim_root / '声音' / '对白'
+        dlg_dir.mkdir(parents=True, exist_ok=True)
+        for idx in range(1, 11):
+            (dlg_dir / f'SH{idx:03d}.wav').write_bytes(b'RIFF-wav')
+        file_index.rebuild(root)
+        prefetched = []
+        with patch.object(panel, '_prefetch_media_thumbs',
+                          side_effect=lambda paths: prefetched.append(list(paths))):
+            panel.show_stage('animatic')
+            self.wait_index()
+        tree = panel.script_tree
+        top_groups = tuple(tree.get_children())
+        self.assertEqual(top_groups, (
+            'stage-group:animatic:refs',
+            'stage-group:animatic:versions',
+            'stage-group:animatic:shots',
+            'stage-group:animatic:audio',
+        ))
+        labels = tuple(tree.item(g, 'values')[0] for g in top_groups)
+        self.assertEqual(labels, ('参考图库', '预演版本', '镜头草图', '临时声音'))
+        self.assertTrue(bool(tree.item('stage-group:animatic:refs', 'open')))
+        self.assertTrue(bool(tree.item('stage-group:animatic:versions', 'open')))
+        self.assertFalse(bool(tree.item('stage-group:animatic:shots', 'open')))
+        self.assertFalse(bool(tree.item('stage-group:animatic:audio', 'open')))
+        refs_children = tree.get_children('stage-group:animatic:refs')
+        ver_children = tree.get_children('stage-group:animatic:versions')
+        shot_children = tree.get_children('stage-group:animatic:shots')
+        audio_children = tree.get_children('stage-group:animatic:audio')
+        self.assertEqual(len(refs_children), 2)
+        self.assertEqual(len(ver_children), 1)
+        self.assertEqual(len(shot_children), 50)
+        self.assertEqual(len(audio_children), 10)
+        all_items = [*refs_children, *ver_children, *shot_children, *audio_children]
+        self.assertEqual(len(all_items), len(set(all_items)), '四组不得有重复路径')
+        self.assertTrue(prefetched, '应触发缩略图预取调用')
+        last_batch = prefetched[-1]
+        self.assertLessEqual(len(last_batch), 40)
+        batch_posix = [Path(p).as_posix() for p in last_batch]
+        self.assertFalse(any('/镜头/' in p or '/声音/' in p for p in batch_posix),
+                         f'预取列表不得含折叠组路径: {batch_posix}')
+
+    def test_animatic_prefetch_caps_at_40_when_expanded_groups_exceed_limit(self):
+        """展开组内文件超过 40 项时，单次预取路径上限严格为 40。"""
+        from unittest.mock import patch
+        from contract.stage_path_service import shared_reference_dir
+        panel = self.desktop.files_panel
+        root = Path(self.desktop.root)
+        self._reset_animatic_fixture(root)
+        self.addCleanup(self._reset_animatic_fixture, root)
+        style_dir = shared_reference_dir(root) / '风格'
+        style_dir.mkdir(parents=True, exist_ok=True)
+        for idx in range(1, 46):
+            (style_dir / f'style_{idx:02d}.png').write_bytes(b'\x89PNG-style')
+        file_index.rebuild(root)
+        prefetched = []
+        with patch.object(panel, '_prefetch_media_thumbs',
+                          side_effect=lambda paths: prefetched.append(list(paths))):
+            panel.show_stage('animatic')
+            self.wait_index()
+        self.assertTrue(prefetched)
+        self.assertEqual(len(prefetched[-1]), 40)
+
+
 if __name__ == '__main__':
     unittest.main()

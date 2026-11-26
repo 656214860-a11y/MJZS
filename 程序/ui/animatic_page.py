@@ -24,9 +24,10 @@ from infra import file_index
 from infra.pet_state import PAGE_OF
 from ui.animatic_view_state import (
     _TASK_FAILED, _TIMELINE_CELL_HEIGHT, _TIMELINE_THUMB_SIZE, _audio_mode,
-    _board_names, _image_versions, _quiet, _reply_note, _run_async, _safe_call,
-    _shot_image, _task_payload, _timeline_width, animatic_layout_metrics,
-    format_status_summary, parse_animatic_command,
+    _board_names, _image_versions, _quiet, _refresh_files_panel, _reply_note,
+    _run_async, _safe_call, _shot_image, _task_payload, _timeline_width,
+    animatic_layout_metrics, format_status_summary, load_timeline_for_show,
+    parse_animatic_command, shot_prompt_text,
 )
 from ui import asset_thumbs
 from ui.animatic_player import fit_video_preview
@@ -600,7 +601,7 @@ def _after_sketch(page, state, outcome):
 
 def _show_shot_info(page, state, row):
     board_row = (state.get('board') or {}).get(str(row.get('id'))) or {}
-    prompt = str(board_row.get('video_prompt') or '').strip() or '（分镜未写提示词）'
+    prompt = shot_prompt_text(board_row)
     refs = row.get('references') or []
     if not refs:
         refs = _safe_call(page, lambda: stage_execution_service.refs_for_animatic_shot(
@@ -720,6 +721,7 @@ def _reclassify(page, state, path, category):
         state['project'], path, category))
     if result is not None:
         page.status.set('参考图已改分类：%s' % category)
+        _refresh_files_panel(page)
 
 
 def _rename_reference(page, state, path, value):
@@ -737,6 +739,7 @@ def _rename_reference(page, state, path, value):
         except (TypeError, ValueError):
             display = name
         page.status.set('参考图已改名：%s' % display)
+        _refresh_files_panel(page)
 
 
 def _reference_menu_hook(page, state):
@@ -956,8 +959,8 @@ def show(page):
     project = getattr(page, 'root', None)
     timeline = None
     if project is not None:
-        timeline = _quiet(
-            lambda: stage_execution_service.load_or_sync_animatic_timeline(project))
+        timeline = load_timeline_for_show(
+            page, lambda: stage_execution_service.load_or_sync_animatic_timeline(project))
     if not isinstance(timeline, dict):
         _guide(page, frame)
         frame._animatic_state = {'project': project, 'timeline': None}

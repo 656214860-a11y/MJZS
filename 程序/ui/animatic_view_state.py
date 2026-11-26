@@ -236,3 +236,53 @@ def _audio_mode(state):
 def _timeline_width(seconds):
     return max(_TIMELINE_MIN_CELL_WIDTH,
                int(_TIMELINE_WIDTH_PER_SECOND * float(seconds or 0)))
+
+
+_PROMPT_FIELDS = ('image_prompt', 'prompt', 'video_prompt', 'description')
+_UNADOPTED_MARKS = ('请先采用分镜', '未采用分镜', '尚无已采用分镜')
+_STATUS_ERROR_MAX = 45
+
+
+def shot_prompt_text(board_row):
+    """与 animatic_service 同口径：依次读 image_prompt/prompt/video_prompt/description。"""
+    row = board_row if isinstance(board_row, dict) else {}
+    for key in _PROMPT_FIELDS:
+        text = str(row.get(key) or '').strip()
+        if text:
+            return text
+    return '（分镜未写提示词）'
+
+
+def _timeline_load_error_text(exc):
+    """把时间线载入异常压成 <=45 字的中文状态栏提示；未采用分镜返回空串。"""
+    raw = str(exc or '').strip()
+    if isinstance(exc, ValueError) and any(mark in raw for mark in _UNADOPTED_MARKS):
+        return ''
+    if isinstance(exc, UnicodeDecodeError) or exc.__class__.__name__ == 'JSONDecodeError':
+        detail = '分镜文件格式损坏，请检查后重试'
+    else:
+        detail = error_codes.user_text(exc)
+    text = detail if detail.startswith('载入') else ('载入预演时间线失败：' + detail)
+    if len(text) > _STATUS_ERROR_MAX:
+        return text[:_STATUS_ERROR_MAX - 1] + '…'
+    return text
+
+
+def load_timeline_for_show(page, loader):
+    """建页载入时间线：未采用分镜安静进引导页，其余异常写入 <=45 字中文报错。"""
+    try:
+        return loader()
+    except Exception as exc:
+        message = _timeline_load_error_text(exc)
+        if message:
+            setter = getattr(getattr(page, 'status', None), 'set', None)
+            if callable(setter):
+                _quiet(lambda: setter(message))
+        return None
+
+
+def _refresh_files_panel(page):
+    """参考图改类／改名／生图后刷新右侧文件面板（存在时）。"""
+    refresh = getattr(getattr(page, 'files_panel', None), 'fill_script_list', None)
+    if callable(refresh):
+        _quiet(refresh)
