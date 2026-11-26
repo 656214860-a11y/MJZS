@@ -165,6 +165,12 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         audio = Path(audio)
         if not audio.is_file() or not audio.stat().st_size:
             raise ValueError('临时音频为空或不存在')
+        durations = settings.get('timeline_durations') or {}
+        for row in shots:
+            if row['id'] in durations:
+                row['seconds'] = float(durations[row['id']])
+        board_rows = {str(item.get('id')): item for item in (storyboard.get('shots') or [])
+                      if isinstance(item, dict)}
         batches = {}
         for shot in shots:
             batches.setdefault(shot['batch'], []).append(shot)
@@ -179,11 +185,13 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
                     continue
                 workspace = scratch / shot['id']
                 workspace.mkdir(exist_ok=True)
+                render_shot = dict(board_rows.get(shot['id'], {}), **shot)
                 for attempt in range(int(settings.get('retry_attempts', 0)) + 1):
                     attempt_dir = workspace / ('attempt-' + str(attempt))
                     attempt_dir.mkdir(exist_ok=True)
                     try:
-                        image = render(attempt_dir, shot, per_shot_refs.get(shot['id'], refs), settings)
+                        image = render(attempt_dir, render_shot,
+                                       per_shot_refs.get(shot['id'], refs), settings)
                         outputs.append((shot['id'], image))
                         break
                     except ComfyGenerationFailed:
@@ -194,12 +202,9 @@ def build_bundle(context, source, references, audio, settings, *, publish, write
         groups = list(batches.values())
         generated = run_batches(groups, one_batch) if run_batches else map(one_batch, groups)
         images = dict(pair for group in generated for pair in group)
-        durations = settings.get('timeline_durations') or {}
-        for row in shots:
-            if row['id'] in durations:
-                row['seconds'] = float(durations[row['id']])
+        assemble_frames = _prepare_assemble_frames(scratch, shots, images, settings, board_rows)
         from contract.platform_tools import tool_path
-        video = assemble([images[row['id']] for row in shots], [row['seconds'] for row in shots],
+        video = assemble(assemble_frames, [row['seconds'] for row in shots],
                          audio, scratch / 'animatic.mp4',
                          ffmpeg=tool_path('ffmpeg', configured=settings.get('ffmpeg')),
                          ffprobe=tool_path('ffprobe', configured=settings.get('ffprobe')),
@@ -266,3 +271,23 @@ def evidence(project, *, require_confirmation=True):
         return True, ''
     except (OSError, ValueError, KeyError, TypeError, AttributeError):
         return False, '分镜预演未就绪、源文件已变化，或节奏／时长／对白同步尚未确认'
+
+
+def _prepare_assemble_frames(scratch, shots, images, settings, board_rows):
+    """REQ-S04-103：按偏好仅对暂存副本执行烧录，绝不修改 images 里的镜头原图。"""
+    overlay = settings.get('overlay_frame')
+    if not settings.get('animatic_burn_overlay', True) or not callable(overlay):
+        return [images[row['id']] for row in shots]
+    overlay_dir = Path(scratch) / '_overlay'
+    overlay_dir.mkdir(parents=True, exist_ok=True)
+    frames = []
+    elapsed = 0.0
+    for index, row in enumerate(shots):
+        sid = row['id']
+        destination = overlay_dir / ('%04d_%s.png' % (index, sid))
+        dialogue = board_rows.get(sid, {}).get('dialogue', '')
+        rendered = overlay(Path(images[sid]), destination, shot_id=sid,
+                           seconds=row['seconds'], start_seconds=elapsed, dialogue=dialogue)
+        frames.append(Path(rendered))
+        elapsed += float(row['seconds'])
+    return frames

@@ -51,6 +51,57 @@ class AnimaticTimelineTests(unittest.TestCase):
             assemble_image_timeline(['image.png'], [float('nan')], 'audio.wav', 'out.mp4',
                 ffmpeg='ffmpeg', ffprobe='ffprobe', write_temporary=forbidden, run=forbidden)
 
+    def test_req_s04_104_segment_filter_five_motions_and_zero_regression(self):
+        """REQ-S04-104：segment_filter 支持 5 种运镜；未传 shot_motions 时命令与既有完全一致。"""
+        from contract.script_contract import preview_spec
+        from domain.edit_service import preview_filter, segment_filter
+        spec = preview_spec()
+        base = preview_filter(spec)
+        self.assertEqual(segment_filter(spec, seconds=4, motion='static'), base)
+        self.assertEqual(segment_filter(spec, seconds=0, motion='zoom_in'), base)
+        self.assertEqual(segment_filter(spec, seconds=-2, motion='pan_left'), base)
+        self.assertEqual(segment_filter(spec, seconds=float('nan'), motion='zoom_out'), base)
+        motion_filters = {}
+        for motion in ('zoom_in', 'zoom_out', 'pan_left', 'pan_right'):
+            vf = segment_filter(spec, seconds=4, motion=motion)
+            self.assertTrue(vf.startswith(base + ',zoompan='), (motion, vf))
+            self.assertIn('d=96', vf)
+            self.assertIn('s=1280x720', vf)
+            self.assertIn('fps=24', vf)
+            motion_filters[motion] = vf
+        self.assertEqual(len(set(motion_filters.values())), 4)
+        portrait = {'width': 720, 'height': 1280, 'fps': 24}
+        self.assertIn('s=720x1280', segment_filter(portrait, seconds=3, motion='zoom_in'))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            info = {'streams': [{'codec_type': 'video'}, {'codec_type': 'audio'}],
+                    'format': {'duration': '5'}}
+            cmds_plain = []
+            def exec_plain(command, **_opts):
+                cmds_plain.append(command)
+                return SimpleNamespace(stdout=json.dumps(info))
+            assemble_image_timeline(
+                [root / 'a.png', root / 'b.png'], [2, 3], root / 'a.wav', root / 'out1.mp4',
+                ffmpeg='ffmpeg', ffprobe='ffprobe',
+                write_temporary=lambda path, raw: path.write_bytes(raw),
+                run=exec_plain, spec=spec)
+            self.assertEqual(cmds_plain[0][cmds_plain[0].index('-vf') + 1], base)
+            self.assertEqual(cmds_plain[1][cmds_plain[1].index('-vf') + 1], base)
+
+            cmds_motion = []
+            def exec_motion(command, **_opts):
+                cmds_motion.append(command)
+                return SimpleNamespace(stdout=json.dumps(info))
+            assemble_image_timeline(
+                [root / 'a.png', root / 'b.png'], [2, 3], root / 'a.wav', root / 'out2.mp4',
+                ffmpeg='ffmpeg', ffprobe='ffprobe',
+                write_temporary=lambda path, raw: path.write_bytes(raw),
+                run=exec_motion, spec=dict(spec, shot_motions=['zoom_in', 'static']))
+            self.assertEqual(cmds_motion[0][cmds_motion[0].index('-vf') + 1],
+                             segment_filter(spec, seconds=2, motion='zoom_in'))
+            self.assertEqual(cmds_motion[1][cmds_motion[1].index('-vf') + 1], base)
+
 
 class MixedAudioRenderTests(unittest.TestCase):
     def test_req_s04_74_76_mixed_audio_runs_injected_command_in_scratch_area(self):
@@ -185,6 +236,20 @@ class TimelineModelTests(unittest.TestCase):
         self.assertEqual((shot['duration'], shot['trim_in'], shot['trim_out'],
                           shot['edit_duration']), (3, 0, 3, 3),
                          'trim_in >= 新 trim_out 时归零')
+
+    def test_req_s04_105_112_rebuild_preserves_dialogue_seconds_and_legacy_rows(self):
+        """REQ-S04-105/112：重建时间线保留 dialogue_seconds，并兼容缺该字段的旧时间线。"""
+        from domain import animatic_timeline as timeline_model
+        board = {'shots': [{'id': 'SH001', 'duration': 4}, {'id': 'SH002', 'duration': 5}]}
+        timeline, _ = timeline_model.build(board, 'ep1.json', 'sha-1')
+        self.assertIsNone(timeline['shots'][0]['dialogue_seconds'])
+        timeline['shots'][0]['dialogue_seconds'] = 2.75
+        del timeline['shots'][1]['dialogue_seconds']
+        rebuilt, flag = timeline_model.build(board, 'ep1.json', 'sha-2', previous=timeline)
+        self.assertTrue(flag)
+        rows = {row['id']: row for row in rebuilt['shots']}
+        self.assertEqual(rows['SH001']['dialogue_seconds'], 2.75)
+        self.assertIsNone(rows['SH002']['dialogue_seconds'])
 
 
 class TimelineGatewayTests(unittest.TestCase):
@@ -453,6 +518,110 @@ class TimelineGatewayTests(unittest.TestCase):
             self.assertTrue(video.is_file())
             wait_mock.assert_not_called()
             open_mock.assert_not_called()
+
+    def test_req_s04_105_run_animatic_timeline_records_dialogue_seconds_and_motion(self):
+        """REQ-S04-103/104/105：逐镜 TTS 合成后 timeline.json 写 dialogue_seconds，无对白为 None。"""
+        from stage_execution_service import run_animatic_timeline
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self._adopted(root, [
+                {'id': 'SH001', 'duration': 4, 'camera_movement': '缓慢推进'},
+                {'id': 'SH002', 'duration': 3, 'camera_movement': '固定镜头'},
+            ])
+            board = json.loads(source.read_text(encoding='utf-8'))
+            board['shots'][0]['dialogue'] = ['第一句临时对白']
+            board['shots'][1]['dialogue'] = []
+            source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+            folder = write_dir(root, 'animatic')
+            captured_spec = {}
+
+            def assemble(images, durations, _sound, target, **kwargs):
+                captured_spec.update(kwargs.get('spec') or {})
+                self.assertEqual(len(images), 2)
+                self.assertEqual(durations, [4, 3])
+                target.write_bytes(b'video')
+                return target
+
+            def run(command, **_kwargs):
+                Path(command[-1]).write_bytes(b'mixed')
+                return SimpleNamespace(stdout='')
+
+            settings = {
+                'animatic_sketch_backend': 'text_card',
+                'ffmpeg': 'stub',
+                'ffprobe': 'stub',
+                'run': run,
+                'tts_settings': {'model': 'm', 'voice': 'v'},
+                'synthesize': lambda text, **_kw: b'fake-mp3-' + text.encode('utf-8'),
+                'signature_fn': lambda text, _cfg: 'sig01',
+                'probe_duration': lambda _path: 2.35,
+            }
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble):
+                video = run_animatic_timeline(root, settings=settings)
+            self.assertTrue(video.is_file())
+            self.assertEqual(captured_spec.get('shot_motions'), ['zoom_in', 'static'])
+            timeline = json.loads((folder / 'timeline.json').read_text(encoding='utf-8'))
+            rows = {row['id']: row for row in timeline['shots']}
+            self.assertEqual(rows['SH001']['dialogue_seconds'], 2.35)
+            self.assertIsNotNone(rows['SH001']['dialogue_audio'])
+            self.assertIsNone(rows['SH002']['dialogue_seconds'])
+            self.assertIsNone(rows['SH002']['dialogue_audio'])
+
+            captured_static = {}
+            def assemble_static(_images, _durations, _sound, target, **kwargs):
+                captured_static.update(kwargs.get('spec') or {})
+                target.write_bytes(b'video2')
+                return target
+
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble_static):
+                run_animatic_timeline(root, settings=dict(settings, animatic_ken_burns=False))
+            self.assertNotIn('shot_motions', captured_static)
+
+    def test_req_s04_83_regenerate_animatic_shot_reuses_ensure_comfy_ready(self):
+        """REQ-S04-83：单镜重做在默认 comfy_local 且无客户端时探测/拉起 ComfyUI；非 Comfy 后端跳过。"""
+        from stage_execution_service import load_or_sync_animatic_timeline, regenerate_animatic_shot
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._adopted(root, [{'id': 'SH001', 'duration': 3}])
+            load_or_sync_animatic_timeline(root)
+            events = []
+
+            def fake_wait(url, timeout=5):
+                events.append(('wait', url, timeout))
+                if len(events) == 1:
+                    raise ValueError('ComfyUI 未启动')
+
+            def fake_open():
+                events.append(('open',))
+
+            def fake_sketch(workspace, shot, _refs, _settings):
+                target = Path(workspace) / (shot['id'] + '.png')
+                target.write_bytes(b'img')
+                return target
+
+            with patch('domain.animatic_service.local_sketch', fake_sketch), \
+                    patch('infra.comfy_runtime.wait_comfy', side_effect=fake_wait), \
+                    patch('infra.comfy_runtime.open_comfy', side_effect=fake_open):
+                regenerate_animatic_shot(
+                    root, 'SH001',
+                    settings={'url': 'http://127.0.0.1:8199', 'probe_timeout': 2,
+                              'readiness_timeout': 10})
+            self.assertEqual(events, [
+                ('wait', 'http://127.0.0.1:8199', 2),
+                ('open',),
+                ('wait', 'http://127.0.0.1:8199', 10),
+            ])
+
+            with patch('infra.comfy_runtime.wait_comfy') as wait_mock, \
+                    patch('infra.comfy_runtime.open_comfy') as open_mock:
+                updated = regenerate_animatic_shot(
+                    root, 'SH001', settings={'animatic_sketch_backend': 'text_card'})
+            wait_mock.assert_not_called()
+            open_mock.assert_not_called()
+            self.assertEqual(updated['shots'][0]['image_version'], 2)
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

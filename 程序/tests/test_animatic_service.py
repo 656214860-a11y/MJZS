@@ -337,6 +337,92 @@ class AnimaticTests(unittest.TestCase):
             self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, True))
             self.assertTrue(service.evidence(root)[0])
 
+    # --- REQ-S04-103：暂存副本烧录不污染原图 -------------------------------
+    def test_req_s04_103_build_bundle_burns_overlay_only_on_scratch_copies(self):
+        """REQ-S04-103：注入 overlay_frame 时仅传暂存副本给 assemble，发布镜头图与原图字节完全一致。"""
+        import hashlib
+        from PIL import Image
+        from domain.animatic_sketch_backends import render_overlay_frame
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'storyboard_draft.json'
+            source.write_text(json.dumps({'shots': [
+                {'id': 'SH001', 'prompt': '门边的人', 'duration': 5, 'dialogue': '准备好了吗？'},
+            ]}, ensure_ascii=False), encoding='utf-8')
+            reference = root / 'reference.png'
+            reference.write_bytes(b'reference')
+            audio = root / 'temporary.wav'
+            audio.write_bytes(b'audio')
+            rendered_originals = []
+            assembled_frames = []
+
+            def render(workspace, shot, *_args):
+                target = workspace / (shot['id'] + '.png')
+                Image.new('RGB', (320, 180), (50, 90, 130)).save(target, format='PNG')
+                rendered_originals.append((target, hashlib.sha256(target.read_bytes()).hexdigest()))
+                return target
+
+            def assemble(images, durations, sound, target, **_kwargs):
+                for item in images:
+                    path = Path(item)
+                    assembled_frames.append((path, path.read_bytes()))
+                target.write_bytes(b'video')
+                return target
+
+            scratch = root / 'scratch'
+            scratch.mkdir()
+            result = service.build_bundle(
+                project_context(root), source, [reference], audio,
+                {'ffmpeg': 'stub', 'ffprobe': 'stub', 'overlay_frame': render_overlay_frame},
+                publish=lambda artifacts: publish_animatic_bundle(root, artifacts, validate=lambda _: True),
+                write_temporary=lambda path, raw: path.write_bytes(raw),
+                render=render, assemble=assemble, workspace=scratch)
+            self.assertTrue(result.ok)
+            orig_path, orig_sha = rendered_originals[0]
+            self.assertEqual(hashlib.sha256(orig_path.read_bytes()).hexdigest(), orig_sha,
+                             '原图字节不得被烧录修改')
+            frame_path, frame_bytes = assembled_frames[0]
+            self.assertNotEqual(frame_path.resolve(), orig_path.resolve())
+            self.assertNotEqual(hashlib.sha256(frame_bytes).hexdigest(), orig_sha,
+                                '传给 assemble 的暂存副本应已烧录覆盖层')
+            folder = write_dir(root, 'animatic')
+            manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+            published_shot = folder / manifest['shots'][0]['image']
+            self.assertEqual(hashlib.sha256(published_shot.read_bytes()).hexdigest(), orig_sha,
+                             '发布入库的镜头图必须保持干净原图零污染')
+
+    def test_req_s04_103_build_bundle_skips_overlay_when_disabled(self):
+        """REQ-S04-103：animatic_burn_overlay=False 时不调用 overlay_frame 钩子。"""
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = root / 'storyboard_draft.json'
+            source.write_text(json.dumps({'shots': [{'id': 'SH001', 'prompt': '人', 'duration': 2}]}),
+                              encoding='utf-8')
+            reference = root / 'reference.png'
+            reference.write_bytes(b'reference')
+            audio = root / 'temporary.wav'
+            audio.write_bytes(b'audio')
+            overlay_spy = Mock()
+
+            def render(workspace, *_args):
+                target = workspace / 'img.png'
+                target.write_bytes(b'image')
+                return target
+
+            def assemble(_images, _durations, _sound, target, **_kwargs):
+                target.write_bytes(b'video')
+                return target
+
+            result = service.build_bundle(
+                project_context(root), source, [reference], audio,
+                {'ffmpeg': 'stub', 'ffprobe': 'stub',
+                 'overlay_frame': overlay_spy, 'animatic_burn_overlay': False},
+                publish=lambda artifacts: publish_animatic_bundle(root, artifacts, validate=lambda _: True),
+                write_temporary=lambda path, raw: path.write_bytes(raw),
+                render=render, assemble=assemble)
+            self.assertTrue(result.ok)
+            overlay_spy.assert_not_called()
+
 
 if __name__ == '__main__':
     unittest.main()

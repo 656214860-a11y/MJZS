@@ -1,0 +1,16 @@
+{
+  "round": 4551,
+  "commit_base": "834f01329",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "",
+    "exit": 0,
+    "passed": 0,
+    "failed": 0,
+    "skipped": "merge-ci-exit"
+  },
+  "generated_at": "2026-11-26T17:49:23"
+}
