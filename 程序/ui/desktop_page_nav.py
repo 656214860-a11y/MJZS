@@ -259,6 +259,9 @@ class PageNavMixin:
             self.win.after_cancel(pending)
             self._navigation_job=None
         # 换页先收掉侧栏选择浮层、项目悬停卡与项目二级列（REQ-UI-SIDEBAR-1），避免旧列表浮在新页面上。
+        picker = getattr(getattr(self, 'shared_input', None), 'model_picker', None)
+        if picker is not None:
+            picker.dismiss_popup()
         close_popup=getattr(self,'_close_sidebar_popup',None)
         if callable(close_popup):close_popup()
         close_expand=getattr(self,'_close_sidebar_expand',None)

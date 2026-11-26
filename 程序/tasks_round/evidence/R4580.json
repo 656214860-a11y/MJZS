@@ -1,0 +1,15 @@
+{
+  "round": 4580,
+  "commit_base": "a8d6be6db",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k model_delete_stays_deleted",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T02:14:40"
+}

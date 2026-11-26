@@ -33,6 +33,9 @@ MODEL_LABEL_MAX_CHARS = 24
 POPUP_MAX_MODEL_ROWS = 5
 
 
+FOCUS_WATCH_MS = 120
+
+
 def _clip_label(text):
     text = str(text or '')
     return text if len(text) <= MODEL_LABEL_MAX_CHARS else text[:MODEL_LABEL_MAX_CHARS - 1] + '…'
@@ -57,6 +60,8 @@ class StageModelPicker(ttk.Frame):
         self._level = tk.StringVar(value='auto')
         self._popup = None             # 打开中的 Flyout
         self._popup_win = None         # 浮层所属主窗（解绑点外部监听用）
+        self._focus_check = None
+        self._focus_watch = None
         self._popup_binds = []         # 主窗上的点外部／Esc 绑定 (event, seqid)
         # R2964：Menubutton 换无外框按钮——文案经 _display 带「▾」，model 变量仍是纯模型名。
         # 语义组件 SecondaryButton＋自定义无框样式（按钮边界门禁要求走 ui_widgets 组件）。
@@ -95,8 +100,8 @@ class StageModelPicker(ttk.Frame):
             return model_router.AUTO
         return self._by_display.get(display) or model_router.AUTO
 
-    def refresh_models(self):
-        """模型池或项目变了：重读选项，并把已保存的那一档摆回去。"""
+    def refresh_models(self, *, keep_current=None):
+        """重新读取候选；展开时保留当前选择，切换阶段时回填该阶段配置。"""
         self._call_modes = {}
         records = pool_records(self.desktop)
         self.groups = grouped_model_choices(self.desktop, self.stage, call_modes=self._call_modes, records=records)
@@ -115,8 +120,14 @@ class StageModelPicker(ttk.Frame):
                 if 'reasoning' in model_pool.capabilities_of(
                         (records.get(model_id) or {}).get('capabilities')):
                     self._capable.add(model_id)
-        self._level.set(self.saved_reasoning())
-        self.set_model(self.saved_model())
+        if keep_current is None:
+            self._level.set(self.saved_reasoning())
+            self.set_model(self.saved_model())
+        elif keep_current in self._by_display.values():
+            self.set_model(keep_current)
+        else:
+            # 外部移除的当前模型保留其配置，但不再列为候选。
+            self._by_display[self.model.get()] = keep_current
         self._close_popup()
         return self.groups
 
@@ -192,7 +203,7 @@ class StageModelPicker(ttk.Frame):
         return top is not None and top.winfo_exists()
 
     def _open_popup(self):
-        self._close_popup()
+        self.refresh_models(keep_current=self.model_id())
         win = self.winfo_toplevel()
         top = Flyout(win, noactivate=True)
         self._popup = top
@@ -201,11 +212,54 @@ class StageModelPicker(ttk.Frame):
         self._fill_popup(top.body)
         self._place_popup(top)
         # 点外部／Esc 关：监听挂主窗绑定（bindtags 让窗内控件点击都经过），浮层内点击到不了。
+        self._owner_position = (win.winfo_rootx(), win.winfo_rooty())
         self._popup_binds = [
+            ('<Configure>', win.bind('<Configure>', self._owner_configured, add='+')),
+            ('<Unmap>', win.bind('<Unmap>', self._owner_unmapped, add='+')),
+            ('<FocusOut>', win.bind('<FocusOut>', self._check_app_focus, add='+')),
+            ('<Deactivate>', win.bind('<Deactivate>', self._check_app_focus, add='+')),
             ('<Button-1>', win.bind('<Button-1>', self._popup_outside, add='+')),
             ('<Escape>', win.bind('<Escape>', self._popup_escape, add='+')),
         ]
+        top.bind('<FocusOut>', self._check_app_focus, add='+')
+        top.bind('<Deactivate>', self._check_app_focus, add='+')
         top.bind('<Destroy>', self._popup_destroyed, add='+')
+        self._had_focus = self.focus_displayof() is not None
+        self._focus_watch = self.after(FOCUS_WATCH_MS, self._watch_app_focus)
+
+    def _owner_configured(self, event):
+        win = self._popup_win
+        if event.widget is win and self._owner_position != (win.winfo_rootx(), win.winfo_rooty()):
+            self._close_popup()
+
+    def _owner_unmapped(self, event):
+        if event.widget is self._popup_win or event.widget is self:
+            self._close_popup()
+
+    def _watch_app_focus(self):
+        # 不抢焦点的 Windows 浮层并不总能收到跨应用 FocusOut。
+        self._focus_watch = None
+        if self._had_focus:
+            self._dismiss_if_inactive_now()
+        else:
+            self._had_focus = self.focus_displayof() is not None
+        if self._popup_open():
+            self._focus_watch = self.after(FOCUS_WATCH_MS, self._watch_app_focus)
+
+    def _check_app_focus(self, _event):
+        if self._popup_open() and self._focus_check is None:
+            self._focus_check = self.after_idle(self._dismiss_if_inactive)
+
+    def _dismiss_if_inactive(self):
+        self._focus_check = None
+        self._dismiss_if_inactive_now()
+
+    def _dismiss_if_inactive_now(self):
+        if self._popup_open():
+            focus = self.focus_displayof()
+            if focus is None or focus.winfo_toplevel() not in (self._popup_win, self._popup):
+                self._close_popup()
+
 
     def _place_popup(self, top):
         """锚定按钮正上方、右缘对齐；上方放不下退回按钮下方，按显示器钳位。"""
@@ -397,10 +451,16 @@ class StageModelPicker(ttk.Frame):
         if event is not None and event.widget is not self._popup:
             return
         self._popup = None
-        self._popup_win = None
         self._unbind_popup()
+        self._popup_win = None
 
     def _unbind_popup(self):
+        if self._focus_watch is not None:
+            self.after_cancel(self._focus_watch)
+            self._focus_watch = None
+        if self._focus_check is not None:
+            self.after_cancel(self._focus_check)
+            self._focus_check = None
         pairs = self._popup_binds
         self._popup_binds = []
         win = self._popup_win
@@ -412,6 +472,9 @@ class StageModelPicker(ttk.Frame):
                     win.unbind(event_name, seq)
                 except tk.TclError:
                     pass
+
+    def dismiss_popup(self):
+        self._close_popup()
 
     def _close_popup(self):
         self._unbind_popup()
