@@ -200,13 +200,13 @@ class AccountStoreTests(unittest.TestCase):
 
     def test_session_integrity_rejects_tampering_and_recovers(self):
         account_store.save_session({'refresh_token': 'first-fixture'}, self.path)
-        stored = json.loads(self.path.read_text(encoding='utf-8'))
+        stored = account_store.read_session_file(self.path)
         self.assertTrue(session_integrity.verify(stored, self.path))
         key_path = self.path.with_name('.mac_key.dpapi')
         self.assertTrue(model_secrets.looks_like_blob(key_path.read_bytes()[:20]))
 
         stored['refresh_token'] = 'changed-fixture'
-        self.path.write_text(json.dumps(stored), encoding='utf-8')
+        account_store.write_session_file(stored, self.path)
         self.assertFalse(session_integrity.verify(stored, self.path))
         self.assertEqual(account_store.load(self.path), {})
         self.assertFalse(self.path.exists())
@@ -217,6 +217,24 @@ class AccountStoreTests(unittest.TestCase):
         self.assertFalse(key_path.exists())
         account_store.save_session({'refresh_token': 'third-fixture'}, self.path)
         self.assertEqual(account_store.load(self.path)['refresh_token'], 'third-fixture')
+
+    def test_session_file_is_encrypted_on_disk(self):
+        account_store.save_session({'refresh_token': 'plain-fixture-token'}, self.path)
+        raw = self.path.read_bytes()
+        with self.assertRaises(ValueError):
+            json.loads(raw.decode('utf-8', errors='replace'))
+        self.assertNotIn(b'plain-fixture-token', raw)
+        self.assertEqual(account_store.load(self.path)['refresh_token'], 'plain-fixture-token')
+
+    def test_flipped_ciphertext_byte_is_rejected_and_recovers(self):
+        account_store.save_session({'refresh_token': 'flip-fixture'}, self.path)
+        raw = bytearray(self.path.read_bytes())
+        raw[len(raw) // 2] ^= 0x01
+        self.path.write_bytes(bytes(raw))
+        self.assertEqual(account_store.load(self.path), {})
+        self.assertFalse(self.path.exists())
+        account_store.save_session({'refresh_token': 'after-flip-fixture'}, self.path)
+        self.assertEqual(account_store.load(self.path)['refresh_token'], 'after-flip-fixture')
 
     def test_clock_baseline_copies_fall_back_independently(self):
         registry = unittest.mock.MagicMock()

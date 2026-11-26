@@ -5,13 +5,14 @@
 内容不进日志、不进任务 JSON；本模块不联网、不导入 Tk。
 """
 import hashlib
+import json
 import secrets
 from pathlib import Path
 
-from agent.core import read, read_json, save, save_text
+from agent.core import save_bytes, save_text
 from agent.publication import access
 from contract.platform_tools import windows_registry
-from infra import session_integrity
+from infra import model_secrets, session_integrity
 from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -21,6 +22,7 @@ SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password'
 _FINGERPRINT_SALT = 'manju-device-v1:'
 _CLOCK_KEY = r'Software\漫剧制作助手'
 _CLOCK_VALUE = 'clock_floor'
+_SESSION_LABEL = '账户会话'
 
 
 def session_path(base=None):
@@ -34,7 +36,11 @@ def renew_lock_path(path=None):
 def load(path=None):
     """完整性验证失败按未登录处理，由既有登录入口提示重新登录。"""
     target = Path(path or session_path())
-    data = read_json(target, {})
+    try:
+        with access():
+            data = read_session_file(target)
+    except (OSError, ValueError):
+        data = {}
     if session_integrity.verify(data, target):
         return session_integrity.fields(data)
     if target.is_file():
@@ -50,7 +56,7 @@ def _load_write(path=None):
     """锁内读取和校验，避免重新签署失效会话或清除其他进程刚保存的会话。"""
     target = Path(path or session_path())
     try:
-        data = read(target)
+        data = read_session_file(target)
     except FileNotFoundError:
         return {}
     except (OSError, ValueError) as exc:
@@ -64,10 +70,32 @@ def _load_write(path=None):
     return {}
 
 
-def _write(data, path=None):
+def read_session_file(path=None):
+    """读会话文件：DPAPI 密文先解密；旧明文照读（下次写入时转存为密文）。
+
+    密文解不开（被篡改或换过用户）返回空字典，交给完整性校验按未登录恢复。
+    """
+    raw = Path(path or session_path()).read_bytes()
+    if not model_secrets.looks_like_blob(raw):
+        return json.loads(raw.decode('utf-8-sig'))
+    try:
+        text = model_secrets.protect(raw, decrypt=True, label=_SESSION_LABEL)
+    except ValueError:
+        return {}
+    return json.loads(text.decode('utf-8'))
+
+
+def write_session_file(data, path=None):
+    """整份会话（含 MAC）序列化后经 DPAPI 加密落盘：先解密再验 MAC。"""
     target = Path(path or session_path())
     target.parent.mkdir(parents=True, exist_ok=True)
-    save(target, session_integrity.seal(data, target))
+    payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
+    save_bytes(target, model_secrets.protect(payload, label=_SESSION_LABEL))
+
+
+def _write(data, path=None):
+    target = Path(path or session_path())
+    write_session_file(session_integrity.seal(data, target), target)
 
 
 def _read_clock_value(registry, key):
