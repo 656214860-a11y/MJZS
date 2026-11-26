@@ -41,7 +41,7 @@ def _invoke(args, stop, folder):
         finally:
             if child.poll() is None:
                 child.kill()
-                child.wait()
+                child.wait(timeout=5)
 
 
 def generate(config, prompt, references, destination, stop):
