@@ -7770,5 +7770,31 @@ class PetAskTests(PetTestCase):
         self.assertIsNone(pet_ask.ask_choice(self.win, '标题', '挑一个', []), '没有选项直接 None')
 
 
+class PetBroadcastGetattrForwardTests(unittest.TestCase):
+    """C04：转发属性真正缺失时，AttributeError 指明原对象与属性名。"""
+
+    def _pet(self):
+        from orchestrator.pet_broadcast_state import PetBroadcastAliasesMixin
+
+        class _Pet(PetBroadcastAliasesMixin):
+            pass
+        return _Pet()
+
+    def test_missing_forward_field_names_state_object(self):
+        pet = self._pet()
+        pet.bstate = SimpleNamespace()
+        with self.assertRaises(AttributeError) as ctx:
+            pet.notice
+        self.assertIn('SimpleNamespace', str(ctx.exception))
+        self.assertIn('notice', str(ctx.exception))
+
+    def test_missing_plain_attribute_names_owner_and_attribute(self):
+        pet = self._pet()
+        with self.assertRaises(AttributeError) as ctx:
+            pet.no_such_attr
+        self.assertIn('_Pet', str(ctx.exception))
+        self.assertIn('no_such_attr', str(ctx.exception))
+
+
 if __name__ == "__main__":
     unittest.main(verbosity=1)

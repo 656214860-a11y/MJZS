@@ -117,6 +117,11 @@ class PetBroadcastAliasesMixin:
         if name == 'offer':
             state = vars(self)['offer'] = PetOfferState()
             return state
+        forward = getattr(type(self), name, None)
+        if isinstance(forward, _Forward):
+            # 描述符里 bstate 缺字段的 AttributeError 会被 Python 吞掉转到这里；
+            # 重新读一次让原错误（指明 bstate 对象与字段名）原样抛出。
+            return getattr(self.bstate, forward.state_field)
         raise AttributeError(f"{type(self).__name__!r} object has no attribute {name!r}")
 
 
