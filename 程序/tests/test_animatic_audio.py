@@ -78,6 +78,23 @@ class PlanTests(unittest.TestCase):
             missing = plan([_shot('SH001', 2)], music=Path(folder) / '无.mp3')
             self.assertIsNone(missing['music'])
 
+    def test_req_s04_114_use_tts_false_returns_silent_without_tts_shots(self):
+        """REQ-S04-114：无整轨且 use_tts=False 时即使有对白也返回 silent 且不排逐镜 TTS。"""
+        with tempfile.TemporaryDirectory() as folder:
+            music = Path(folder) / 'bgm.mp3'
+            music.write_bytes(b'm')
+            result = plan([_shot('SH001', 2, '有对白'), _shot('SH002', 3, '也有对白')],
+                          music=music, use_tts=False)
+            self.assertEqual(result, {'mode': 'silent', 'full_track': None,
+                                      'music': music, 'tts_shots': []})
+            track = Path(folder) / 'track.mp3'
+            track.write_bytes(b't')
+            full = plan([_shot('SH001', 2, '有对白')], full_track=track,
+                        music=music, use_tts=False)
+            self.assertEqual(full['mode'], 'full_track')
+            self.assertEqual(full['full_track'], track)
+            self.assertEqual(full['tts_shots'], [])
+
 
 class ShotTtsTests(unittest.TestCase):
     def _synth(self):

@@ -251,6 +251,67 @@ class TimelineModelTests(unittest.TestCase):
         self.assertEqual(rows['SH001']['dialogue_seconds'], 2.75)
         self.assertIsNone(rows['SH002']['dialogue_seconds'])
 
+    def test_req_s04_115_review_status_lifecycle_legacy_compat_and_rebuild(self):
+        """REQ-S04-115：单镜审核状态枚举校验、旧时间线兼容、待修改列表与重建保留。"""
+        from domain import animatic_timeline as timeline_model
+        self.assertEqual(timeline_model.REVIEW_STATES, ('pending', 'approved', 'needs_revision'))
+        board = {'shots': [{'id': 'SH001', 'duration': 3}, {'id': 'SH002', 'duration': 4}]}
+        timeline, _ = timeline_model.build(board, 'ep1.json', 'sha-1')
+        self.assertEqual(timeline['shots'][0]['review_status'], 'pending')
+        self.assertEqual(timeline_model.review_status_of({'id': 'SH001'}), 'pending')
+        self.assertEqual(timeline_model.review_status_of({'review_status': 'bogus'}), 'pending')
+        self.assertEqual(timeline_model.review_status_of({'review_status': 'approved'}), 'approved')
+        updated = timeline_model.set_review_status(timeline, 'SH002', 'needs_revision')
+        self.assertEqual(timeline['shots'][1]['review_status'], 'pending', '返回新副本不改原对象')
+        self.assertEqual(updated['shots'][1]['review_status'], 'needs_revision')
+        updated = timeline_model.set_review_status(updated, 'SH001', 'approved')
+        self.assertEqual(timeline_model.needs_revision_ids(updated), ('SH002',))
+        with self.assertRaises(ValueError):
+            timeline_model.set_review_status(updated, 'SH001', 'invalid')
+        legacy = {'kind': 'animatic_timeline', 'source': 'ep1.json', 'source_sha256': 'old',
+                  'shots': [{'id': 'SH001', 'seconds': 3, 'review_status': 'approved'},
+                            {'id': 'SH002', 'seconds': 4, 'review_status': 'needs_revision'}]}
+        rebuilt, flag = timeline_model.build(
+            {'shots': [{'id': 'SH001', 'duration': 3},
+                       {'id': 'SH002', 'duration': 4}, {'id': 'SH003', 'duration': 5}]},
+            'ep1.json', 'sha-2', previous=legacy)
+        self.assertTrue(flag)
+        rows = {row['id']: row for row in rebuilt['shots']}
+        self.assertEqual(rows['SH001']['review_status'], 'approved')
+        self.assertEqual(rows['SH002']['review_status'], 'needs_revision')
+        self.assertEqual(rows['SH003']['review_status'], 'pending')
+
+    def test_req_s04_115_filter_shots_by_scene_and_status(self):
+        """REQ-S04-115：按场次与状态（all/needs_revision/overlong/missing_image）筛选镜头。"""
+        from domain import animatic_timeline as timeline_model
+        board = {'shots': [
+            {'id': 'SH001', 'duration': 3, 'scene_id': 'SC01', 'location': '茶馆'},
+            {'id': 'SH002', 'duration': 4, 'scene': 'SC01', 'location': '茶馆'},
+            {'id': 'SH003', 'duration': 3, 'scene_id': 'SC02', 'location': '雨夜街道'},
+        ]}
+        timeline, _ = timeline_model.build(board, 'ep1.json', 'sha-1')
+        timeline = timeline_model.set_version(timeline, 'SH001', 1)
+        timeline = timeline_model.set_version(timeline, 'SH003', 2)
+        timeline = timeline_model.set_review_status(timeline, 'SH002', 'needs_revision')
+        timeline['shots'][0]['dialogue_seconds'] = 3.5
+        timeline['shots'][2]['dialogue_seconds'] = 3.05
+        ids = lambda rows: [row['id'] for row in rows]
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board)), ['SH001', 'SH002', 'SH003'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, status='all')),
+                         ['SH001', 'SH002', 'SH003'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, scene='SC01')),
+                         ['SH001', 'SH002'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, scene='雨夜街道')),
+                         ['SH003'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, status='needs_revision')),
+                         ['SH002'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, status='overlong')),
+                         ['SH001'])
+        self.assertEqual(ids(timeline_model.filter_shots(timeline, board, status='missing_image')),
+                         ['SH002'])
+        self.assertEqual(ids(timeline_model.filter_shots(
+            timeline, board, scene='SC01', status='needs_revision')), ['SH002'])
+
 
 class TimelineGatewayTests(unittest.TestCase):
     """REQ-S04-80…85 的 L3 组装：timeline.json 持久化、单镜重做／替换、版本化合成。"""
@@ -462,7 +523,8 @@ class TimelineGatewayTests(unittest.TestCase):
                 Path(command[-1]).write_bytes(b'mixed')
                 return SimpleNamespace(stdout='')
 
-            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+            settings = {'animatic_sketch_backend': 'comfy_local',
+                        'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
                         'url': 'http://127.0.0.1:8199', 'probe_timeout': 3,
                         'readiness_timeout': 12}
             with patch('stage_parallel.evaluate', return_value={'ok': True}), \
@@ -508,7 +570,8 @@ class TimelineGatewayTests(unittest.TestCase):
                 Path(command[-1]).write_bytes(b'mixed')
                 return SimpleNamespace(stdout='')
 
-            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+            settings = {'animatic_sketch_backend': 'comfy_local',
+                        'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
                         'comfy_client': StubClient()}
             with patch('stage_parallel.evaluate', return_value={'ok': True}), \
                     patch('domain.edit_service.assemble_image_timeline', assemble), \
@@ -606,7 +669,8 @@ class TimelineGatewayTests(unittest.TestCase):
                     patch('infra.comfy_runtime.open_comfy', side_effect=fake_open):
                 regenerate_animatic_shot(
                     root, 'SH001',
-                    settings={'url': 'http://127.0.0.1:8199', 'probe_timeout': 2,
+                    settings={'animatic_sketch_backend': 'comfy_local',
+                              'url': 'http://127.0.0.1:8199', 'probe_timeout': 2,
                               'readiness_timeout': 10})
             self.assertEqual(events, [
                 ('wait', 'http://127.0.0.1:8199', 2),
@@ -621,6 +685,108 @@ class TimelineGatewayTests(unittest.TestCase):
             wait_mock.assert_not_called()
             open_mock.assert_not_called()
             self.assertEqual(updated['shots'][0]['image_version'], 2)
+
+    def test_req_s04_114_default_text_card_silent_and_tts_failure_hint(self):
+        """REQ-S04-114：默认不探测 ComfyUI、animatic_use_tts=False 静音出片、TTS 失败给出中文提示。"""
+        from stage_execution_service import run_animatic_timeline
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            source = self._adopted(root, [{'id': 'SH001', 'duration': 3}])
+            board = json.loads(source.read_text(encoding='utf-8'))
+            board['shots'][0]['dialogue'] = ['开场对白']
+            source.write_text(json.dumps(board, ensure_ascii=False), encoding='utf-8')
+
+            def assemble(_images, _durations, _sound, target, **_kwargs):
+                target.write_bytes(b'video')
+                return target
+
+            def run(command, **_kwargs):
+                Path(command[-1]).write_bytes(b'mixed')
+                return SimpleNamespace(stdout='')
+
+            def broken_tts(*_a, **_kw):
+                raise RuntimeError('missing api key')
+
+            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+                        'animatic_use_tts': False, 'synthesize': broken_tts,
+                        'tts_settings': {}}
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble), \
+                    patch('infra.comfy_runtime.wait_comfy') as wait_mock:
+                video = run_animatic_timeline(root, settings=settings)
+            self.assertTrue(video.is_file())
+            wait_mock.assert_not_called()
+
+            settings_tts = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+                            'animatic_use_tts': True, 'synthesize': broken_tts,
+                            'tts_settings': {'model': 'm', 'voice': 'v'},
+                            'signature_fn': lambda _t, _s: 'sig'}
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble):
+                with self.assertRaisesRegex(ValueError, '关闭逐镜 TTS'):
+                    run_animatic_timeline(root, settings=settings_tts)
+
+    def test_req_s04_114_remove_animatic_audio_recycles_and_validates_track(self):
+        """REQ-S04-114：remove_animatic_audio 经回收站移出整轨或音乐，非法 track 抛错。"""
+        from stage_execution_service import remove_animatic_audio
+        from infra.storage_maintenance import restore_latest_recycled_path
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            folder = write_dir(root, 'animatic')
+            track_file = folder / '声音' / '整轨' / 'full.mp3'
+            music_file = folder / '声音' / '音乐' / 'bgm.mp3'
+            track_file.parent.mkdir(parents=True, exist_ok=True)
+            music_file.parent.mkdir(parents=True, exist_ok=True)
+            track_file.write_bytes(b'track-bytes')
+            music_file.write_bytes(b'bgm-bytes')
+            with self.assertRaises(ValueError):
+                remove_animatic_audio(root, 'dialogue')
+            removed = remove_animatic_audio(root, 'track')
+            self.assertEqual([Path(p).resolve() for p in removed], [track_file.resolve()])
+            self.assertFalse(track_file.exists())
+            self.assertTrue(music_file.is_file(), '移除整轨不得误删音乐')
+            restore_latest_recycled_path(root, track_file)
+            self.assertEqual(track_file.read_bytes(), b'track-bytes', '移除的音频应可从项目回收站恢复')
+            removed_bgm = remove_animatic_audio(root, 'music')
+            self.assertEqual([Path(p).resolve() for p in removed_bgm], [music_file.resolve()])
+            self.assertFalse(music_file.exists())
+            self.assertEqual(remove_animatic_audio(root, 'music'), ())
+
+    def test_req_s04_115_regenerate_revision_shots_resets_status_and_rejects_empty(self):
+        """REQ-S04-115：批量重做只跑需修改镜头、成功后重置为 pending，无待改镜头报错。"""
+        from domain import animatic_sketch_backends as backends
+        from stage_execution_service import (
+            load_or_sync_animatic_timeline, regenerate_revision_shots, update_animatic_shot)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._adopted(root, [{'id': 'SH001', 'duration': 3},
+                                 {'id': 'SH002', 'duration': 4},
+                                 {'id': 'SH003', 'duration': 3}])
+            load_or_sync_animatic_timeline(root)
+            with self.assertRaisesRegex(ValueError, '当前没有标记「需修改」的镜头'):
+                regenerate_revision_shots(root)
+            update_animatic_shot(root, 'SH001', review_status='approved')
+            update_animatic_shot(root, 'SH002', review_status='needs_revision')
+            update_animatic_shot(root, 'SH003', review_status='needs_revision')
+            calls = []
+
+            def factory(workspace, shot, _refs, _settings):
+                calls.append(shot['id'])
+                target = workspace / (shot['id'] + '.png')
+                target.write_bytes(b'redo-' + shot['id'].encode())
+                return target
+
+            backends.register('unit_rev_stub', factory)
+            self.addCleanup(backends.unregister, 'unit_rev_stub')
+            updated = regenerate_revision_shots(
+                root, settings={'animatic_sketch_backend': 'unit_rev_stub'})
+            self.assertEqual(calls, ['SH002', 'SH003'])
+            rows = {row['id']: row for row in updated['shots']}
+            self.assertEqual(rows['SH001']['review_status'], 'approved')
+            self.assertEqual(rows['SH002']['review_status'], 'pending')
+            self.assertEqual(rows['SH003']['review_status'], 'pending')
+            self.assertEqual(rows['SH002']['image_version'], 1)
+            self.assertEqual(rows['SH003']['image_version'], 1)
 
 
 if __name__ == '__main__':

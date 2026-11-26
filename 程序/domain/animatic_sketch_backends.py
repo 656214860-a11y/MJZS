@@ -1,7 +1,7 @@
 """L2 分镜预演草图生成器接口：可插拔后端登记、分流、暂存烧录、运镜识别与替换图校验。
 
-按 ``settings['animatic_sketch_backend']`` 分流，默认 ``comfy_local``（本地 ComfyUI），
-同时内建免费后端 ``text_card``（纯本地 Pillow 文字分镜卡）与 ``gflow_cli``（Google Flow）。
+按 ``settings['animatic_sketch_backend']`` 分流，默认 ``text_card``（文字分镜卡·零成本），
+同时内建 ``gflow_cli``（Google Flow）与 ``comfy_local``（本地 ComfyUI）免费后端。
 会产生费用的后端默认关闭，须在设置中显式开启 ``animatic_allow_paid_sketch``。
 纯 L2 模块：零同层 domain/* 依赖；外部执行器全部由编排层注入，本模块不构造网络客户端。
 """
@@ -10,7 +10,7 @@ import threading
 import time
 from pathlib import Path
 
-DEFAULT_BACKEND = 'comfy_local'
+DEFAULT_BACKEND = 'text_card'
 ALLOWED_IMAGE_SUFFIXES = ('.png', '.jpg', '.jpeg', '.webp')
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
 SKETCH_PROMPT_PREFIX = '只生成分镜预演草图，不是正式资产或首帧。\n'
@@ -318,6 +318,6 @@ def infer_motion(shot):
     return 'static'
 
 
-register(DEFAULT_BACKEND, comfy_local_render, label='本地 ComfyUI 草图')
+register('comfy_local', comfy_local_render, label='本地 ComfyUI 草图')
 register('text_card', text_card_render, paid=False, label='文字分镜卡（零成本）')
 register('gflow_cli', gflow_cli_render, paid=False, label='Google Flow（gflow-cli 免费）')

@@ -337,6 +337,31 @@ class AnimaticTests(unittest.TestCase):
             self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, True))
             self.assertTrue(service.evidence(root)[0])
 
+    def test_req_s04_115_lock_blocks_needs_revision_shots_without_touching_s03(self):
+        """REQ-S04-115：存在「需修改」镜头时锁定被拦截并列数量与前 6 镜号，清除后正常锁定。"""
+        from stage_execution_service import lock_animatic, update_animatic_shot
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            pairs = [('SH%03d' % i, 3) for i in range(1, 8)]
+            source, folder = self._locked_setup(root, pairs)
+            original = source.read_bytes()
+            for sid, _ in pairs:
+                update_animatic_shot(root, sid, review_status='needs_revision')
+            with self.assertRaises(ValueError) as ctx:
+                lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            msg = str(ctx.exception)
+            self.assertIn('7 个镜头标记为「需修改」', msg)
+            self.assertIn('SH001', msg)
+            self.assertIn('SH006', msg)
+            self.assertNotIn('SH007', msg, '最多列出前 6 个镜号')
+            self.assertEqual(source.read_bytes(), original, '拦截时绝不改写 S03')
+            manifest = json.loads((folder / service.MANIFEST).read_text(encoding='utf-8'))
+            self.assertEqual(manifest['confirmed'], dict.fromkeys(service.CONFIRMATIONS, False))
+            for sid, _ in pairs:
+                update_animatic_shot(root, sid, review_status='pending')
+            lock_animatic(root, rhythm=True, duration=True, dialogue_sync=True)
+            self.assertTrue(service.evidence(root)[0])
+
     # --- REQ-S04-103：暂存副本烧录不污染原图 -------------------------------
     def test_req_s04_103_build_bundle_burns_overlay_only_on_scratch_copies(self):
         """REQ-S04-103：注入 overlay_frame 时仅传暂存副本给 assemble，发布镜头图与原图字节完全一致。"""

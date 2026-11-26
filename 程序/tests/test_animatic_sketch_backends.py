@@ -96,8 +96,10 @@ class CreateDispatchTests(unittest.TestCase):
         return calls, original
 
     def test_missing_settings_dispatch_to_comfy_local(self):
-        """缺省与空设置都落到默认 comfy_local 后端，render 契约四参可调用。"""
-        calls, original = self._spy_factory('comfy_local')
+        """REQ-S04-114：缺省与空设置落到默认 text_card 后端，显式 comfy_local 仍正常分流。"""
+        self.assertEqual(backends.DEFAULT_BACKEND, 'text_card')
+        calls, original = self._spy_factory('text_card')
+        comfy_calls, comfy_original = self._spy_factory('comfy_local')
         try:
             for settings in (None, {}, {'animatic_sketch_backend': ''}):
                 render = backends.create(settings)
@@ -105,8 +107,13 @@ class CreateDispatchTests(unittest.TestCase):
                 self.assertEqual(render('ws', SHOT, [], {'seed': 9}), Path('out.png'))
             self.assertEqual(len(calls), 3)
             self.assertEqual(calls[0][3], {'seed': 9})
+            comfy_render = backends.create({'animatic_sketch_backend': 'comfy_local'})
+            self.assertEqual(comfy_render('ws', SHOT, [], {'seed': 7}), Path('out.png'))
+            self.assertEqual(len(comfy_calls), 1)
+            self.assertEqual(comfy_calls[0][3], {'seed': 7})
         finally:
-            backends.BACKENDS['comfy_local']['factory'] = original
+            backends.BACKENDS['text_card']['factory'] = original
+            backends.BACKENDS['comfy_local']['factory'] = comfy_original
 
     def test_explicit_backend_name_is_dispatched(self):
         backends.register('unit_test_alt', lambda *a: Path('alt.png'), label='备用')

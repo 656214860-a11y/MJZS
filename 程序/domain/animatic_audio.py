@@ -34,12 +34,14 @@ def _shot_id(shot):
     return str(shot.get('id') or shot.get('shot_id'))
 
 
-def plan(shots, *, full_track=None, music=None):
-    """决定预演声音模式：整轨配音优先；否则按有对白的镜头排逐镜临时 TTS；全无音源时静音。"""
+def plan(shots, *, full_track=None, music=None, use_tts=True):
+    """决定预演声音模式：整轨配音优先；use_tts=False 时直接静音；否则按有对白镜头排逐镜 TTS。"""
     track = _live_file(full_track)
     bgm = _live_file(music)
     if track is not None:
         return {'mode': 'full_track', 'full_track': track, 'music': bgm, 'tts_shots': []}
+    if use_tts is False:
+        return {'mode': 'silent', 'full_track': None, 'music': bgm, 'tts_shots': []}
     pending = []
     start = 0.0
     for shot in shots:

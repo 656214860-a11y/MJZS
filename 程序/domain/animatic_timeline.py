@@ -17,9 +17,10 @@ _DEFAULT_SECONDS = 4
 _VERSION_PATTERN = re.compile(r'^v(\d+)\.[^.]+$', re.IGNORECASE)
 _VIDEO_PATTERN = re.compile(r'^animatic_v(\d+)\.mp4$', re.IGNORECASE)
 
-# REQ-S04-85/105 重建时同 ID 保留的时间线字段。
+# REQ-S04-85/105/115 重建时同 ID 保留的时间线字段与单镜审核状态。
+REVIEW_STATES = ('pending', 'approved', 'needs_revision')
 _CARRIED = ('seconds', 'image_version', 'source', 'references',
-            'dialogue_audio', 'dialogue_seconds', 'note')
+            'dialogue_audio', 'dialogue_seconds', 'note', 'review_status')
 
 
 def _shot_rows(storyboard):
@@ -44,13 +45,19 @@ def _default_seconds(shot):
 def _new_row(shot):
     return {'id': str(shot['id']), 'seconds': _default_seconds(shot), 'image_version': 0,
             'source': 'generated', 'references': [], 'dialogue_audio': None,
-            'dialogue_seconds': None, 'note': ''}
+            'dialogue_seconds': None, 'note': '', 'review_status': 'pending'}
+
+
+def review_status_of(row):
+    """REQ-S04-115：单镜审核状态归一化；旧项目缺失或非法值统一归为 pending。"""
+    value = row.get('review_status') if isinstance(row, dict) else None
+    return value if value in REVIEW_STATES else 'pending'
 
 
 def build(storyboard, source_rel, source_sha, *, previous=None):
     """初建或按 REQ-S04-85 重建时间线，返回 ``(timeline, rebuilt)``。
 
-    同一路径的旧时间线：同 ID 保留时长调整、图版本、来源、参考图、对白音频与批注；
+    同一路径的旧时间线：同 ID 保留时长调整、图版本、来源、参考图、对白音频、批注与审核状态；
     新增镜头取默认值，已删镜头从时间线移除（盘上版本图文件由 L3 保留不删）。
     """
     previous = previous if isinstance(previous, dict) else None
@@ -67,6 +74,7 @@ def build(storyboard, source_rel, source_sha, *, previous=None):
             for key in _CARRIED:
                 if key in old:
                     entry[key] = deepcopy(old[key])
+            entry['review_status'] = review_status_of(entry)
         shots.append(entry)
     timeline = artifact_schema.stamp('animatic_timeline', {
         'kind': 'animatic_timeline', 'source': str(source_rel),
@@ -107,6 +115,80 @@ def set_note(timeline, shot_id, note):
     out = deepcopy(timeline)
     _row(out, shot_id)['note'] = str(note or '')
     return out
+
+
+def set_review_status(timeline, shot_id, status):
+    """REQ-S04-115：设置单镜审核状态，非 REVIEW_STATES 抛 ValueError，返回新副本。"""
+    if status not in REVIEW_STATES:
+        raise ValueError('审核状态无效：' + str(status))
+    out = deepcopy(timeline)
+    _row(out, shot_id)['review_status'] = status
+    return out
+
+
+def needs_revision_ids(timeline):
+    """REQ-S04-115：按时间线顺序返回全部标记为 needs_revision 的镜头编号。"""
+    return tuple(
+        str(row['id'])
+        for row in (timeline.get('shots') or () if isinstance(timeline, dict) else ())
+        if isinstance(row, dict) and row.get('id')
+        and review_status_of(row) == 'needs_revision'
+    )
+
+
+def _board_shot_map(board):
+    if isinstance(board, dict):
+        shots = board.get('shots')
+        if isinstance(shots, list):
+            return {str(item['id']): item for item in shots
+                    if isinstance(item, dict) and item.get('id')}
+        return {str(key): value for key, value in board.items() if isinstance(value, dict)}
+    if isinstance(board, (list, tuple)):
+        return {str(item['id']): item for item in board
+                if isinstance(item, dict) and item.get('id')}
+    return {}
+
+
+def _is_overlong(row):
+    dialogue = row.get('dialogue_seconds')
+    if not isinstance(dialogue, (int, float)) or isinstance(dialogue, bool):
+        return False
+    return float(dialogue) > float(row.get('seconds') or 0) + 0.1
+
+
+def filter_shots(timeline, board, *, scene='', status=''):
+    """REQ-S04-115：按场次与状态筛选时间线镜头（保序返回行列表）。"""
+    rows = [row for row in (timeline.get('shots') or () if isinstance(timeline, dict) else ())
+            if isinstance(row, dict)]
+    scene_key = str(scene or '').strip()
+    status_key = str(status or '').strip()
+    board_map = _board_shot_map(board) if scene_key else {}
+    matched = []
+    for row in rows:
+        if scene_key:
+            meta = board_map.get(str(row.get('id') or ''), {})
+            candidates = {
+                str(meta.get(field) or '').strip()
+                for field in ('scene_id', 'scene', 'location')
+                if str(meta.get(field) or '').strip()
+            }
+            if scene_key not in candidates:
+                continue
+        if status_key in ('', 'all'):
+            matched.append(row)
+        elif status_key == 'needs_revision':
+            if review_status_of(row) == 'needs_revision':
+                matched.append(row)
+        elif status_key == 'overlong':
+            if _is_overlong(row):
+                matched.append(row)
+        elif status_key == 'missing_image':
+            if int(row.get('image_version') or 0) <= 0:
+                matched.append(row)
+        elif status_key in REVIEW_STATES:
+            if review_status_of(row) == status_key:
+                matched.append(row)
+    return matched
 
 
 def next_version(existing_files):

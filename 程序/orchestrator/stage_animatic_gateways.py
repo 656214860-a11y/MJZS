@@ -139,6 +139,23 @@ def import_animatic_audio(project, source, *, track=None):
     return import_audio(project, source, **_animatic_audio_route(project, source, track))
 
 
+def remove_animatic_audio(project, track):
+    """REQ-S04-114：将整轨或背景音乐子目录下真实音频经回收站安全移除并返回路径。"""
+    from domain import animatic_audio
+    from infra.storage_maintenance import recycle_paths
+    if track not in ('track', 'music'):
+        raise ValueError('音频轨道类型无效：' + str(track))
+    root = Path(project).resolve()
+    target_dir = write_dir(root, 'animatic') / animatic_audio.SUBDIRS[track]
+    if not target_dir.is_dir():
+        return ()
+    files = tuple(sorted(path for path in target_dir.iterdir() if path.is_file()))
+    if not files:
+        return ()
+    recycle_paths(root, list(files), '移除分镜预演临时音频')
+    return files
+
+
 def animatic_video(project):
     from domain.animatic_service import MANIFEST, evidence
     ok, reason = evidence(project, require_confirmation=False)
@@ -245,6 +262,13 @@ def refs_for_animatic_shot(project, shot):
     from domain.animatic_references import refs_for_shot
     return refs_for_shot(shot, animatic_reference_library(project),
                          formal_assets=_formal_animatic_assets(project))
+
+
+def shot_ref_details(project, shot):
+    """REQ-S04-115/113：返回单镜实际命中参考图及来源徽章列表。"""
+    from domain.animatic_references import shot_ref_badges
+    return shot_ref_badges(shot, animatic_reference_library(project),
+                           formal_assets=_formal_animatic_assets(project))
 
 
 def reclassify_animatic_reference(project, path, category, new_name=None):
@@ -417,7 +441,7 @@ def _timeline_render(settings):
 
         return render_gflow
     render = animatic_sketch_backends.create(settings)
-    if name == animatic_sketch_backends.DEFAULT_BACKEND and settings.get('comfy_client') is None:
+    if name == 'comfy_local' and settings.get('comfy_client') is None:
         return animatic_service.local_sketch
     return render
 
@@ -480,8 +504,9 @@ def load_or_sync_animatic_timeline(project, source=None):
     return timeline
 
 
-def update_animatic_shot(project, shot_id, *, seconds=None, image_version=None, note=None):
-    """REQ-S04-81/82/97：单镜改时长、切图版本、写批注后重新发布时间线。"""
+def update_animatic_shot(project, shot_id, *, seconds=None, image_version=None, note=None,
+                         review_status=None):
+    """REQ-S04-81/82/97/115：单镜改时长、切图版本、写批注或更新审核状态后发布时间线。"""
     from domain import animatic_timeline as timeline_model
     root = Path(project).resolve()
     timeline = load_or_sync_animatic_timeline(root)
@@ -495,6 +520,8 @@ def update_animatic_shot(project, shot_id, *, seconds=None, image_version=None, 
         updated = timeline_model.set_version(updated, shot_id, image_version)
     if note is not None:
         updated = timeline_model.set_note(updated, shot_id, note)
+    if review_status is not None:
+        updated = timeline_model.set_review_status(updated, shot_id, review_status)
     if updated != timeline:
         _publish_animatic_timeline(root, updated)
     return updated
@@ -537,6 +564,21 @@ def regenerate_animatic_shot(project, shot_id, *, settings=None):
     return updated
 
 
+def regenerate_revision_shots(project, *, settings=None):
+    """REQ-S04-115：仅重做标记为「需修改」的镜头，每镜重做成功后重置审核状态为 pending。"""
+    from domain import animatic_timeline as timeline_model
+    root = Path(project).resolve()
+    timeline = load_or_sync_animatic_timeline(root)
+    targets = timeline_model.needs_revision_ids(timeline)
+    if not targets:
+        raise ValueError('当前没有标记「需修改」的镜头')
+    updated = timeline
+    for shot_id in targets:
+        regenerate_animatic_shot(root, shot_id, settings=settings)
+        updated = update_animatic_shot(root, shot_id, review_status='pending')
+    return updated
+
+
 def replace_animatic_shot_image(project, shot_id, image_path):
     """REQ-S04-79/82：导入图校验后写新版本，时间线记 source='imported'。"""
     from domain import animatic_sketch_backends, animatic_timeline as timeline_model
@@ -576,7 +618,8 @@ def _timeline_audio(root, folder, timeline, board, settings, scratch):
     audio_shots = [{'id': row['id'], 'seconds': row['seconds'],
                     'dialogue': board.get(row['id'], {}).get('dialogue')}
                    for row in timeline['shots']]
-    plan = animatic_audio.plan(audio_shots, full_track=full_track, music=music)
+    use_tts = bool(settings.get('animatic_use_tts', True))
+    plan = animatic_audio.plan(audio_shots, full_track=full_track, music=music, use_tts=use_tts)
     clips, clip_map = [], {}
     if plan['tts_shots']:
         from domain.tts_api import read_settings, script_signature, synthesize
@@ -584,13 +627,17 @@ def _timeline_audio(root, folder, timeline, board, settings, scratch):
         synth = settings.get('synthesize') or synthesize
         signature_fn = settings.get('signature_fn') or script_signature
         for item in plan['tts_shots']:
-            clip = animatic_audio.shot_tts(
-                {'id': item['id'], 'text': item['text']},
-                audio_root / animatic_audio.SUBDIRS['dialogue'], tts_settings,
-                synthesize=synth, signature_fn=signature_fn,
-                write_temporary=lambda path, raw: publish_stage_bytes(
-                    path, raw, lambda data: bool(data), file_cache.published),
-                project=root)
+            try:
+                clip = animatic_audio.shot_tts(
+                    {'id': item['id'], 'text': item['text']},
+                    audio_root / animatic_audio.SUBDIRS['dialogue'], tts_settings,
+                    synthesize=synth, signature_fn=signature_fn,
+                    write_temporary=lambda path, raw: publish_stage_bytes(
+                        path, raw, lambda data: bool(data), file_cache.published),
+                    project=root)
+            except Exception as exc:
+                raise ValueError('逐镜临时配音失败，可在「声音」关闭逐镜 TTS 先静音出片或配置语音：'
+                                 + str(exc)) from None
             clips.append({'path': clip, 'start_ms': int(round(item['start_seconds'] * 1000))})
             clip_map[item['id']] = clip
     total = sum(float(row['seconds']) for row in timeline['shots'])
@@ -666,10 +713,10 @@ def _compose_timeline_rows(root, timeline, shot_versions, existing_images,
 
 
 def _ensure_comfy_ready(settings):
-    """默认 comfy_local 且未注入客户端时探测/拉起本地 ComfyUI。"""
+    """选择 comfy_local 且未注入客户端时探测/拉起本地 ComfyUI。"""
     from domain import animatic_sketch_backends
     backend = settings.get('animatic_sketch_backend') or animatic_sketch_backends.DEFAULT_BACKEND
-    if backend != animatic_sketch_backends.DEFAULT_BACKEND or settings.get('comfy_client') is not None:
+    if backend != 'comfy_local' or settings.get('comfy_client') is not None:
         return
     _probe_comfy(settings)
 
@@ -782,6 +829,11 @@ def lock_animatic(project, *, rhythm, duration, dialogue_sync):
     ok, reason = evidence(root, require_confirmation=False)
     if not ok:
         raise ValueError(reason)
+    revisions = timeline_model.needs_revision_ids(timeline)
+    if revisions:
+        preview = '、'.join(revisions[:6]) + (' 等' if len(revisions) > 6 else '')
+        raise ValueError('还有 %d 个镜头标记为「需修改」（%s），请处理后再锁定'
+                         % (len(revisions), preview))
     current = {row['id']: row.get('seconds') for row in timeline.get('shots', [])
                if isinstance(row, dict)}
     composed = {row.get('id'): row.get('seconds') for row in manifest.get('shots', [])
