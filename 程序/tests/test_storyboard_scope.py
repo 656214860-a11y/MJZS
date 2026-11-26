@@ -83,6 +83,14 @@ class StoryboardScopeTests(unittest.TestCase):
                 self.assertTrue(path.is_file())
                 self.assertIn('stage: 初步分镜', path.read_text(encoding='utf-8'))
 
+    def test_req_s03_56_l0_rules_do_not_require_prior_assets_or_anchors(self):
+        """REQ-S03-56：S03 L0 契约文本只认结构剧本，不要求资产库先出图或锁锚点。"""
+        text = storyboard_contract.rules()
+        self.assertNotIn('已确认角色固定外观和资产编号', text)
+        self.assertIn('结构剧本', text)
+        self.assertIn('不要求资产库已出图或已锁锚点', text)
+        self.assertIn('第 05／07 阶段', text)
+
 
 class DraftOutputTests(unittest.TestCase):
     def setUp(self):
