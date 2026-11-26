@@ -3339,6 +3339,12 @@
    "percent": 11.0
   },
   {
+   "module": "ui/desktop_project_pages.py",
+   "covered": 80,
+   "total": 706,
+   "percent": 11.3
+  },
+  {
    "module": "ui/pet_cloud_geometry.py",
    "covered": 8,
    "total": 69,
@@ -3349,12 +3355,6 @@
    "covered": 90,
    "total": 760,
    "percent": 11.8
-  },
-  {
-   "module": "ui/desktop_project_pages.py",
-   "covered": 81,
-   "total": 653,
-   "percent": 12.4
   },
   {
    "module": "ui/ui_rounded.py",
@@ -3439,12 +3439,6 @@
    "covered": 18,
    "total": 119,
    "percent": 15.1
-  },
-  {
-   "module": "ui/ui_splash.py",
-   "covered": 20,
-   "total": 132,
-   "percent": 15.2
   },
   {
    "module": "orchestrator/stage_models.py",
@@ -3628,9 +3622,9 @@
   },
   {
    "module": "ui_widgets.py",
-   "covered": 153,
-   "total": 679,
-   "percent": 22.5
+   "covered": 152,
+   "total": 678,
+   "percent": 22.4
   },
   {
    "module": "orchestrator/skill_budget.py",
@@ -3945,16 +3939,16 @@
    "percent": 72.8
   },
   {
+   "module": "ui_tokens.py",
+   "covered": 182,
+   "total": 250,
+   "percent": 72.8
+  },
+  {
    "module": "contract/project_stages.py",
    "covered": 22,
    "total": 30,
    "percent": 73.3
-  },
-  {
-   "module": "ui_tokens.py",
-   "covered": 196,
-   "total": 264,
-   "percent": 74.2
   },
   {
    "module": "orchestrator/skill_package_meta.py",
@@ -4209,6 +4203,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 149,
- "modules_total": 698
+ "modules_covered": 148,
+ "modules_total": 697
 }

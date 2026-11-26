@@ -40,7 +40,7 @@ from tests.architecture._scan import ROOT, production_files_recursive
 
 AUTHORITY_FILES = frozenset({
     'ui_tokens.py', 'ui_theme.py', 'ui_widgets.py',
-    'ui_splash.py', 'ui_tooltip.py', 'ui_icons.py',
+    'ui_tooltip.py', 'ui_icons.py',
 })
 
 NATIVE_WIDGETS = frozenset({'Label', 'Frame'})

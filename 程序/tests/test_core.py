@@ -180,8 +180,8 @@ class DailyProjectChoiceTests(unittest.TestCase):
             desk=Desktop.__new__(Desktop)
             desk.settings_file=app/'desktop_settings.json';desk.settings={}
             desk.projects=type('Registry',(),{'info':{'projects':[{'path':str(choice)}]}})()
-            desk.remember_daily_project_choice(choice)
-            self.assertEqual(desk.daily_project_choice(),str(choice))
+            desk.remember_daily_project_choice(choice,startup_prompt=True)
+            self.assertEqual(desk._startup_project_to_open(desk.projects.info['projects']),str(choice))
             self.assertEqual(read(desk.settings_file)['project_choice_path'],str(choice))
 
     def test_deleted_or_unregistered_choice_is_not_reopened(self):
@@ -189,10 +189,10 @@ class DailyProjectChoiceTests(unittest.TestCase):
             app=Path(td);choice=app/'已删除项目'
             desk=Desktop.__new__(Desktop)
             desk.settings_file=app/'desktop_settings.json'
-            desk.settings={'project_choice_day':__import__('datetime').date.today().isoformat(),
+            desk.settings={'project_startup_choice_day':__import__('datetime').date.today().isoformat(),
                            'project_choice_path':str(choice)}
             desk.projects=type('Registry',(),{'info':{'projects':[]}})()
-            self.assertIsNone(desk.daily_project_choice())
+            self.assertIsNone(desk._startup_project_to_open(desk.projects.info['projects']))
 
     def test_sidebar_open_remembers_today_choice_after_successful_load(self):
         with tempfile.TemporaryDirectory() as td:

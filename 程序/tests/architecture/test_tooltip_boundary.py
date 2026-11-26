@@ -26,7 +26,7 @@ class TooltipBoundaryTests(unittest.TestCase):
         violations = {}
         for path in ROOT.rglob('*.py'):
             relative = path.relative_to(ROOT)
-            if (path.name in {'ui_widgets.py', 'ui_splash.py', 'ui_tooltip.py', 'ui_theme.py'} or path.name.startswith('test')
+            if (path.name in {'ui_widgets.py', 'ui_tooltip.py', 'ui_theme.py'} or path.name.startswith('test')
                     or 'tests' in relative.parts or 'tasks_round' in relative.parts
                     or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
                 continue

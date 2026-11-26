@@ -1,0 +1,15 @@
+{
+  "round": 4529,
+  "commit_base": "25c0571d2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_desktop_startup_perf test_launcher_imports test_startup_selfcheck test_app_metadata test_project_entry_boundary test_preview_app test_core",
+    "exit": 0,
+    "passed": 255,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T14:56:33"
+}

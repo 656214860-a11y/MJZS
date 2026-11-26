@@ -19,7 +19,8 @@ CONTROLLER = entity_file('desktop_startup_service')
 # 直接调用 `self.load(<非 None>)` 的「项目进入」路径（冻结，只增需登记）。
 ENTERING_ENTRYPOINTS = frozenset({
     'open_project_or_cleanup',  # 侧栏 `switch` 与项目首页选中项目
-    '_choose_project_impl',     # 首帧后的首次选择／同日续开
+    '_choose_project_impl',     # 自动续开
+    '_open_startup_choice',     # 主窗口内单击选择后记录每周确认
     'new',                      # 新建项目
     'create_practice_project',   # 隔离练习副本，沿用创建器与当天选择记忆
     'import_json',              # 导入分镜 JSON 建项
@@ -81,7 +82,7 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
                 continue
             segment = ast.get_source_segment(source, func) or ''
             self.assertTrue('remember_daily_project_choice(' in segment
-                            or 'daily_project_choice(' in segment,
+                            or '_startup_project_to_open(' in segment,
                             func.name + ' 进入项目后必须经当天选择的记忆入口')
 
     def test_first_choice_is_scheduled_by_startup_controller(self):
@@ -116,11 +117,11 @@ class ProjectEntryBoundaryTests(unittest.TestCase):
         methods = {node.name: node for node in ast.walk(tree)
                    if isinstance(node, ast.FunctionDef)}
         remember = ast.get_source_segment(source, methods['remember_daily_project_choice'])
-        daily = ast.get_source_segment(source, methods['daily_project_choice'])
+        weekly = ast.get_source_segment(source, methods['_startup_project_to_open'])
         self.assertIn('publish_desktop_preferences(', remember)
         self.assertNotIn('save(self.settings_file', remember)
-        self.assertIn('project_choice_day', daily)
-        self.assertIn('project_choice_path', daily)
+        self.assertIn('project_startup_choice_day', weekly)
+        self.assertIn('project_choice_path', weekly)
         service = entity_file('desktop_settings_service').read_text(encoding='utf-8')
         self.assertIn('def publish_desktop_settings(', service)
 

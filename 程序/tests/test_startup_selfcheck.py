@@ -811,22 +811,7 @@ class AppLogInstallFailureTests(unittest.TestCase):
                 skill_tools.install_executor = lambda: None
                 ui_pkg.skill_tools = skill_tools
 
-                platform_tools = _mod('platform_tools')
-                platform_tools.work_area = lambda: (0, 0, 1920, 1080)
-                platform_tools.outer_rect_for_client = lambda x, y, w, h: (x, y, w, h)
-
-                ui_theme = _mod('ui_theme')
-                ui_theme.main_window_size = lambda w, h: (1280, 800)
-
-                class _Splash:
-                    def __init__(self, window, rect):
-                        self.on_finish = None
-                    def step(self, index):
-                        pass
-                    def wait(self, loaded, reveal, track=None):
-                        pass
                 ui_widgets = _mod('ui_widgets')
-                ui_widgets.Splash = _Splash
                 ui_widgets.notify = lambda *a, **k: None
                 # 对齐 R4427（UX-L5-DIALOGS）desktop_launcher.py 顶层导入所需桩。
                 class _DialogStub:

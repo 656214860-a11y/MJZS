@@ -1,8 +1,4 @@
-"""启动器 .pyw 引用的程序符号必须真实存在。
-
-R1788 按“全仓零引用”删掉了 ui_widgets.Splash，但扫描没覆盖根目录的启动器，
-而启动器又用 try/except 吞掉了 ImportError，于是启动动画静默消失。
-"""
+"""启动器 .pyw 引用的程序符号必须真实存在。"""
 import ast
 import importlib
 import unittest
@@ -33,8 +29,9 @@ class LauncherImportTest(unittest.TestCase):
                     checked += 1
         self.assertGreater(checked, 0)
 
-    def test_splash_is_still_used_by_the_main_launcher(self):
-        self.assertIn(('ui_widgets', 'Splash'), set(_program_imports(LAUNCHERS[0])))
+    def test_main_launcher_has_no_animated_startup_window(self):
+        self.assertNotIn(('ui_widgets', 'Splash'), set(_program_imports(LAUNCHERS[0])))
+        self.assertFalse((PROGRAM / 'ui/ui_splash.py').exists())
 
 
 if __name__ == '__main__':
