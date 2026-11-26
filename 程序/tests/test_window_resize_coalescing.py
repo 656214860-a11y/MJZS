@@ -327,6 +327,33 @@ class LayoutConvergenceTests(unittest.TestCase):
         self.assertIsNone(d._fit_job)
         self.assertFalse(d._fit_pending)
 
+    def test_fit_signature_uses_direct_children_not_full_tree(self):
+        """C01：_fit_request_signature 的测量节点数等于直接子级数，不递归全树。
+
+        先红：当前实现把整棵子树所有控件都加入签名；修复后只量直接子级。
+        签名第 4 分量 tuple(measured) 的长度应等于 content.winfo_children() 数量。
+        """
+        d = self.layout
+        # 建两层：直接子级 2 个 Frame，各含 3 个 Label，共 8 个控件（深度 2）。
+        for _ in range(2):
+            frame = ttk.Frame(d.content)
+            frame.pack()
+            for _ in range(3):
+                ttk.Label(frame, text='签名深度测试').pack()
+        self.win.update()
+        d.fit_content()
+        self.win.update()
+        sig = getattr(d, '_fit_request_signature', None)
+        self.assertIsNotNone(sig, '_fit_request_signature 未设置')
+        # sig = (width, req, target, tuple(measured))
+        measured = sig[3]
+        direct_count = len(d.content.winfo_children())
+        self.assertEqual(
+            len(measured), direct_count,
+            '_fit_request_signature 包含 %d 个节点，应只含 %d 个直接子级（不递归）'
+            % (len(measured), direct_count),
+        )
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

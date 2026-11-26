@@ -1,0 +1,15 @@
+{
+  "round": 4561,
+  "commit_base": "d3a911aef",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k window_resize_coalescing",
+    "exit": 0,
+    "passed": 10,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T23:32:07"
+}
