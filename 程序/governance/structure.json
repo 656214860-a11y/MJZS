@@ -872,6 +872,19 @@
         "程序/selftest_env.py",
         "程序/scripts/commit_round.py"
       ]
+    },
+    "程序/tests/test_settings_models_redesign.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "UX-SETTINGS-MODELS：设置左栏 8 枚专属图标零复用与重染、模型配置右侧内嵌、语音识别分段原地展示、非密钥输入框 5+ 主流下拉与 C12 密钥掩码",
+      "targets": [
+        "程序/contract/pet_settings_contract.py",
+        "程序/scripts/build_nav_icons.py",
+        "程序/ui/pet_settings_ui.py",
+        "程序/ui/pet_models_ui.py",
+        "程序/ui/pet_models_tabs.py",
+        "程序/ui/speech_settings_ui.py"
+      ]
     }
   },
   "packaging": {

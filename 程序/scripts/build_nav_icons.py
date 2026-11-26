@@ -55,6 +55,15 @@ ICONS = {
     'library_settings':  0xF6B2,   # settings          设置全局素材库目录
     'recycle':           0xF01C4,  # bin-recycle       回收站浏览与恢复
     'recycle_purge':     0xF01C6,  # bin-recycle-full  清空过期回收站
+    # 设置页左侧 8 枚专属目录图标（与主界面 0 复用）
+    'settings_basic':        0xF591,  # options 滑动调节（基础功能）
+    'settings_pet_model':    0xF126,  # animal-cat 三虎头像（三虎模型配置）
+    'settings_model_config': 0xE9AB,  # plug-connected 模型/API 接入（模型配置）
+    'settings_level':        0xE629,  # flash-auto 自动闪电（自动化等级）
+    'settings_token':        0xF1D3,  # battery-saver 节能省流（Token 节省）
+    'settings_budget':       0xEE2C,  # wallet 钱包（预算）
+    'settings_skills':       0xE9F1,  # puzzle-piece 技能拼图（SKILL 管理）
+    'settings_dev':          0xF2EF,  # code 开发代码（开发信息）
 }
 
 # 返回等强调动作用主题色墨水（back），其余用正文色。

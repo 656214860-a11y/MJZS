@@ -358,17 +358,18 @@ class SettingsWindowTests(SettingsCase):
         self.assertNotIn('打开模型管理', texts)
 
     def test_the_api_button_sits_next_to_the_model_tab(self):
-        """第 48 期第 1 条：那颗键往上挪一级——长在分页按钮那一行上，就在「三虎模型配置」右边。"""
+        """UX-SETTINGS-MODELS：「模型配置」改为与其余目录一致的左栏带图标导航项，点击在右侧内嵌显示。"""
         win = self.hub('model')
-        button = win._pet_seams['model']['manager']
+        button = win._pet_tabs['model_config']
+        self.assertIs(win._pet_seams['model']['manager'], button)
         self.assertEqual(str(button.cget('text')), pet_models_ui.MANAGER_BUTTON)
-        self.assertIs(button.master, win._pet_tabs['model'].master, '与分页按钮同一行')
+        self.assertIs(button.master, win._pet_tabs['model'].master, '与分页按钮同一列')
         order = [str(w.cget('text')) for w in button.master.winfo_children()]
         self.assertEqual(order[order.index('三虎模型配置') + 1], pet_models_ui.MANAGER_BUTTON,
-                         '紧挨着「三虎模型配置」的右边')
-        self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton',
-                         '第 51 期第 1 条：它原来用 Highlight（琥珀底／粗体／大内边距），'
-                         '在一排 Compact 按钮里格式不统一，现在与同排的键一个样')
+                         '紧挨着「三虎模型配置」之后')
+        self.assertEqual(str(button.cget('style')), 'Nav.TButton')
+        self.assertEqual(button._nav_icon_name, 'settings_model_config')
+        self.assertEqual(str(button.cget('compound')), 'left')
         labels = [str(w.cget('text')) for w in self.walk(win._pet_pages['model'], self.ttk.Label)
                   if 'text' in w.keys()]
         self.assertIn(pet_models_ui.NOTE_ABOUT, labels)

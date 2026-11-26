@@ -121,6 +121,20 @@ class NavIconTests(unittest.TestCase):
                 self.assertTrue((ui_icons._NAV_DIR / f'{name}.png').is_file(),
                                 f'assets/nav/{name}.png 缺失：跑 scripts/build_nav_icons.py 重新生成')
 
+    def test_settings_hub_eight_icons_have_pngs_and_zero_main_nav_reuse(self):
+        """UX-SETTINGS-MODELS：设置左栏 8 枚专属图标全部落盘且与主导航 0 复用。"""
+        import pet_settings_ui
+        main_names = (set(PAGE_NAV_ICONS.values()) | {ASSET_ROSTER_ICON, 'settings', 'lock', 'back',
+                                                      'library', 'library_settings', 'recycle', 'recycle_purge'}
+                      | set(PROJECT_GROUP_ICONS.values()) | set(PROJECT_ACTION_ICONS.values()))
+        settings_names = set(pet_settings_ui.TAB_ICONS.values())
+        self.assertEqual(len(settings_names), 8)
+        self.assertTrue(settings_names.isdisjoint(main_names))
+        for name in sorted(settings_names):
+            with self.subTest(icon=name):
+                self.assertTrue((ui_icons._NAV_DIR / f'{name}.png').is_file(),
+                                f'assets/nav/{name}.png 缺失：跑 scripts/build_nav_icons.py 重新生成')
+
 
 def _rgb(hex_color):
     value = hex_color.lstrip('#')
