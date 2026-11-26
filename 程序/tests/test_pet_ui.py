@@ -7079,25 +7079,41 @@ class CloudCloseTests(PetTestCase):
                         "看得见的那颗只是多一条路，Esc 照旧要能用：%r" % (bound,))
 
     def test_the_cross_turns_red_under_the_mouse(self):
+        from tkinter import ttk
         cloud = self.dialog()
         button = cloud.close_button
-        self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_BG)
+        style = ttk.Style(self.win)
+        style_name = str(button.cget("style"))
+        self.assertEqual(style_name, "Tokens.Close.TButton")
+        self.assertEqual(str(style.lookup(style_name, "fill")).upper(), pet_cloud.CLOSE_BG.upper())
         # 测试根窗口保持 withdraw；未映射控件不会收到 Tk crossing 事件，
         # 因而直接走与 <Enter> 绑定相同的可测状态转换。
         cloud._hover_close_button()
-        self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_HOVER)
+        self.assertTrue(button.instate(["active"]))
+        self.assertEqual(str(style.lookup(style_name, "fill", ("active",))).upper(),
+                         pet_cloud.CLOSE_HOVER.upper())
+        self.assertEqual(str(style.lookup(style_name, "foreground", ("active",))).upper(),
+                         pet_cloud.CLOSE_HOVER_FG.upper())
         cloud._unhover_close_button()
-        self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_BG)
+        self.assertFalse(button.instate(["active"]))
 
     def test_the_cross_shouts_where_to_close(self):
-        """第 59 期第 9 条：关闭按钮要显著提示用户——红底白×的实心块，
-        而不是原来一个不抢眼的灰×。"""
+        """UX-CLOSE-X：三虎关闭按钮与全应用统一 CloseButton——常态中性、悬停清晰红底白×。"""
+        from tkinter import ttk
+        from ui_tokens import COLORS
         cloud = self.dialog()
         button = cloud.close_button
-        self.assertEqual(str(button.cget("bg")), pet_cloud.CLOSE_BG, "平时就是红的实心块")
-        self.assertEqual(str(button.cget("fg")), pet_cloud.CLOSE_FG, "× 画成白的，红底上看得清")
-        from ui_tokens import COLORS
-        self.assertEqual(pet_cloud.CLOSE_FG, COLORS['background_card'])
+        style = ttk.Style(self.win)
+        style_name = str(button.cget("style"))
+        self.assertEqual(style_name, "Tokens.Close.TButton")
+        self.assertEqual(str(style.lookup(style_name, "fill")).upper(), COLORS['background_card'].upper())
+        self.assertEqual(str(style.lookup(style_name, "foreground")).upper(), COLORS['text_secondary'].upper())
+        self.assertEqual(str(style.lookup(style_name, "fill", ("active",))).upper(), COLORS['danger'].upper())
+        self.assertEqual(str(style.lookup(style_name, "foreground", ("active",))).upper(), COLORS['on_accent'].upper())
+        self.assertEqual(pet_cloud.CLOSE_BG, COLORS['background_card'])
+        self.assertEqual(pet_cloud.CLOSE_FG, COLORS['text_secondary'])
+        self.assertEqual(pet_cloud.CLOSE_HOVER, COLORS['danger'])
+        self.assertEqual(pet_cloud.CLOSE_HOVER_FG, COLORS['on_accent'])
         self.assertGreaterEqual(pet_cloud.CLOSE_SIZE, 20, "按钮足大，不用提着气去点")
         self.assertGreaterEqual(pet_cloud.CLOSE_H, pet_cloud.CLOSE_SIZE, "云身顶上那一条装得下这颗按钮")
         box_x, box_y, box_w, _box_h = cloud._text_box()

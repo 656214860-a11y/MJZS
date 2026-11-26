@@ -2453,7 +2453,7 @@
   {
    "module": "ui/desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 582,
+   "total": 584,
    "percent": 0.0
   },
   {
@@ -2543,7 +2543,7 @@
   {
    "module": "ui/desktop_script_pages.py",
    "covered": 0,
-   "total": 758,
+   "total": 755,
    "percent": 0.0
   },
   {
@@ -2909,7 +2909,7 @@
   {
    "module": "ui/storyboard_table_ui.py",
    "covered": 0,
-   "total": 608,
+   "total": 605,
    "percent": 0.0
   },
   {
@@ -3011,7 +3011,7 @@
   {
    "module": "ui/ui_status_bar.py",
    "covered": 0,
-   "total": 261,
+   "total": 262,
    "percent": 0.0
   },
   {
@@ -3502,9 +3502,9 @@
   },
   {
    "module": "ui/pet_cloud.py",
-   "covered": 147,
-   "total": 847,
-   "percent": 17.4
+   "covered": 148,
+   "total": 845,
+   "percent": 17.5
   },
   {
    "module": "infra/metrics.py",
@@ -3634,9 +3634,9 @@
   },
   {
    "module": "ui_widgets.py",
-   "covered": 152,
-   "total": 678,
-   "percent": 22.4
+   "covered": 154,
+   "total": 681,
+   "percent": 22.6
   },
   {
    "module": "ui/ui_status_bus.py",
@@ -3745,6 +3745,12 @@
    "covered": 26,
    "total": 86,
    "percent": 30.2
+  },
+  {
+   "module": "ui/ui_close_button.py",
+   "covered": 17,
+   "total": 56,
+   "percent": 30.4
   },
   {
    "module": "domain/account_client.py",
@@ -3945,16 +3951,16 @@
    "percent": 72.8
   },
   {
-   "module": "ui_tokens.py",
-   "covered": 182,
-   "total": 250,
-   "percent": 72.8
-  },
-  {
    "module": "contract/project_stages.py",
    "covered": 22,
    "total": 30,
    "percent": 73.3
+  },
+  {
+   "module": "ui_tokens.py",
+   "covered": 199,
+   "total": 267,
+   "percent": 74.5
   },
   {
    "module": "orchestrator/skill_package_meta.py",
@@ -4060,9 +4066,9 @@
   },
   {
    "module": "infra/executors.py",
-   "covered": 220,
+   "covered": 219,
    "total": 238,
-   "percent": 92.4
+   "percent": 92.0
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -4209,6 +4215,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 148,
- "modules_total": 698
+ "modules_covered": 149,
+ "modules_total": 699
 }

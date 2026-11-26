@@ -672,8 +672,10 @@ class ThemeRefreshTests(unittest.TestCase):
                                  (COLORS['primary_subtle'], COLORS['primary']))
                 self.assertEqual(pet_cloud.SHAPE_COLORS['tag'],
                                  (COLORS['background_card'], COLORS['warning']))
-                self.assertEqual(pet_cloud.CLOSE_FG, COLORS['on_accent'])
-                self.assertEqual(pet_cloud.CLOSE_BG, COLORS['danger'])
+                self.assertEqual(pet_cloud.CLOSE_FG, COLORS['text_secondary'])
+                self.assertEqual(pet_cloud.CLOSE_BG, COLORS['background_card'])
+                self.assertEqual(pet_cloud.CLOSE_HOVER, COLORS['danger'])
+                self.assertEqual(pet_cloud.CLOSE_HOVER_FG, COLORS['on_accent'])
 
     def test_text_margin_and_treeview_tags_round_trip(self):
         ui_theme.apply(self.win)

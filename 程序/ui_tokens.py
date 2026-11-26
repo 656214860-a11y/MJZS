@@ -213,6 +213,25 @@ ROUND_TILE_BUTTON = (128, 64)
 ROUND_TILE_CARD = (256, 256)
 BUTTON_BORDER_WIDTH = 1
 
+# 统一关闭 × 按钮（UX-CLOSE-X）：全应用 5 处关闭按钮共用紧凑外框、加粗 × 字形与红底白×悬停。
+CLOSE_BUTTON_MARK = "×"
+CLOSE_BUTTON_STYLE = "Tokens.Close.TButton"
+CLOSE_BUTTON_COMPACT_STYLE = "Tokens.Close.Compact.TButton"
+CLOSE_BUTTON_COMPACT_ACTIVE_STYLE = "Tokens.Close.Compact.Active.TButton"
+CLOSE_BUTTON_FONT = FONTS["heading_2"]
+CLOSE_BUTTON_COMPACT_FONT = FONTS["heading_3"]
+CLOSE_BUTTON_RADIUS = RADIUS["sm"]
+CLOSE_BUTTON_PADDING = (SPACING["xs"], SPACING["none"])
+CLOSE_BUTTON_COMPACT_PADDING = (SPACING["xs"], SPACING["none"])
+CLOSE_BUTTON_SIZE = SPACING["xl"]
+CLOSE_BUTTON_BG = COLORS["background_card"]
+CLOSE_BUTTON_FG = COLORS["text_secondary"]
+CLOSE_BUTTON_ACTIVE_BG = COLORS["danger"]
+CLOSE_BUTTON_ACTIVE_FG = COLORS["on_accent"]
+CLOSE_BUTTON_PRESSED_BG = COLORS["danger_pressed"]
+CLOSE_BUTTON_PRESSED_FG = COLORS["on_accent"]
+CLOSE_BUTTON_COMPACT_ACTIVE_BG = COLORS["primary_subtle"]
+
 # 弹窗视觉规格只由 ui_widgets 的 BaseDialog 系列消费；业务页不得另行设置标题、内容区或按钮区样式。
 DIALOG_TITLE_FONT = FONTS["title"]
 DIALOG_CONTENT_PADDING = SPACING["lg"]
@@ -561,6 +580,13 @@ _DERIVED_SOURCES = {
     'SCROLLBAR_THUMB': 'border_input',
     'SCROLLBAR_THUMB_ACTIVE': 'border_input_hover',
     'SCROLLBAR_TROUGH': 'background_primary',
+    'CLOSE_BUTTON_BG': 'background_card',
+    'CLOSE_BUTTON_FG': 'text_secondary',
+    'CLOSE_BUTTON_ACTIVE_BG': 'danger',
+    'CLOSE_BUTTON_ACTIVE_FG': 'on_accent',
+    'CLOSE_BUTTON_PRESSED_BG': 'danger_pressed',
+    'CLOSE_BUTTON_PRESSED_FG': 'on_accent',
+    'CLOSE_BUTTON_COMPACT_ACTIVE_BG': 'primary_subtle',
 }
 
 # 已导入模块在模块级把颜色绑成了自己的常量（`X = COLORS['k']` 或改过名的
@@ -574,8 +600,8 @@ _CONSUMER_BINDS = {
     'ui.pet_cloud': {'FILL': 'background_card', 'EDGE': 'border_default',
                      'STATUS_INK': 'text_secondary', 'BG': 'background_primary',
                      'HINT_FG': 'text_muted', 'HINT_BG': 'background_card',
-                     'CLOSE_FG': 'on_accent', 'CLOSE_BG': 'danger',
-                     'CLOSE_HOVER': 'primary_subtle',
+                     'CLOSE_FG': 'text_secondary', 'CLOSE_BG': 'background_card',
+                     'CLOSE_HOVER': 'danger', 'CLOSE_HOVER_FG': 'on_accent',
                      'SHAPE_COLORS': {'cloud': ('background_card', 'success'),
                                       'puff': ('background_card', 'danger'),
                                       'round': ('primary_subtle', 'primary'),

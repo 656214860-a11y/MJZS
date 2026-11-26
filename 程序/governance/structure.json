@@ -750,6 +750,22 @@
         "程序/ui/desktop_async_tasks.py"
       ]
     },
+    "程序/tests/test_close_button_unify.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "全应用五处关闭 × 按钮（S02/S03/S01模型条/状态栏消息历史/三虎云朵）统一 CloseButton 组件、尺寸、悬停红底白×与日夜主题契约",
+      "targets": [
+        "程序/ui/ui_close_button.py",
+        "程序/ui_widgets.py",
+        "程序/ui_tokens.py",
+        "程序/ui/ui_hover_fade.py",
+        "程序/ui/desktop_script_pages.py",
+        "程序/ui/storyboard_table_ui.py",
+        "程序/ui/desktop_idea_bubbles.py",
+        "程序/ui/ui_status_bar.py",
+        "程序/ui/pet_cloud.py"
+      ]
+    },
     "程序/tests/test_preview_app.py": {
       "kind": "module",
       "owner": "项目维护者",

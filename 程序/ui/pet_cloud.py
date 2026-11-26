@@ -45,7 +45,7 @@ import threading
 import time
 import tkinter as tk
 from tkinter import ttk
-from ui_widgets import BaseDialog, LineInput
+from ui_widgets import BaseDialog, CloseButton, LineInput
 
 from contract.pet_bus import ErrorLog
 from ui.pet_ui_support import accepts_keyword
@@ -56,7 +56,7 @@ from ui.pet_cloud_shape import (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG,
                              configured_value as _configured_value,
                              normalized as _normalized_shape, text_box as _shape_text_box)
 from ui.pet_cloud_tail import tail_points
-from ui_tokens import COLORS, FONTS, PET_CLOUD_AUTO_CLOSE_MS
+from ui_tokens import (CLOSE_BUTTON_ACTIVE_BG, CLOSE_BUTTON_ACTIVE_FG, CLOSE_BUTTON_BG, CLOSE_BUTTON_FG, CLOSE_BUTTON_FONT, CLOSE_BUTTON_MARK, CLOSE_BUTTON_SIZE, COLORS, FONTS, PET_CLOUD_AUTO_CLOSE_MS)
 from ui.pet_cloud_timing import ALPHA, FADE_OUT_STEPS, GROW_STEPS, HOLD_MS, READ_MAX_MS, WATCH_RECHECK_MS, CloudTimingMixin
 from ui.pet_cloud_move_guard import CloudMoveGuardMixin
 from ui.pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin, CloudHintState)
@@ -68,8 +68,8 @@ ROW_H = 30                        # 输入行高度
 # 第 45 期：用户要「三虎对话框右上角有颗关闭按钮」。带输入行的那一方框对话框顶上因此空出一条
 # CLOSE_H（云身跟着长高这么多，正文那块的大小与原来分毫不差），×就摆在那一格的右端。
 CLOSE_H = 26                      # 顶上给「关闭」空出的那一条（第 59 期第 9 条：按钮放大，这一条跟着高一点）
-CLOSE_SIZE = 22                   # 那颗×的边长（第 59 期第 9 条：16 → 22，看得见、点得着）
-CLOSE_MARK = '×'                  # 按钮上画什么：一个乘号，够小也认得出
+CLOSE_SIZE = CLOSE_BUTTON_SIZE    # 那颗×的边长（UX-CLOSE-X 统一 24px 紧凑关闭按钮）
+CLOSE_MARK = CLOSE_BUTTON_MARK    # 按钮上画什么：统一乘号 ×
 GUTTER = 46                       # 云身右边留给尾巴的那条空档：云身整个站在三虎左边，尾巴从这儿指过去
 WRAP = WIDTH - 2 * PAD - 12       # 文字换行宽度（方框这一形状的兜底值）
 STARTUP_LAYOUT_SETTLE_SECONDS = 8 # 首帧后的 Tk 空闲布局窗口；期间不能嵌套 spin
@@ -148,12 +148,12 @@ REPLY_FONT = FONTS['pet_body']                   # 回复框的字号：比正�
 HINT_FONT = FONTS['pet_hint']
 HINT_FG = COLORS['text_muted']          # 灰：与状态行同一个色系，不抢眼
 HINT_BG = COLORS['background_card']     # 小字的底：与 ttk.Entry 的底色一致（量不到时才用这个兜底）
-# 第 59 期第 9 条：用户要「关闭按钮显著提示」——原来是灰×（停上去才转红），
-# 现在平时就是一块红底白×的实心按钮；鼠标停上去只是再深一层。
-CLOSE_FG = COLORS['on_accent']          # × 是白的（画在红块上）
-CLOSE_BG = COLORS['danger']             # 平时就是红的：一眼看得见「点这里关掉」
-CLOSE_HOVER = COLORS['primary_subtle']  # 悬停切浅底，配套切回危险色文字
-CLOSE_FONT = FONTS['title']
+# UX-CLOSE-X：统一关闭按钮契约——常温中性融入卡片底，悬停切清晰红底白 ×。
+CLOSE_FG = CLOSE_BUTTON_FG
+CLOSE_BG = CLOSE_BUTTON_BG
+CLOSE_HOVER = CLOSE_BUTTON_ACTIVE_BG
+CLOSE_HOVER_FG = CLOSE_BUTTON_ACTIVE_FG
+CLOSE_FONT = CLOSE_BUTTON_FONT
 CHAT_KEEP = 6                           # 第 37 期第 6 条：对话框最多留这几段（及时清理）
 # 对话框只展示最近五个操作步骤；完整记录仍保留到 CHAT_KEEP，避免浮窗挡住页面操作。
 CHAT_VISIBLE_STEPS = 5
@@ -397,36 +397,34 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         return row
 
     def _build_close_button(self, canvas):
-        """创建方框对话的可见关闭按钮，按 Esc 或点击均可关闭。"""
-        button = tk.Label(canvas, text=CLOSE_MARK, bg=CLOSE_BG, fg=CLOSE_FG,
-                          font=CLOSE_FONT, cursor='hand2', bd=0, highlightthickness=0)
-        button.bind('<Button-1>', self._hit_close)
-        button.bind('<Enter>', self._hover_close_button)
-        button.bind('<Leave>', self._unhover_close_button)
-        button._refresh_theme_colors = lambda _widget, cloud=self: cloud.refresh_close_button_theme()
+        """创建方框对话与贴纸的统一关闭按钮（CloseButton），按 Esc 或点击均可关闭。"""
+        button = CloseButton(
+            canvas, text=CLOSE_MARK,
+            tooltip='关闭', command=self._hit_close,
+        )
+        button.bind('<Enter>', self._hover_close_button, add='+')
+        button.bind('<Leave>', self._unhover_close_button, add='+')
         self.close_button = button
         self._close_hovered = False
         return button
 
     def refresh_close_button_theme(self):
-        """主题重染后按当前悬停态重取关闭钮颜色；白×不能按普通卡片底色映射。"""
+        """主题切换后 CloseButton 由 Tokens.Close.TButton 自动刷新，保留兼容入口。"""
         if self.close_button is not None:
-            if getattr(self, '_close_hovered', False):
-                self.close_button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG)
-            else:
-                self.close_button.configure(bg=CLOSE_BG, fg=CLOSE_FG)
+            state = ['active'] if getattr(self, '_close_hovered', False) else ['!active']
+            self.close_button.state(state)
 
     def _hover_close_button(self, event=None):
         """关闭钮悬停状态；单列方法使无窗口映射的 UI 回归也可验证。"""
         self._close_hovered = True
         if self.close_button is not None:
-            self.close_button.configure(bg=CLOSE_HOVER, fg=CLOSE_BG)
+            self.close_button.state(['active'])
 
     def _unhover_close_button(self, event=None):
         """恢复关闭钮的常态色。"""
         self._close_hovered = False
         if self.close_button is not None:
-            self.close_button.configure(bg=CLOSE_BG, fg=CLOSE_FG)
+            self.close_button.state(['!active'])
 
     def _hit_close(self, event=None):
         """点右上角那颗×＝收起对话框（与 Esc／close() 同一条路）。"""

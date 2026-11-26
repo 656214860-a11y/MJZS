@@ -23,6 +23,7 @@ from ui_tokens import (COLORS, NAV_SECONDARY_ICON_SIZE, COMBOBOX_ARROW_COLOR, CO
                        SCROLLBAR_THUMB, SCROLLBAR_THUMB_ACTIVE, SCROLLBAR_TROUGH, SCROLLBAR_BORDER_WIDTH, SCROLLBAR_WIDTH)
 from ui.ui_motion import BusyState, bind_row_hover, empty_icon
 from ui.ui_hover_fade import install_hover_fade
+from ui.ui_close_button import configure_close_button_styles, make_close_button_class
 from ui.ui_composer_style import install_composer_styles
 from ui.ui_popup import register_menu, text_units_width
 from ui.ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
@@ -257,6 +258,7 @@ def setup_styles(root):
     install_hover_fade(root)
     _install_card_style(style, root)
     install_composer_styles(style, root, _configure_button)
+    configure_close_button_styles(style, root)
     _install_input_styles(style, root)
     _install_scrollbar_styles(style)
     # 表单的普通标签、分组标题和勾选项必须与按钮／输入框同用正文 token。
@@ -807,6 +809,7 @@ class SecondaryButton(ttk.Button):
         kwargs.setdefault("style", "Tokens.Secondary.TButton")
         super().__init__(master, **kwargs)
 
+CloseButton = make_close_button_class(SecondaryButton)
 
 class Card(ttk.Frame):
     def __init__(self, master=None, **kwargs):

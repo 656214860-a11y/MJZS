@@ -170,6 +170,8 @@
 | `NAV_ROW_HEIGHT` / `NAV_ROW_HEIGHT_COMPACT` | 24 / 20px | 侧栏项目树行高；`fit_sidebar` 矮窗口切换，Compact／Nav／RailIcon 各变体（含 Selected）同步内边距 |
 | `CONTROL_HIT_MIN` | 36px | 任何可点击元素的最小点击区；小于它的图标要外扩点击区（宠物齿轮、猫爪待迁移） |
 | `BUTTON_RADIUS` | `radius.md`（8px） | 按钮圆角半径 |
+| `CLOSE_BUTTON_STYLE` / `CLOSE_BUTTON_COMPACT_STYLE` / `CLOSE_BUTTON_COMPACT_ACTIVE_STYLE` | `Tokens.Close.TButton` / `Tokens.Close.Compact.TButton` / `Tokens.Close.Compact.Active.TButton` | 全应用统一关闭 × 按钮样式（S02/S03 编辑器、状态栏消息历史浮窗、三虎云朵用主样式；S01 模型目录条按未选/选中底色用紧凑变体）；`ui_hover_fade` 跳过 `Tokens.Close.*`，避免悬停第 0 帧白底白×闪烁 |
+| `CLOSE_BUTTON_FONT` / `CLOSE_BUTTON_COMPACT_FONT` | `FONTS['heading_2']`（14 bold）/ `FONTS['heading_3']`（12 bold） | 关闭按钮加粗放大 `×` 字形（`CLOSE_BUTTON_MARK = '×'`）；圆角 `CLOSE_BUTTON_RADIUS = radius.sm`（4px），内边距 `CLOSE_BUTTON_PADDING = (space.xs, 0)`，请求尺寸落在 22–30px；常态取 `background_card`/`primary_subtle`＋`text_secondary`，悬停切 `danger`＋`on_accent`，按下切 `danger_pressed`＋`on_accent` |
 | `STATUS_BAR_FONT` | `FONTS['body']`（微软雅黑 UI 10） | 底部状态栏全栏同一字号：左区各段、分隔符、右区消息 |
 | `STATUS_BAR_SEGMENT_MAX_WIDTH` | 28 字符 | 状态栏左区一段的宽度上限：不超过就按文字本身的宽度显示，超过才截断并在悬停时给全文 |
 | `STATUS_BAR_SEPARATOR` / `STATUS_BAR_SEPARATOR_GAP` | `·` / 8px（`space.sm`） | 状态栏左区相邻两段之间的分隔符，和它两侧各留的间距 |

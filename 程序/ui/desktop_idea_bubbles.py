@@ -9,6 +9,7 @@ from ui import skill_note_render
 from ui import ui_hitl
 from domain import hitl
 from ui_tokens import COLORS, FONTS, ICON_COPY, ICON_DELETE, ICON_FONT, ICON_REWIND, SPACING
+from ui_widgets import CloseButton
 from pathlib import Path
 from orchestrator.idea_chat_controller import ALL_MODELS, bubble_timestamp, collapse_preview, model_bar_items, model_bar_selection
 
@@ -628,12 +629,13 @@ class IdeaBubblesMixin:
                          padx=SPACING['sm'],pady=SPACING['xs'])
             tag.pack(side='left')
             # 右上角关闭：确认后清空该模型全部历史，标签随记录消失。
-            close=tk.Label(tab,text='×',font=MODEL_BAR_FONT,bg=bg,fg=COLORS['text_secondary'],cursor='hand2')
-            close.pack(side='left',anchor='n',padx=(SPACING['none'],SPACING['xs']))
+            action=lambda key=name:self.safe(lambda:self.delete_all_bubble_messages(key))
+            close=CloseButton(tab,compact=True,active_surface=active,tooltip='清空该模型聊天记录',command=action)
+            close.pack(side='left',anchor='center',padx=(SPACING['none'],SPACING['xs']))
             tab.model_tag,tab.close_tag=tag,close
             for widget in (tab,tag):
                 widget.bind('<Button-1>',lambda event,key=name:(self.safe(lambda:self.select_idea_model(key)),'break')[1])
-            close.bind('<Button-1>',lambda event,key=name:(self.safe(lambda:self.delete_all_bubble_messages(key)),'break')[1])
+            close.bind('<Button-1>',lambda _event,run=action:(run(),'break')[1])
         self._fit_idea_model_bar(self.idea_model_bar_canvas,inner,self.idea_model_bar_scroll)
     def set_idea_model_filter(self, model, root=None):
         """目录条选中态的唯一写入口：点击、发送与配置确认都走它，避免多个 Mixin 写同一 self 属性。"""

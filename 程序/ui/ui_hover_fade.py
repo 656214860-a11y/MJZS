@@ -78,7 +78,7 @@ class _Fade:
             self.direction = direction
             return
         base = str(widget.cget("style") or "TButton")
-        if base not in button_specs(widget._root()):
+        if base.startswith("Tokens.Close.") or base not in button_specs(widget._root()):
             return
         self.base = base
         self.direction = direction

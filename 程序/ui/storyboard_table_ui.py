@@ -10,7 +10,7 @@ from ui_tokens import (
     COLORS, FONTS, SCRIPT_VIEW_FONT, SCRIPT_VIEW_FONT_MAX, SCRIPT_VIEW_FONT_MIN,
     SCRIPT_VIEW_PADDING, SCROLLBAR_WIDTH, SPACING, TEXT_ROWS,
 )
-from ui_widgets import ContextMenu, DataTable, LineInput, SecondaryButton, TextArea, Tooltip
+from ui_widgets import CloseButton, ContextMenu, DataTable, LineInput, SecondaryButton, TextArea
 from ui.ui_shortcuts import ShortcutRegistry
 from ui.script_line_numbers import LineNumberGutter
 
@@ -461,12 +461,11 @@ class S03EditorView:
         scroll.grid(row=0, column=2, sticky='ns')
         area.columnconfigure(1, weight=1)
         area.rowconfigure(0, weight=1)
-        self.close_button = SecondaryButton(
-            area, text='×', width=0, style='Tokens.Secondary.TButton', takefocus=True,
-            command=lambda: self.page.desktop.safe(self.page.close_document))
-        Tooltip(self.close_button, '关闭当前文件（项目文件保留）')
-        for sequence in ('<Return>', '<space>'):
-            self.close_button.bind(sequence, lambda _e: (self.close_button.invoke(), 'break')[1], add='+')
+        self.close_button = CloseButton(
+            area,
+            tooltip='关闭当前文件（项目文件保留）',
+            command=lambda: self.page.desktop.safe(self.page.close_document),
+        )
         self.shot_nav = S03ShotNavigator(body, self.viewer)
         self.viewer.bind('<Button-3>', self.page.on_context_menu, add='+')
         self.viewer.bind('<Escape>', self._on_escape, add='+')

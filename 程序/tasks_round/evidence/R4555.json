@@ -1,0 +1,15 @@
+{
+  "round": 4555,
+  "commit_base": "d3a911aef",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k close_button_unify",
+    "exit": 0,
+    "passed": 6,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T20:31:07"
+}
