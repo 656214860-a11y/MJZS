@@ -1265,6 +1265,12 @@
     "reason": "R1895：解析已验签租约的内存 payload 字节，不读取文件。"
    },
    {
+    "file": "infra/account_store.py",
+    "point": "read_session_file:json.loads:4707aaffe454aa0b:1",
+    "disposition": "exempt",
+    "reason": "C06：解析 DPAPI 解密后的内存明文字节，统一读取入口只接受路径；明文旧格式分支已改走 agent.core.read。"
+   },
+   {
     "file": "domain/account_client.py",
     "point": "_read_json:json.loads:fc66c8571fec0d11:1",
     "disposition": "exempt",

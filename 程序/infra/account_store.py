@@ -9,10 +9,10 @@ import json
 import secrets
 from pathlib import Path
 
-from agent.core import save_bytes, save_text
+from agent.core import read, save_bytes, save_text
 from agent.publication import access
 from contract.platform_tools import windows_registry
-from infra import model_secrets, session_integrity
+from infra import session_integrity
 from infra.storage_maintenance import remove_private_file
 
 PROGRAM = Path(__file__).resolve().parents[1]
@@ -22,7 +22,6 @@ SESSION_KEYS = ('email', 'refresh_token', 'lease', 'server_time', 'has_password'
 _FINGERPRINT_SALT = 'manju-device-v1:'
 _CLOCK_KEY = r'Software\漫剧制作助手'
 _CLOCK_VALUE = 'clock_floor'
-_SESSION_LABEL = '账户会话'
 
 
 def session_path(base=None):
@@ -75,11 +74,12 @@ def read_session_file(path=None):
 
     密文解不开（被篡改或换过用户）返回空字典，交给完整性校验按未登录恢复。
     """
-    raw = Path(path or session_path()).read_bytes()
-    if not model_secrets.looks_like_blob(raw):
-        return json.loads(raw.decode('utf-8-sig'))
+    target = Path(path or session_path())
+    raw = target.read_bytes()
+    if not session_integrity.is_sealed_blob(raw):
+        return read(target)
     try:
-        text = model_secrets.protect(raw, decrypt=True, label=_SESSION_LABEL)
+        text = session_integrity.protect_session(raw, decrypt=True)
     except ValueError:
         return {}
     return json.loads(text.decode('utf-8'))
@@ -90,7 +90,7 @@ def write_session_file(data, path=None):
     target = Path(path or session_path())
     target.parent.mkdir(parents=True, exist_ok=True)
     payload = json.dumps(data, ensure_ascii=False).encode('utf-8')
-    save_bytes(target, model_secrets.protect(payload, label=_SESSION_LABEL))
+    save_bytes(target, session_integrity.protect_session(payload))
 
 
 def _write(data, path=None):

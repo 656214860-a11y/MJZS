@@ -16,6 +16,7 @@ _KEY_FILE = '.mac_key.dpapi'
 _KEY_SIZE = 32
 _METADATA = frozenset(('_mac', '_mac_key_id'))
 _LABEL = '账户会话完整性密钥'
+_SESSION_LABEL = '账户会话'
 
 
 def _key_path(path=None):
@@ -32,6 +33,15 @@ def _read_key(target):
         return key if len(key) == _KEY_SIZE else None
     except (OSError, ValueError):
         return None
+
+
+def is_sealed_blob(raw):
+    """会话文件是否为 DPAPI 密文；account_store 经此入口，不直依赖 model_secrets。"""
+    return model_secrets.looks_like_blob(raw)
+
+
+def protect_session(payload, decrypt=False):
+    return model_secrets.protect(payload, decrypt=decrypt, label=_SESSION_LABEL)
 
 
 def fields(data):

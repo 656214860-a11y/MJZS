@@ -152,8 +152,8 @@
   "tests.test_model_connections"
  ],
  "tests_ok": true,
- "points_total": 3256,
- "points_covered": 1886,
+ "points_total": 3259,
+ "points_covered": 1889,
  "modules": [
   {
    "module": "budget.py",
@@ -414,12 +414,6 @@
    "percent": 66.7
   },
   {
-   "module": "model_secrets.py",
-   "points": 33,
-   "covered": 22,
-   "percent": 66.7
-  },
-  {
    "module": "native_asset_codec.py",
    "points": 9,
    "covered": 6,
@@ -438,12 +432,6 @@
    "percent": 67.6
   },
   {
-   "module": "account_store.py",
-   "points": 25,
-   "covered": 17,
-   "percent": 68.0
-  },
-  {
    "module": "artifact_lineage.py",
    "points": 22,
    "covered": 15,
@@ -456,10 +444,22 @@
    "percent": 69.1
   },
   {
+   "module": "model_secrets.py",
+   "points": 33,
+   "covered": 23,
+   "percent": 69.7
+  },
+  {
    "module": "stage_layout.py",
    "points": 34,
    "covered": 24,
    "percent": 70.6
+  },
+  {
+   "module": "account_store.py",
+   "points": 28,
+   "covered": 20,
+   "percent": 71.4
   },
   {
    "module": "engine_probe.py",
@@ -552,6 +552,12 @@
    "percent": 81.0
   },
   {
+   "module": "file_index.py",
+   "points": 110,
+   "covered": 91,
+   "percent": 82.7
+  },
+  {
    "module": "lease_verifier.py",
    "points": 6,
    "covered": 5,
@@ -562,12 +568,6 @@
    "points": 12,
    "covered": 10,
    "percent": 83.3
-  },
-  {
-   "module": "file_index.py",
-   "points": 110,
-   "covered": 92,
-   "percent": 83.6
   },
   {
    "module": "executors.py",
