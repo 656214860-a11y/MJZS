@@ -22,9 +22,8 @@ from pathlib import Path
 import infra.app_logging as app_logging
 import infra.hash_backend as hash_backend
 hash_backend.install()
-import tkinter as tk
-from ui_widgets import (notify, BaseDialog, DescriptionBlock, PrimaryButton,
-                        SecondaryButton, DIALOG_ACTION_GAP, SPACING)
+# REF-L5-1：tkinter 与 ui_widgets 不在顶层导入——DPI 声明、min_os_items、run_preflight
+# 的预检段都不需要窗口；用到弹窗／主窗口的函数在用点内延迟导入，import 本模块保持轻量。
 
 
 # ── REL-14：DPI 感知与最低系统版本 ─────────────────────────────────
@@ -127,6 +126,8 @@ def entry_dialog(parent, title, text, primary='确定', secondary=None):
     主按钮判「是」（返回 ``True``），次按钮／Esc／窗口 X 判「否」；
     ``secondary=None`` 时只摆主按钮（纯告知）。阻塞到用户选择或关窗。
     """
+    from ui_widgets import (BaseDialog, DescriptionBlock, PrimaryButton,
+                            SecondaryButton, DIALOG_ACTION_GAP, SPACING)
     win = BaseDialog(parent, str(title), modal=False)
     DescriptionBlock(win.content, text=str(text)).pack(fill='x')
     result = {'ok': False}
@@ -156,6 +157,7 @@ def entry_confirm(text, title, flags=0, parent=None):
     ``flags`` 保留 ``MessageBoxW`` 调用形态，按钮与文案由本窗统一布局接管；
     ``parent=None`` 说明 Tk 尚未起，先开一扇隐藏根窗当宿主。
     """
+    import tkinter as tk
     owner = parent
     if owner is None:
         owner = tk.Tk()
@@ -171,6 +173,7 @@ def entry_confirm(text, title, flags=0, parent=None):
 
 def _entry_notify(items):
     """FATAL 自检的入口提示：同一路入口弹窗（单列诊断文本＋一个「退出」主按钮），建 Tk 之前可用。"""
+    import tkinter as tk
     import infra.diagnostic_capture as diagnostic_capture
     from contract.app_metadata import APP_NAME
     root = tk.Tk()
@@ -182,31 +185,42 @@ def _entry_notify(items):
         root.destroy()
 
 
+def run_preflight(program):
+    """启动预检共用入口：``launch()`` 与仓库根 ``启动漫剧制作助手.pyw`` 同一路（REF-L5-1）。
+
+    顺序：``run_startup_selfcheck`` → ``min_os_items``（有则补记 ``record_selfcheck``）
+    → FATAL 走统一入口弹窗（文案首行 E-START-SELFCHECK）后 ``SystemExit(1)``
+    → ``startup_gate(ask=entry_confirm)`` 崩溃预算二选一。
+    返回 ``(degraded_items, safe_start)``：DEGRADED 项由调用方挂到窗口属性交状态栏播报。
+    """
+    import infra.diagnostic_capture as diagnostic_capture
+    from contract.diagnostics import Severity
+    items = diagnostic_capture.run_startup_selfcheck(Path(program))
+    os_items = min_os_items()
+    if os_items:
+        items = list(items) + os_items
+        diagnostic_capture.record_selfcheck(items)
+    fatal_items = [item for item in items if item.severity is Severity.FATAL]
+    degraded_items = [item for item in items if item.severity is not Severity.FATAL]
+    if fatal_items:
+        # fail-closed：给可操作诊断后退出；这不是崩溃，不写崩溃预算。
+        # 入口弹窗走统一布局（REQ-UI-L5-1）；Tk 起不来时回退原来的 MessageBoxW。
+        try:
+            _entry_notify(fatal_items)
+        except Exception:
+            diagnostic_capture.notify_startup_fatal(fatal_items)
+        raise SystemExit(1)
+    return degraded_items, diagnostic_capture.startup_gate(ask=entry_confirm)
+
+
 def launch(selfcheck=True):
     """启动桌面主窗口；``selfcheck=False`` 供调试 ``__main__`` 入口跳过启动自检与崩溃预算。"""
+    import tkinter as tk
     enable_dpi_awareness()
     degraded_items = []
     safe_start = False
     if selfcheck:
-        import infra.diagnostic_capture as diagnostic_capture
-        from contract.diagnostics import Severity
-        program = Path(__file__).resolve().parent
-        items = diagnostic_capture.run_startup_selfcheck(program)
-        os_items = min_os_items()
-        if os_items:
-            items = list(items) + os_items
-            diagnostic_capture.record_selfcheck(items)
-        fatal_items = [item for item in items if item.severity is Severity.FATAL]
-        degraded_items = [item for item in items if item.severity is not Severity.FATAL]
-        if fatal_items:
-            # fail-closed：给可操作诊断后退出；这不是崩溃，不写崩溃预算。
-            # 入口弹窗走统一布局（REQ-UI-L5-1）；Tk 起不来时回退原来的 MessageBoxW。
-            try:
-                _entry_notify(fatal_items)
-            except Exception:
-                diagnostic_capture.notify_startup_fatal(fatal_items)
-            raise SystemExit(1)
-        safe_start = diagnostic_capture.startup_gate(ask=entry_confirm)
+        degraded_items, safe_start = run_preflight(Path(__file__).resolve().parent)
     # L5 组合根：把 L4 的 SKILL 工具适配器注入 L3；编排器本身不反向依赖 UI。
     import ui.skill_tools as skill_tools
     skill_tools.install_executor()
@@ -217,6 +231,7 @@ def launch(selfcheck=True):
         window._drama_safe_start = True
     def report_callback_exception(kind, value, trace):
         import infra.diagnostic_capture as diagnostic_capture
+        from ui_widgets import notify
         try:
             diagnostic_capture.record_crash(value, trace)
         finally:

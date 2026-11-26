@@ -110,11 +110,17 @@ def record_temporary_sweep(removed: int, remaining: int) -> None:
 
 
 def record_crash(exc: BaseException, trace=None) -> None:
-    """追加到既有启动错误日志，不另建崩溃日志；历史只留最近约 64KB。"""
-    with _LOCK:
-        previous = ERROR_LOG.read_text(encoding="utf-8", errors="replace") if ERROR_LOG.exists() else ""
-        detail = "".join(traceback.format_exception(type(exc), exc, trace or exc.__traceback__))
-        save_text(ERROR_LOG, previous[-65536:] + "\n[diagnostics] " + _clean(detail) + "\n")
+    """追加到既有启动错误日志，不另建崩溃日志；历史只留最近约 64KB。
+
+    L5-E3：日志读写失败不二次崩溃——被崩溃钩子／监听器调用时内部失败静默计数。
+    """
+    try:
+        with _LOCK:
+            previous = ERROR_LOG.read_text(encoding="utf-8", errors="replace") if ERROR_LOG.exists() else ""
+            detail = "".join(traceback.format_exception(type(exc), exc, trace or exc.__traceback__))
+            save_text(ERROR_LOG, previous[-65536:] + "\n[diagnostics] " + _clean(detail) + "\n")
+    except Exception:
+        app_logging.swallowed()
 
 
 def export_candidates() -> tuple[Path, ...]:
@@ -655,8 +661,7 @@ def _downgrade_fatal(item):
     """把一条 FATAL Diagnostic 降级为 DEGRADED（dataclasses.replace 重建，枚举归一照旧）。"""
     import dataclasses
     from contract.diagnostics import Diagnostic, Severity
-    if not isinstance(item, Diagnostic) or item.severity is not Severity.FATAL:
-        return item
+    if not isinstance(item, Diagnostic) or item.severity is not Severity.FATAL: return item
     hint = str(item.escape_hint or '')
     if _SELFTEST_FLAG not in hint:
         hint = (hint + '；' if hint else '') + '已通过 data/%s 降级放行' % _SELFTEST_FLAG
@@ -835,8 +840,10 @@ def startup_gate(ask=None) -> bool:
 
 
 def fatal_diagnostics_text(items) -> str:
-    """FATAL 自检结果的可操作文本：每条 message＋remedy＋escape_hint，附 G12 关闭开关用法。"""
-    lines = []
+    """FATAL 自检结果的可操作文本：首行登记错误码 E-START-SELFCHECK（L5-E3），
+    随后每条 message＋remedy＋escape_hint，附 G12 关闭开关用法。"""
+    from contract.error_codes import describe
+    lines = [describe('E-START-SELFCHECK'), '']
     for item in items:
         lines.append('【%s】%s' % (getattr(item, 'code', ''), getattr(item, 'message', item)))
         remedy = str(getattr(item, 'remedy', '') or '')

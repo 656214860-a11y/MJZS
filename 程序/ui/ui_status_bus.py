@@ -13,6 +13,7 @@ import logging
 import queue
 import threading
 import time
+import weakref
 from dataclasses import dataclass, field
 
 import infra.app_logging as app_logging
@@ -76,6 +77,8 @@ class StatusBus:
         self._history = []
         self._current = None
         self._history_limit = history_limit
+        # L5-E2：最新构造的总线即未捕获异常的上屏出口（登记为弱引用，不拖住销毁）。
+        register_unhandled_bus(self)
 
     # ---- 订阅 ----
     def subscribe(self, fn):
@@ -197,5 +200,96 @@ def publish_startup_warnings(bus, items):
             text += ' 等 %d 项' % len(unique)
         text += '；处理建议见诊断导出'
         bus.publish(Message.make('warning', text, source='selfcheck', auto=False))
+    except Exception:
+        app_logging.swallowed()
+
+
+# ---- L5-E2：运行期未捕获异常上屏 ----
+#
+# ``app_logging``（L1）不能 import ui（L4）——崩溃钩子只开监听口子，本模块在
+# 构造第一条 StatusBus 时把 ``_forward_unhandled`` 挂进去。状态栏未注册、
+# UI 已销毁或任何内部失败都静默（``swallowed`` 计数），绝不反过来弄崩日志。
+
+UNHANDLED_WINDOW_S = 60.0     # 同一错误码的状态栏限频窗
+_unhandled_lock = threading.Lock()
+_unhandled_seen = {}          # code → [上次上屏的 monotonic, 被压下的次数]
+_unhandled_bus_ref = None     # weakref → 最近登记的 StatusBus
+_bridge_installed = False
+
+
+def register_unhandled_bus(bus):
+    """登记接收未捕获异常上屏的状态总线；返回取消登记的函数。``bus=None`` 只装桥。"""
+    global _unhandled_bus_ref
+    _unhandled_bus_ref = weakref.ref(bus) if bus is not None else None
+    _install_crash_bridge()
+
+    def _cancel():
+        unregister_unhandled_bus(bus)
+    return _cancel
+
+
+def unregister_unhandled_bus(bus=None):
+    """解除登记；``bus=None`` 或解除的正是当前总线时清空登记位。"""
+    global _unhandled_bus_ref
+    if bus is None or _unhandled_bus() is bus:
+        _unhandled_bus_ref = None
+
+
+def _unhandled_bus():
+    try:
+        return _unhandled_bus_ref() if _unhandled_bus_ref is not None else None
+    except Exception:
+        return None
+
+
+def publish_unhandled_error(code, message, now=None):
+    """未捕获异常的状态栏出口：同 ``code`` ``UNHANDLED_WINDOW_S`` 秒内仅首条上屏，
+    被压下的次数在恢复发播时并入文案；状态栏未注册或任何内部失败都静默返回 ``False``。"""
+    try:
+        bus = _unhandled_bus()
+        if bus is None:
+            return False
+        instant = time.monotonic() if now is None else float(now)
+        key = str(code or '')
+        with _unhandled_lock:
+            last, suppressed = _unhandled_seen.get(key, (None, 0))
+            if last is not None and instant - last < UNHANDLED_WINDOW_S:
+                _unhandled_seen[key] = (last, suppressed + 1)
+                return False
+            _unhandled_seen[key] = (instant, 0)
+        text = str(message or '')
+        if suppressed:
+            text += '（近 1 分钟共 %d 次）' % (suppressed + 1)
+        bus.publish(Message.make('error', text, source='crash'))
+        return True
+    except Exception:
+        app_logging.swallowed()
+        return False
+
+
+def _forward_unhandled(kind, exc):
+    """``app_logging`` 崩溃监听：取登记错误码、拼【错误】文案后走限频上屏。
+
+    主动退出（``SystemExit``／``KeyboardInterrupt``）不上屏；异常无登记码时归
+    ``E-UNKNOWN``；异常原文不进状态栏（细节写日志与启动错误.log）。
+    """
+    try:
+        if isinstance(exc, (SystemExit, KeyboardInterrupt)):
+            return
+        from contract.error_codes import describe, lookup
+        code = lookup(str(getattr(exc, 'code', '') or '')).code
+        publish_unhandled_error(code, '【错误】' + describe(code))
+    except Exception:
+        app_logging.swallowed()
+
+
+def _install_crash_bridge():
+    """把 ``_forward_unhandled`` 挂进 ``app_logging`` 的崩溃监听一次；装不上静默。"""
+    global _bridge_installed
+    if _bridge_installed:
+        return
+    try:
+        app_logging.add_crash_listener(_forward_unhandled)
+        _bridge_installed = True
     except Exception:
         app_logging.swallowed()

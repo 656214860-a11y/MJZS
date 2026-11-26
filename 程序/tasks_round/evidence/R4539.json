@@ -1,0 +1,15 @@
+{
+  "round": 4539,
+  "commit_base": "faa0434ce",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k desktop_launcher startup_selfcheck ui_status_bus app_metadata",
+    "exit": 0,
+    "passed": 127,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T15:46:49"
+}

@@ -35,6 +35,7 @@ FORMAT = "%(asctime)s %(levelname)s %(threadName)s %(name)s: %(message)s"
 _installed = False
 _fault_stream = None
 _crash_sink = None
+_crash_listeners: list = []
 _install_error = None
 _SECRET = re.compile(
     r"(?i)(?:api[ _-]?key|secret|token|password|credential)\s*[:=]\s*[^\s,;}]+|"
@@ -382,6 +383,31 @@ class _Redact(logging.Filter):
         return True
 
 
+def add_crash_listener(fn):
+    """登记未捕获异常监听 ``fn(kind, exc)``；返回取消登记的函数（L5-E2）。
+
+    监听在出错线程上被调（日志与 ``crash_sink`` 之后）；监听抛错被吞掉计数，
+    不拖累日志、crash_sink 与其余监听。登记代码只能做线程安全的事
+    （ui 侧经消息队列上屏，不直接碰 Tk）。
+    """
+    if not callable(fn): return lambda: None
+    with _swallow_lock:
+        _crash_listeners.append(fn)
+
+    def _cancel():
+        with _swallow_lock:
+            if fn in _crash_listeners: _crash_listeners.remove(fn)
+    return _cancel
+
+
+def _dispatch_crash_listener(fn, kind, exc):
+    """单个崩溃监听的隔离调用：抛错只计 ``swallowed``，不拖累日志与其余监听。"""
+    try:
+        fn(kind, exc)
+    except Exception:
+        swallowed('crash-listener')
+
+
 def _crash(kind: str, exc: BaseException, trace=None) -> None:
     logging.getLogger("crash").critical("%s: %s", kind, exc, exc_info=(type(exc), exc, trace or exc.__traceback__))
     if _crash_sink is not None:
@@ -389,6 +415,10 @@ def _crash(kind: str, exc: BaseException, trace=None) -> None:
             _crash_sink(exc, trace)
         except Exception:
             pass
+    # L5-E2：锁内只取快照、锁外调用——监听里再调 swallowed()/count() 不会死锁。
+    with _swallow_lock:
+        listeners = tuple(_crash_listeners)
+    for fn in listeners: _dispatch_crash_listener(fn, kind, exc)
 
 
 def install(root=None, crash_sink=None) -> bool:
@@ -415,8 +445,7 @@ def install(root=None, crash_sink=None) -> bool:
             root.report_callback_exception = tk_hook
         except Exception:
             pass
-    if _installed:
-        return True
+    if _installed: return True
     try:
         LOGS.mkdir(parents=True, exist_ok=True)
         handler = RotatingFileHandler(APP_LOG, maxBytes=MAX_BYTES, backupCount=BACKUPS, encoding="utf-8")
