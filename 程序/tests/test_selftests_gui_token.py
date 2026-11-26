@@ -469,3 +469,37 @@ r.release_gui_lock(p)
             'acquire', ('b',), 'release',
             'acquire', ('c',), 'release',
         ])
+
+    def test_production_scan_excludes_logs_and_runtime_dirs(self):
+        """R2-G4：logs/ 等 gitignored 运行目录里的 .py 不是生产模块，不得计入架构扫描。"""
+        from tests.architecture import _scan
+        for part in ('logs', 'data', 'outputs'):
+            self.assertIn(part, _scan.EXCLUDED_PARTS)
+        scanned = [path.relative_to(_scan.ROOT).as_posix()
+                   for path in _scan.production_files_recursive()]
+        self.assertFalse([name for name in scanned
+                          if set(name.split('/')) & {'logs', 'data', 'outputs'}],
+                         scanned[:5])
+
+    def test_gui_wait_seconds_is_capped_at_five_minutes(self):
+        """P1-1：跨树 GUI 令牌默认最多等 5 分钟，不再 30 分钟占队。"""
+        self.assertEqual(selftest_env.GUI_WAIT_SECONDS, 300)
+
+    def test_wait_report_shows_holder_heartbeat_age(self):
+        """P1-2：等待报告展示持锁者心跳年龄，方便区分慢与假死。"""
+        with tempfile.TemporaryDirectory() as common:
+            path = Path(common) / runner.GUI_LOCK_NAME
+            queue = str(Path(common) / 'queue')
+            ticket = str(Path(common) / 'queue' / '0.ticket')
+            path.write_text(json.dumps({'pid': 123456, 'started_at': time.time() - 45,
+                                        'heartbeat_at': time.time() - 12}), encoding='utf-8')
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                selftest_scheduling._gui_wait_report(common, 30.0, queue, ticket)
+            self.assertRegex(output.getvalue(), '心跳距今 \\d+ 秒')
+            path.write_text(json.dumps({'pid': 123456, 'started_at': time.time() - 45}),
+                            encoding='utf-8')
+            output = io.StringIO()
+            with contextlib.redirect_stdout(output):
+                selftest_scheduling._gui_wait_report(common, 30.0, queue, ticket)
+            self.assertIn('心跳未知', output.getvalue())
