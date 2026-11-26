@@ -222,10 +222,29 @@ def import_animatic_reference_library(project, sources, *, characters=(), locati
     return tuple(artifacts)
 
 
+def _formal_animatic_assets(project):
+    """REQ-S04-113：只读读取 S05 已入库正式资产图（缺失或损坏时安全降级为空，绝不写盘）。"""
+    from domain.animatic_references import formal_asset_entries
+    from domain.asset_context import library_dir
+    try:
+        base = library_dir(Path(project).resolve())
+        plan_path = base / 'assets' / '资产清单' / 'assets.json'
+        reg_path = base / 'assets.json'
+        plan = file_cache.read_json(plan_path) if plan_path.is_file() else {}
+        registry = file_cache.read_json(reg_path) if reg_path.is_file() else {}
+        return formal_asset_entries(plan, registry, base)
+    except Exception:
+        return {'角色': [], '场景': []}
+
+
+formal_animatic_assets = _formal_animatic_assets
+
+
 def refs_for_animatic_shot(project, shot):
-    """按镜 characters/location 在参考库自动配图；未命中任何分类图退回未分类。"""
+    """REQ-S04-72/113：按编号／名称／别名优先复用 S05 正式资产图，未命中回退共享参考库。"""
     from domain.animatic_references import refs_for_shot
-    return refs_for_shot(shot, animatic_reference_library(project))
+    return refs_for_shot(shot, animatic_reference_library(project),
+                         formal_assets=_formal_animatic_assets(project))
 
 
 def reclassify_animatic_reference(project, path, category, new_name=None):

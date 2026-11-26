@@ -8,6 +8,14 @@ CATEGORIES = ('角色', '场景', '风格')
 UNCATEGORIZED = '未分类'
 IMAGE_SUFFIXES = ('.png', '.jpg', '.jpeg', '.webp')
 MAX_IMAGE_BYTES = 20 * 1024 * 1024
+_ASSET_ID_RE = re.compile(r'^(CHAR|LOC)_\d{3,}$', re.IGNORECASE)
+_EXCLUDED_IMPORTANCE = frozenset({'background', 'extra', 'non_face'})
+
+
+def _asset_id_key(text):
+    """完整资产编号精确键（CHAR_001/LOC_001）；避免被 normalize_name 按 _ 截断串图。"""
+    raw = unicodedata.normalize('NFKC', str(text or '')).strip().upper()
+    return raw if _ASSET_ID_RE.fullmatch(raw) else ''
 
 
 def normalize_name(text):
@@ -46,23 +54,115 @@ def library(read_dirs):
     return grouped
 
 
-def refs_for_shot(shot, lib):
-    """命中角色图＋命中场景图＋全部风格图（去重保序）；全空退回未分类全部图。"""
-    wanted = {normalize_name(name) for name in shot.get('characters', ()) or ()}
-    location = normalize_name(shot.get('location', '') or '')
+def formal_asset_entries(plan, registry, base):
+    """REQ-S04-113：从 S05 清单与图片登记表构造可复用的正式角色／场景图索引（纯函数，只读）。
+
+    编号键（CHAR_###／LOC_###）单独做完整大写精确匹配，绝不被 normalize_name 按 _ 截断；
+    图片严格以登记表 registry[aid]['image'] 为准且须在 base 内、非空、格式合法。
+    """
+    plan = plan if isinstance(plan, dict) else {}
+    registry = registry if isinstance(registry, dict) else {}
+    root = Path(base).resolve()
+    grouped = {'角色': [], '场景': []}
+    for aid in sorted({str(key) for key in plan} | {str(key) for key in registry}):
+        id_key = _asset_id_key(aid)
+        if not id_key:
+            continue
+        item = plan.get(aid) if isinstance(plan.get(aid), dict) else {}
+        reg = registry.get(aid) if isinstance(registry.get(aid), dict) else {}
+        if item.get('requires_asset') is False:
+            continue
+        if str(item.get('character_importance') or '').strip() in _EXCLUDED_IMPORTANCE:
+            continue
+        image = str(reg.get('image') or '').strip()
+        if not image:
+            continue
+        try:
+            candidate = (root / image).resolve()
+            if (not candidate.is_relative_to(root)
+                    or candidate.suffix.lower() not in IMAGE_SUFFIXES
+                    or not candidate.is_file() or not candidate.stat().st_size):
+                continue
+        except (OSError, ValueError):
+            continue
+        names = [item.get('name'), reg.get('name')]
+        for source in (item, reg):
+            aliases = source.get('aliases')
+            if isinstance(aliases, (list, tuple)):
+                names.extend(aliases)
+        name_keys = []
+        for raw in names:
+            if not isinstance(raw, str) or not raw.strip() or _asset_id_key(raw):
+                continue
+            key = normalize_name(raw)
+            if key and key not in name_keys:
+                name_keys.append(key)
+        category = '角色' if id_key.startswith('CHAR_') else '场景'
+        display = str(item.get('name') or reg.get('name') or aid).strip()
+        grouped[category].append({
+            'path': candidate, 'aid': aid, 'name': display, 'id_key': id_key,
+            'name_keys': tuple(name_keys), 'category': category, 'source': 'formal_asset',
+        })
+    return grouped
+
+
+def _match_formal(token, entries):
+    id_key = _asset_id_key(token)
+    if id_key:
+        return [item for item in entries if item.get('id_key') == id_key]
+    name_key = normalize_name(token)
+    if not name_key:
+        return []
+    return [item for item in entries if name_key in (item.get('name_keys') or ())]
+
+
+def refs_for_shot(shot, lib, *, formal_assets=None):
+    """命中角色图＋命中场景图＋全部风格图（去重保序）；全空退回未分类全部图。
+
+    传入 formal_assets 时（REQ-S04-113）：每个角色／场景优先匹配 S05 已入库正式资产图，
+    未命中再回退共享参考库同类别图，风格图始终附加。
+    """
     picked, seen = [], set()
 
     def take(item):
-        if item['path'] not in seen:
-            seen.add(item['path'])
+        key = Path(item['path']).resolve()
+        if key not in seen:
+            seen.add(key)
             picked.append(item['path'])
 
-    for item in lib.get('角色', ()):
-        if item['stem_key'] in wanted:
-            take(item)
-    for item in lib.get('场景', ()):
-        if location and item['stem_key'] == location:
-            take(item)
+    if formal_assets is None:
+        wanted = {normalize_name(name) for name in shot.get('characters', ()) or ()}
+        location = normalize_name(shot.get('location', '') or '')
+        for item in lib.get('角色', ()):
+            if item['stem_key'] in wanted:
+                take(item)
+        for item in lib.get('场景', ()):
+            if location and item['stem_key'] == location:
+                take(item)
+    else:
+        formal_chars = formal_assets.get('角色', ())
+        formal_scenes = formal_assets.get('场景', ())
+        for raw in shot.get('characters', ()) or ():
+            hits = _match_formal(raw, formal_chars)
+            if hits:
+                for item in hits:
+                    take(item)
+            else:
+                key = normalize_name(raw)
+                for item in lib.get('角色', ()):
+                    if key and item['stem_key'] == key:
+                        take(item)
+        raw_loc = shot.get('location', '') or ''
+        if raw_loc:
+            hits = _match_formal(raw_loc, formal_scenes)
+            if hits:
+                for item in hits:
+                    take(item)
+            else:
+                key = normalize_name(raw_loc)
+                for item in lib.get('场景', ()):
+                    if key and item['stem_key'] == key:
+                        take(item)
     for item in lib.get('风格', ()):
         take(item)
     if not picked:

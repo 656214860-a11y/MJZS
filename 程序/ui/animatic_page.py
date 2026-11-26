@@ -428,9 +428,13 @@ def _refresh(page, state):
 def _update_summary(page, state):
     library = _quiet(lambda: stage_execution_service.animatic_reference_library(
         state['project']), {})
+    formal = _quiet(lambda: stage_execution_service.formal_animatic_assets(
+        state['project']), {})
+    formal_count = sum(len(v) for v in formal.values()) if isinstance(formal, dict) else 0
     segment = format_status_summary(
         state['timeline'], library if isinstance(library, dict) else {},
-        _audio_mode(state), state.get('version_tag'), state.get('confirmed'))
+        _audio_mode(state), state.get('version_tag'), state.get('confirmed'),
+        formal_count=formal_count)
     setter = getattr(page, 'set_status_segment', None)
     if callable(setter):
         setter('animatic_note', segment, tooltip=segment)
