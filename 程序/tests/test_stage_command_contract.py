@@ -167,7 +167,7 @@ class RegistryCallbackContractTests(unittest.TestCase):
                 host._start_unattended_stage = Mock()
                 view = Mock(desktop=host, errors=[])
                 view.agent.level = 'auto'
-                view.agent.approve.return_value = {'run': True}
+                view._authorize_paid_stage.return_value = (True, '')
                 with patch('orchestrator.stage_flow.unchecked', return_value=False):
                     errors = [PetStagesMixin.start_stage(view, 'assets') for _ in range(2)]
                 self.assertTrue(all(error.startswith('阶段未派发：') for error in errors), errors)

@@ -63,7 +63,7 @@ class AudioSubtitleScopeTests(unittest.TestCase):
 
     def test_req_s11_12_batch_line_identity_fields(self):
         self.assertEqual(tts_api.LINE_IDENTITY_FIELDS,
-                         ('shot_id', 'text', 'voice', 'speed', 'model', 'endpoint'))
+                         ('shot_id', 'text', 'voice', 'speed', 'model', 'endpoint', 'key_account'))
 
     def test_req_s11_20_partial_timing_is_rejected_not_fixed(self):
         episode = {'shots': [{'id': 'S1', 'duration': 4, 'dialogue': [

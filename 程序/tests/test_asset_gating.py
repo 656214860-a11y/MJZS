@@ -47,6 +47,9 @@ def make_project(td):
     return proj
 
 
+from test_board_assets_buttons import _asset_menu, _menu_labels
+
+
 def button_state(button):
     return "disabled" if button.instate(["disabled"]) else "normal"
 
@@ -207,11 +210,11 @@ class AssetPageContentTests(_TkHarness):
             self.assertEqual(str(table.set("CHAR_001", "references")), "3 张 · 长相2 表情1",
                              "参考图那一栏要说清「几张、哪几类」")
             self.assertEqual(str(table.set("LOC_001", "references")), "—", "没有参考图就是「—」")
-            buttons = self.page_buttons(d.content)
+            buttons = _menu_labels(_asset_menu(d))
             # 第 57 期第 6 条：这一行按钮重新排过——「查看参考图」删掉（参考图那一格单击
             # 打开的就是它）、「批量删除图片」改名「批量删除资产」、「生成图目录」改名
             # 「资产目录」并改开 episode 根目录，所以它现在该在。
-            self.assertIn("资产目录", buttons)
+            self.assertIn("打开资产目录", buttons)
             self.assertIn("批量删除资产", buttons)
             self.assertNotIn("查看参考图", buttons, "第 57 期第 6 条：这一颗删了")
             self.assertNotIn("批量删除图片", buttons)
@@ -361,6 +364,12 @@ class AssetCellDeleteTests(_TkHarness):
         d.show(PAGE_OF['assets']); win.update()
         return d, proj
 
+    def delete_cell(self, desktop, field):
+        from tk_test_support import stage_context_menu
+        table = desktop.asset_table
+        x, y, width, height = table.bbox("CHAR_001", desktop.asset_field_column(field))
+        stage_context_menu(table, x=x + width // 2, y=y + height // 2).invoke("删除这一格 / 该行资产图片")
+
     def both_files(self, proj, aid="CHAR_001"):
         """两份文件里这一项资产的登记：图片登记表那一条 ＋ 资产清单那一条。"""
         base = proj / "episode"
@@ -403,9 +412,7 @@ class AssetCellDeleteTests(_TkHarness):
             errors = self.quiet_messagebox()
             self.assertEqual(d.asset_field_column("references"), "#4",
                              "「参考图」是第 4 栏，删除的落点要按字段名现算")
-            hover = d.asset_table.cell_hover
-            self.assertIsNotNone(hover.delete, "资产表的右键菜单该挂着「删除」")
-            hover.delete("CHAR_001", d.asset_field_column("references"))
+            self.delete_cell(d, "references")
             self.assertEqual(errors, [], "删参考图不该弹错误框")
             image, plan = self.both_files(proj)
             self.assertEqual(plan.get("reference_images", []), [], "参考图该解除绑定")
@@ -421,7 +428,7 @@ class AssetCellDeleteTests(_TkHarness):
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.prepared(td)
             errors = self.quiet_messagebox()
-            d.asset_table.cell_hover.delete("CHAR_001", d.asset_field_column("name"))
+            self.delete_cell(d, "name")
             self.assertEqual(errors, [], "删资产图片不该弹错误框")
             image, plan = self.both_files(proj)
             self.assertNotIn("image", image, "资产图片该移进项目回收站，资产恢复为待导入")
@@ -444,76 +451,28 @@ class AssetCellDeleteTests(_TkHarness):
 
 
 class AssetPageGatingTests(_TkHarness):
-    def test_gated_buttons_match_contract(self):
+    def test_context_actions_follow_checked_and_highlighted_targets(self):
         with tempfile.TemporaryDirectory() as td:
-            d, _ = self.desktop(td)
-            d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            texts = [b.cget("text") for b in d.asset_gated_buttons]
-            self.assertIn("手动制作资产", texts)
-            self.assertIn("导入参考图", texts)
-            self.assertIn("批量删除资产", texts)
-            # 第 57 期第 6 条：「查看参考图」删了（参考图那一格单击打开的就是它），
-            # 「批量删除图片」改名「批量删除资产」。
-            self.assertNotIn("查看参考图", texts)
-            self.assertNotIn("批量删除图片", texts)
-            for exempt in ("参考图目录", "桌面打开 ComfyUI"):
-                self.assertNotIn(exempt, texts)
-
-    def test_buttons_disabled_when_none_checked(self):
-        with tempfile.TemporaryDirectory() as td:
-            d, _ = self.desktop(td)
-            d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            d.asset_checked_count = 0
-            d.update_asset_buttons()
-            self.assertTrue(all(b.instate(["disabled"]) for b in d.asset_gated_buttons))
-
-    def test_buttons_enabled_when_checked(self):
-        with tempfile.TemporaryDirectory() as td:
-            d, _ = self.desktop(td)
-            d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            d.asset_checked_count = 3
-            d.asset_has_pending = True
-            d.update_asset_buttons()
-            self.assertTrue(all(not b.instate(["disabled"]) for b in d.asset_gated_buttons))
-
-
-
-    def test_toolbar_checks_remain_enabled_without_selection(self):
-
-        with tempfile.TemporaryDirectory() as td:
-
-            d, _ = self.desktop(td)
-
-            d.show(PAGE_OF['assets']); d.win.update_idletasks()
-
-            d.asset_checked_count = 0
-
-            d.update_asset_buttons()
-
-            buttons = []
-
-            def walk(w):
-
-                if isinstance(w, self.ttk.Button):
-
-                    buttons.append(w)
-
-                for c in w.winfo_children():
-
-                    walk(c)
-
-            walk(d.content)
-
-            states = {b.cget("text"): button_state(b) for b in buttons}
-
-            for exempt in ("检查提示词", "识别背景人物", "参考图目录", "资产目录", "桌面打开 ComfyUI"):
-                self.assertEqual(states.get(exempt), "normal")
-            # 第 55 期第 5 条：「资产目录」删掉了（打开的是「生成图目录」那一个库）；
-            # 第 57 期第 6 条：它又以新身份回来了——「生成图目录」改名「资产目录」，
-            # 改开上一级的 episode 根目录，所以这一条从「不该有」翻成「该有且不用选中」。
-
-
-
+            d, _ = AssetPageContentTests.open_assets(self, adopted_project(td))
+            table = d.asset_table
+            table.selection_remove(*table.selection())
+            table.focus('')
+            view = d.asset_page_view
+            for aid in view.checked:
+                view.checked[aid] = False
+            view.refresh_buttons()
+            menu = _asset_menu(d)
+            for label in ('手动制作资产', '导入参考图…', '批量删除资产'):
+                self.assertEqual(str(menu.entrycget(label, 'state')), 'disabled', label)
+            for label in ('检查提示词', '识别背景人物', '打开参考图目录', '打开资产目录', '桌面打开 ComfyUI'):
+                self.assertEqual(str(menu.entrycget(label, 'state')), 'normal', label)
+            table.selection_set('CHAR_001')
+            highlighted = _asset_menu(d)
+            self.assertEqual(str(highlighted.entrycget('导入参考图…', 'state')), 'normal')
+            self.assertEqual(str(highlighted.entrycget('批量删除资产', 'state')), 'normal')
+            view.checked['CHAR_001'] = True
+            view.refresh_buttons()
+            self.assertEqual(str(_asset_menu(d).entrycget('手动制作资产', 'state')), 'normal')
 
 
 class NativeAssetsGatingTests(_TkHarness):
@@ -560,27 +519,17 @@ class NativeAssetsGatingTests(_TkHarness):
         with tempfile.TemporaryDirectory() as td:
             d, _ = self.desktop(td)
             d.show(PAGE_OF['assets']); d.win.update_idletasks()
-            buttons = []
-            def walk(w):
-                if isinstance(w, (self.tk.Button, self.ttk.Button)):
-                    buttons.append(w)
-                for c in w.winfo_children():
-                    walk(c)
-            walk(d.content)
-            texts = [str(b.cget("text")) for b in buttons]
+            texts = _menu_labels(_asset_menu(d))
             self.assertIn("强制关闭 ComfyUI", texts)
             self.assertIn("制作记录", texts)
-            self.assertNotIn("阶段配置", texts, "R2942：资产页「阶段配置」按钮已删")
-            order = [t for t in texts if t in ("手动制作资产", "强制关闭 ComfyUI", "制作记录")]
-            self.assertEqual(order, ["手动制作资产", "强制关闭 ComfyUI", "制作记录"],
-                             "紧跟主动作，顺序别乱")
+            self.assertNotIn("阶段配置", texts)
 
     def test_kill_comfy_runs_off_the_ui_thread(self):
         """「强制关闭 ComfyUI」在主界面阶段配置旁，后台线程执行：按下时 ComfyUI 往往已经卡住，界面不能跟着僵。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         import threading, time as clock
-        import native_apps
+        from infra import native_apps
         with tempfile.TemporaryDirectory() as td:
             d, proj = self.desktop(td)
             d.show(PAGE_OF['assets']); d.win.update_idletasks()
@@ -594,16 +543,9 @@ class NativeAssetsGatingTests(_TkHarness):
             original = native_apps.force_close_comfy
             native_apps.force_close_comfy = fake
             self.addCleanup(setattr, native_apps, "force_close_comfy", original)
-            found = []
-            def walk(w):
-                if isinstance(w, self.ttk.Button):
-                    found.append(w)
-                for c in w.winfo_children():
-                    walk(c)
-            walk(d.content)
-            button = [b for b in found if b.cget("text") == "强制关闭 ComfyUI"][0]
+            menu = _asset_menu(d)
             started = clock.perf_counter()
-            button.invoke()
+            menu.invoke("强制关闭 ComfyUI")
             self.assertLess(clock.perf_counter() - started, 0.3)      # 点击本身立刻返回
             self.assertIn("正在强制关闭", label_text())
             deadline = clock.time() + 10
@@ -673,7 +615,7 @@ class ForceCloseComfyTests(unittest.TestCase):
         return Fake()
 
     def test_it_also_kills_the_python_that_runs_the_service(self):
-        import native_apps
+        from infra import native_apps
         calls = []
         original = native_apps.subprocess
         native_apps.subprocess = self.fake_subprocess(calls)
@@ -687,7 +629,7 @@ class ForceCloseComfyTests(unittest.TestCase):
 
     def test_the_assistant_never_kills_its_own_python(self):
         import os
-        import native_apps
+        from infra import native_apps
         self.assertNotIn(os.getpid(), native_apps.comfy_server_pids(),
                          "助手自己也是 python，绝不能把自己算进名单")
 

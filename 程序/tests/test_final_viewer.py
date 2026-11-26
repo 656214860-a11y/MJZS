@@ -305,27 +305,14 @@ class ButtonRowTests(FinalViewerCase):
         except self.tk.TclError:
             return ""
 
-    def test_the_manual_button_is_the_highlighted_entry(self):
-        manual = self.button("手动同步资产")
-        self.assertEqual(str(manual.cget("style")), "Tokens.Primary.TButton",
-                         "主动作要使用设计系统的高亮按钮")
-        self.assertIn("刷新列表", [self.text_of(b) for b in manual.master.winfo_children()],
-                      "「刷新列表」还留在这一行")
-
-    def test_the_stage_config_sits_to_the_right_of_the_manual_button(self):
-        """R2942：「阶段配置」按钮＋模型下拉框已删除；该行只剩手动/刷新/目录三键。"""
-        manual = self.button("手动同步资产")
-        labels = [self.text_of(child) for child in manual.master.winfo_children()]
-        self.assertNotIn("阶段配置", labels, "「阶段配置」已随 R2942 删除")
-        self.assertLess(labels.index("手动同步资产"), labels.index("刷新列表"),
-                        "「刷新列表」仍跟在手动动作后面")
-        self.assertLess(labels.index("刷新列表"), labels.index("分镜目录"))
-
-    def test_refresh_sits_left_of_the_storyboard_folder(self):
-        order = self.button("手动同步资产").master.winfo_children()
-        labels = [self.text_of(child) for child in order]
-        self.assertLess(labels.index("刷新列表"), labels.index("分镜目录"),
-                        "「刷新列表」挪到「分镜目录」左边")
+    def test_final_actions_use_shared_send_and_context_menu(self):
+        from tk_test_support import stage_context_menu
+        self.assertTrue(callable(self.app.shared_input.stage_action('final')))
+        menu = stage_context_menu(self.viewer)
+        labels = [menu.entrycget(i, 'label') for i in range(menu.index('end') + 1)
+                  if menu.type(i) == 'command']
+        self.assertEqual(labels[:3], ['手动同步资产', '刷新列表', '打开分镜目录'])
+        self.assertNotIn('阶段配置', labels)
 
 
 if __name__ == "__main__":

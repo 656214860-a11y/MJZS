@@ -41,9 +41,9 @@ class FinalPageLoadingTests(unittest.TestCase):
     def tree(self):
         return next(widget for widget in self.widgets() if widget.winfo_class() == 'Treeview')
 
-    def refresh_button(self):
-        return next(widget for widget in self.widgets()
-                    if 'text' in widget.keys() and str(widget.cget('text')) == '刷新列表')
+    def refresh_catalog(self):
+        from tk_test_support import stage_context_menu
+        stage_context_menu(self.tree()).invoke('刷新列表')
 
     def add_source(self):
         target = self.source.with_name('EP002.json')
@@ -120,7 +120,7 @@ class FinalPageLoadingTests(unittest.TestCase):
         tasks, callbacks = self.controlled_page()
         tasks.pop(0)()
         second = self.add_source()
-        self.refresh_button().invoke()
+        self.refresh_catalog()
         expected = self.tree().get_children()
         self.assertIn(str(second), expected)
         callbacks['apply']()
@@ -160,7 +160,7 @@ class FinalPageLoadingTests(unittest.TestCase):
                   if 'textvariable' in widget.keys() and widget.cget('textvariable')]
         self.assertTrue(any('加载失败' in str(value) and '刷新列表' in str(value) for value in values))
         self.app.content = holder
-        self.refresh_button().invoke()
+        self.refresh_catalog()
         self.assertIn(str(self.source), self.tree().get_children())
 
     def test_automatic_refresh_preserves_unsaved_text(self):

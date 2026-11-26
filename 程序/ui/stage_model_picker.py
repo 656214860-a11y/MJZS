@@ -98,8 +98,8 @@ class StageModelPicker(ttk.Frame):
     def refresh_models(self):
         """模型池或项目变了：重读选项，并把已保存的那一档摆回去。"""
         self._call_modes = {}
-        self.groups = grouped_model_choices(self.desktop, self.stage, call_modes=self._call_modes)
         records = pool_records(self.desktop)
+        self.groups = grouped_model_choices(self.desktop, self.stage, call_modes=self._call_modes, records=records)
         self._items = []
         self._by_display = {}
         self._capable = set()

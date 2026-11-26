@@ -172,6 +172,7 @@ class DesktopMissingRegistrationTests(unittest.TestCase):
         self.app.win=self.win;self.app.root=None;self.app.projects=self.service
         self.app.content=ttk.Frame(self.win)
         self.app._project_home_tree=None
+        self.app._inline_startup_picker=False
         self.app._project_result_data=lambda r:desktop.Desktop._project_result_data(self.app,r)
         self.app._sync_project_picker=lambda **kw:desktop.Desktop._sync_project_picker(self.app,**kw)
         self.app._sync_project_group_styles=lambda:desktop.Desktop._sync_project_group_styles(self.app)

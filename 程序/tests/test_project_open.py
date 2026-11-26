@@ -234,6 +234,7 @@ def chooser_desktop(service, win):
         open_path=lambda *a, **k: desktop.open_path(*a, **k),
         context_menu=lambda *a, **k: desktop.ContextMenu(*a, **k),
         confirm=MagicMock(return_value=False))
+    app._choose_project_dialog = desktop.Desktop._choose_project_dialog.__get__(app)
     app._cleanup_project_path = None; app._startup_project_choice = False
     app.daily_project_choice = lambda: None
     app.safe = lambda fn: fn()

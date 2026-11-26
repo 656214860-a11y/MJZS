@@ -80,8 +80,8 @@ class CompactDesktopGeometryTests(unittest.TestCase):
                 self.assertGreaterEqual(gear.winfo_rooty(), d.sidebar_canvas.winfo_rooty())
                 self.assertLessEqual(dock.winfo_rooty()+dock.winfo_height(),
                                      d.sidebar_area.winfo_rooty()+d.sidebar_area.winfo_height()+1)
-                # R2897 图标轨：项目区之后依次是账号钮、14 个阶段钮与末尾设置钮。
-                rail=[d.account_button,*d.nav,d.settings_rail_button]
+                # R2897 图标轨：项目区之后依次是14 个导航钮、设置钮和会员钮。
+                rail=[*d.nav,d.settings_rail_button,d.account_button]
                 previous_bottom = d.project_block.winfo_rooty()+d.project_block.winfo_height()
                 for widget in rail:
                     self.assertGreaterEqual(widget.winfo_rooty(), previous_bottom)

@@ -555,6 +555,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self._open = False
         self._displayed_index_context = None
         self.cancel_script_load()
+        self._clear_index_tree()
         self._unbind_outside()
         self.script_box.pack_forget()
         self.sep.pack_forget()

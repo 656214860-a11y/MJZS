@@ -61,12 +61,12 @@ class AccountEntryTests(unittest.TestCase):
         cls.win.destroy()
         cls.temp.cleanup()
 
-    def test_account_button_sits_above_first_stage(self):
+    def test_account_button_follows_settings(self):
         d=self.desktop
         self.assertEqual(d.account_button.cget('text'),nav_label(PAGE_ACCOUNT))
         self.assertNotIn(d.account_button,d.nav)
         self.assertEqual(len(d.nav),len(PAGES))
-        self.assertLess(d.account_button.winfo_y(),d.nav[0].winfo_y())
+        self.assertGreater(d.account_button.winfo_y(),d.settings_rail_button.winfo_y())
 
     def test_account_page_opens_without_project(self):
         d=self.desktop

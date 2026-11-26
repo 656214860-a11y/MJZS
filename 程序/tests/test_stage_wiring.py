@@ -229,9 +229,7 @@ class ContinuityWiringTests(_Harness):
             proj = adopt_storyboard_fixture(make_minimal_project(td))
             d, win = self.desktop(proj)
             d.show(d.page_of("continuity")); win.update()
-            buttons = self.buttons(d.content, "手动生成连贯性清单")
-            self.assertEqual(len(buttons), 1, "这一页有一颗「手动生成连贯性清单」")
-            buttons[0].invoke(); win.update()
+            d.shared_input.stage_action("continuity")(); win.update()
             file = stage_layout.paths(proj, "03_continuity")["output"] / "continuity_ledger.json"
             self.assertTrue(file.is_file(), "一按就该把台账落盘")
             data = json.loads(file.read_text(encoding="utf-8"))
@@ -250,7 +248,8 @@ class ContinuityWiringTests(_Harness):
             d.show(d.page_of("assets")); win.update()
             self.assertNotIn("手动生成连贯性清单", self.texts(d.content), "资产页不再重复这个入口")
             self.assertNotIn("连贯性清单（展开）", self.texts(d.content), "折叠区整个撤掉了")
-            self.assertIn("资产目录", self.texts(d.content), "原有的按钮一颗都没少")
+            from test_board_assets_buttons import _asset_menu, _menu_labels
+            self.assertIn("打开资产目录", _menu_labels(_asset_menu(d)))
 
     def test_pick_gate_records_the_confirmation(self):
         with tempfile.TemporaryDirectory() as td:

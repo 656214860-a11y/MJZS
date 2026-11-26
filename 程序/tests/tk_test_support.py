@@ -22,3 +22,12 @@ def pump(window, seconds=.3, idle_first=True):
             window.update_idletasks()
         window.update()
         time.sleep(.005)
+
+def stage_context_menu(widget, **coordinates):
+    """走真实右键绑定，仅截获最后的弹出显示，供调用菜单项。"""
+    from unittest.mock import patch
+    from ui_widgets import ContextMenu
+    with patch.object(ContextMenu, 'popup', autospec=True) as popup:
+        widget.event_generate('<Button-3>', **coordinates)
+    popup.assert_called_once()
+    return popup.call_args.args[0]

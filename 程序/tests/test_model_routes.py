@@ -347,12 +347,12 @@ class ModelManagerRedesignUiTests(Batch7Case):
         cards[0].base_url_entry.set('https://api.deepseek.com')
         cards[1].base_url_entry.set('https://relay.example.invalid/v1')
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '保存').invoke()
+            _button(win, '保存当前').invoke()
         save_pool.assert_called_once()
         saved = save_pool.call_args.args[0]
         self.assertEqual(saved['model'], 'deepseek-v4-multi')
         self.assertEqual(len(saved['routes']), 2)
-        self.assertFalse(win.winfo_exists())
+        self.assertTrue(win.winfo_exists())
 
 
 if __name__ == '__main__':
