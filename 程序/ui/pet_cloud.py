@@ -409,11 +409,6 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if self.close_button is not None:
             self.close_button.state(['!active'])
 
-    def _outside_press(self, event):
-        if self.visible and event.widget not in self._watchers():
-            self.pet.dismissed()
-            self.pet.close_chat()
-
     def _hit_close(self, event=None):
         """点右上角那颗×＝收起对话框（与 Esc／close() 同一条路）。"""
         self.close()

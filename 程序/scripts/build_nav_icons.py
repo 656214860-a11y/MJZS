@@ -107,7 +107,7 @@ def render_icons(ink: tuple[int, int, int, int], accent_ink=None):
             from PIL import ImageDraw
             draw = ImageDraw.Draw(canvas)
             draw.polygon([(9, 18), (18, 9), (23, 14), (14, 23), (8, 24)],
-                         fill=use_ink, outline='white', width=2)
+                         fill=use_ink, outline='white', width=max(1, canvas.width // 12))
         path = OUT_DIR / f'{key}.png'
         canvas.save(path)
         written.append((path.name, canvas.width, canvas.height))

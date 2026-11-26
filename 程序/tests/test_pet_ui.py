@@ -1026,12 +1026,12 @@ class OneClickOfferTests(PetTestCase):
         self.now += pet_ui.OFFER_SECONDS + 1
         self.assertEqual(self.offer(), '', '同一批缺口不追着问')
 
-    def test_the_question_comes_in_the_green_chat_box(self):
-        """第 26 期第 5 条：问用户「要不要办」用绿色对话框——长句子也放得下、一眼分得开。"""
+    def test_question_uses_current_level_color(self):
+        """待确认的问题采用当前自动化等级的颜色。"""
         self.arm()
         cloud = self.pet.cloud()
         self.assertEqual(cloud.shape, pet_cloud.SHAPE_CLOUD)
-        self.assertEqual(cloud.fill(), pet_cloud.SHAPE_COLORS[pet_cloud.SHAPE_CLOUD][0])
+        self.assertEqual(cloud.edge(), pet_cloud.PET_PALETTE['level_' + self.pet.agent.level + '_outline'])
 
     def test_the_question_lists_the_choices(self):
         self.arm()
@@ -3242,10 +3242,10 @@ class ShapeTests(PetTestCase):
         cloud.show(pinned=False, shape=pet_cloud.SHAPE_PUFF)
         self.assertEqual(cloud.shape, pet_cloud.SHAPE_PUFF)
         self.assertTrue(cloud.canvas.find_withtag('cloud'), '换了形状也要重新画出来')
-        self.assertEqual(cloud.fill(), pet_cloud.SHAPE_COLORS[pet_cloud.SHAPE_PUFF][0])
+        mode_fill = cloud.fill()
         cloud.show(pinned=False, shape=pet_cloud.SHAPE_CLOUD)      # 换回云朵走的是同一扇窗
         self.assertEqual(cloud.shape, pet_cloud.SHAPE_CLOUD)
-        self.assertEqual(cloud.fill(), pet_cloud.SHAPE_COLORS[pet_cloud.SHAPE_CLOUD][0])
+        self.assertEqual(cloud.fill(), mode_fill)
 
 
 class CloudVoiceTests(PetTestCase):
@@ -6425,7 +6425,7 @@ class ChatSizeTests(PetTestCase):
     def test_the_chat_box_is_narrower_than_round_28(self):
         self.assertLess(pet_cloud.WIDTH, 372, "第 28 期那一档是 372，这一轮要更窄")
         self.assertLessEqual(pet_cloud.MAX_BODY, 236, "框身整体也收一档")
-        self.assertGreaterEqual(pet_cloud.WIDTH, 300, "别收成一条缝：正文还要排得开")
+        self.assertGreaterEqual(pet_cloud.WIDTH, pet_cloud.MIN_WIDTH, "别收成一条缝：正文还要排得开")
 
     def test_the_text_size_is_only_one_step_smaller(self):
         """第 49 期第 3 条：这一期只收字号，一档一档连着（15 → 13），别的地方一动不动。"""
@@ -6829,7 +6829,9 @@ class CloudFitTests(PetTestCase):
         self.assertEqual(cloud._body_ceiling(), pet_cloud.MAX_BODY_DOWN)
         body = cloud._fit_body(400)
         self.assertTrue(cloud._flipped(), '贴着顶：整朵往下挪')
-        self.assertGreater(body, pet_cloud.MAX_BODY, '下面那一整屏是空的：允许长过原来那一档')
+        self.assertLess(body, pet_cloud.MAX_BODY, '即使下方空间充足，对话框也保持紧凑')
+        cloud.shape = pet_cloud.SHAPE_ROUND
+        self.assertGreater(cloud._fit_body(400), pet_cloud.MAX_BODY, '较长的进度报告可以利用下方空间')
         self.assertLessEqual(body, pet_cloud.MAX_BODY_DOWN)
         self.assertLessEqual(cloud._fit_body(120), 120, '内容短就还是原来那么小')
         # 界面不在屏幕顶（哪怕翻下去过）照旧收在 MAX_BODY

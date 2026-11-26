@@ -26,6 +26,11 @@ GROW_ROOM = 0.42                  # 起步时气泡偏向耳朵这么多比例
 from ui.ui_motion import reduce_motion
 
 class CloudTimingMixin:
+    def _outside_press(self, event):
+        if self.visible and event.widget not in self._watchers():
+            self.pet.dismissed()
+            self.pet.close_chat()
+
     def _fade_out(self):
         """渐隐：alpha 一档一档走到 0 再 withdraw（第 24 期：档数与间隔见 FADE_OUT_STEPS／FADE_OUT_MS）。
 
