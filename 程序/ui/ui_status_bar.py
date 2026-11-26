@@ -308,16 +308,16 @@ class StatusBar(ttk.Frame):
 
     def _open_history(self):
         # 弹窗走统一组件 BaseDialog、正文走 TextArea（业务模块不得直接建 Toplevel/Text）。
-        from ui_widgets import BaseDialog, TextArea
+        from ui_widgets import BaseDialog, CloseButton, TextArea
         popup = BaseDialog(self, '消息历史', modal=False, chrome=False,
                            on_close=self._on_history_closed)
         header = tk.Label(popup.content, text='消息历史', bg=COLORS['background_card'],
                           fg=COLORS['text_heading'], font=FONTS['body'])
         header.pack(anchor='w', padx=SPACING['sm'], pady=(SPACING['sm'], SPACING['none']))
-        close = tk.Label(popup.content, text='×', bg=COLORS['background_card'],
-                         fg=COLORS['text_muted'], font=FONTS['body'])
-        close.place(relx=1.0, x=-SPACING['sm'] - 12, y=SPACING['xs'], anchor='ne')
-        close.bind('<Button-1>', lambda _event: popup.close())
+        close = CloseButton(popup.content, tooltip='关闭', command=popup.close)
+        close.place(relx=1.0, x=-SPACING['xs'], y=SPACING['xs'], anchor='ne')
+        close.lift()
+        popup.close_button = close
         text = TextArea(popup.content, width=CHAR_WIDTH['field_md'], height=TEXT_ROWS['lg'],
                         wrap='word', state='disabled')
         text.pack(fill='both', expand=True, padx=SPACING['xs'], pady=(SPACING['none'], SPACING['sm']))

@@ -373,7 +373,7 @@ class StoryboardPageLoadingTests(unittest.TestCase):
                              '顶部当前文件内容框应已移除')
             self.assertFalse(hasattr(page.editor, 'doc_title'))
             button = page.editor.close_button
-            self.assertEqual(str(button.cget('style')), 'Tokens.Secondary.TButton')
+            self.assertEqual(str(button.cget('style')), 'Tokens.Close.TButton')
             self.assertEqual(str(button.cget('text')), '×')
             self.assertNotEqual(str(button.cget('takefocus')), '0')
             self.assertTrue(button.bind('<Return>'), '关闭×须有回车激活绑定')

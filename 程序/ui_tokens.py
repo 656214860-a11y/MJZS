@@ -213,6 +213,25 @@ ROUND_TILE_BUTTON = (128, 64)
 ROUND_TILE_CARD = (256, 256)
 BUTTON_BORDER_WIDTH = 1
 
+# 统一关闭 × 按钮（UX-CLOSE-X）：全应用 5 处关闭按钮共用紧凑外框、加粗 × 字形与红底白×悬停。
+CLOSE_BUTTON_MARK = "×"
+CLOSE_BUTTON_STYLE = "Tokens.Close.TButton"
+CLOSE_BUTTON_COMPACT_STYLE = "Tokens.Close.Compact.TButton"
+CLOSE_BUTTON_COMPACT_ACTIVE_STYLE = "Tokens.Close.Compact.Active.TButton"
+CLOSE_BUTTON_FONT = FONTS["heading_2"]
+CLOSE_BUTTON_COMPACT_FONT = FONTS["heading_3"]
+CLOSE_BUTTON_RADIUS = RADIUS["sm"]
+CLOSE_BUTTON_PADDING = (SPACING["xs"], SPACING["none"])
+CLOSE_BUTTON_COMPACT_PADDING = (SPACING["xs"], SPACING["none"])
+CLOSE_BUTTON_SIZE = SPACING["xl"]
+CLOSE_BUTTON_BG = COLORS["background_card"]
+CLOSE_BUTTON_FG = COLORS["text_secondary"]
+CLOSE_BUTTON_ACTIVE_BG = COLORS["danger"]
+CLOSE_BUTTON_ACTIVE_FG = COLORS["on_accent"]
+CLOSE_BUTTON_PRESSED_BG = COLORS["danger_pressed"]
+CLOSE_BUTTON_PRESSED_FG = COLORS["on_accent"]
+CLOSE_BUTTON_COMPACT_ACTIVE_BG = COLORS["primary_subtle"]
+
 # 弹窗视觉规格只由 ui_widgets 的 BaseDialog 系列消费；业务页不得另行设置标题、内容区或按钮区样式。
 DIALOG_TITLE_FONT = FONTS["title"]
 DIALOG_CONTENT_PADDING = SPACING["lg"]
@@ -441,49 +460,108 @@ HOVER_FADE_MS = 100
 HOVER_FADE_STEPS = 4
 
 # 三虎插画色（R1851 后从 pet_ui_support／pet_ui 收拢）：只给桌宠绘制用，不进业务页面。
-# UX-SLATE-PALETTE-SYNC：与目录/文件图标对齐为高级灰冷墨体系，三档猫爪保持浅→中→深清晰层级。
-PET_PALETTE = {
-    'fur': '#8A96A3',
-    'ear': '#B8C2CC',
-    'muzzle': '#F2F5F7',
+# UX-SANHU-FIX：三模式（只提醒石板蓝灰／半自动暖琥珀橘虎／全自动翡翠绿）拆为日／夜双主题，
+# set_theme() 原地更新 PET_PALETTE 并同步修正夜间 caption_ink 对比度。
+_DAY_PET_PALETTE = {
+    'fur': '#D97706',
+    'ear': '#E7B4A0',
+    'muzzle': '#F8FAFC',
     'ink': '#1E2730',
-    'star': '#5C6B7A',
-    'blush': '#C5CDD5',
+    'star': '#FBBF24',
+    'blush': '#E2A99C',
     'paw_idle_fill': '#EDF1F3',
     'paw_idle_line': '#BAC4CD',
     'paw_hover_fill': '#DFE6E9',
     'paw_hover_line': '#7C8A98',
-    'caption_ink': '#000000',
+    'caption_ink': '#0F1419',
     'ice': '#F7F9FA',
     'ink_soft': '#536471',
-    'tongue': '#9AA5B1',
-    'mood_idle': '#8E9BA8',
-    'mood_idle_line': '#2E3842',
-    'mood_idle_deep': '#161C22',
-    'mood_busy': '#718090',
-    'mood_busy_line': '#2E3842',
-    'mood_busy_deep': '#161C22',
+    'tongue': '#D48A94',
+    'mood_idle': '#64748B',
+    'mood_idle_line': '#334155',
+    'mood_idle_deep': '#94A3B8',
+    'mood_busy': '#D97706',
+    'mood_busy_line': '#78350F',
+    'mood_busy_deep': '#FBBF24',
     'mood_worry': '#9A7D7D',
     'mood_worry_line': '#4A3333',
     'mood_worry_deep': '#2B1B1B',
     'mood_paused': '#C4CCD3',
     'mood_paused_line': '#536471',
     'mood_paused_deep': '#2E3842',
-    'level_hint': '#8E9BA8',
-    'level_hint_line': '#475569',
-    'level_hint_deep': '#27313D',
-    'level_semi': '#64748B',
-    'level_semi_line': '#334155',
-    'level_semi_deep': '#1E293B',
-    'level_auto': '#3B4856',
-    'level_auto_line': '#1E2730',
-    'level_auto_deep': '#0F1419',
+    'level_hint': '#64748B',
+    'level_hint_outline': '#334155',
+    'level_hint_accent': '#94A3B8',
+    'level_hint_line': '#334155',
+    'level_hint_deep': '#94A3B8',
+    'level_semi': '#D97706',
+    'level_semi_outline': '#78350F',
+    'level_semi_accent': '#FBBF24',
+    'level_semi_line': '#78350F',
+    'level_semi_deep': '#FBBF24',
+    'level_auto': '#15803D',
+    'level_auto_outline': '#14532D',
+    'level_auto_accent': '#4ADE80',
+    'level_auto_line': '#14532D',
+    'level_auto_deep': '#4ADE80',
     'paused_muzzle': '#E5EAEF',
     'paused_ear': '#C8CFD6',
     'paused_blush': '#B8C0C8',
     'glint': '#DCE3E7',
     'blush_cool': '#A3B1BF',
 }
+
+_NIGHT_PET_PALETTE = {
+    'fur': '#F59E0B',
+    'ear': '#C79284',
+    'muzzle': '#E2E8F0',
+    'ink': '#E2E8F0',
+    'star': '#FCD34D',
+    'blush': '#C98984',
+    'paw_idle_fill': '#26303F',
+    'paw_idle_line': '#4B5B70',
+    'paw_hover_fill': '#323E4F',
+    'paw_hover_line': '#94A3B8',
+    'caption_ink': '#E8ECF2',
+    'ice': '#F8FAFC',
+    'ink_soft': '#CBD5E1',
+    'tongue': '#E09AA4',
+    'mood_idle': '#7C93B0',
+    'mood_idle_line': '#CBD5E1',
+    'mood_idle_deep': '#94A3B8',
+    'mood_busy': '#F59E0B',
+    'mood_busy_line': '#FDE68A',
+    'mood_busy_deep': '#FCD34D',
+    'mood_worry': '#B88A8A',
+    'mood_worry_line': '#F2C6C6',
+    'mood_worry_deep': '#FCA5A5',
+    'mood_paused': '#64748B',
+    'mood_paused_line': '#94A3B8',
+    'mood_paused_deep': '#CBD5E1',
+    'level_hint': '#7C93B0',
+    'level_hint_outline': '#CBD5E1',
+    'level_hint_accent': '#94A3B8',
+    'level_hint_line': '#CBD5E1',
+    'level_hint_deep': '#94A3B8',
+    'level_semi': '#F59E0B',
+    'level_semi_outline': '#FDE68A',
+    'level_semi_accent': '#FCD34D',
+    'level_semi_line': '#FDE68A',
+    'level_semi_deep': '#FCD34D',
+    'level_auto': '#22C55E',
+    'level_auto_outline': '#BBF7D0',
+    'level_auto_accent': '#4ADE80',
+    'level_auto_line': '#BBF7D0',
+    'level_auto_deep': '#4ADE80',
+    'paused_muzzle': '#94A3B8',
+    'paused_ear': '#475569',
+    'paused_blush': '#5B6B85',
+    'glint': '#CBD5E1',
+    'blush_cool': '#8FA3B8',
+}
+
+PET_THEMES = {'day': _DAY_PET_PALETTE, 'night': _NIGHT_PET_PALETTE}
+PET_PALETTE = dict(_DAY_PET_PALETTE)
 
 # ── 明暗主题（REQ-UI-THEME-1／UX-THEME-SIMPLE）───────────────────────────────
 # 两套调色板键集必须一致（守卫测试钉死）；语义分组不变，只收明度。
@@ -561,6 +639,13 @@ _DERIVED_SOURCES = {
     'SCROLLBAR_THUMB': 'border_input',
     'SCROLLBAR_THUMB_ACTIVE': 'border_input_hover',
     'SCROLLBAR_TROUGH': 'background_primary',
+    'CLOSE_BUTTON_BG': 'background_card',
+    'CLOSE_BUTTON_FG': 'text_secondary',
+    'CLOSE_BUTTON_ACTIVE_BG': 'danger',
+    'CLOSE_BUTTON_ACTIVE_FG': 'on_accent',
+    'CLOSE_BUTTON_PRESSED_BG': 'danger_pressed',
+    'CLOSE_BUTTON_PRESSED_FG': 'on_accent',
+    'CLOSE_BUTTON_COMPACT_ACTIVE_BG': 'primary_subtle',
 }
 
 # 已导入模块在模块级把颜色绑成了自己的常量（`X = COLORS['k']` 或改过名的
@@ -574,8 +659,8 @@ _CONSUMER_BINDS = {
     'ui.pet_cloud': {'FILL': 'background_card', 'EDGE': 'border_default',
                      'STATUS_INK': 'text_secondary', 'BG': 'background_primary',
                      'HINT_FG': 'text_muted', 'HINT_BG': 'background_card',
-                     'CLOSE_FG': 'on_accent', 'CLOSE_BG': 'danger',
-                     'CLOSE_HOVER': 'primary_subtle',
+                     'CLOSE_FG': 'text_secondary', 'CLOSE_BG': 'background_card',
+                     'CLOSE_HOVER': 'danger', 'CLOSE_HOVER_FG': 'on_accent',
                      'SHAPE_COLORS': {'cloud': ('background_card', 'success'),
                                       'puff': ('background_card', 'danger'),
                                       'round': ('primary_subtle', 'primary'),
@@ -602,6 +687,9 @@ def _rebind_derived():
     TEXT_PROGRESS['foreground'] = COLORS['primary_text']
 
 
+_NOOP = lambda: None
+
+
 def _sync_consumers():
     """回写已导入模块里按旧主题绑定的颜色常量（见 _CONSUMER_BINDS 与 _DERIVED_SOURCES）。"""
     for module in list(sys.modules.values()):
@@ -624,6 +712,7 @@ def _sync_consumers():
                                        for name, pair in spec.items()})
             else:
                 setattr(module, attr, COLORS[spec])
+    getattr(sys.modules.get('ui.pet_ui_support'), 'sync_pet_palette', _NOOP)()
 
 
 _previous_palette = {}
@@ -640,7 +729,7 @@ def current_theme():
 
 
 def set_theme(name):
-    """把活动调色板换成 day／night（原地替换 COLORS 并同步派生 token 与已绑定常量）。
+    """把活动调色板换成 day／night（原地替换 COLORS 与 PET_PALETTE 并同步派生 token 与已绑定常量）。
 
     认不出的名字返回 None、现状不动；成功返回主题名。
     """
@@ -653,6 +742,8 @@ def set_theme(name):
     _previous_palette = dict(COLORS)
     COLORS.clear()
     COLORS.update(palette)
+    PET_PALETTE.clear()
+    PET_PALETTE.update(PET_THEMES[key])
     _rebind_derived()
     _current_theme = key
     _sync_consumers()

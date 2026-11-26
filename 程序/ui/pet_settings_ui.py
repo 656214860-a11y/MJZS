@@ -55,9 +55,11 @@ TOKEN_ENTRY_WIDTHS = {'model_context_window': TOKEN_FIELD_WIDTH,
                       'subagent_limit': CHAR_WIDTH['xs']}
 # 第 66 期：新加的那一格叫「Token 节省」——附件《Token 节省完整命令清单》全收在这儿。
 TOKEN_TITLE = 'Token 节省'
-# 左栏图标复用主导航的 Fluent PNG 语义名；没有对应资产时保留文字回退。
-TAB_ICONS = {'basic': 'settings', 'model': 'sites', 'level': 'animatic', 'token': 'structure',
-             'budget': 'delivery', 'skills': 'library', 'dev': 'account'}
+# 左栏 8 枚设置专属目录图标（与主界面 0 复用）；没有对应资产时保留文字回退。
+TAB_ICONS = {'basic': 'settings_basic', 'model': 'settings_pet_model',
+             'model_config': 'settings_model_config', 'level': 'settings_level',
+             'token': 'settings_token', 'budget': 'settings_budget',
+             'skills': 'settings_skills', 'dev': 'settings_dev'}
 # 分页次序＝用户要的次序：基础功能、模型配置、自动化等级、Token 节省、预算、SKILL 管理、开发信息。
 # 第 46 期第 6 条：第二格改名「三虎模型配置」（用户点名要的名字）。
 NOTE_HUB = '集中管理基础功能、模型、自动化、Token 节省、预算、SKILL 与开发信息。'
@@ -189,8 +191,12 @@ def _fields_snapshot(seams):
 
 
 def hub_dirty(win):
-    """任一可保存页的变量与开扇快照不同：关窗前要先确认丢弃。"""
+    """任一可保存页的变量与开扇快照不同，或内嵌页自报脏状态：关窗前要先确认丢弃。"""
     seams = getattr(win, '_pet_seams', None) or {}
+    for seam in seams.values():
+        checker = (seam or {}).get('is_dirty')
+        if callable(checker) and checker():
+            return True
     for (key, group, name), value in (getattr(win, '_pet_saved', None) or {}).items():
         var = ((seams.get(key) or {}).get(group) or {}).get(name)
         if var is not None and var.get() != value:
@@ -203,6 +209,10 @@ def request_close(win):
     if hub_dirty(win) and not ask_confirmation(
             win, HUB_TITLE, '有未保存的改动，关闭后不会保存。确定关闭？'):
         return False
+    for seam in (getattr(win, '_pet_seams', None) or {}).values():
+        cleanup = (seam or {}).get('destroy_cleanup')
+        if callable(cleanup):
+            cleanup()
     win.destroy()
     return True
 
@@ -286,7 +296,6 @@ def open_hub(pet, tab=None):
     stack = ttk.Frame(columns)
     stack.pack(side='left', fill='both', expand=True)
     tabs = {}
-    manager_button = None
 
     def step_selection(delta):
         keys = [key for key, _title in TABS]
@@ -308,38 +317,30 @@ def open_hub(pet, tab=None):
         button.bind('<Down>', lambda _event: step_selection(1), add='+')
         button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         tabs[key] = button
-        if key == 'model':
-            # 打开模型管理是动作不是分类：保留次按钮样式，避免被误读成另一页。
-            manager_button = SecondaryButton(nav, text=pet_models_ui.MANAGER_BUTTON,
-                                             command=lambda: pet.open_model_manager())
-            manager_button.bind('<Up>', lambda _event: step_selection(-1), add='+')
-            manager_button.bind('<Down>', lambda _event: step_selection(1), add='+')
-            manager_button.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
     # 选中态和普通态的横向内边距不同，先给最长分类留出两种状态所需的宽度。
     nav_width = nav.winfo_reqwidth()
     for button in tabs.values():
         button.configure(style='Selected.Nav.TButton')
         nav_width = max(nav_width, button.winfo_reqwidth())
         button.configure(style='Nav.TButton')
-    nav.configure(width=max(nav_width, manager_button.winfo_reqwidth()))
+    nav.configure(width=nav_width)
     nav.pack_propagate(False)
     pages = {}
     for key, title in TABS:
-        pages[key] = ttk.Frame(stack, padding=SPACING['md'])
+        pages[key] = ttk.Frame(stack, padding=SPACING['sm'] if key == 'model_config' else SPACING['md'])
     width = label_width()
-    # 首次打开只构建落到的那一格。SKILL 管理会在构建时启动后台扫描，Token／预算／模型
-    # 也各自读配置；七格一起先建会把首帧拖住，还会加载用户根本没打开的页。页面一旦建过
-    # 就留在页面栈里复用，切回去不重复读盘、不重复启动后台任务。
+    # 首次打开只构建落到的那一格。页面一旦建过就留在页面栈里复用，切回去不重复读盘、不重复启动后台任务。
     builders = {'basic': lambda frame: basic_page(frame, pet, width),
                 'model': lambda frame: pet_models_ui.settings_page(frame, pet, with_manager=False,
                                                                     label_width=width, show_save=False),
+                'model_config': lambda frame: pet_models_ui.manager_page(frame, pet, win=win),
                 'level': lambda frame: level_page(frame, pet, width),
                 'token': lambda frame: token_page(frame, pet, width, show_save=False),
                 'budget': lambda frame: budget_page(frame, pet, width, show_save=False),
                 'skills': lambda frame: pet_skills_manage.skills_page(frame, pet, width),
                 'dev': lambda frame: dev_page(frame, pet, width)}
     win._pet_tabs = tabs
-    win._pet_manager = manager_button
+    win._pet_manager = tabs.get('model_config')
     win._pet_nav = nav
     win._pet_pages = pages
     win._pet_page_builders = builders
@@ -358,6 +359,12 @@ def select(win, tab=None):
     tabs = getattr(win, '_pet_tabs', None) or {}
     if tab not in pages:
         return None
+    previous = current(win)
+    if previous is not None and previous != tab:
+        prev_seam = (getattr(win, '_pet_seams', None) or {}).get(previous) or {}
+        confirm_leave = prev_seam.get('confirm_leave')
+        if callable(confirm_leave) and not confirm_leave('切换页面'):
+            return None
     target = pages[tab]
     freeze = PaintFreeze(target.master)
     frozen = False

@@ -346,7 +346,8 @@ class FormAlignmentTests(Batch7Case):
                            'API 根地址是长值字段，应使用弹性跨列宽度')
         wire = next(child for child in win._pet_provider_box.master.winfo_children()
                     if child.winfo_class() == 'TCombobox'
-                    and int(child.grid_info().get('row', -1)) == int(entries['key_env'].grid_info()['row']))
+                    and int(child.grid_info().get('row', -1)) == int(entries['key_env'].grid_info()['row'])
+                    and int(child.grid_info().get('column', -1)) == 3)
         self.assertEqual(wire.winfo_rootx(), win._pet_modality_box.winfo_rootx(), '协议与右半边同一竖线')
         self.assertLess(wire.winfo_width(), win.winfo_width() // 2,
                         '协议下拉按内容取宽，不得独占半行')
@@ -699,13 +700,14 @@ class ModelManagerUxTests(Batch7Case):
             save = _button(win, '保存')
             self.assertEqual(_button(win, '取消').winfo_rooty(), save.winfo_rooty(),
                              '取消与保存同排')
-            for label in ('新建一条', '测试连接', '删除这条', '保存这条', '语音识别…'):
+            self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '语音识别…'])
+            for label in ('新建一条', '测试连接', '删除这条', '保存这条'):
                 button = _button(win, label)
                 self.assertNotEqual(button.winfo_rooty(), save.winfo_rooty(),
                                     '%s 不与保存同排' % label)
             edge = win.winfo_rootx() + win.winfo_width()
             bottom = win.winfo_rooty() + win.winfo_height()
-            for label in ('取消', '保存', '新建一条', '测试连接', '删除这条', '保存这条', '语音识别…'):
+            for label in ('取消', '保存', '新建一条', '测试连接', '删除这条', '保存这条'):
                 button = _button(win, label)
                 self.assertTrue(button.winfo_ismapped(), (width, label))
                 self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), edge,

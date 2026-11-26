@@ -30,7 +30,7 @@ from ui_tokens import (
     SCROLLBAR_WIDTH,
     SPACING,
 )
-from ui_widgets import SecondaryButton, TextArea, Tooltip, ask_string
+from ui_widgets import CloseButton, TextArea, ask_string
 from ui.desktop_script_edit_session import (
     _install_script_edit_controls,
     _reset_preview_text,
@@ -743,12 +743,11 @@ class _ContentBox:
         text_area = ttk.Frame(preview_area)
         text_area.grid(row=1, column=1, sticky='nsew')
         self.preview, self.horizontal, self.gutter = _build_script_preview(text_area)
-        self.close_button = SecondaryButton(
-            text_area, text='×', width=0, style='Tokens.Secondary.TButton', takefocus=True,
-            command=lambda: self.owner.page.safe(self.close_document))
-        Tooltip(self.close_button, '关闭当前文件（项目文件保留）')
-        for sequence in ('<Return>', '<space>'):
-            self.close_button.bind(sequence, lambda _e: (self.close_button.invoke(), 'break')[1], add='+')
+        self.close_button = CloseButton(
+            text_area,
+            tooltip='关闭当前文件（项目文件保留）',
+            command=lambda: self.owner.page.safe(self.close_document),
+        )
         self.preview_ticket = {'value': 0}
         self.loaded = {'raw': ''}
         self.zoom_delta = 0

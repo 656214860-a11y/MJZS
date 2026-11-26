@@ -96,20 +96,16 @@ class ManagerActionTests(Batch7Case):
 
 
 class SpeechSettingsTests(Batch7Case):
-    """REQ-S01-71：模型管理底栏「语音识别…」打开设置弹窗，保存走 speech_api.save_settings。"""
+    """REQ-S01-71 / UX-SETTINGS-MODELS：语音识别并入模型管理左上角分段，独立弹窗壳仍兼容可用。"""
     def _dialog(self):
         manager = self._show(pet_models_ui.open_manager(self.pet))
-        save = _button(manager, '保存这条')
-        entry = _button(manager, '语音识别…')
-        self.assertGreater(entry.winfo_rootx(), save.winfo_rootx(), '入口在左侧按钮组末尾')
-        original, opened = speech_settings_ui.open_speech_settings, []
-        opener = lambda pet, parent=None: opened.append(original(pet, parent))
+        self.assertFalse([b for b in _buttons(manager) if str(b.cget('text')) == '语音识别…'],
+                         '独立「语音识别…」按钮已取消并入左上角分类分段')
+        self.assertIn('语音识别', manager._pet_mode_buttons)
         with mock.patch.object(speech_api, 'read_settings', return_value=dict(speech_api.DEFAULTS)), \
-                mock.patch.object(speech_api, 'api_key', return_value=''), \
-                mock.patch.object(pet_models_ui, 'open_speech_settings', opener):
-            entry.invoke()
-        self.assertEqual(len(opened), 1)
-        return self._show(opened[0])
+                mock.patch.object(speech_api, 'api_key', return_value=''):
+            dialog = speech_settings_ui.open_speech_settings(self.pet, manager)
+        return self._show(dialog)
 
     def test_fields_show_settings_and_missing_key(self):
         win = self._dialog()

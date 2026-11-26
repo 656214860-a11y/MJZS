@@ -166,7 +166,9 @@ class PetSettingsMixin:
         任务书 T7）把「SKILL 管理」格落地为安装级增删查页，阶段勾选仍归阶段面板。
         """
         import ui.pet_settings_ui as pet_settings_ui
-        return pet_settings_ui.open_hub(self, tab)
+        win = pet_settings_ui.open_hub(self, tab)
+        self.notice = '已打开设置窗口'
+        return win
     def build_gear(self, parent=None):
         """设置入口齿轮（第 R2946 期：真桌面改由侧栏图标轨末尾的 settings 钮承担）。
 
@@ -398,7 +400,7 @@ class PetSettingsMixin:
         心跳每 150ms 调一次，所以先跟上一份文字比对：没变就不碰菜单（改文字会重排菜单）。
         """
         # 第 22 期：这三条都在一级栏上（静默那条原来在子菜单里，改文字不用整栏重建了）。
-        for name, label in (('model', self.model_label()), ('mode', self.mode_label()),
+        for name, label in (('model', self.model_label()), ('theme', self.theme_label()),
                             ('pause', self.pause_label()), ('snooze', self.snooze_label())):
             if self._menu_labels.get(name) == label:
                 continue

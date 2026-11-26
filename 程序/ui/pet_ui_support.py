@@ -115,10 +115,55 @@ MOODS = {'idle': (PET_PALETTE['mood_idle'], PET_PALETTE['mood_idle_line'], PET_P
 # 第 20 期：用户报「自动化级别显示错误」——那排猫爪按第 19 期的新配色填（正常蓝／半自动黄／全自动红），
 # 猫身子却还是第 15 期的旧配色（正常黄／半自动蓝／全自动红），同一档两个颜色（蓝爪配黄猫）。
 # 现在只留这一份：猫身子、那排猫爪、等级小字共用它；PAW_COLORS 就是它的前两项（填色／描边）。
-LEVEL_COLORS = {'hint': (PET_PALETTE['level_hint'], PET_PALETTE['level_hint_line'], PET_PALETTE['level_hint_deep']),
-                'semi': (PET_PALETTE['level_semi'], PET_PALETTE['level_semi_line'], PET_PALETTE['level_semi_deep']),
-                'auto': (PET_PALETTE['level_auto'], PET_PALETTE['level_auto_line'], PET_PALETTE['level_auto_deep'])}
+LEVEL_COLORS = {'hint': (PET_PALETTE['level_hint'], PET_PALETTE['level_hint_outline'], PET_PALETTE['level_hint_accent']),
+                'semi': (PET_PALETTE['level_semi'], PET_PALETTE['level_semi_outline'], PET_PALETTE['level_semi_accent']),
+                'auto': (PET_PALETTE['level_auto'], PET_PALETTE['level_auto_outline'], PET_PALETTE['level_auto_accent'])}
 PAW_COLORS = {level: colours[:2] for level, colours in LEVEL_COLORS.items()}
+
+
+def sync_pet_palette():
+    """主题切换后原地刷新三虎三模式／暂停／猫爪／标题色板，并同步已导入消费者。"""
+    global SANHU_FUR, SANHU_EAR, SANHU_MUZZLE, SANHU_INK, SANHU_STAR, SANHU_BLUSH
+    global PAW_IDLE, PAW_HOVER, CAPTION_INK, ICE, INK_SOFT, TONGUE
+    SANHU_FUR = PET_PALETTE['fur']
+    SANHU_EAR = PET_PALETTE['ear']
+    SANHU_MUZZLE = PET_PALETTE['muzzle']
+    SANHU_INK = PET_PALETTE['ink']
+    SANHU_STAR = PET_PALETTE['star']
+    SANHU_BLUSH = PET_PALETTE['blush']
+    PAW_IDLE = (PET_PALETTE['paw_idle_fill'], PET_PALETTE['paw_idle_line'])
+    PAW_HOVER = (PET_PALETTE['paw_hover_fill'], PET_PALETTE['paw_hover_line'])
+    CAPTION_INK = PET_PALETTE['caption_ink']
+    ICE = PET_PALETTE['ice']
+    INK_SOFT = PET_PALETTE['ink_soft']
+    TONGUE = PET_PALETTE['tongue']
+    MOODS.update({
+        'idle': (PET_PALETTE['mood_idle'], PET_PALETTE['mood_idle_line'], PET_PALETTE['mood_idle_deep']),
+        'busy': (PET_PALETTE['mood_busy'], PET_PALETTE['mood_busy_line'], PET_PALETTE['mood_busy_deep']),
+        'worry': (PET_PALETTE['mood_worry'], PET_PALETTE['mood_worry_line'], PET_PALETTE['mood_worry_deep']),
+        'paused': (PET_PALETTE['mood_paused'], PET_PALETTE['mood_paused_line'], PET_PALETTE['mood_paused_deep']),
+    })
+    LEVEL_COLORS.update({
+        'hint': (PET_PALETTE['level_hint'], PET_PALETTE['level_hint_outline'], PET_PALETTE['level_hint_accent']),
+        'semi': (PET_PALETTE['level_semi'], PET_PALETTE['level_semi_outline'], PET_PALETTE['level_semi_accent']),
+        'auto': (PET_PALETTE['level_auto'], PET_PALETTE['level_auto_outline'], PET_PALETTE['level_auto_accent']),
+    })
+    PAW_COLORS.update({level: colours[:2] for level, colours in LEVEL_COLORS.items()})
+    mirrors = {
+        'SANHU_FUR': SANHU_FUR, 'SANHU_EAR': SANHU_EAR, 'SANHU_MUZZLE': SANHU_MUZZLE,
+        'SANHU_INK': SANHU_INK, 'SANHU_STAR': SANHU_STAR, 'SANHU_BLUSH': SANHU_BLUSH,
+        'PAW_IDLE': PAW_IDLE, 'PAW_HOVER': PAW_HOVER, 'CAPTION_INK': CAPTION_INK,
+        'ICE': ICE, 'INK_SOFT': INK_SOFT, 'TONGUE': TONGUE,
+    }
+    for mod_name in ('ui.pet_ui', 'ui.pet_ui_view', 'ui.pet_ui_voice'):
+        mod = sys.modules.get(mod_name)
+        attrs = getattr(mod, '__dict__', None)
+        if attrs is None:
+            continue
+        for key, value in mirrors.items():
+            if key in attrs:
+                attrs[key] = value
+    return PET_PALETTE
 # 第 18 期：等级不光靠颜色，标题行里还有一个字样（用户报「正常／半自动／全自动不显示了」）。
 # 第 21 期：字样按用户给的说法写——蓝色那只＝「只提醒」（用户原话：蓝爪→蓝猫→只提醒）。
 # 三档的顺序与配色由 PAW_LEVELS／LEVEL_COLORS 定，这里只管那三个字写什么。
@@ -438,39 +483,29 @@ class GearButton:
             pass
         return None
 def palette(mood='idle', level=None):
-    """取这一帧的三种颜色：暂停优先置灰，其余按等级色（头像＝等级），再退回心情色。
-
-    第 18 期：暂停自动执行时三虎整只置灰（用户要的「暂停时头像置灰」）——暂停是一种状态，
-    不是某一档等级，所以它压过等级色。
-    """
+    """取这一帧的三种颜色：暂停优先置灰，其余动态按当前主题的等级色，再退回心情色。"""
     if str(mood) == 'paused':
-        return MOODS['paused']
-    if level in LEVEL_COLORS:
-        return LEVEL_COLORS[level]
-    return MOODS.get(str(mood), MOODS['idle'])
+        return (PET_PALETTE['mood_paused'], PET_PALETTE['mood_paused_line'], PET_PALETTE['mood_paused_deep'])
+    if level in PAW_LEVELS:
+        return (PET_PALETTE[f'level_{level}'], PET_PALETTE[f'level_{level}_outline'],
+                PET_PALETTE[f'level_{level}_accent'])
+    name = str(mood)
+    if f'mood_{name}' in PET_PALETTE:
+        return (PET_PALETTE[f'mood_{name}'], PET_PALETTE[f'mood_{name}_line'],
+                PET_PALETTE[f'mood_{name}_deep'])
+    return (PET_PALETTE['mood_idle'], PET_PALETTE['mood_idle_line'], PET_PALETTE['mood_idle_deep'])
 def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
-    """手绘一帧：参考桌面图标的 Q 版三虎（大眼、奶白口鼻、三道额纹）。
-
-    头像与桌面图标使用同一套识别色：虎皮橙、深蓝描边、粉耳、奶白口鼻和青色星光。
-    自动化等级仍由 ``accent`` 标记在星光和动作细节中，暂停时整只置灰；这样既不丢失状态语义，
-    也不会让三虎在不同页面和桌面图标之间像两个角色。
-
-    第 15 期：给了 level 就按自动化等级上色（全自动红／半自动蓝／只提示黄），mood 仍然管
-    动得快慢与托盘图标——两件事各归各的，不再互相串色。
-    第 17 期：多了 pose——爬行时整只猫左右轻轻挪、脚下多两只爪子；舔爪／打哈欠／摇尾巴／
-    撒娇各有自己的画法，每一段都带 'pose-xxx' 标签（用例按标签认动作，不看像素）。
-    眼睛仍只按帧眨眼（不看动作）：动作再怎么换，眨眼节奏不变，用例的帧断言才稳。
-    """
+    """手绘一帧：Q 版三虎头像，按当前自动化模式切换毛色／描边／星光，日夜双主题同步，暂停态置灰。"""
     step = int(step)
     blink = step % 4 == 3
     lift = 1 if step % 2 else 0
     state_body, state_outline, accent = palette(mood, level)
     paused = str(mood) == 'paused'
-    body = state_body if paused else SANHU_FUR
-    outline = state_outline if paused else SANHU_INK
-    muzzle = PET_PALETTE['paused_muzzle'] if paused else SANHU_MUZZLE
-    ear = PET_PALETTE['paused_ear'] if paused else SANHU_EAR
-    blush = PET_PALETTE['paused_blush'] if paused else SANHU_BLUSH
+    body = state_body
+    outline = state_outline
+    muzzle = PET_PALETTE['paused_muzzle'] if paused else PET_PALETTE['muzzle']
+    ear = PET_PALETTE['paused_ear'] if paused else PET_PALETTE['ear']
+    blush = PET_PALETTE['paused_blush'] if paused else PET_PALETTE['blush']
     pose = str(pose or 'sit')
     ox = 0
     if pose == 'walk':
@@ -508,7 +543,7 @@ def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
             canvas.create_oval(cx - 7 + ox, 31 + oy, cx + 7 + ox, 45 + oy,
                                fill=outline, outline='', tags='eye-dot')
             canvas.create_oval(cx - 4 + ox, 33 + oy, cx + 1 + ox, 38 + oy,
-                               fill=ICE, outline='', tags='glint')
+                               fill=PET_PALETTE['ice'], outline='', tags='glint')
             canvas.create_oval(cx + 2 + ox, 39 + oy, cx + 5 + ox, 42 + oy,
                                fill=PET_PALETTE['glint'], outline='', tags='glint')
     # ⑤ 鼻子、笑嘴和腮红：不把动作表情画成黑洞，保持小尺寸里的亲和感。
@@ -522,12 +557,13 @@ def paint(canvas, step=0, mood='idle', percent=0.0, level=None, pose='sit'):
         canvas.create_oval(side + ox, 43 + oy, side + 7 + ox, 48 + oy,
                            fill=blush, outline='', tags='blush')
     # ⑥ 胡须：轻细两根，避免压过大眼。
+    whisker_ink = PET_PALETTE['ink_soft']
     for x0, y0, x1, y1 in ((15, 41, 6, 39), (15, 46, 6, 48)):
-        canvas.create_line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, fill=INK_SOFT, width=1, tags='whisker')
+        canvas.create_line(x0 + ox, y0 + oy, x1 + ox, y1 + oy, fill=whisker_ink, width=1, tags='whisker')
         canvas.create_line((64 - x0) + ox, y0 + oy, (64 - x1) + ox, y1 + oy,
-                           fill=INK_SOFT, width=1, tags='whisker')
-    # ⑦ 一颗小星：接住当前自动化等级的色彩，也把桌面图标的识别元素带进聊天页。
-    star = (SANHU_STAR if not paused else accent)
+                           fill=whisker_ink, width=1, tags='whisker')
+    # ⑦ 一颗小星：随当前自动化等级与主题同步变色。
+    star = accent
     canvas.create_polygon(54 + ox, 8 + oy, 56 + ox, 13 + oy, 61 + ox, 15 + oy,
                           56 + ox, 17 + oy, 54 + ox, 22 + oy, 52 + ox, 17 + oy,
                           48 + ox, 15 + oy, 52 + ox, 13 + oy,
@@ -553,7 +589,7 @@ def flourish(canvas, pose, step, ox, oy, body, outline, accent, blush):
         canvas.create_line(50 + ox, 44 + oy, 58 + ox, 54 + oy, fill=body, width=6,
                            tags=('pose-lick', 'paw'))
         canvas.create_arc(27 + ox, 43 + oy, 37 + ox, 54 + oy, start=180, extent=180,
-                          style='pieslice', fill=TONGUE, outline=outline, tags=('pose-lick', 'tongue'))
+                          style='pieslice', fill=PET_PALETTE['tongue'], outline=outline, tags=('pose-lick', 'tongue'))
         return pose
     if pose == 'yawn':
         # 第 24 期第 6 条：原来打哈欠是在脸上张开一张墨色的嘴——64 像素里就是一个黑窟窿

@@ -861,7 +861,7 @@ class PetVoiceMixin:
         head = '本周周报已备好' if weekly else '今日日报已备好'
         name = '（文件：%s）' % path.name if path is not None else ''
         if shots is None:
-            return '%s：%s%s（随时能在「生成今日日报」里看全文）' % (pet_agent.PET_NAME, head, name)
+            return '%s：%s%s（随时能在右键菜单「今日日报」里看全文）' % (pet_agent.PET_NAME, head, name)
         return '%s：%s——%d 个镜头、%d 张首帧入账%s' % (pet_agent.PET_NAME, head, shots, frames, name)
     def report_hint(self, at=None):
         """第 36 期第 5 条：下午／夜里活儿慢下来了，三虎主动把日报／周报递到用户眼前。
