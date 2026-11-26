@@ -752,7 +752,7 @@ class FooterLayoutTests(unittest.TestCase):
                                "那一行就在主动作这一行下面")
             self.assertEqual(self.row_texts(row),
                              ["通过", "打开素材目录", "恢复任务编号", "打开视频目录",
-                              "需修改", "批量生成勾选镜头", "删除勾选镜头"],
+                              "需修改", "批量需修改", "批量生成勾选镜头", "删除勾选镜头"],
                              "「通过」打头，其余按用户给的次序排；批量删除紧跟批量生成（第 46 期第 9 条）")
             self.assertIs(self.button(app, "批量生成勾选镜头").master, row)
             self.assertIs(self.button(app, "批量生成勾选镜头"),
@@ -1262,17 +1262,13 @@ class PromptBoxHeightTests(unittest.TestCase):
                 win.update(); win.update_idletasks()
             self.assertGreater(int(v.log.cget("height")), v.LOG_ROWS_MIN, "日志多了，框跟着长高")
             self.assertLessEqual(int(v.log.cget("height")), v.LOG_ROWS_MAX, "再长也封顶")
-            from ui_widgets import SecondaryButton
+            from tk_test_support import stage_context_menu
             from unittest.mock import patch
-            clear, = [child for child in v.log_header.winfo_children()
-                      if isinstance(child, SecondaryButton)]
-            self.assertEqual(str(clear.cget('text')), '清空日志')
-            self.assertEqual(str(clear.cget('style')), 'Tokens.Secondary.TButton')
-            self.assertGreaterEqual(clear.winfo_height(), clear.winfo_reqheight(),
-                                    '日志操作行不得裁切标准按钮')
+            menu = stage_context_menu(v.log)
+            self.assertEqual(str(menu.entrycget('清空日志', 'state')), 'normal')
             v.busy = True
             with patch('storage_maintenance.recycle_paths') as recycle:
-                clear.invoke()
+                menu.invoke('清空日志')
                 recycle.assert_not_called()
             v.busy = False
             self.assertEqual(v.log.get('1.0', 'end').strip(), '')

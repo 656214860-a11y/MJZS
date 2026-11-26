@@ -2099,7 +2099,7 @@ class BatchContinuationTests(unittest.TestCase):
             d, win, _proj = self.asset_page(td)
             calls = self.answer_modal(False)
             started = self.quiet_batch()
-            [b for b in d.asset_gated_buttons if b.cget("text") == "手动制作资产"][0].invoke()
+            d.shared_input.stage_action("assets")()
             win.update()
             self.assertEqual(calls, ["重新制作资产"], "要问一句才能把用户选的行手掉")
             self.assertEqual(started, [], "用户说不重做就不开制作窗口")
@@ -2120,7 +2120,7 @@ class BatchContinuationTests(unittest.TestCase):
                 {"CHAR_001": {"image": "assets/characters/CHAR_001.png"}}, ensure_ascii=False), encoding="utf-8")
             calls = self.answer_modal(True)
             started = self.quiet_batch()
-            [b for b in d.asset_gated_buttons if b.cget("text") == "手动制作资产"][0].invoke()
+            d.shared_input.stage_action("assets")()
             win.update()
             self.assertEqual(calls, ["重新制作资产"])
             self.assertFalse(image.exists(), "旧图该挪走")
@@ -2147,12 +2147,12 @@ class BatchContinuationTests(unittest.TestCase):
             d.update_asset_buttons()
             self.answer_modal(False)
             started = self.quiet_batch()
-            [b for b in d.asset_gated_buttons if b.cget("text") == "手动制作资产"][0].invoke()
+            d.shared_input.stage_action("assets")()
             win.update()
             self.assertEqual(started, [("workflow", ["CHAR_002"])], "只把还没做的那一项交出去")
 
-    def test_the_manual_asset_button_is_grey_when_everything_is_made(self):
-        """第 59 期第 3 条：内容框里只剩「已制作」的行时，这颗按钮置灰。"""
+    def test_the_manual_asset_menu_allows_checked_remakes(self):
+        """勾选已制作资产后也能进入有确认的重做流程。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -2161,14 +2161,11 @@ class BatchContinuationTests(unittest.TestCase):
             d.asset_requirements = lambda: {"CHAR_001": {"id": "CHAR_001", "name": "角色", "status": "已导入"}}
             d.asset_kind = "characters"
             d.show(PAGE["assets"]); win.update()
-            start = [b for b in d.asset_gated_buttons if b.cget("text") == "手动制作资产"][0]
+            from test_board_assets_buttons import _asset_menu
+            d.asset_checked_count = 0
+            self.assertEqual(str(_asset_menu(d).entrycget("手动制作资产", "state")), "disabled")
             d.asset_checked_count = 1
-            d.asset_has_pending = False
-            d.update_asset_buttons()
-            self.assertTrue(start.instate(["disabled"]), "全都做好了就不能再点制作")
-            d.asset_has_pending = True
-            d.update_asset_buttons()
-            self.assertFalse(start.instate(["disabled"]), "有待导入的行就要能点")
+            self.assertEqual(str(_asset_menu(d).entrycget("手动制作资产", "state")), "normal")
 
     def test_adopt_skips_adopted_without_confirm(self):
         if self.tk is None:

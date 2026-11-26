@@ -49,7 +49,7 @@ def _plain(path):
 
 def _metadata(directory):
     marker = directory / _MARKER
-    if not _plain(directory) or not _plain(marker):
+    if not _plain(directory) or not _plain(marker) or not marker.is_file():
         return {}
     try:
         value = read_json(marker)
@@ -198,8 +198,10 @@ def _sync(program, target, skill_home, report):
     if report['errors']:
         return
     for directory in destination.iterdir():
+        if directory.name in seen:
+            continue
         previous = _metadata(directory)
-        if (directory.name in seen or not _owned(previous, owner_root, target)):
+        if not _owned(previous, owner_root, target):
             continue
         target_file = directory / 'SKILL.md'
         if (not _plain(target_file) or not target_file.is_file()

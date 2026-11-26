@@ -447,43 +447,36 @@ class FilterDedupTests(StageRailTests):
         return controls
 
     def _widen_panel(self):
-        """面板宽按最长文件名收缩：放一个够长的名字把它撑到上限再量几何。"""
+        from types import SimpleNamespace
         panel = self.desktop.files_panel
         panel.show_stage('assets')
-        root = Path(self.desktop.root)
-        target = root / '05资产管理' / 'assets' / (
-            '面板宽度撑满用样例素材文件名零一二三四五六七八九零一二三四五六七八九_0001.png')
-        target.write_bytes(b'\x89PNG')
-        self.desktop.files_panel.refresh_file_index()
-        self.wait_index()
-        return target, root
+        win = self.win
+        old = win.geometry()
+        win.geometry('1280x800')
+        self.pump(.2)
+        panel._start_resize(SimpleNamespace(x_root=800))
+        panel._do_resize(SimpleNamespace(x_root=400))
+        panel._end_resize(None)
+        self.addCleanup(self._restore_panel, old)
 
-    def _restore_panel(self, target, root, win, old):
-        """删掉撑宽用的文件并让面板收回去，不弄脏共用夹具。"""
-        target.unlink(missing_ok=True)
-        self.desktop.files_panel.refresh_file_index()
-        self.wait_index()
-        win.geometry(old)
-        self.pump(.3)
+    def _restore_panel(self, old):
+        self.desktop.files_panel._restore_auto_width(None)
+        self.win.geometry(old)
+        self.pump(.2)
 
     def test_filter_controls_sit_on_two_rows_at_wide_window(self):
         """T1：1280×800 下筛选区控件只占两行（按控件顶边坐标分组计数）。
 
-        夹具文件名都很短，面板只有最窄宽；先放一个长名字撑到上限宽（§2.2 实测
-        478）再量，收尾删掉并重建索引，不弄脏共用夹具。
+        先用拖动入口设置面板宽度，再量筛选条。
         """
         panel = self.desktop.files_panel
         panel.open_panel()
-        target, root = self._widen_panel()
+        self._widen_panel()
         win = self.win
-        old = win.geometry()
-        try:
-            win.geometry('1280x800')
-            self.pump(.5)
-            tops = sorted({widget.winfo_rooty() for widget in self._leaf_controls()})
-            self.assertEqual(len(tops), 2, tops)
-        finally:
-            self._restore_panel(target, root, win, old)
+        win.geometry('1280x800')
+        self.pump(.5)
+        tops = sorted({widget.winfo_rooty() for widget in self._leaf_controls()})
+        self.assertEqual(len(tops), 2, tops)
 
     def test_each_dropdown_fully_shows_current_value(self):
         """T2：两档窗口下四个下拉框实际宽 ≥ 当前取值文字宽＋箭头区宽。
@@ -496,46 +489,38 @@ class FilterDedupTests(StageRailTests):
         from ui_tokens import COMBOBOX_FONT
         panel = self.desktop.files_panel
         panel.open_panel()
-        target, root = self._widen_panel()
+        self._widen_panel()
         win = self.win
-        old = win.geometry()
-        try:
-            for size in ('1280x800', '880x600'):
-                win.geometry(size)
-                self.pump(.5)
-                for name in ('kind_box', 'status_box', 'group_box', 'sort_box'):
-                    box = getattr(panel, name)
-                    font = tkfont.Font(root=box, font=COMBOBOX_FONT)
-                    chrome = box.winfo_reqwidth() - font.measure('0') * int(box.cget('width'))
-                    needed = font.measure(str(box.get())) + chrome
-                    self.assertGreaterEqual(
-                        box.winfo_width(), needed,
-                        '%s %s：实际宽 %d < 取值「%s」宽 %d＋箭头区 %d'
-                        % (size, name, box.winfo_width(), box.get(),
-                           font.measure(str(box.get())), chrome))
-        finally:
-            self._restore_panel(target, root, win, old)
+        for size in ('1280x800', '880x600'):
+            win.geometry(size)
+            self.pump(.5)
+            for name in ('kind_box', 'status_box', 'group_box', 'sort_box'):
+                box = getattr(panel, name)
+                font = tkfont.Font(root=box, font=COMBOBOX_FONT)
+                chrome = box.winfo_reqwidth() - font.measure('0') * int(box.cget('width'))
+                needed = font.measure(str(box.get())) + chrome
+                self.assertGreaterEqual(
+                    box.winfo_width(), needed,
+                    '%s %s：实际宽 %d < 取值「%s」宽 %d＋箭头区 %d'
+                    % (size, name, box.winfo_width(), box.get(),
+                       font.measure(str(box.get())), chrome))
 
     def test_group_sort_pair_wraps_aligned_with_kind_box(self):
         """T3：880×600 下「分组」名称文字换行后左边缘与类型框左边缘一致。"""
         panel = self.desktop.files_panel
         panel.open_panel()
-        target, root = self._widen_panel()
+        self._widen_panel()
         win = self.win
-        old = win.geometry()
-        try:
-            win.geometry('880x600')
-            self.pump(.5)
-            labels = [widget for widget in self._leaf_controls()
-                      if isinstance(widget, ttk.Label)]
-            group_label = next(widget for widget in labels
-                               if str(widget.cget('text')) == '分组')
-            self.assertEqual(group_label.winfo_rootx(), panel.kind_box.winfo_rootx())
-            sort_label = next(widget for widget in labels
-                              if str(widget.cget('text')) == '排序')
-            self.assertGreater(sort_label.winfo_rooty(), panel.kind_box.winfo_rooty())
-        finally:
-            self._restore_panel(target, root, win, old)
+        win.geometry('880x600')
+        self.pump(.5)
+        labels = [widget for widget in self._leaf_controls()
+                  if isinstance(widget, ttk.Label)]
+        group_label = next(widget for widget in labels
+                           if str(widget.cget('text')) == '分组')
+        self.assertEqual(group_label.winfo_rootx(), panel.kind_box.winfo_rootx())
+        sort_label = next(widget for widget in labels
+                          if str(widget.cget('text')) == '排序')
+        self.assertGreater(sort_label.winfo_rooty(), panel.kind_box.winfo_rooty())
 
     def test_clicking_stage_icon_updates_panel_title(self):
         """T4：点阶段图标后面板标题随之变化；复位全部＝「项目文件 · 全部阶段」。"""
@@ -670,14 +655,14 @@ class IndexLifecycleTests(StageRailTests):
         panel = self.desktop.files_panel
         path = file_index.index_path(self.desktop.root)
         path.unlink(missing_ok=True)
-        original = file_index.rebuild
+        original = file_index.discover
         calls = []
 
         def rebuild(*args, **kwargs):
             calls.append(threading.get_ident())
             return original(*args, **kwargs)
 
-        with patch.object(file_index, 'rebuild', side_effect=rebuild):
+        with patch.object(file_index, 'discover', side_effect=rebuild):
             panel.fill_script_list()
             self.wait_index()
         self.assertTrue(calls)
@@ -733,6 +718,7 @@ class IndexLifecycleTests(StageRailTests):
             panel.fill_script_list()
             self.pump(.1)
             self.desktop.root = Path(self.temp.name) / '另一个项目'
+            panel.project_changed()
             release.set()
             self.pump(.3)
             self.assertEqual(panel.script_tree.get_children(), ())

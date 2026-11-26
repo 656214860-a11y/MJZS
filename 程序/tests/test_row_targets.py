@@ -334,14 +334,15 @@ class KeyframePageTests(PageHelpers):
             checker = d.frame_checks[str(Path(source).resolve())]
             self.assertEqual(checker.checked(["SH001", "SH002"]), [], "首帧已就位的镜头默认不勾选")
             table.selection_set("SH001"); table.focus("SH001"); win.update()
-            button = self.buttons(d.content)["批量删除首帧"]
-            self.assertEqual(self.button_state(d, "批量删除首帧"), "normal",
-                             "高亮那一行也算选中，按钮不该是灰的")
+            from tk_test_support import stage_context_menu
+            x, y, width, height = table.bbox("SH001", "#1")
+            menu = stage_context_menu(table, x=x + width // 2, y=y + height // 2)
+            self.assertEqual(str(menu.entrycget("批量删除首帧", "state")), "normal")
             asked = []
             original = desktop_module.confirm
             desktop_module.confirm = lambda _parent, _title, message, **_kw: (asked.append(message), True)[1]
             self.addCleanup(setattr, desktop_module, "confirm", original)
-            button.invoke(); win.update()
+            menu.invoke("批量删除首帧"); win.update()
             self.assertIn("按高亮的那一行 SH001 算", asked[0])
             recycle = Path(proj) / "storyboard" / "工作流任务" / "回收站"
             moved = [p.relative_to(recycle).as_posix() for p in recycle.rglob("*") if p.is_file()]

@@ -40,6 +40,7 @@ class CloudMoveGuardTests(unittest.TestCase):
         cloud.parent = Mock()
         cloud.parent.after = Mock(return_value='job')
         cloud.win = None
+        cloud.visible = False
         cloud.build = Mock()
         cloud.move_probe = Mock(return_value=moving)
         return cloud

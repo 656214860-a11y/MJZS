@@ -566,7 +566,7 @@ def model_fits_stage(value, stage, registry=None):
     return not tags or any(tag in needed for tag in tags)
 
 
-def model_choices(desktop, stage=None, *, call_modes=None):
+def model_choices(desktop, stage=None, *, call_modes=None, records=None):
     """面板下拉的选项：(id, 文案)——「自动」在前，后面是模型管理里的每一条。
 
     第 46 期第 7／8 条：首帧与资产这两个阶段还要接上它们的**生产模型**（本地 ComfyUI／云端生图／
@@ -577,7 +577,8 @@ def model_choices(desktop, stage=None, *, call_modes=None):
     能力标签只供路由器挑选自动模型，不能把用户刚保存的 GPT‑6 一类模型从手动下拉中藏掉。
     页面专用的生产模型仍由 ``stage_models`` 按所属阶段追加。
     """
-    records = pool_records(desktop)
+    if records is None:
+        records = pool_records(desktop)
     import orchestrator.workflow_settings as workflow_settings
     options = list(model_pool.options(records, with_auto=True,
                                       labeler=workflow_settings.desktop_model_label))
@@ -589,11 +590,12 @@ def model_choices(desktop, stage=None, *, call_modes=None):
     return tuple(options)
 
 
-def grouped_model_choices(desktop, stage=None, *, call_modes=None):
+def grouped_model_choices(desktop, stage=None, *, call_modes=None, records=None):
     """模型下拉的两级数据：供应商 → 具体模型，第二级仍保存稳定的模型 id。"""
-    records = pool_records(desktop)
+    if records is None:
+        records = pool_records(desktop)
     groups = {}
-    for model_id, label in model_choices(desktop, stage, call_modes=call_modes):
+    for model_id, label in model_choices(desktop, stage, call_modes=call_modes, records=records):
         if model_id == model_router.AUTO:
             provider = '自动选择'
         elif model_id in records:

@@ -1,0 +1,15 @@
+{
+  "round": 4576,
+  "commit_base": "a8d6be6db",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_agent_skill_sync test_asset_gating test_project_rename_reconcile test_video_ui test_files_panel_stages test_model_routes",
+    "exit": 0,
+    "passed": 347,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T02:09:49"
+}

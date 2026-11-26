@@ -2523,7 +2523,8 @@ class BroadcastTests(PetTestCase):
         level = self.pet.agent.level
         self.assertEqual(self.pet.notice, pet_ui.LEVEL_SWITCH_NOTES[level])
         self.assertTrue(pet_ui.LEVEL_SWITCH_NOTES[level].startswith(pet_agent.LEVEL_NAMES[level] + '：'))
-        self.assertIn(self.pet.notice, self.pet.cloud().transcript(), '这句话必须真的播报出去')
+        transcript = self.pet.cloud().transcript()
+        self.assertEqual(transcript.count('已切换到' + pet_agent.LEVEL_NAMES[level] + '模式'), 1)
 
     def test_pausing_and_resuming_say_so(self):
         self.pet.click('pause')

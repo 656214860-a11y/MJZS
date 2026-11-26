@@ -811,16 +811,23 @@ class _AssetPage:
             text='● '+label if getattr(self.page,'asset_kind','all')==kind else label
             filters.command(text,lambda pick=kind:actions.get('choose_kind',lambda _k:None)(pick))
         menu.cascade('筛选资产',filters)
-        menu.command('手动制作资产',actions.get('send'))
+        checked=bool(self.page.asset_checked_count)
+        selected=bool(self.page.asset_selected())
+        def selectable(label, key, enabled):
+            if enabled:
+                menu.command(label,actions.get(key))
+            else:
+                menu.disabled(label)
+        selectable('手动制作资产','send',checked)
         menu.command('检查提示词',actions.get('check_prompts'))
         menu.command('识别背景人物',actions.get('background_characters'))
         menu.separator()
-        menu.command('导入参考图…',actions.get('import_reference'))
+        selectable('导入参考图…','import_reference',selected)
         menu.command('候选图墙',actions.get('candidate_wall'))
         menu.command('打开参考图目录',actions.get('reference_folder'))
         menu.separator()
         menu.command('导入资产图片…',actions.get('import_asset_image'))
-        menu.command('批量删除资产',actions.get('delete_assets'))
+        selectable('批量删除资产','delete_assets',checked or selected)
         menu.command('恢复删除资产',actions.get('restore_asset'))
         menu.command('打开资产目录',actions.get('open_library'))
         menu.separator()

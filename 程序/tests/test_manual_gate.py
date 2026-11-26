@@ -244,7 +244,7 @@ class ManualButtonTests(PageHelpers):
         with tempfile.TemporaryDirectory() as td:
             d, win, proj = self.page(td, frames=True)
             self.show(d, win, PAGE_OF['keyframe'])
-            self.buttons(d.content)["手动制作首帧"].invoke(); win.update()
+            d.shared_input.stage_action("keyframe")(); win.update()
             self.assertEqual(self.gated, ["keyframe"])
             self.assertEqual(self.popups(win), [], "闸拦下来时不该冒出「首帧制作」窗口")
 
@@ -258,7 +258,7 @@ class ManualButtonTests(PageHelpers):
             d.asset_has_pending = True
             self.show(d, win, PAGE_OF['assets'])
             d.update_asset_buttons()
-            self.buttons(d.content)["手动制作资产"].invoke(); win.update()
+            d.shared_input.stage_action("assets")(); win.update()
             self.assertEqual(self.gated, ["assets"])
             self.assertEqual(self.popups(win), [], "闸拦下来时不该冒出资产制作窗口")
 

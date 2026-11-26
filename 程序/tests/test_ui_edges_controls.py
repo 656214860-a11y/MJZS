@@ -425,8 +425,8 @@ class UiEdgeControlsTests(UiEdgeCase):
             table = [w for w in widgets if isinstance(w, ttk.Treeview) and "prompt" in w["columns"]][0]
             table.selection_set(table.get_children()[0])
             win.update()
-            buttons = {str(w.cget("text")): w for w in widgets if isinstance(w, ttk.Button)}
-            buttons["查看首帧提示词"].invoke(); win.update()
+            from tk_test_support import stage_context_menu
+            stage_context_menu(table).invoke("查看首帧提示词"); win.update()
             popups = popup_windows(win, self.tk)
             self.assertEqual(len(popups), 1)
             popup = popups[0]
@@ -477,8 +477,8 @@ class UiEdgeControlsTests(UiEdgeCase):
             table = [w for w in widgets if isinstance(w, ttk.Treeview) and "prompt" in w["columns"]][0]
             table.selection_set(table.get_children()[0])
             win.update()
-            buttons = {str(w.cget("text")): w for w in widgets if isinstance(w, ttk.Button)}
-            buttons["查看首帧提示词"].invoke(); win.update()
+            from tk_test_support import stage_context_menu
+            stage_context_menu(table).invoke("查看首帧提示词"); win.update()
             popups = popup_windows(win, self.tk)
             self.assertEqual(len(popups), 1)
             popup = popups[0]
