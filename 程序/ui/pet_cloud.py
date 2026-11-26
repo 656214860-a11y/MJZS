@@ -55,15 +55,16 @@ from ui.pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounde
 from ui.pet_cloud_shape import (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, SHAPES,
                              configured_value as _configured_value,
                              normalized as _normalized_shape, text_box as _shape_text_box)
+from ui.ui_motion import blend
 from ui.pet_cloud_tail import tail_points
-from ui_tokens import (CLOSE_BUTTON_ACTIVE_BG, CLOSE_BUTTON_ACTIVE_FG, CLOSE_BUTTON_BG, CLOSE_BUTTON_FG, CLOSE_BUTTON_FONT, CLOSE_BUTTON_MARK, CLOSE_BUTTON_SIZE, COLORS, FONTS, PET_CLOUD_AUTO_CLOSE_MS)
+from ui_tokens import (CLOSE_BUTTON_ACTIVE_BG, CLOSE_BUTTON_ACTIVE_FG, CLOSE_BUTTON_BG, CLOSE_BUTTON_FG, CLOSE_BUTTON_FONT, CLOSE_BUTTON_MARK, CLOSE_BUTTON_SIZE, COLORS, FONTS, PET_PALETTE, PET_CLOUD_AUTO_CLOSE_MS)
 from ui.pet_cloud_timing import ALPHA, FADE_OUT_STEPS, GROW_STEPS, HOLD_MS, READ_MAX_MS, WATCH_RECHECK_MS, CloudTimingMixin
 from ui.pet_cloud_move_guard import CloudMoveGuardMixin
 from ui.pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin, CloudHintState)
 from ui.pet_cloud_place import ANCHOR_DROP, CHEEK_X, CHEEK_Y, MARGIN, MAX_BODY, MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX, SHAPE_MIN_BODY, TAIL, TIP_IN, shape_min_body, shape_root, CloudPlaceMixin
 
-WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
-PAD = 16                          # 云身内边距
+WIDTH = 288                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
+PAD = 12                          # 云身内边距
 ROW_H = 30                        # 输入行高度
 # 第 45 期：用户要「三虎对话框右上角有颗关闭按钮」。带输入行的那一方框对话框顶上因此空出一条
 # CLOSE_H（云身跟着长高这么多，正文那块的大小与原来分毫不差），×就摆在那一格的右端。
@@ -304,6 +305,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         # 主窗口先走一步的话，得把待触发的定时器收回来：after 的 Tcl 命令随控件一起被删，
         # 到点再触发就是一句「invalid command name ..._expire」打到控制台（第 14 期实测到的）。
         try:
+            self.parent.bind('<ButtonPress-1>', self._outside_press, add='+')
             self.parent.bind('<Destroy>', self._parent_gone, add='+')
             # 第 18 期：主界面一挪，云也跟着重新摆位（否则聊天框停在原地，人走云不走）
             self.parent.bind('<Configure>', self.follow, add='+')
@@ -317,8 +319,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
     # ── 建造 ────────────────────────────────────────────────────────────────
     def build(self):
         """建浮窗、画布与文字／输入控件（只建一次，之后反复 show／close）。"""
-        if self.win is not None:
+        if self.win is not None or getattr(self, '_building', False):
             return self.canvas
+        self._building = True
         try:
             win = BaseDialog(self.parent, '', modal=False, chrome=False)
             win._positioned_once = True    # 别让 ui_theme 按对话框接管（-alpha 0 ＋ <Map> grab_set）
@@ -358,6 +361,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         except Exception as exc:
             self.errors.append(('build', str(exc)))
             self.win, self.canvas = None, None
+        finally:
+            self._building = False
         return self.canvas
 
     def _build_chat_row(self, canvas):
@@ -426,6 +431,11 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if self.close_button is not None:
             self.close_button.state(['!active'])
 
+    def _outside_press(self, event):
+        if self.visible and event.widget not in self._watchers():
+            self.pet.dismissed()
+            self.pet.close_chat()
+
     def _hit_close(self, event=None):
         """点右上角那颗×＝收起对话框（与 Esc／close() 同一条路）。"""
         self.close()
@@ -478,6 +488,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if getattr(getattr(self, 'pet', None), 'login_locked', lambda: False)() is True or (
                 not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape)):
             return None                    # R2051：登录闸挡着不弹；R1976：用户正拖着窗口，自动冒出来的云等松手再出
+        if not focus and self.visible and getattr(self.pet, 'chat', None) is self:
+            return self.canvas
         if self.win is None and self.build() is None:
             return None
         if shape is not None:
@@ -501,8 +513,10 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         except Exception as exc:
             self.errors.append(('show', str(exc)))
             return None
+        already_visible = self.visible
         self.visible = True
-        self._fade_in()                    # 浮出：淡着冒一下
+        if not already_visible:
+            self._fade_in()                    # 浮出：淡着冒一下
         if self._replies() and focus:
             # 自动冒出来的云不抢焦点（focus=False）：用户可能正在别处打字，被抢一次就白打一段。
             try:
@@ -650,7 +664,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     def fill(self):
         """这一形状的填充色。"""
-        return shape_colors(self.shape)[0]
+        level = getattr(getattr(self.pet, 'agent', None), 'level', '')
+        color = PET_PALETTE.get('level_' + level)
+        return blend(COLORS['background_card'], color, 0.24) if color else shape_colors(self.shape)[0]
 
     def field_bg(self):
         """回复框里那条滚动小字的底色：跟着 ttk.Entry 自己的底色走。
@@ -678,7 +694,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     def edge(self):
         """这一形状的描边色。"""
-        return shape_colors(self.shape)[1]
+        level = getattr(getattr(self.pet, 'agent', None), 'level', '')
+        return PET_PALETTE.get('level_' + level + '_outline', shape_colors(self.shape)[1])
 
     # ── 记录排版与滚动 ──────────────────────────────────────────────────────
     def _body_text(self):

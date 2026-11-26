@@ -216,10 +216,7 @@ class FilesPanelTests(unittest.TestCase):
                 self.assertTrue(d.files_button.winfo_ismapped(), stage + ' 页入口可见')
         d.show(PAGE['script']); self.pump(.1)
 
-    def test_file_list_width_fits_longest_filename(self):
-        """面板宽度按最长文件名动态调整：长文件名撑宽列表，宽度有上限。"""
-        from tkinter import font as tkfont
-        from desktop_files_panel import SCRIPT_CELL_OVERHEAD, SCRIPT_PANEL_MAX_WIDTH
+    def test_file_list_width_independent_of_longest_filename(self):
         d = self.desktop
         d.show(PAGE['script']); self.pump(.2)
         long_name = '一个需要完整显示而不被截断的很长文件名称_项目设定.md'
@@ -229,26 +226,10 @@ class FilesPanelTests(unittest.TestCase):
         try:
             d.files_panel.open_panel()
             deadline = time.monotonic() + 5
-            while time.monotonic() < deadline and not any(
-                    long_name in d.script_tree.item(i, 'values')[0]
-                    for i in self.file_items()):
+            while time.monotonic() < deadline and long_name not in d.files_panel._full_labels.values():
                 self.pump(.05)
-            self.pump(.3)   # 等 finish() 里的 _fit_script_width 落定
-            children = self.file_items()
-            self.assertTrue(children, '列表应有文件行')
-            self.assertTrue(any(long_name in d.script_tree.item(i, 'values')[0] for i in children),
-                            '最长文件须实际加载后才能检查宽度')
-            values = [str(d.script_tree.item(i, 'values')[0]) for i in children]
-            font = tkfont.Font(root=d.win, font=('Microsoft YaHei UI', 9))
-            needed = max(font.measure(v) for v in values) + SCRIPT_CELL_OVERHEAD
-            cap = min(int(d.canvas.master.winfo_width() * .5), SCRIPT_PANEL_MAX_WIDTH)
-            # 面板宽＝sizer＋盒内边距，应不小于「最长行宽＋留白」与上限的较小值。
+            self.assertIn(long_name, d.files_panel._full_labels.values())
             wide_w = d.script_box.winfo_width()
-            self.assertGreaterEqual(wide_w, min(needed, cap),
-                                    '面板宽应跟上最长文件名（上限内）')
-            self.assertGreater(wide_w, 200, '长文件名把面板撑宽')
-            # 回归：删掉最长名文件并重扫后，面板宽必须回落——Treeview stretch 列
-            # reqwidth 会锁成当时分配宽，靠 script_list.grid_propagate(False) 隔离。
             from infra.storage_maintenance import recycle_paths
             recycle_paths(d.root, [target / long_name], '删除项目剧本')
             d.files_panel.refresh_file_index()
@@ -260,9 +241,7 @@ class FilesPanelTests(unittest.TestCase):
             self.pump(.5)   # 等 finish() 里的 _fit_script_width 与几何重排落定
             self.assertNotIn(long_name, [d.script_tree.item(i, 'values')[0]
                                          for i in self.file_items()])
-            self.assertLess(d.script_box.winfo_width(), wide_w - 40,
-                            '删除最长名后面板宽应回落：' + repr([
-                                d.script_tree.item(i, 'values') for i in self.file_items()]))
+            self.assertEqual(d.script_box.winfo_width(), wide_w)
         finally:
             (target / long_name).unlink(missing_ok=True)
             d.files_panel.collapse(); self.pump(.1)

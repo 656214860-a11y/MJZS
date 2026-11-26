@@ -1030,6 +1030,8 @@ class PetVoiceMixin:
         cloud = None if self.login_locked() else self.cloud()      # R2051：登录闸挡着不开对话框
         if cloud is None:
             return None
+        if getattr(cloud, '_building', False) or (self.chat is cloud and cloud.visible):
+            return cloud.canvas
         try:
             widget = cloud.show(pinned=True, shape=pet_cloud.SHAPE_CLOUD)
         except Exception as exc:

@@ -267,6 +267,20 @@ class ReasoningPickerTests(unittest.TestCase):
         picker.choose_reasoning('没这档')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['reasoning'], 'auto')
 
+    def test_category_switch_only_shows_matching_models(self):
+        import stage_model_picker
+        picker = stage_model_picker.StageModelPicker(self.win, self.desktop, 'keyframe')
+        self.addCleanup(picker.destroy)
+        picker.pack()
+        picker._items = [('desktop', '桌面样例'), ('cli', '命令行样例'), ('api', '接口样例')]
+        picker._call_modes = {'desktop': 'Desktop', 'cli': 'CLI', 'api': 'API'}
+        picker._open_popup()
+        for category, label in (('CLI', '命令行样例'), ('API', '接口样例'), ('Desktop', '桌面样例')):
+            widgets = list(picker._descendants(picker._popup.body))
+            next(w for w in widgets if 'text' in w.keys() and str(w.cget('text')) == category).invoke()
+            texts = {str(w.cget('text')) for w in picker._descendants(picker._popup.body) if 'text' in w.keys()}
+            self.assertEqual(texts.intersection({'桌面样例', '命令行样例', '接口样例'}), {label})
+
     def test_popup_width_follows_the_widest_row(self):
         """浮层宽度由内容决定：滚动区不拿 Tk 画布的默认宽度兜底（模型名短时会在右侧撑出一大块空白），
         长模型名仍要完整放下。"""

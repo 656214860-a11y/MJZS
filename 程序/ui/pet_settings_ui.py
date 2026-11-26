@@ -270,6 +270,7 @@ def open_hub(pet, tab=None):
     win.minsize(*HUB_MIN)
     win.transient(parent or None)
     win.bind('<Escape>', lambda event: request_close(win))
+    win.protocol('WM_DELETE_WINDOW', lambda: request_close(win))
     body = Card(win)
     body.pack(fill='both', expand=True, padx=SPACING['md'], pady=SPACING['md'])
     # 底部动作区先占住窗口底边：窗口被压矮时只压缩页面栈，保存／关闭不会掉出可视区。
@@ -382,6 +383,11 @@ def select(win, tab=None):
                 frame.pack_forget()
         for key, button in tabs.items():
             button.configure(style='Selected.Nav.TButton' if key == tab else 'Nav.TButton')
+        if tab == 'model_config':
+            win._pet_footer.pack_forget()
+        elif not win._pet_footer.winfo_manager():
+            win._pet_footer.pack(side='bottom', fill='x', before=target.master.master,
+                                 pady=(SPACING['sm'], SPACING['none']))
         win._pet_tab = tab
         save_button = getattr(win, '_pet_save', None)
         if save_button is not None:

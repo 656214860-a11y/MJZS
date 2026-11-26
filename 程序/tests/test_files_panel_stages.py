@@ -161,7 +161,6 @@ class StageRailTests(unittest.TestCase):
         expected = (
             (panel.library_settings_button, 'library_settings'),
             (panel.recycle_button, 'recycle'),
-            (panel.recycle_purge_button, 'recycle_purge'),
             (panel.library_button, 'library'),
         )
         for button, icon_name in expected:
@@ -189,14 +188,23 @@ class StageRailTests(unittest.TestCase):
         right = panel.stage_rail_scroller.canvas
         original = left.yview()[0]
         self.addCleanup(left.yview_moveto, original)
-        for canvas in (None, left, right):
-            if canvas is not None:
-                canvas.yview_scroll(1 if canvas is left else -1, 'units')
+        left.yview_moveto(0)
+        right.yview_moveto(0)
+        self.pump(.05)
+        for stage in STAGES:
+            lhs, rhs = self.desktop.nav[PAGE[stage]], panel.stage_buttons[stage]
+            delta = lhs.winfo_rooty() + lhs.winfo_height() // 2 - rhs.winfo_rooty() - rhs.winfo_height() // 2
+            self.assertLessEqual(abs(delta), 1, stage)
+        project = panel.button
+        script = self.desktop.nav[PAGE['script']]
+        self.assertLessEqual(abs(project.winfo_rooty() + project.winfo_height() // 2
+                                 - script.winfo_rooty() - script.winfo_height() // 2), 1)
+        for moving, stationary in ((left, right), (right, left)):
+            before = stationary.yview()
+            moving.yview_scroll(2, 'units')
             self.pump(.05)
-            for stage in STAGES:
-                lhs, rhs = self.desktop.nav[PAGE[stage]], panel.stage_buttons[stage]
-                delta = lhs.winfo_rooty() + lhs.winfo_height() // 2 - rhs.winfo_rooty() - rhs.winfo_height() // 2
-                self.assertLessEqual(abs(delta), 1, stage + ' 的左右图标中心应对齐')
+            self.assertEqual(stationary.yview(), before)
+        right.yview_moveto(0)
 
         self.assertIsNone(panel.stage_rail_scroller.scroll,
                           '右侧阶段列与左侧导航一致：不显示整列滚动条，滚轮仍可滚动')
@@ -315,12 +323,12 @@ class StageRailTests(unittest.TestCase):
         panel = self.desktop.files_panel
         children = list(panel.stage_rail_form.winfo_children())
         recycle_i = children.index(panel.recycle_button)
-        purge_i = children.index(panel.recycle_purge_button)
+        settings_i = children.index(panel.library_settings_button)
         library_i = children.index(panel.library_button)
-        self.assertLess(recycle_i, purge_i)
-        self.assertLess(purge_i, library_i)
+        self.assertLess(recycle_i, library_i)
+        self.assertLess(library_i, settings_i)
         self.assertEqual(panel.recycle_button._rail_icon_name, 'recycle')
-        self.assertEqual(panel.recycle_purge_button._rail_icon_name, 'recycle_purge')
+        self.assertFalse(hasattr(panel, 'recycle_purge_button'))
 
     def test_project_change_resets_the_stage_filter(self):
         panel = self.desktop.files_panel
@@ -1560,25 +1568,18 @@ class FilenameDisplayTests(StageRailTests):
         self.desktop.files_panel.refresh_file_index()
         self.wait_index()
 
-    def test_long_filename_fully_visible_at_wide_window(self):
-        """T1：1280×800 下 40 字符文件名完整显示——显示文字是全名，
-        文件名列可见宽 ≥ 文字像素宽＋单元格留白。"""
-        from ui_tokens import SPACING
+    def test_long_filename_preserves_dock_width(self):
+        """宽窗加载长文件名后保持面板宽度，保留完整显示名供悬停查看。"""
         panel = self.desktop.files_panel
         panel.open_panel()
-        target = self._seed_long_file()
         win, old = self.win, self.win.geometry()
+        win.geometry('1280x800')
+        self.pump(.3)
+        width = panel.script_box.winfo_width()
+        target = self._seed_long_file()
         try:
-            win.geometry('1280x800')
-            self.pump(.5)
-            tree = panel.script_tree
-            self.assertEqual(str(tree.item(self.LONG_ROW, 'values')[0]), self.LONG_NAME)
-            font = panel._script_list_font()
-            bbox = tree.bbox(self.LONG_ROW, 'name')
-            self.assertTrue(bbox, '文件名列应处于可见区内')
-            self.assertGreaterEqual(
-                bbox[2], font.measure(self.LONG_NAME) + SPACING['sm'],
-                '文件名列可见宽 %d < 文字宽 %d＋留白' % (bbox[2], font.measure(self.LONG_NAME)))
+            self.assertEqual(panel.script_box.winfo_width(), width)
+            self.assertEqual(panel._full_labels[self.LONG_ROW], self.LONG_NAME)
         finally:
             self._drop_long_file(target)
             win.geometry(old)

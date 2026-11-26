@@ -297,6 +297,8 @@ class CloudPlaceMixin:
 
     def _fit_body(self, wanted):
         """云身高度：放得下就按内容，放不下就压到能放的高度（其余内容靠滚轮看）。"""
+        if self.shape == SHAPE_CLOUD:
+            wanted = min(wanted, 184)
         if self._can_align_top(min(wanted, MAX_BODY_DOWN)):
             self._down = False
             return int(min(wanted, MAX_BODY_DOWN))

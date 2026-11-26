@@ -1933,6 +1933,22 @@ class CloudTests(PetTestCase):
         self.assertTrue(getattr(cloud.win, '_positioned_once', False),
                         '建窗后立刻标 _positioned_once：别让 ui_theme 按对话框接管')
 
+    def test_chat_reuses_window_and_dismisses_on_main_window_click(self):
+        cloud = self.cloud()
+        win = cloud.win
+        self.assertIs(self.pet.open_chat(), cloud.canvas)
+        cloud.show(focus=False, shape=pet_cloud.SHAPE_PUFF)
+        self.assertIs(cloud.win, win)
+        self.assertEqual(cloud.shape, pet_cloud.SHAPE_CLOUD)
+        for level in ('hint', 'semi', 'auto'):
+            self.pet.agent.set_level(level)
+            self.assertEqual(cloud.edge(), pet_cloud.PET_PALETTE['level_' + level + '_outline'])
+        self.win.deiconify()
+        self.win.update()
+        self.win.event_generate('<ButtonPress-1>')
+        self.assertFalse(cloud.visible)
+        self.assertIsNone(self.pet.chat)
+
     def test_the_cloud_never_keeps_the_keyboard_grab(self):
         self.cloud()
         self.win.update()
