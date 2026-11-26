@@ -334,5 +334,125 @@ class TimelineGatewayTests(unittest.TestCase):
             row = next(row for row in timeline['shots'] if row['id'] == 'SH003')
             self.assertEqual((row['image_version'], row['source']), (1, 'generated'))
 
+    def test_run_animatic_timeline_skips_comfy_probe_when_all_shots_have_images(self):
+        """全镜已有图时，即使默认 comfy_local 无桩也绝不调 wait_comfy/open_comfy。"""
+        from stage_execution_service import (
+            load_or_sync_animatic_timeline, run_animatic_timeline, update_animatic_shot)
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._adopted(root, [{'id': 'SH001', 'duration': 2}, {'id': 'SH002', 'duration': 3}])
+            folder = write_dir(root, 'animatic')
+            for sid in ('SH001', 'SH002'):
+                shot_dir = folder / '镜头' / sid
+                shot_dir.mkdir(parents=True)
+                (shot_dir / 'v1.png').write_bytes(b'img-' + sid.encode())
+            load_or_sync_animatic_timeline(root)
+            for sid in ('SH001', 'SH002'):
+                update_animatic_shot(root, sid, image_version=1)
+
+            def assemble(_images, _durations, _sound, target, **_kwargs):
+                target.write_bytes(b'video')
+                return target
+
+            def run(command, **_kwargs):
+                Path(command[-1]).write_bytes(b'mixed')
+                return SimpleNamespace(stdout='')
+
+            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run}
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble), \
+                    patch('infra.comfy_runtime.wait_comfy') as wait_mock, \
+                    patch('infra.comfy_runtime.open_comfy') as open_mock:
+                video = run_animatic_timeline(root, settings=settings)
+            self.assertTrue(video.is_file())
+            wait_mock.assert_not_called()
+            open_mock.assert_not_called()
+
+    def test_run_animatic_timeline_probes_and_opens_comfy_when_missing_images(self):
+        """缺图且默认 comfy_local 无桩时，先 wait_comfy 探测，未就绪则 open_comfy 再 wait_comfy。"""
+        from stage_execution_service import run_animatic_timeline
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._adopted(root, [{'id': 'SH001', 'duration': 2}])
+            events = []
+
+            def fake_wait(url, timeout=5):
+                events.append(('wait', url, timeout))
+                if len(events) == 1:
+                    raise ValueError('ComfyUI 未启动')
+
+            def fake_open():
+                events.append(('open',))
+
+            def fake_sketch(workspace, shot, _refs, _settings):
+                target = Path(workspace) / (shot['id'] + '.png')
+                target.write_bytes(b'img')
+                return target
+
+            def assemble(_images, _durations, _sound, target, **_kwargs):
+                target.write_bytes(b'video')
+                return target
+
+            def run(command, **_kwargs):
+                Path(command[-1]).write_bytes(b'mixed')
+                return SimpleNamespace(stdout='')
+
+            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+                        'url': 'http://127.0.0.1:8199', 'probe_timeout': 3,
+                        'readiness_timeout': 12}
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble), \
+                    patch('domain.animatic_service.local_sketch', fake_sketch), \
+                    patch('infra.comfy_runtime.wait_comfy', side_effect=fake_wait), \
+                    patch('infra.comfy_runtime.open_comfy', side_effect=fake_open):
+                video = run_animatic_timeline(root, settings=settings)
+            self.assertTrue(video.is_file())
+            self.assertEqual(events, [
+                ('wait', 'http://127.0.0.1:8199', 3),
+                ('open',),
+                ('wait', 'http://127.0.0.1:8199', 12),
+            ])
+
+    def test_run_animatic_timeline_skips_comfy_probe_when_client_injected(self):
+        """缺图但已注入 comfy_client 桩时跳过 wait_comfy/open_comfy。"""
+        from stage_execution_service import run_animatic_timeline
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            self._adopted(root, [{'id': 'SH001', 'duration': 2}])
+
+            class StubClient:
+                def reference_config(self):
+                    return {}
+
+                def reference_graph(self, _prompt, _refs, _cfg):
+                    return {}
+
+                def submit_graph(self, workspace, _kind, _prompt, _graph):
+                    target = Path(workspace) / 'stub.png'
+                    target.write_bytes(b'img')
+                    return target
+
+                def collect(self, _workspace, record):
+                    return [record]
+
+            def assemble(_images, _durations, _sound, target, **_kwargs):
+                target.write_bytes(b'video')
+                return target
+
+            def run(command, **_kwargs):
+                Path(command[-1]).write_bytes(b'mixed')
+                return SimpleNamespace(stdout='')
+
+            settings = {'ffmpeg': 'stub', 'ffprobe': 'stub', 'run': run,
+                        'comfy_client': StubClient()}
+            with patch('stage_parallel.evaluate', return_value={'ok': True}), \
+                    patch('domain.edit_service.assemble_image_timeline', assemble), \
+                    patch('infra.comfy_runtime.wait_comfy') as wait_mock, \
+                    patch('infra.comfy_runtime.open_comfy') as open_mock:
+                video = run_animatic_timeline(root, settings=settings)
+            self.assertTrue(video.is_file())
+            wait_mock.assert_not_called()
+            open_mock.assert_not_called()
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

@@ -300,7 +300,8 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
     def _prefetch_media_thumbs(self, paths):
         """列表里的视频／音频后台预生成封面（任务书 M4）；项目显式 ffmpeg 配置透传给后台。"""
         import asset_thumbs
-        asset_thumbs.prefetch_media(self.page.win, paths, configured=self._media_config())
+        capped = list(paths)[:files_panel_index._MEDIA_PREFETCH_CAP]
+        asset_thumbs.prefetch_media(self.page.win, capped, configured=self._media_config())
 
     # ── 预览列与文件动作（任务书 M5，REQ-S01-95/96）────────────────────────
     def _row_preview(self, path):
@@ -649,8 +650,10 @@ class FilesPanelStageViewMixin:
             scoped, (None, kind, status, keyword, sort), library)
 
     def _index_groups(self, rows, library):
-        """阶段分组在跟随页给「来源文档」「本阶段产物」；其余视图沿用 grouped_rows。"""
+        """S04 按 4 语义分组；其余视图沿用 grouped_rows。"""
         mode = getattr(self, 'group_mode', '阶段')
+        if not library and mode == '阶段' and getattr(self, 'stage_filter', None) == 'animatic':
+            return files_panel_index.animatic_grouped_rows(rows)
         if library or mode != '阶段' or not self._stage_filter_is_followed():
             return files_panel_index.grouped_rows(rows, mode, library)
         sources = [row for row in rows if row.stage in self._followed_source_stages]
@@ -801,10 +804,10 @@ def _stage_view_request_index(panel, root, library=False):
             return
         panel._index_loading = False
         found, categories, panel._index_file_labels = result
-        panel._start_index_render(found, categories, root, library, generation, context)
+        groups = panel._start_index_render(found, categories, root, library, generation, context)
         if hasattr(panel, '_prefetch_media_thumbs'):
-            panel._prefetch_media_thumbs(
-                [Path(root) / row.path for row in found if not row.missing])
+            target = groups if groups is not None else panel._index_groups(found, library)
+            panel._prefetch_media_thumbs(files_panel_index.prefetch_media_paths(target, root))
 
     submit = getattr(panel.page, 'async_queued', panel.page.async_)
     submit(work, done, show_progress=False,
@@ -812,21 +815,22 @@ def _stage_view_request_index(panel, root, library=False):
 
 
 def _stage_view_index_render(panel, rows, categories, root, library, generation, context):
-    """``_start_index_render`` 的跟随页变体：与原实现逐行同，仅分组来源换成 ``_index_groups``。"""
+    """``_start_index_render`` 的跟随页变体：分组来自 ``_index_groups``，按组默认展开。"""
     panel._clear_index_tree()
     panel.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
     groups = panel._index_groups(rows, library)
+    show_groups = files_panel_index.should_show_groups(groups)
     panel._index_group_count = len(groups)
     files_panel_index.configure_tree_leading_column(
         panel.script_tree, groups, preview_width=PANEL_PREVIEW_COL_WIDTH)
-    if len(groups) > 1:
+    if show_groups:
         for group, label, _members in groups:
-            panel.script_tree.insert('', 'end', iid=group, open=True, values=(label, '', '', '', ''))
+            opened = files_panel_index.group_default_open(group)
+            panel.script_tree.insert('', 'end', iid=group, open=opened, values=(label, '', '', '', ''))
             panel.script_row_category[group] = '__file_group__'
-    if len(groups) == 1:
-        pending = iter(('', row) for _group, _label, members in groups for row in members)
-    else:
-        pending = iter((group, row) for group, _label, members in groups for row in members)
+        files_panel_index.bind_lazy_group_previews(panel, root)
+    pending = (iter((group, row) for group, _label, members in groups for row in members)
+               if show_groups else iter(('', row) for _g, _l, members in groups for row in members))
 
     def batch():
         panel._index_render_job = None
@@ -842,6 +846,7 @@ def _stage_view_index_render(panel, rows, categories, root, library, generation,
         panel._index_render_job = panel.page.win.after(1, batch)
 
     batch()
+    return groups
 
 
 # ── REQ-S01-103：面板「导入文件」（UX-FP-IMPORT）─────────────────────────────

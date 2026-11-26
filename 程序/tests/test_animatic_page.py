@@ -1281,5 +1281,45 @@ class AudioImportRouteTests(_PageCase):
         self.assertEqual('静音', animatic_page._audio_mode(state))
 
 
+class MediaDbViewBoundaryTests(_PageCase):
+    """FIX-S04-MEDIA-DB-VIEW：提示词字段兼容与损坏分镜错误提示。"""
+
+    def test_show_shot_info_reads_image_prompt_and_fallbacks(self):
+        """仅填 image_prompt（无 video_prompt）时正确展示提示词，并兼容 prompt/description。"""
+        _storyboard_named(self.project, 'ep_prompt.json', [
+            {'id': 'SH001', 'title': '镜1', 'duration': 4, 'characters': [],
+             'location': 'LOC_01', 'frame': 'frames/SH001.png',
+             'image_prompt': '雨夜红伞特写', 'dialogue': []},
+            {'id': 'SH002', 'title': '镜2', 'duration': 4, 'characters': [],
+             'location': 'LOC_01', 'frame': 'frames/SH002.png',
+             'prompt': '街道远景', 'dialogue': []},
+            {'id': 'SH003', 'title': '镜3', 'duration': 4, 'characters': [],
+             'location': 'LOC_01', 'frame': 'frames/SH003.png',
+             'description': '角色转身', 'dialogue': []},
+        ])
+        self.show()
+        state = self.state
+        shots = state['timeline']['shots']
+        menu = animatic_page.shot_context_menu(self.page, state, shots[0])
+        menu.invoke(4)  # 查看提示词与所用参考图
+        self.assertIn('雨夜红伞特写', str(state['info_label'].cget('text')))
+        animatic_page._show_shot_info(self.page, state, shots[1])
+        self.assertIn('街道远景', str(state['info_label'].cget('text')))
+        animatic_page._show_shot_info(self.page, state, shots[2])
+        self.assertIn('角色转身', str(state['info_label'].cget('text')))
+
+    def test_corrupt_adopted_storyboard_sets_status_and_shows_guide(self):
+        """已采用分镜 JSON 损坏时打开 S04 不崩溃，status 写入 <=45 字中文报错并展示引导页。"""
+        self.source.write_text('{corrupt-json', encoding='utf-8')
+        frame = self.show()
+        self.assertTrue(frame.winfo_exists())
+        self.assertIsNone(self.state['timeline'])
+        self.assertTrue(self.page.status.messages, '损坏分镜不得静默吞错，应写入状态栏')
+        message = self.page.status.messages[-1]
+        self.assertLessEqual(len(message), 45, f'报错文案超出 45 字: {message}')
+        self.assertTrue(any('\u4e00' <= ch <= '\u9fff' for ch in message),
+                        f'报错文案应为中文: {message}')
+
+
 if __name__ == '__main__':
     unittest.main()

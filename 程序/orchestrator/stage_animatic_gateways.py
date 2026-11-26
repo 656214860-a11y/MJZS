@@ -148,18 +148,26 @@ def animatic_video(project):
     return folder / file_cache.read_json(folder / MANIFEST)['video']
 
 
+def _probe_comfy(settings):
+    """探测并按需拉起本机 ComfyUI，供预演与参考草图入口共用。"""
+    from infra.comfy_runtime import open_comfy, wait_comfy
+    probe_timeout = settings.get('probe_timeout', 5)
+    readiness_timeout = settings.get('readiness_timeout', 45)
+    url = (settings.get('url')
+           or 'http://127.0.0.1:8188')
+    try:
+        wait_comfy(url, timeout=probe_timeout)
+    except ValueError:
+        open_comfy()
+        wait_comfy(url, timeout=readiness_timeout)
+
+
 def generate_animatic_reference(project, prompt, model, settings=None):
     """本地草图准备与发布，复用 ComfyUI，不进入正式资产登记。"""
     import tempfile
     from domain.animatic_service import prepare_reference
-    from infra.comfy_runtime import open_comfy, wait_comfy
     settings = dict(settings or {})
-    url = settings.get('url', 'http://127.0.0.1:8188')
-    try:
-        wait_comfy(url, timeout=settings.get('probe_timeout', 5))
-    except ValueError:
-        open_comfy()
-        wait_comfy(url, timeout=settings.get('readiness_timeout', 45))
+    _probe_comfy(settings)
     work_root = write_dir(project, 'animatic') / '.work'
     work_root.mkdir(parents=True, exist_ok=True)
     workspace = Path(tempfile.mkdtemp(prefix='reference-', dir=work_root))
@@ -532,6 +540,15 @@ def _compose_timeline_rows(root, timeline, shot_versions, existing_images,
     return out
 
 
+def _ensure_comfy_ready(settings):
+    """默认 comfy_local 且未注入客户端时探测/拉起本地 ComfyUI。"""
+    from domain import animatic_sketch_backends
+    backend = settings.get('animatic_sketch_backend') or animatic_sketch_backends.DEFAULT_BACKEND
+    if backend != animatic_sketch_backends.DEFAULT_BACKEND or settings.get('comfy_client') is not None:
+        return
+    _probe_comfy(settings)
+
+
 def run_animatic_timeline(project, source=None, *, settings=None):
     """REQ-S04-80…84：参考库配图＋三轨混音＋缺图才生成＋版本化视频＋清单发布。"""
     import tempfile
@@ -568,6 +585,8 @@ def run_animatic_timeline(project, source=None, *, settings=None):
             shot_versions[sid] = timeline_model.next_version(
                 _existing_names(_shot_dir(folder, sid)))
         shot_references[sid] = refs_for_animatic_shot(root, board.get(sid, {}))
+    if len(existing_images) < len(timeline['shots']):
+        _ensure_comfy_ready(settings)
     workspace = Path(tempfile.mkdtemp(prefix='run-', dir=_work_root(folder)))
     audio, clip_map = _timeline_audio(root, folder, timeline, board, settings, workspace)
     settings['shot_references'] = shot_references

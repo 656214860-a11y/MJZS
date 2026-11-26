@@ -11,6 +11,16 @@ from ui_tokens import COLORS, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui.desktop_file_card import script_row_card
 
 GROUP_PREFIX = 'stage-group:'
+ANIMATIC_GROUP_PREFIX = GROUP_PREFIX + 'animatic:'
+ANIMATIC_GROUP_SPECS = (
+    ('refs', '参考图库', True),
+    ('versions', '预演版本', True),
+    ('shots', '镜头草图', False),
+    ('audio', '临时声音', False),
+    ('other', '其他预演文件', False),
+)
+_ANIMATIC_GROUP_OPEN = {ANIMATIC_GROUP_PREFIX + key: opened for key, _label, opened in ANIMATIC_GROUP_SPECS}
+_MEDIA_PREFETCH_CAP = 40
 RENDER_BATCH = SPACING['sm'] * 4
 THUMB_SIZE = SPACING['lg']
 TREE_DISCLOSURE_WIDTH = SPACING['lg'] + SPACING['xs']   # 20：无缩略图时仅留展开箭头宽，文件名紧贴左缘
@@ -39,6 +49,48 @@ def script_category(row):
     return 'index'
 
 
+def _merge_animatic_references(root, rows):
+    """S04 视图就地补齐共享参考图库：不写磁盘索引、不扫 .work/，同路径转正不重复。"""
+    from dataclasses import replace
+    import stage_execution_service
+    try:
+        library = stage_execution_service.animatic_reference_library(root) or {}
+    except (OSError, ValueError):
+        return
+    base = Path(root).resolve()
+    positions = {row.path: idx for idx, row in enumerate(rows)}
+    for items in library.values():
+        for item in items or ():
+            raw_path = item.get('path') if isinstance(item, dict) else item
+            if not raw_path:
+                continue
+            try:
+                path = Path(raw_path).resolve()
+                relative = path.relative_to(base).as_posix()
+            except (OSError, ValueError):
+                continue
+            if '.work' in Path(relative).parts:
+                continue
+            try:
+                info = path.stat()
+                size, mtime = int(info.st_size), float(info.st_mtime)
+            except OSError:
+                size, mtime = 0, 0.0
+            idx = positions.get(relative)
+            if idx is not None:
+                existing = rows[idx]
+                if existing.stage != 'animatic' or existing.missing:
+                    rows[idx] = replace(
+                        existing, stage='animatic', kind='资产',
+                        size=size or existing.size, mtime=mtime or existing.mtime,
+                        missing=False)
+            else:
+                positions[relative] = len(rows)
+                rows.append(FileRow(
+                    path=relative, stage='animatic', kind='资产',
+                    size=size, mtime=mtime))
+
+
 def load_index(root, library=False, refresh=False, stage=None):
     """只在 Desktop 后台任务执行；首次重建也在此线程。"""
     from infra import file_index
@@ -64,6 +116,8 @@ def load_index(root, library=False, refresh=False, stage=None):
                 rows.append(FileRow(path=relative, stage='script', kind='剧本',
                                     mtime=document.modified_at))
                 known.add(relative)
+        if stage == 'animatic':
+            _merge_animatic_references(root, rows)
     if not library:
         from writing_api import preparation_file_labels
         labels = preparation_file_labels(root)
@@ -126,6 +180,115 @@ def grouped_rows(rows, mode='阶段', library=False):
              groups[key]) for key in keys if key in groups]
 
 
+def animatic_bucket(row):
+    """S04 语义归类：参考图库／预演版本／镜头草图／临时声音／其他预演文件。"""
+    from infra import file_index
+    posix = str(row.path or '').replace('\\', '/')
+    parts = Path(posix).parts
+    parents = parts[:-1]
+    suffix = Path(posix).suffix.lower()
+    if posix.startswith('_shared/reference_images/') or '参考图' in parents:
+        return 'refs'
+    if '版本' in parents or suffix in file_index.VIDEO_SUFFIXES or row.kind == '视频':
+        return 'versions'
+    if '镜头' in parents or any(part.lower() == 'shots' for part in parents):
+        return 'shots'
+    if '声音' in parents or suffix in file_index.AUDIO_SUFFIXES or row.kind == '音频':
+        return 'audio'
+    return 'other'
+
+
+def animatic_grouped_rows(rows):
+    """仅用于 S04（stage_filter == 'animatic' 且按阶段分组）的语义分组。"""
+    buckets = {}
+    for row in rows:
+        buckets.setdefault(animatic_bucket(row), []).append(row)
+    return [
+        (ANIMATIC_GROUP_PREFIX + key, label, buckets[key])
+        for key, label, _opened in ANIMATIC_GROUP_SPECS
+        if key in buckets
+    ]
+
+
+def group_default_open(group_id):
+    """S04 折叠组默认收起；其他分组沿用默认展开。"""
+    return _ANIMATIC_GROUP_OPEN.get(group_id, True)
+
+
+def should_show_groups(groups):
+    """多分组或 S04 语义分组始终展示分组标题行；单分组平铺保持原样。"""
+    return len(groups) > 1 or any(
+        group_id.startswith(ANIMATIC_GROUP_PREFIX) for group_id, _label, _members in groups)
+
+
+def prefetch_media_paths(groups, root, cap=_MEDIA_PREFETCH_CAP):
+    """只收集默认展开组的非缺失文件路径，且上限 cap 项，防止几百镜冲爆缩略图队列。"""
+    paths = []
+    for group_id, _label, members in groups:
+        if not group_default_open(group_id):
+            continue
+        for row in members:
+            if row.missing:
+                continue
+            paths.append(Path(root) / row.path)
+            if len(paths) >= cap:
+                return paths
+    return paths
+
+
+def _load_group_previews(panel, tree, item, base):
+    """展开默认折叠组时按需补齐前 _MEDIA_PREFETCH_CAP 项缩略图并预取媒体封面。"""
+    try:
+        children = tree.get_children(item) if item and panel.is_file_group(item) else ()
+    except tk.TclError:
+        return
+    if not children:
+        return
+    paths = []
+    for child in children[:_MEDIA_PREFETCH_CAP]:
+        row = getattr(panel, '_index_rows', {}).get(child)
+        if row is None or row.missing:
+            continue
+        path = Path(base) / row.path
+        paths.append(path)
+        if child not in getattr(panel, '_index_images', {}) and hasattr(panel, '_row_preview'):
+            image = panel._row_preview(path)
+            if image is not None:
+                panel._index_images[child] = image
+                try:
+                    tree.item(child, image=image)
+                except tk.TclError:
+                    pass
+    if paths and hasattr(panel, '_prefetch_media_thumbs'):
+        panel._prefetch_media_thumbs(paths)
+
+
+def bind_lazy_group_previews(panel, root):
+    """仅绑定一次 <<TreeviewOpen>>，展开折叠组时按需补图。"""
+    tree = getattr(panel, 'script_tree', None)
+    if tree is None:
+        return
+    tree._lazy_preview_root = root
+    if getattr(tree, '_lazy_preview_bound', False):
+        return
+    tree._lazy_preview_bound = True
+
+    def on_open(_event=None):
+        base = getattr(tree, '_lazy_preview_root', None)
+        if base is None:
+            return
+        try:
+            item = tree.focus()
+        except tk.TclError:
+            return
+        _load_group_previews(panel, tree, item, base)
+
+    try:
+        tree.bind('<<TreeviewOpen>>', on_open, add='+')
+    except tk.TclError:
+        pass
+
+
 def configure_tree_leading_column(tree, groups, *, preview_width=None):
     """按是否存在缩略图与多分组收紧 #0 树列，使目录名与文件名紧贴左侧边界。"""
     from infra import file_index
@@ -133,7 +296,8 @@ def configure_tree_leading_column(tree, groups, *, preview_width=None):
         (row.kind in ('资产', '音频', '视频'))
         or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
         for _group, _label, members in groups for row in members)
-    if len(groups) == 1 and not has_thumb:
+    show_groups = should_show_groups(groups)
+    if len(groups) == 1 and not show_groups and not has_thumb:
         tree.configure(show='headings')
         tree.column('#0', width=SPACING['none'], minwidth=SPACING['none'], stretch=False)
         return
@@ -142,7 +306,7 @@ def configure_tree_leading_column(tree, groups, *, preview_width=None):
     thumb_col = preview_width if preview_width is not None else TREE_PREVIEW_DEFAULT_WIDTH
     if not has_thumb:
         width = TREE_DISCLOSURE_WIDTH
-    elif len(groups) > 1:
+    elif show_groups:
         width = thumb_col + SPACING['sm']
     else:
         width = thumb_col
@@ -214,7 +378,8 @@ class FilesPanelIndexMixin:
             found, categories, self._index_file_labels = result
             self._start_index_render(found, categories, root, library, generation, context)
             if hasattr(self, '_prefetch_media_thumbs'):
-                self._prefetch_media_thumbs([Path(root) / row.path for row in found if not row.missing])
+                self._prefetch_media_thumbs(
+                    [Path(root) / row.path for row in found if not row.missing][:_MEDIA_PREFETCH_CAP])
 
         submit = getattr(self.page, 'async_queued', self.page.async_)
         submit(work, done, show_progress=False, label='加载全局素材库' if library else '加载项目文件索引')
@@ -295,7 +460,7 @@ class FilesPanelIndexMixin:
             self.script_row_details[item] = script_row_card(document, state, modified, Path(root)) + '\n' + metadata
         self._full_labels[item] = label
         image = None
-        if not row.missing:
+        if not row.missing and group_default_open(group):
             if hasattr(self, '_row_preview'):
                 image = self._row_preview(Path(root) / row.path)
             elif Path(row.path).suffix.lower() in ('.png', '.gif', '.jpg', '.jpeg', '.webp'):
@@ -311,8 +476,12 @@ class FilesPanelIndexMixin:
     def _finish_index_render(self):
         self._fit_script_width()
         files = len(getattr(self, '_index_rows', {}))
-        groups = getattr(self, '_index_group_count', 0)
-        count = files + (groups if groups > 1 else 0)
+        try:
+            headers = sum(1 for item in self.script_tree.get_children() if self.is_file_group(item))
+        except tk.TclError:
+            groups = getattr(self, '_index_group_count', 0)
+            headers = groups if groups > 1 else 0
+        count = files + headers
         self.script_tree.configure(height=max(1, min(SCRIPT_FILE_MAX_ROWS, count)))
         table = getattr(self, 'script_list', None)
         if table is not None and hasattr(table, 'empty_label'):
