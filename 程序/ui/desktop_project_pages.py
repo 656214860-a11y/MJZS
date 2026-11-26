@@ -198,16 +198,19 @@ class RecyclePanelMixin:
 
 def _startup_project_list(page, parent):
     """在主窗口内容区列出项目，单击或回车进入。"""
+    items=sorted(page.projects.info['projects'],key=project_sort_key)
+    rows=min(len(items),TEXT_ROWS['2xl'])
     panel=ttk.Frame(parent)
-    panel.pack(fill='both',expand=True,padx=SPACING['xl'],pady=SPACING['xl'])
-    tree=ttk.Treeview(panel,show='tree',selectmode='browse',height=TEXT_ROWS['2xl'])
+    panel.pack(fill='x',padx=SPACING['xl'],pady=SPACING['xl'])
+    tree=ttk.Treeview(panel,show='tree',selectmode='browse',height=rows)
     page._project_home_tree=tree
-    scrollbar=ttk.Scrollbar(panel,orient='vertical',command=tree.yview)
-    tree.configure(yscrollcommand=scrollbar.set)
-    scrollbar.pack(side='right',fill='y')
-    tree.pack(side='left',fill='both',expand=True)
+    if len(items)>rows:
+        scrollbar=ttk.Scrollbar(panel,orient='vertical',command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right',fill='y')
+    tree.pack(side='left',fill='x',expand=True)
     bind_row_hover(tree)
-    for item in sorted(page.projects.info['projects'],key=project_sort_key):
+    for item in items:
         tree.insert('','end',iid=item['path'],text=item['name'])
     active=page.projects.info.get('active')
     initial=active if active and tree.exists(active) else tree.get_children()[0]
