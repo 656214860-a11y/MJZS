@@ -514,6 +514,9 @@ class ProjectPagesMixin(RecyclePanelMixin):
             if notice:self.status.set(notice)
             self._request_tick_resume_after_first_paint()
             return
+        return self._choose_project_dialog(cleanup_path)
+
+    def _choose_project_dialog(self,cleanup_path):
         popup=BaseDialog(self.win,'选择项目 · '+APP_NAME,geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
         # 动作区先占底边：窗口再矮也只压缩项目列表，不把按钮挤到可视区外；
         # FlowBar 在窄窗里自动换行，每个按钮保持自己的请求宽度。
