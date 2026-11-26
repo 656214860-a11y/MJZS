@@ -1,12 +1,13 @@
 # -*- coding: utf-8 -*-
-"""REQ-UI-SIDEBAR-1：侧栏项目区——「项目」主图标＋右对齐二级图标＋悬停宽项目卡片。
+"""REQ-UI-SIDEBAR-1：侧栏项目区——顶部紧凑「当前项目胶囊」＋悬停宽项目卡片。
 
-窄侧栏（96px）里直接放树表只能露出两三个字，因此：
-- 侧栏顶部的「项目」主图标放大并与主导航轨对齐居中；点击后在右侧展开 4 枚
-  缩小后的二级图标（在制作／已完成／新建／打开目录），不占聊天区。
-- 主图标下方改为紧凑的「当前项目胶囊」：展示当前项目短名与当前分组数量；
-  鼠标悬停或点击即可在侧栏右侧浮出一张宽项目卡片（320px），完整展示全部项目名、
-  分组切换、当前高亮、单击切换、右键菜单与新建／打开／管理快捷入口，不挤动聊天框。
+窄侧栏（96px）里直接放树表只能露出两三个字，且顶部原独立「项目」图标及其二级列
+（在制作／已完成／新建／打开目录）与悬停宽项目卡片功能重复，因此：
+- 侧栏顶部直接放紧凑的「当前项目胶囊」，展示当前项目短名与当前分组数量；下方
+  全部导航图标依次上移，右侧文件图标同步上移对齐。
+- 鼠标悬停或点击胶囊即可在侧栏右侧浮出一张宽项目卡片（320px），完整展示全部
+  项目名、分组切换、当前高亮、单击切换、右键菜单与新建／打开／管理快捷入口，
+  不挤动聊天框。
 项目数据只读已加载的 ``projects.info``，不在启动路径扫目录。
 """
 
@@ -14,17 +15,12 @@ import tkinter as tk
 from pathlib import Path
 from tkinter import ttk
 
-import infra.app_logging as app_logging
-from ui.desktop_expand_column import ExpandIconColumn
 from ui.desktop_file_card import TreeRowCard
-from ui.desktop_page_registry import PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS
-from ui.ui_icons import IconLoader
 from ui.ui_popup import Flyout, monitor_bounds
 from ui.ui_theme import box_frame
-from ui_tokens import (COLORS, DESKTOP_LAYOUT, NAV_PRIMARY_ICON_SIZE,
-                       NAV_SECONDARY_ICON_SIZE, PROJECT_CARD_CLOSE_MS,
+from ui_tokens import (COLORS, DESKTOP_LAYOUT, PROJECT_CARD_CLOSE_MS,
                        PROJECT_CARD_HOVER_MS, PROJECT_CARD_WIDTH, SPACING)
-from ui_widgets import DataTable, SecondaryButton, Tooltip
+from ui_widgets import DataTable, SecondaryButton
 
 MIN_ROWS = 3
 MAX_CARD_ROWS = 9
@@ -251,7 +247,6 @@ class ProjectNameList(ttk.Frame):
         close_popup = getattr(self.host, '_close_sidebar_popup', None)
         if callable(close_popup):
             close_popup()
-        close_sidebar_expand(self.host)
         if self._card_open():
             self._populate_card_rows()
             self._sync_card_group_styles()
@@ -493,126 +488,11 @@ class ProjectNameList(ttk.Frame):
 
 
 def build_project_rail(host, side):
-    """侧栏项目区：居中放大的「项目」主图标＋贴右展开的 4 枚小二级图标＋悬停项目切换胶囊。"""
+    """侧栏项目区：顶部紧凑当前项目胶囊（悬停／点击弹出宽项目卡片）。"""
     host.project_block = ttk.Frame(side)
     host.project_block.pack(fill='x', pady=(SPACING['xs'], SPACING['none']))
     host._project_group = 'making'
     host._picker_items = []
-    image = IconLoader.nav_icon(side, 'project_files', size=NAV_PRIMARY_ICON_SIZE)
-    host.project_button = SecondaryButton(
-        host.project_block, text='', image=image,
-        compound='image' if image is not None else 'text', width=0,
-        style='RailIcon.TButton', command=lambda: toggle_project_expand(host))
-    host.project_button.pack(
-        anchor='w',
-        padx=(DESKTOP_LAYOUT['nav_primary_inset'], SPACING['none']),
-        pady=(SPACING['none'], DESKTOP_LAYOUT['nav_gap']))
-    Tooltip(host.project_button, '项目')
     host.project_name_list = ProjectNameList(host, host.project_block)
     host.project_name_list.pack(fill='x')
-    host._sidebar_expand_kind = None
-    host.project_group_buttons = {}
-    host.project_buttons = ()
-    column = ExpandIconColumn(host.project_block, getattr(host, 'win', side),
-                              scrollbar=False, keys=True, columns=2,
-                              icon_size=NAV_SECONDARY_ICON_SIZE)
-    host._project_expand_column = column
-    host.sidebar_expand = column.frame
-    for state in ('making', 'completed'):
-        button = column.add(
-            state, PROJECT_GROUP_ICONS[state], '',
-            '在制作项目' if state == 'making' else '已完成项目',
-            lambda s=state: host.set_project_group(
-                'all' if getattr(host, '_project_group', 'making') == s else s))
-        host.project_group_buttons[state] = button
-    host.project_new_button = column.add(
-        'new', PROJECT_ACTION_ICONS['new'], '', '+ 新建项目',
-        lambda: (close_sidebar_expand(host), host.new()))
-    host.project_open_button = column.add(
-        'open', PROJECT_ACTION_ICONS['open'], '', '打开项目目录',
-        lambda: (close_sidebar_expand(host), host.open_current_project()))
-    host.project_buttons = (host.project_new_button, host.project_open_button)
-    column.finalize()
-    host._sync_project_group_styles()
     host._sync_project_picker()
-
-
-# ── 侧栏内嵌二级列的开合（点空白／Esc 收起）────────────────────────────
-def toggle_project_expand(host):
-    if getattr(host, '_sidebar_expand_kind', None) == 'project':
-        close_sidebar_expand(host)
-        return
-    open_sidebar_expand(host, 'project')
-
-
-def open_sidebar_expand(host, kind='project'):
-    """在项目区右侧展开四个缩小后的二级图标；与侧栏浮层、项目卡片互斥。"""
-    close_popup = getattr(host, '_close_sidebar_popup', None)
-    if callable(close_popup):
-        close_popup()
-    project_list = getattr(host, 'project_name_list', None)
-    if project_list is not None and callable(getattr(project_list, 'close_card', None)):
-        project_list.close_card()
-    column = getattr(host, '_project_expand_column', None)
-    if column is None:
-        return
-    host._sidebar_expand_kind = kind
-    if not column.frame.winfo_manager():
-        target = getattr(host, 'project_name_list', None)
-        pack_kw = dict(side='top', anchor='e', pady=(SPACING['none'], SPACING['xs']))
-        if target is not None and target.winfo_manager():
-            pack_kw['before'] = target
-        column.frame.pack(**pack_kw)
-    win = getattr(host, 'win', None)
-    if win is None:
-        return
-    if getattr(host, '_sidebar_expand_button_bind', None) is None:
-        host._sidebar_expand_button_bind = win.bind(
-            '<Button-1>',
-            lambda event: sidebar_expand_outside(host, event), add='+')
-    if getattr(host, '_sidebar_expand_escape_bind', None) is None:
-        host._sidebar_expand_escape_bind = win.bind(
-            '<Escape>', lambda _event: close_sidebar_expand(host), add='+')
-
-
-def close_sidebar_expand(host):
-    """收起侧栏二级列并摘掉点空白／Esc 监听（unbind 带 funcid，只摘自己那条）。"""
-    try:
-        host._sidebar_expand_kind = None
-    except Exception:
-        app_logging.swallowed()
-    column = getattr(host, '_project_expand_column', None)
-    if column is not None and column.frame.winfo_manager():
-        column.frame.pack_forget()
-    win = getattr(host, 'win', None)
-    for attr, seq in (('_sidebar_expand_button_bind', '<Button-1>'),
-                      ('_sidebar_expand_escape_bind', '<Escape>')):
-        bind = getattr(host, attr, None)
-        if bind and win is not None:
-            try:
-                win.unbind(seq, bind)
-            except tk.TclError:
-                pass
-        try:
-            setattr(host, attr, None)
-        except Exception:
-            app_logging.swallowed()
-
-
-def sidebar_expand_outside(host, event):
-    """二级列外按下左键即收；点主图标与列内部的点击放行。"""
-    if getattr(host, '_sidebar_expand_kind', None) is None:
-        return
-    node = getattr(event, 'widget', None)
-    expand = getattr(host, 'sidebar_expand', None)
-    anchor = getattr(host, 'project_button', None)
-    try:
-        for _ in range(32):
-            if node is None or node is host.win:
-                break
-            if node is expand or node is anchor:
-                return
-            node = getattr(node, 'master', None)
-    except Exception:
-        app_logging.swallowed()
-    close_sidebar_expand(host)

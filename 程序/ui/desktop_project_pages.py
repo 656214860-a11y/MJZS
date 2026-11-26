@@ -18,8 +18,7 @@ from tkinter import ttk
 from responsive_ui import FlowBar, auto_height
 from ui.ui_motion import EmptyState, bind_row_hover
 from ui_tokens import TEXT_ROWS, COLORS, FONTS, SPACING, TEXT_DESC, DESKTOP_LAYOUT, NAV_PRIMARY_ICON_SIZE
-from ui.desktop_page_registry import (ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS,
-                                   PROJECT_ACTION_ICONS, PROJECT_GROUP_ICONS, nav_label)
+from ui.desktop_page_registry import ACCOUNT_TITLE, PAGE_ACCOUNT, PAGE_NAV_ICONS, nav_label
 from ui.ui_icons import IconLoader
 from ui_widgets import (BaseDialog, Card, DataTable, NotificationDispatcher, PrimaryButton, SecondaryButton,
                         Tooltip, ask_string)
@@ -366,10 +365,6 @@ class ProjectPagesMixin(RecyclePanelMixin):
         """侧栏分组筛选：making/completed/all 切换项目集合；popup 时弹出该组项目选择层（R2946，弹层实现在 PageNavMixin）。"""
         if state!=self._project_group:self._project_group=state;self._sync_project_group_styles();self._sync_project_picker()
         if popup:self._post_project_picker(state)
-    def _close_sidebar_expand(self):
-        """REQ-UI-SIDEBAR-1：换页／开浮层时收起侧栏项目二级列（实现在 ui.desktop_sidebar_project）。"""
-        from ui.desktop_sidebar_project import close_sidebar_expand
-        close_sidebar_expand(self)
     def _sync_project_group_styles(self):
         active=getattr(self,'_project_group','making')
         for state,btn in getattr(self,'project_group_buttons',{}).items():
@@ -396,7 +391,7 @@ class ProjectPagesMixin(RecyclePanelMixin):
         name_list=getattr(self,'project_name_list',None)
         if name_list is not None:name_list.refresh()
     def _build_project_rail(self,side):
-        """侧栏项目区（REQ-UI-SIDEBAR-1）：单个「项目」图标＋名称列表；四个原入口收进右侧二级列。"""
+        """侧栏项目区（REQ-UI-SIDEBAR-1）：顶部紧凑当前项目胶囊（悬停／点击展开宽项目卡片）。"""
         from ui.desktop_sidebar_project import build_project_rail
         build_project_rail(self,side)
     def project_switch_blocker(self):

@@ -589,11 +589,12 @@ class PageNavMixin:
         第 R2946 期：下拉框删除，选择器改为图标下的弹层；同一分组图标再点一次收起。
         """
         state=state or getattr(self,'_project_group','making')
-        button=getattr(self,'project_group_buttons',{}).get(state)
-        if button is None or not button.winfo_exists():return
-        # REQ-UI-SIDEBAR-1：分组钮收在按需展开的二级列里，开浮层会先把它收起；
-        # 选择层统一锚在常驻的「项目」主图标上，位置才稳定。
-        anchor=getattr(self,'project_button',None) or button
+        project_list=getattr(self,'project_name_list',None)
+        # REQ-UI-SIDEBAR-1：左上角重复「项目」主图标与二级列已删，选择层锚在常驻的当前项目胶囊上。
+        anchor=(getattr(self,'project_button',None)
+                or getattr(self,'project_group_buttons',{}).get(state)
+                or getattr(project_list,'trigger',project_list))
+        if anchor is None or not anchor.winfo_exists():return
         top=getattr(self,'_sidebar_popup_win',None)
         if top is not None and top.winfo_exists() and getattr(self,'_sidebar_popup_anchor',None) is anchor:
             self._close_sidebar_popup();return

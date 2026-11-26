@@ -200,10 +200,14 @@ def align_stage_rows(desktop, column, first_file_button):
             if widget.winfo_exists():
                 widget.unbind(event_name, handler)
 
-    for widget, event_name in ((desktop.sidebar_scroll.form, '<Configure>'),
-                               (left_canvas, '<Configure>'), (column.form, '<Configure>'),
-                               (right, '<Configure>'),
-                               (right, '<Map>')):
+    nav = getattr(desktop, 'nav', ())
+    watched = [(desktop.sidebar_scroll.form, '<Configure>'),
+               (left_canvas, '<Configure>'), (column.form, '<Configure>'),
+               (right, '<Configure>'),
+               (right, '<Map>')]
+    if len(nav) > PAGE_OF['script'] and nav[PAGE_OF['script']] is not None:
+        watched.append((nav[PAGE_OF['script']], '<Configure>'))
+    for widget, event_name in watched:
         bindings.append((widget, event_name, widget.bind(event_name, schedule, add='+')))
     right.bind('<Destroy>', cleanup, add='+')
     schedule()
