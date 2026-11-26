@@ -29,7 +29,7 @@ class AnimaticScopeTests(unittest.TestCase):
         row = next(item for item in stage_layout.STAGES if item[1] == 'animatic')
         self.assertEqual(row[0], '04分镜预演')
         self.assertEqual(stage_flow.DEPENDS['animatic'], ('storyboard',))
-        self.assertEqual(stage_flow.DEPENDS['assets'], ('animatic',))
+        self.assertEqual(stage_flow.DEPENDS['assets'], ('storyboard',))
 
     def test_req_s04_03_start_only_opens_the_page_and_never_generates(self):
         with tempfile.TemporaryDirectory() as folder:

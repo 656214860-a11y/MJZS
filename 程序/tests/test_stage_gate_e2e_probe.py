@@ -25,7 +25,7 @@ class StageGateE2EProbeTests(unittest.TestCase):
         cls.addClassCleanup(process.stop)
 
     def test_empty_project_gate_semantics_are_not_uniform(self):
-        """空项目：SG-A／SG-B 是“必须有上游成果”的入口闸，SG-01..05 是“上游没做就别拦”。
+        """空项目：SG-A 是“必须有上游成果”的入口闸，SG-B 与 SG-01..05 是“上游没做就别拦”（REQ-S05-53）。
 
         两类语义都钉进用例：任一类被悄悄改成另一类，这里就红。
         """
@@ -33,10 +33,10 @@ class StageGateE2EProbeTests(unittest.TestCase):
         result = probe.run_probe()
         self.assertEqual(len(result["empty"]), len(stage_parallel.GATE_IDS))
         rows = {row["id"]: row for row in result["empty"]}
-        for gate_id in ("SG-A", "SG-B"):
+        for gate_id in ("SG-A",):
             self.assertFalse(rows[gate_id]["entry_ok"], rows[gate_id])
             self.assertTrue(rows[gate_id]["started"], rows[gate_id])
-        for gate_id in ("SG-01", "SG-02", "SG-03", "SG-04", "SG-05"):
+        for gate_id in ("SG-B", "SG-01", "SG-02", "SG-03", "SG-04", "SG-05"):
             self.assertTrue(rows[gate_id]["entry_ok"], rows[gate_id])
             self.assertFalse(rows[gate_id]["started"], rows[gate_id])
         for row in result["empty"]:

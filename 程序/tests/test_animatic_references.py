@@ -252,5 +252,119 @@ class ReclassifyTests(unittest.TestCase):
             self.assertTrue(kept.is_file())
 
 
+class FormalAssetReuseTests(unittest.TestCase):
+    """REQ-S04-113：S04 分镜预演按编号／名称／别名只读优先复用 S05 已入库正式资产图。"""
+
+    def test_req_s04_113_formal_asset_entries_distinguish_ids_names_aliases_and_filter_invalid(self):
+        """REQ-S04-113：CHAR_001 与 CHAR_002 精确编号隔离不串图；仅采信登记表内真实非空合法图片。"""
+        from domain.animatic_references import formal_asset_entries
+        with tempfile.TemporaryDirectory() as temporary:
+            base = Path(temporary).resolve()
+            p1 = _image(base / 'assets' / 'characters', 'CHAR_001.png', b'c1')
+            p2 = _image(base / 'assets' / 'characters', 'CHAR_002.png', b'c2')
+            ps = _image(base / 'assets' / 'scenes', 'LOC_001.jpg', b's1')
+            _image(base / 'assets' / 'characters', 'empty.png', b'')
+            _image(base / 'assets' / 'characters', 'bad.bmp', b'bmp')
+            _image(base / 'assets' / 'characters', 'plan_only.png', b'plan-only')
+            outside = _image(base.parent, 'escape_ref_test.png', b'esc')
+            self.addCleanup(lambda: outside.exists() and outside.unlink())
+            plan = {
+                'CHAR_001': {'name': '林夏', 'aliases': ['小夏']},
+                'CHAR_002': {'name': '顾城', 'aliases': []},
+                'CHAR_003': {'name': '空图'},
+                'CHAR_004': {'name': '非法后缀'},
+                'CHAR_005': {'name': '越界'},
+                'CHAR_006': {'name': '未登记', 'image': 'assets/characters/plan_only.png'},
+                'CHAR_007': {'name': '群演', 'requires_asset': False},
+                'LOC_001': {'name': '雨夜仓库', 'aliases': ['旧仓库']},
+                'PROP_001': {'name': '钥匙'},
+            }
+            registry = {
+                'CHAR_001': {'name': '林夏', 'image': 'assets/characters/CHAR_001.png'},
+                'CHAR_002': {'name': '顾城', 'image': 'assets/characters/CHAR_002.png'},
+                'CHAR_003': {'image': 'assets/characters/empty.png'},
+                'CHAR_004': {'image': 'assets/characters/bad.bmp'},
+                'CHAR_005': {'image': '../escape_ref_test.png'},
+                'CHAR_007': {'image': 'assets/characters/CHAR_001.png'},
+                'LOC_001': {'image': 'assets/scenes/LOC_001.jpg'},
+                'PROP_001': {'image': 'assets/characters/CHAR_001.png'},
+            }
+            entries = formal_asset_entries(plan, registry, base)
+            self.assertEqual([e['aid'] for e in entries['角色']], ['CHAR_001', 'CHAR_002'])
+            self.assertEqual([e['path'] for e in entries['角色']], [p1, p2])
+            self.assertEqual([e['aid'] for e in entries['场景']], ['LOC_001'])
+            self.assertEqual([e['path'] for e in entries['场景']], [ps])
+
+            empty_lib = {'角色': [], '场景': [], '风格': [], UNCATEGORIZED: []}
+            self.assertEqual(refs_for_shot({'characters': ['CHAR_001'], 'location': 'LOC_001'},
+                                           empty_lib, formal_assets=entries), (p1, ps))
+            self.assertEqual(refs_for_shot({'characters': ['CHAR_002'], 'location': ''},
+                                           empty_lib, formal_assets=entries), (p2,))
+            self.assertEqual(refs_for_shot({'characters': ['小夏'], 'location': '旧仓库'},
+                                           empty_lib, formal_assets=entries), (p1, ps))
+
+    def test_req_s04_113_formal_assets_take_priority_with_shared_fallback_and_styles(self):
+        """REQ-S04-113：同镜角色优先用 S05 正式图，未命中角色回退共享参考库，风格图始终附加。"""
+        from domain.animatic_references import formal_asset_entries
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            formal_lin = _image(root / '05资产管理' / 'assets' / 'characters', 'CHAR_001.png', b'formal')
+            shared_lin = _image(root / 'shared' / '角色', '林夏.png', b'shared-lin')
+            shared_gu = _image(root / 'shared' / '角色', '顾城.png', b'shared-gu')
+            shared_scene = _image(root / 'shared' / '场景', '仓库.png', b'shared-scene')
+            shared_style = _image(root / 'shared' / '风格', '厚涂.png', b'style')
+            lib = library((root / 'shared',))
+            formal = formal_asset_entries(
+                {'CHAR_001': {'name': '林夏'}},
+                {'CHAR_001': {'image': 'assets/characters/CHAR_001.png'}},
+                root / '05资产管理',
+            )
+            picked = refs_for_shot({'characters': ['林夏', '顾城'], 'location': '仓库'},
+                                   lib, formal_assets=formal)
+            self.assertEqual([Path(p).resolve() for p in picked],
+                             [formal_lin, shared_gu, shared_scene, shared_style])
+            self.assertNotIn(shared_lin, [Path(p).resolve() for p in picked],
+                             '已命中 S05 正式图的角色不重复带共享参考库同名草图')
+
+    def test_req_s04_113_gateway_reuses_s05_read_only_and_degrades_when_missing(self):
+        """REQ-S04-113：网关自动只读复用 S05 正式图，缺 S05 时静默降级，绝不写盘修改 S05。"""
+        import json
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            # 无 05资产管理 时静默降级为空
+            self.assertEqual(refs_for_animatic_shot(root, {'characters': ['林夏'], 'location': '仓库'}), ())
+            # 建立 05资产管理 正式资产图
+            base = root / '05资产管理'
+            char_img = _image(base / 'assets' / 'characters', 'CHAR_001.png', b'formal-char')
+            scene_img = _image(base / 'assets' / 'scenes', 'LOC_001.png', b'formal-scene')
+            plan_path = base / 'assets' / '资产清单' / 'assets.json'
+            plan_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_raw = json.dumps({'CHAR_001': {'name': '林夏', 'aliases': ['小夏']},
+                                   'LOC_001': {'name': '雨夜仓库'}}, ensure_ascii=False).encode('utf-8')
+            plan_path.write_bytes(plan_raw)
+            reg_path = base / 'assets.json'
+            reg_raw = json.dumps({'CHAR_001': {'image': 'assets/characters/CHAR_001.png'},
+                                  'LOC_001': {'image': 'assets/scenes/LOC_001.png'}},
+                                 ensure_ascii=False).encode('utf-8')
+            reg_path.write_bytes(reg_raw)
+            style_img = _image(shared_reference_dir(root) / '风格', '厚涂.png', b'style')
+
+            refs = refs_for_animatic_shot(root, {'characters': ['CHAR_001'], 'location': '雨夜仓库'})
+            self.assertEqual([Path(p).resolve() for p in refs],
+                             [char_img, scene_img, style_img.resolve()])
+            self.assertEqual(plan_path.read_bytes(), plan_raw, 'S04 严禁修改 S05 清单')
+            self.assertEqual(reg_path.read_bytes(), reg_raw, 'S04 严禁修改 S05 登记表')
+
+    def test_req_s04_113_status_summary_counts_reusable_formal_assets(self):
+        """REQ-S04-113：有可复用正式资产图时状态栏摘要合并计数并标明来源，无资产时格式不变。"""
+        from ui.animatic_view_state import format_status_summary
+        lib = {'风格': [{'path': Path('style.png')}]}
+        plain = format_status_summary({'shots': [{'id': 'SH001'}]}, lib, '静音', None, False)
+        self.assertIn('参考图 1 张 /', plain)
+        with_assets = format_status_summary(
+            {'shots': [{'id': 'SH001'}]}, lib, '静音', None, False, formal_count=2)
+        self.assertIn('参考图 3 张（含资产 2 张）', with_assets)
+
+
 if __name__ == '__main__':
     unittest.main(verbosity=2)

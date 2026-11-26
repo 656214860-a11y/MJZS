@@ -30,7 +30,7 @@ from orchestrator.stage_asset_gateways import (  # noqa: F401  re-export
     pending_generated_assets,
     import_pending_generated_assets,
     unwrap_service_result)
-from orchestrator.stage_animatic_gateways import animatic_reference_library, animatic_reference_paths, animatic_video, confirm_animatic, generate_animatic_reference, import_animatic_audio, import_animatic_reference_library, import_animatic_references, load_or_sync_animatic_timeline, lock_animatic, publish_animatic_bundle, reclassify_animatic_reference, refs_for_animatic_shot, regenerate_animatic_shot, replace_animatic_shot_image, run_animatic, run_animatic_timeline, update_animatic_shot
+from orchestrator.stage_animatic_gateways import animatic_reference_library, animatic_reference_paths, animatic_video, confirm_animatic, formal_animatic_assets, generate_animatic_reference, import_animatic_audio, import_animatic_reference_library, import_animatic_references, load_or_sync_animatic_timeline, lock_animatic, publish_animatic_bundle, reclassify_animatic_reference, refs_for_animatic_shot, regenerate_animatic_shot, replace_animatic_shot_image, run_animatic, run_animatic_timeline, update_animatic_shot
 from orchestrator.stage_previs_gateways import dispatch_stage_previs, install_stage_previs_progress, previs_automatic_candidates, previs_automatic_engine, previs_entries, previs_progress_gateway, previs_ready, previs_records_directory, previs_routing_gateway, publish_stage_previs_progress, save_stage_previs_override, storyboard_board_source_script, storyboard_catalog, storyboard_catalog_snapshot, storyboard_default_source, storyboard_document_dir, storyboard_file_snapshot, storyboard_produced_episodes, storyboard_produced_scripts, storyboard_resolve_source, storyboard_working_dir
 from orchestrator.stage_gate_gateways import cloud_video_gateway, cloud_video_saved_provider_key, cloud_video_session_folder, media_import_publisher, publish_cloud_video_session_config, publish_cloud_video_studio_config, publish_cloud_video_workspace_preference, publish_tts_full_track, refresh_audio_manifests, reusable_tts_full_track, run_tts_lines, save_tts_key, tts_gateway, video_lifecycle_gateway
 
@@ -878,13 +878,14 @@ unwrap_project_result = unwrap_service_result
 
 
 def require_formal_asset_generation(project, *, online_model):
-    """生成正式资产前核验 SG-B 与线上模型；纯计划和浏览不受影响。"""
-    import orchestrator.stage_parallel as stage_parallel
-    gate = stage_parallel.evaluate(project, 'assets')
-    if not gate['ok']:
-        raise ValueError(stage_parallel.blocked_text(gate))
+    """生成正式资产前核验线上模型，未锁预演时返回非阻塞状态栏提醒（REQ-S05-53）。"""
     if not online_model:
         raise ValueError('正式资产请选择线上 API 模型；本地草图请在分镜预演阶段生成')
+    import orchestrator.stage_parallel as stage_parallel
+    gate = stage_parallel.evaluate(project, 'assets')
+    if not gate.get('ok') or gate.get('started') is False:
+        return '提示：尚未锁定分镜预演，将先按已采用分镜制作资产'
+    return ''
 
 
 def save_writing_production_locks(project, values, *, attachment_signature=None):

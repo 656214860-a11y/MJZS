@@ -1,0 +1,15 @@
+{
+  "round": 4577,
+  "commit_base": "edf3dc709",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_references animatic_service",
+    "exit": 0,
+    "passed": 40,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T01:46:21"
+}

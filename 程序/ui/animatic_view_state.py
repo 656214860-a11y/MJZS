@@ -165,16 +165,19 @@ def parse_animatic_command(text):
     return {'action': 'redo_shot', 'shot_id': 'SH%03d' % int(match.group(1))}
 
 
-def format_status_summary(timeline, library, audio_mode, version_tag, confirmed):
-    """状态栏摘要：镜头数／参考图数／声音来源／版本与确认状态。"""
+def format_status_summary(timeline, library, audio_mode, version_tag, confirmed, *, formal_count=0):
+    """状态栏摘要：镜头数／参考图数（含可复用 S05 正式资产图数）／声音来源／版本与确认状态。"""
     shots = len((timeline or {}).get('shots') or [])
-    refs = sum(len(value) for value in (library or {}).values())
+    shared = sum(len(value) for value in (library or {}).values())
+    extra = max(0, int(formal_count or 0))
+    refs = shared + extra
+    ref_text = ('参考图 %d 张（含资产 %d 张）' % (refs, extra)) if extra else ('参考图 %d 张' % refs)
     if version_tag:
         tail = '%s %s' % (version_tag, '已锁定' if confirmed else '未确认')
     else:
         tail = '未生成'
-    return '分镜 %d 镜 / 参考图 %d 张 / 声音：%s / %s' % (
-        shots, refs, audio_mode or '静音', tail)
+    return '分镜 %d 镜 / %s / 声音：%s / %s' % (
+        shots, ref_text, audio_mode or '静音', tail)
 
 
 def _shot_dir(state, shot_id):

@@ -29,6 +29,11 @@ COMMON = (f'结构化资产JSON格式规范：{Path(__file__).resolve().parents[
 )
 
 
+def storyboard_boundary_rules():
+    """REQ-S03-56：S03 初步分镜仅需普通道具与背景人物镜头边界，不提前注入资产清单建档与锚点复制要求。"""
+    return PROP_RULES + CHARACTER_RULES
+
+
 def rules(stage):
     if stage=='writing':
         return ('第1步资产职责：先读取已有角色设定和统一资产清单。已有固定角色原样复用，不重新确认、重新编写角色卡或输出重复的资产确认文档。'
@@ -36,10 +41,10 @@ def rules(stage):
                 '只为新增或缺失条目补写固定角色参考图提示词到统一资产清单，prompt_stage=writing、appearance_locked=true；已有完整条目不改写。'
                 '不要提前虚构未确定的场景、道具或临时角色。已确认的固定角色未经用户要求不要改变外观。'+COMMON)
     if stage=='storyboard':
-        return ('第2步资产职责：先读取第1步的固定角色提示词并原样复用；拆分镜时补齐本集场景、关键道具、临时角色和动物的完整参考图提示词。'
+        return ('分镜对应资产提示词规则（供第 05 资产管理补齐清单时使用，第 03 初步分镜不要求先建资产库）：'
+                '先读取已确认角色设定与已有资产清单并复用既有编号；按已采用分镜补齐本集场景、关键道具、临时角色和动物的完整参考图提示词。'
                 '新增条目prompt_stage=storyboard，非固定资产appearance_locked=false。局部角色保持局部，不扩写成新的主角。'
                 '固定角色提示词缺失时，读取对应角色设定补齐并标记writing来源；设定不明确则报告缺项，不重设计角色。'
-                '每镜characters、location、props、first_frame_assets引用的编号，都必须在统一清单中存在且有name与image_prompt。'
                 '合并各集used_in，核对镜头引用、名字和提示词属于同一资产；场景布局和道具初始状态要符合该集分镜。'+COMMON)
     raise ValueError('未知提示词准备阶段')
 

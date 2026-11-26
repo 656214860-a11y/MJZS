@@ -365,7 +365,7 @@ class GateTests(unittest.TestCase):
             proj = make_project(td)
             for stage in STAGES:
                 result = spec.evaluate(proj, stage)
-                if stage in ('animatic', 'assets'):
+                if stage == 'animatic':
                     self.assertFalse(result['ok'], stage)
                     self.assertTrue(result['started'], stage)
                     continue

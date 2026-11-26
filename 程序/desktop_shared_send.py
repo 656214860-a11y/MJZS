@@ -25,11 +25,9 @@ FLOW_FOR_STAGE = {'script': 'writing', 'storyboard': 'storyboard', 'assets': 'as
 FLOW_LABEL = {'writing': '剧本准备', 'storyboard': '初步分镜', 'assets': '资产管理',
               'frames': '首帧管理', 'previs': '白模预演', 'video_prompt': '视频提示词',
               'audio': '配音与字幕'}
-# 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步，并说明文字
-# 用不上（%s＝阶段名）；文字留在输入框里，不清空。
+# 没有对话流程、但页面登记了发送动作的阶段：输入框里有字时照样开动这一步并留字。
 STAGE_ACTION_TEXT_UNUSED = '「%s」这一步不使用输入框里的文字：发送键启动的是本页的制作，文字仍留在输入框。'
-# 初步分镜页及各阶段共享输入框占位提示（REQ-S01-114：统一前缀＋阶段尾句，全部由
-# ui.desktop_shared_input_extras.stage_placeholder 派生，接口与取值语义不变）。
+# 共享输入框占位提示（REQ-S01-114：由 input_extras.stage_placeholder 派生）。
 STORYBOARD_PLACEHOLDER = input_extras.stage_placeholder('storyboard')
 DEFAULT_STAGE_PLACEHOLDER = input_extras.stage_placeholder('')
 STAGE_PLACEHOLDERS = {
@@ -82,12 +80,7 @@ def _say(desktop, text):
 
 
 def upstream_send_error(project, stage, status=None):
-    """发送前统一门禁：上游空白／阻塞则拒绝并提示，放行返回空串。
-
-    有 ``stage_parallel`` 门禁的阶段走 ``evaluate``；无门禁行时看紧邻上游的完成证据，
-    显式跳过（skipped）豁免。``script`` 与无项目放行，简报门禁仍由宿主发送路径负责。
-    ``storyboard`` 使用 ``storyboard_send_readiness``（REQ-S03-55），说明写入状态栏。
-    """
+    """发送前统一门禁：上游空白／阻塞则拒绝，提醒型门禁（SG-B）写状态栏并放行。"""
     stage = str(stage or '')
     if not stage or stage == 'script' or stage not in pet_bus.STAGES:
         return ''
@@ -101,6 +94,13 @@ def upstream_send_error(project, stage, status=None):
         return ''
     if row is not None:
         try:
+            if row.get('advisory'):
+                if not stage_parallel.animatic_input_ready(project).get('ok'):
+                    return '请先在 03 初步分镜完成并采用分镜'
+                result = stage_parallel.evaluate(project, stage)
+                if status is not None and (not result.get('ok') or result.get('verdict') == stage_parallel.UPSTREAM_BLANK):
+                    status.set('提示：尚未锁定分镜预演，将先按已采用分镜制作资产')
+                return ''
             result = stage_parallel.evaluate(project, stage)
         except Exception:
             return ''

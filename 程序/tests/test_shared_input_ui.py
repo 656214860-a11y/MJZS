@@ -536,17 +536,17 @@ class UpstreamGateTests(unittest.TestCase):
     def test_gated_stage_upstream_ready_passes(self):
         from unittest import mock
         import stage_parallel
-        ready = {'verdict': stage_parallel.PASS, 'ok': True, 'from': 'animatic'}
+        ready = {'verdict': stage_parallel.PASS, 'ok': True, 'from': 'assets'}
         with mock.patch.object(stage_parallel, 'evaluate', return_value=ready):
-            self.assertEqual(shared_send.upstream_send_error(object(), 'assets'), '')
+            self.assertEqual(shared_send.upstream_send_error(object(), 'continuity'), '')
 
     def test_gated_stage_blocked_reports_reason(self):
         from unittest import mock
         import stage_parallel
-        blocked = {'verdict': stage_parallel.BLOCKED, 'ok': False, 'from': 'animatic',
-                   'detail': '预演未确认', 'reject': '先确认预演'}
+        blocked = {'verdict': stage_parallel.BLOCKED, 'ok': False, 'from': 'assets',
+                   'detail': '资产未锁', 'reject': '先锁资产'}
         with mock.patch.object(stage_parallel, 'evaluate', return_value=blocked):
-            error = shared_send.upstream_send_error(object(), 'assets')
+            error = shared_send.upstream_send_error(object(), 'continuity')
         self.assertTrue(error)
 
     def test_ungated_stage_upstream_complete_passes(self):
@@ -596,6 +596,31 @@ class UpstreamGateTests(unittest.TestCase):
         self.assertIn('结构剧本', error)
         self.assertIn('确认一份结构剧本', error)
         self.assertNotIn('清单未通过核验', error)
+
+    def test_req_s05_53_assets_send_requires_storyboard_and_warns_without_sg_b(self):
+        """REQ-S05-53：S05 发送先核对 S03 已采用分镜；未锁 S04 预演只写状态栏提醒并放行。"""
+        import storyboard_selection
+        from agent.core import save
+        tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(tmp.cleanup)
+        root = Path(tmp.name) / 'project'
+        root.mkdir()
+
+        # 无已采用分镜时拦截并指向 03 初步分镜
+        blocked = shared_send.upstream_send_error(root, 'assets')
+        self.assertIn('03 初步分镜', blocked)
+
+        # 有已采用分镜但未做 S04 预演时：放行并向状态栏写提醒
+        source = root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+        save(source, {'episode_id': 'EP001', 'shots': [
+            {'id': 'SH001', 'duration': 3, 'image_prompt': '门边的人',
+             'characters': ['CHAR_001'], 'location': 'LOC_001'}]})
+        save(root / 'ui_settings.json', {'adopted_storyboards': ['03初步分镜/分镜拆分/ep1.json']})
+        storyboard_selection.sync_draft_outputs(root)
+        notes = []
+        error = shared_send.upstream_send_error(root, 'assets', SimpleNamespace(set=notes.append))
+        self.assertEqual(error, '')
+        self.assertTrue(any('分镜预演' in note for note in notes), notes)
 
 
 class StoryboardSendReadinessTests(unittest.TestCase):

@@ -1,0 +1,15 @@
+{
+  "round": 4578,
+  "commit_base": "c7a23dd40",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_parallel stage_flow stage_gate_e2e_probe animatic_scope animatic_service assets_scope req_s04_anchors req_s05_anchors copy_rules desktop_shared_input",
+    "exit": 0,
+    "passed": 242,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T02:00:29"
+}
