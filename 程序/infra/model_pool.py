@@ -618,8 +618,7 @@ def patch_for(model_id, records=None, config=None, program=None):
         return {}
     patch = {'base_url': item['base_url'], 'path': item['path'], 'wire_api': item['wire_api'],
              'key_env': item['key_env']}
-    from infra.model_routes import patch_connections
-    patch_connections(item, text, patch)
+    client_accounts.patch_connections(item, patch)
     if item['model']:
         patch['flash_model'] = item['model']
         patch['pro_model'] = item['model']

@@ -34,3 +34,9 @@ def apply_account_config(result, selected, item):
         result['client_accounts'] = item['client_accounts']
     if selected.startswith('gflow-') and item.get('modality') == 'image' and item.get('profiles'):
         result['gflow_model'] = selected
+
+
+def patch_connections(item, patch):
+    enabled = [row for row in item.get('routes', ()) if row.get('enabled', True)]
+    if len(enabled) > 1:
+        patch['connections'] = [row for row in enabled[1:] if row.get('model') in ('', item['model'])]

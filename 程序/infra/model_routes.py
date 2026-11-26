@@ -739,13 +739,3 @@ def fetch_remote_models(base_url, *, api_key='', wire_api='chat', transport=None
     if not models:
         return {'ok': False, 'models': [], 'error': '该地址未返回模型列表，请直接手动输入模型 ID'}
     return {'ok': True, 'models': models, 'error': ''}
-
-
-def patch_connections(item, text, patch):
-    if item.get('routes'):
-        enabled = [(index, row) for index, row in enumerate(item['routes']) if row.get('enabled', True)]
-        if len(enabled) > 1:
-            patch['connections'] = [
-                {k: flat[k] for k in ('key_env', 'base_url', 'path', 'wire_api')}
-                for index, row in enabled[1:]
-                for flat in [route_as_record(item, row, text, index)] if flat['model'] == item['model']]

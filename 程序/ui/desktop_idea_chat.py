@@ -956,12 +956,10 @@ class _FlowAgentLaunch:
             program = find_program(self.config)
             if self.config['engine'] == 'desktop-app':
                 app = self.config.get('display_model') or '桌面模型'
-                from infra.client_accounts import account_args
-                launch_args = account_args(self.config)
                 deliver_desktop_app(self.host, self.finish, receipt, task_file, self.title,
-                                     clipboard_text, program, app,
+                                     clipboard_text, desktop_account_command(self.config, program), app,
                                      (self.config.get('delivery') or 'paste') if self.desktop_paste else 'clipboard',
-                                     attachment, **({'launch_args': launch_args} if launch_args else {}))
+                                     attachment)
                 return
             launch_windows_app(program, 'Claude Desktop')
             from codex_paste import paste_existing
@@ -987,3 +985,9 @@ class _FlowAgentLaunch:
             self.host.status.set(result['reason'])
         self.host.async_(lambda:paste_existing(result['title'],clipboard_text,result.get('draft_prompt',''),result.get('project',''),deadline_seconds=45 if result.get('mode')=='new' else 15),pasted)
         self.host.status.set('正在将本次任务粘贴到 GPT 桌面，请在窗口中手动点击发送…')
+
+
+def desktop_account_command(config, program):
+    from infra.client_accounts import account_args
+    args = account_args(config)
+    return [program, *args] if program and args else program

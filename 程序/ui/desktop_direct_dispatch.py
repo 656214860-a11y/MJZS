@@ -22,7 +22,7 @@ def dispatch(host, stage, config, direct, intake_only):
             from ui.desktop_video_prompt_direct import run_video_prompt_direct
             run_video_prompt_direct(host, config, direct)
             return True
-    if stage == 'assets' and direct and not intake_only and config['engine'] == 'qwen':   # REQ-S05-50／REQ-S08-52
+    if stage == 'assets' and direct and not intake_only and (config['engine'] == 'qwen' or config.get('gflow_model')):   # REQ-S05-50／REQ-S08-52
         from ui.desktop_image_direct import run_image_direct
         run_image_direct(host, direct)
         return True

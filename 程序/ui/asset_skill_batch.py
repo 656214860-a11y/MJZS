@@ -54,8 +54,7 @@ def launch(app,project,base,items):
     prepare(manifest,gateway=gateway)
     try:
         if config.get('gflow_model'):
-            from ui.desktop_image_direct import run_image_direct
-            run_image_direct(app, {'image': manifest, 'backend': 'Google Flow'})
+            app.open_direct_flow_agent('assets', '资产管理', task, {'image': manifest, 'backend': 'Google Flow'})
         elif config['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S05-50：程序直连出图，不起 Qwen Code
         else:app.open_flow_agent('assets','资产管理',task,on_receipt=lambda receipt:attach(manifest,receipt,gateway=gateway))
     except Exception as exc:fail(manifest,exc,gateway=gateway);raise

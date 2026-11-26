@@ -148,11 +148,12 @@
   "tests.test_account_client",
   "tests.test_tts",
   "tests.test_tool_result_contract",
-  "tests.test_model_routes.MultiRouteInfraTests"
+  "tests.test_model_routes.MultiRouteInfraTests",
+  "tests.test_model_connections"
  ],
  "tests_ok": true,
- "points_total": 3250,
- "points_covered": 1879,
+ "points_total": 3256,
+ "points_covered": 1886,
  "modules": [
   {
    "module": "budget.py",
@@ -479,12 +480,6 @@
    "percent": 75.0
   },
   {
-   "module": "pet_llm.py",
-   "points": 36,
-   "covered": 27,
-   "percent": 75.0
-  },
-  {
    "module": "script_brief.py",
    "points": 4,
    "covered": 3,
@@ -549,6 +544,12 @@
    "points": 52,
    "covered": 42,
    "percent": 80.8
+  },
+  {
+   "module": "pet_llm.py",
+   "points": 42,
+   "covered": 34,
+   "percent": 81.0
   },
   {
    "module": "lease_verifier.py",

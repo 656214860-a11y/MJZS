@@ -167,8 +167,7 @@ def launch(app,source,shot_id=None,shot_ids=None):
         payload=read(manifest);payload['comfy_config']=cfg;save(manifest,payload)
         task+='\n'+task_instruction(project,manifest)
     if flow_model:
-        from ui.desktop_image_direct import run_image_direct
-        run_image_direct(app, {'image': manifest, 'backend': 'Google Flow'})
+        app.open_direct_flow_agent('assets', '资产管理', task, {'image': manifest, 'backend': 'Google Flow'})
     elif config['engine']=='qwen':app.open_direct_flow_agent('assets','资产管理',task,{'image':manifest})   # REQ-S08-52
     else:app.open_flow_agent('assets','资产管理',task)
     watch(app,manifest)
