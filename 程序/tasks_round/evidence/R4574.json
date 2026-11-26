@@ -1,0 +1,15 @@
+{
+  "round": 4574,
+  "commit_base": "9fee6f5cb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k storyboard_scope storyboard_direct_api prompt_templates golden_outputs copy_rules",
+    "exit": 0,
+    "passed": 83,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T01:40:35"
+}

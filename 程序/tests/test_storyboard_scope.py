@@ -91,6 +91,33 @@ class StoryboardScopeTests(unittest.TestCase):
         self.assertIn('不要求资产库已出图或已锁锚点', text)
         self.assertIn('第 05／07 阶段', text)
 
+    def test_req_s03_56_workflow_tasks_drop_legacy_asset_generation_and_keep_shot_boundaries(self):
+        """REQ-S03-56：S03 任务书与直连规则不再要求同步建资产清单或复制锚点，保留普通道具与背景人物边界。"""
+        import infra.asset_prompt_rules as asset_prompt_rules
+        from orchestrator import workflow_tasks
+        with tempfile.TemporaryDirectory() as tmp:
+            root = Path(tmp)
+            script = root / '02剧本结构' / 'EP001.md'
+            script.parent.mkdir(parents=True)
+            script.write_text('第一场 街头\n林夏走过。', encoding='utf-8')
+            texts = (
+                workflow_tasks.storyboard_direct_rules(),
+                workflow_tasks.script_prompt(root, script, 'storyboard'),
+                workflow_tasks.script_followup(script, 'storyboard', project=root),
+            )
+            for label, body in zip(('direct', 'prompt', 'followup'), texts):
+                with self.subTest(channel=label):
+                    self.assertNotIn('同步生成episode/assets/资产清单/assets.json', body)
+                    self.assertNotIn('另写episode/assets/资产清单/资产需求.md', body)
+                    self.assertNotIn('第2步资产职责', body)
+                    self.assertNotIn('锚点从资产 JSON 的 character_anchor 逐字复制', body)
+                    self.assertIn('ordinary_props', body)
+                    self.assertIn('不建立 CHAR 资产', body)
+        asset_text = asset_prompt_rules.rules('storyboard')
+        self.assertNotIn('第2步资产职责', asset_text)
+        self.assertNotIn('先读取第1步的固定角色提示词', asset_text)
+        self.assertIn('逐字复制', asset_text)
+
 
 class DraftOutputTests(unittest.TestCase):
     def setUp(self):
