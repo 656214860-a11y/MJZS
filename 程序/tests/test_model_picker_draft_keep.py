@@ -92,6 +92,10 @@ class DraftKeepTests(unittest.TestCase):
 
     @staticmethod
     def _inject_models(picker):
+        picker.desktop.pet = mock.Mock()
+        picker.desktop.pet.agent_model_records.return_value = {
+            key: {'model': key, 'label': label, 'provider': 'desktop', 'call_mode': 'Desktop'}
+            for key, label in [('m1', '模型甲'), ('m2', '模型乙')]}
         picker._items = [('m1', '模型甲'), ('m2', '模型乙')]
         picker._by_display = {'模型甲': 'm1', '模型乙': 'm2'}
         picker.model.set('模型甲')
@@ -171,6 +175,84 @@ class DraftKeepTests(unittest.TestCase):
         box.input.destroy()
         picker._choose_model('m8')
         self.assertEqual(stage_config.get(self.desktop.root, 'keyframe')['model'], 'm8')
+
+    def test_expand_reads_one_catalog_and_keeps_selection_and_text(self):
+        from infra import model_pool
+        box = self._make()
+        picker = box.model_picker
+        self.win.deiconify()
+        self.win.update()
+        box.set_text('雨后巷口')
+        box.input.mark_set('insert', '1.2')
+        box.input.tag_add('sel', '1.0', '1.2')
+        current = 'gflow-nano2-lite'
+        records = {current: model_pool.record(dict(model=current, label='Flow Lite', call_mode='CLI',
+                                                    provider='desktop', capabilities=['reasoning']))}
+        self.desktop.pet = mock.Mock()
+        self.desktop.pet.agent_model_records.side_effect = lambda: dict(records)
+        stage_config.put(self.desktop.root, 'script', model=current, reasoning='high')
+        picker.refresh_models()
+        self.desktop.pet.agent_model_records.reset_mock()
+        picker.toggle_popup()
+        self.desktop.pet.agent_model_records.assert_called_once_with()
+        self.assertEqual(picker._category, 'CLI')
+        self.assertIn((current, 'Flow Lite'), picker._items)
+        picker.toggle_popup()
+        records.clear()
+        records['new'] = model_pool.record(dict(model='new', label='新接口', call_mode='API'))
+        picker.toggle_popup()
+        self.assertNotIn(current, dict(picker._items))
+        self.assertEqual(picker._call_modes['new'], 'API')
+        self.assertEqual((picker.model_id(), picker._level.get()), (current, 'high'))
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '雨后巷口')
+        self.assertEqual(box.input.index('insert'), '1.2')
+        self.assertEqual(box.input.get('sel.first', 'sel.last'), '雨后')
+
+    def test_popup_dismissal_does_not_reopen_or_lose_draft(self):
+        box = self._make()
+        picker = box.model_picker
+        self.win.deiconify()
+        box.set_text('保留草稿')
+        box.input.focus_force()
+        self.win.update()
+        picker.toggle_popup()
+        popup = picker._popup
+        cli = next(w for w in _descendants(popup.body) if 'text' in w.keys() and str(w.cget('text')) == 'CLI')
+        cli.invoke()
+        canvas = next(w for w in _descendants(popup.body) if w.winfo_class() == 'Canvas')
+        canvas.event_generate('<MouseWheel>', delta=-120)
+        self.win.update()
+        self.assertIs(popup, picker._popup)
+        self.win.geometry('+40+50')
+        self.win.update()
+        self.assertFalse(picker._popup_open())
+        picker.toggle_popup()
+        self.win.iconify()
+        self.win.update()
+        self.win.deiconify()
+        self.win.update()
+        self.assertFalse(picker._popup_open())
+        box.input.focus_force()
+        self.win.update()
+        self.assertIs(self.win.focus_displayof(), box.input)
+        picker.toggle_popup()
+        # 独立 Tcl/Tk 应用夺走系统焦点，实际分发 FocusOut/Deactivate。
+        other = self.tk.Tk()
+        try:
+            other.update()
+            other.focus_force()
+            other.update()
+            self.assertIsNone(self.win.focus_displayof())
+            timeout = self.tk.BooleanVar(master=self.win)
+            self.win.after(250, lambda: timeout.set(True))
+            self.win.wait_variable(timeout)
+            self.assertFalse(picker._popup_open())
+        finally:
+            other.destroy()
+        box.input.focus_force()
+        self.win.update()
+        self.assertFalse(picker._popup_open())
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '保留草稿')
 
     def test_picker_popup_is_noactivate_flyout(self):
         """回归守卫：StageModelPicker._open_popup 开的是 noactivate 浮层。"""

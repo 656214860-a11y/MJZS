@@ -1092,7 +1092,10 @@ class PanelTests(unittest.TestCase):
         # 注入带推理徽标的假条目：徽标 Label 的 padx 是本次崩溃点，真实空池没有徽标行。
         picker._items = [('m1', '模型甲'), ('m2', '模型乙')]
         picker._by_display = {'模型甲': 'm1', '模型乙': 'm2'}
-        picker._capable = {'m1'}
+        from types import SimpleNamespace
+        records = {key: dict(model=key, label=label, call_mode='Desktop', provider='desktop',
+                             capabilities=['reasoning'] if key == 'm1' else []) for key, label in picker._items}
+        picker.desktop.pet = SimpleNamespace(agent_model_records=lambda: records)
         picker.model.set('模型甲')
         self.win.deiconify()
         self.win.update_idletasks()

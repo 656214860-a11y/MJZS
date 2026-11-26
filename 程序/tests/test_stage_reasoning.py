@@ -273,7 +273,10 @@ class ReasoningPickerTests(unittest.TestCase):
         self.addCleanup(picker.destroy)
         picker.pack()
         picker._items = [('desktop', '桌面样例'), ('cli', '命令行样例'), ('api', '接口样例')]
-        picker._call_modes = {'desktop': 'Desktop', 'cli': 'CLI', 'api': 'API'}
+        from types import SimpleNamespace
+        records = {key: dict(model=key, label=label, call_mode=mode, provider='custom')
+                   for (key, label), mode in zip(picker._items, ('Desktop', 'CLI', 'API'))}
+        picker.desktop.pet = SimpleNamespace(agent_model_records=lambda: records)
         picker._open_popup()
         for category, label in (('CLI', '命令行样例'), ('API', '接口样例'), ('Desktop', '桌面样例')):
             widgets = list(picker._descendants(picker._popup.body))
@@ -306,6 +309,10 @@ class ReasoningPickerTests(unittest.TestCase):
             picker._close_popup()
             picker._items = [('m%d' % index, label) for index, label in enumerate(labels)]
             picker._by_display = {label: model_id for model_id, label in picker._items}
+            from types import SimpleNamespace
+            records = {key: dict(model=key, label=label, call_mode='Desktop', provider='desktop',
+                                 capabilities=['reasoning'] if key == 'm0' else []) for key, label in picker._items}
+            picker.desktop.pet = SimpleNamespace(agent_model_records=lambda: records)
             picker._capable = {'m0'}
             picker.model.set(labels[0])
             self.win.update_idletasks()

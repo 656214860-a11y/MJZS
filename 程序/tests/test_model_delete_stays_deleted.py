@@ -43,6 +43,19 @@ class DeletedModelStaysDeletedTests(unittest.TestCase):
     def delete(self, model_id):
         model_pool.store(model_pool.remove(model_pool.raw(self.program), model_id), self.program)
 
+    def test_grouping_and_labels_consume_one_pool_snapshot(self):
+        from unittest.mock import Mock, patch
+        getter = Mock(side_effect=[{'gflow-nano2-lite': model_pool.record({
+            'model': 'gflow-nano2-lite', 'label': 'Google Flow Lite',
+            'provider': 'desktop', 'provider_label': 'Google Flow', 'call_mode': 'CLI'})}, {}])
+        desktop = SimpleNamespace(pet=SimpleNamespace(agent_model_records=getter))
+        with patch.object(skill_panel_support.stage_models, 'production_choices', return_value=()):
+            first = skill_panel_support.grouped_model_choices(desktop, 'assets')
+            second = skill_panel_support.grouped_model_choices(desktop, 'assets')
+        self.assertEqual(first['Google Flow'], [('gflow-nano2-lite', 'Google Flow Lite')])
+        self.assertNotIn('Google Flow', second)
+        self.assertEqual(getter.call_count, 2)
+
     def test_sync_does_not_bring_back_a_deleted_desktop_model(self):
         """用户报的那条：剧本结构还选着 claude-desktop-app，删掉后一开项目就被补成一条缺根地址的 API 记录。"""
         stage_config.put(self.project, 'script_structure', model='claude-desktop-app')

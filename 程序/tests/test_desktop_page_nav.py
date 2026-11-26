@@ -52,6 +52,21 @@ class VideoPageStatusBarTests(UiEdgeCase):
         """共享输入框工具行（✦／＋／麦克风／模型下拉框／发送钮所在行）的纵坐标。"""
         return d.shared_input.icon_row.winfo_rooty()
 
+    def test_programmatic_page_change_dismisses_model_popup(self):
+        with tempfile.TemporaryDirectory() as td:
+            desktop, win = self._desktop(td, '1024x768')
+            desktop.show(PAGE['script'])
+            self._settle(win)
+            picker = desktop.shared_input.model_picker
+            picker.toggle_popup()
+            self.assertTrue(picker._popup_open())
+            desktop.show(PAGE['video'], video_mode='local')
+            self._settle(win)
+            self.assertFalse(picker._popup_open())
+            desktop.show(PAGE['script'])
+            self._settle(win)
+            self.assertFalse(desktop.shared_input.model_picker._popup_open())
+
     def test_input_toolbar_y_matches_script_page(self):
         """T1（对应 R1）：三档窗口下视频页输入框工具行的 y 与剧本准备页相同。"""
         for size in WINDOW_SIZES:
