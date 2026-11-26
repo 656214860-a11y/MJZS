@@ -873,6 +873,15 @@
         "程序/scripts/commit_round.py"
       ]
     },
+    "程序/tests/architecture/test_constant_condition_ratchet.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "恒真/恒假条件棘轮：递归生产模块中布尔常量参与的 or/and 与常量 if/while/条件表达式只许减少（while True 除外），白名单逐条带理由",
+      "targets": [
+        "程序/tests/architecture/_scan.py",
+        "程序/scripts/concurrency_report.py"
+      ]
+    },
     "程序/tests/test_sanhu_pointer_avatar_menu.py": {
       "kind": "integration",
       "owner": "项目维护者",

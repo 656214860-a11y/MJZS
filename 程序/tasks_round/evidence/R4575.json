@@ -1,0 +1,15 @@
+{
+  "round": 4575,
+  "commit_base": "a8d6be6db",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k constant_condition_ratchet",
+    "exit": 0,
+    "passed": 3,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T01:59:10"
+}
