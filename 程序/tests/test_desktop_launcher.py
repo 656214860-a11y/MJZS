@@ -17,6 +17,7 @@ from __future__ import annotations
 import ast
 import ctypes
 import os
+import subprocess
 import sys
 import tempfile
 import unittest
@@ -284,6 +285,27 @@ class LauncherDpiOrderTests(unittest.TestCase):
         self.assertTrue(tk_lines, '根启动器找不到 tk.Tk()')
         self.assertLess(min(dpi_lines), min(tk_lines),
                         'DPI 感知必须在建 Tk 窗口之前声明')
+
+
+class DeferredImportTests(unittest.TestCase):
+    """REF-L5-1：``import desktop_launcher`` 不在模块顶层拉起 tkinter／ui_widgets。
+
+    顶层提前导入会让 DPI 声明与启动自检为不需要窗口的路径白付冷导入开销；
+    弹窗与 ``launch()`` 在用点函数内延迟导入。真子进程核验 ``sys.modules``。
+    """
+
+    def test_import_does_not_load_tkinter_or_ui_widgets(self):
+        code = ('import sys\n'
+                'sys.path.insert(0, %r)\n'
+                'import desktop_launcher\n'
+                'bad = sorted(m for m in ("tkinter", "tkinter.ttk", "ui_widgets")\n'
+                '             if m in sys.modules)\n'
+                'raise SystemExit("desktop_launcher 顶层提前导入：%%r" %% bad if bad else 0)\n'
+                % str(HERE))
+        done = subprocess.run([sys.executable, '-B', '-c', code],
+                              capture_output=True, text=True, timeout=60)
+        self.assertEqual(done.returncode, 0,
+                         'stdout=%r stderr=%r' % (done.stdout[-400:], done.stderr[-800:]))
 
 
 class DesktopDpiWiringTests(unittest.TestCase):

@@ -3,6 +3,7 @@
 崩溃预算账本、DEGRADED 状态栏出口与启动器保护（任务书 D3-g～D3-n）。"""
 from __future__ import annotations
 
+import ast
 import json
 import os
 import shutil
@@ -524,6 +525,16 @@ class FatalDialogTests(unittest.TestCase):
         self.assertIn('联系支持', text)
         self.assertIn('selfcheck_failopen.flag', text)             # G12 关闭开关用法
 
+    def test_text_starts_with_registered_selfcheck_code(self):
+        """L5-E3：FATAL 弹窗文本第一行是登记的 E-START-SELFCHECK 文案，原有逐项内容不变。"""
+        item = Diagnostic(severity=Severity.FATAL, scope='contract', code='stage-contract',
+                          message='阶段契约撕裂', remedy='请升级程序', escape_hint='联系支持')
+        text = subject.fatal_diagnostics_text([item])
+        self.assertEqual(text.splitlines()[0], describe('E-START-SELFCHECK'))
+        self.assertIn('【stage-contract】阶段契约撕裂', text)
+        self.assertIn('处理建议：请升级程序', text)
+        self.assertIn('selfcheck_failopen.flag', text)
+
     def test_notify_uses_message_box_and_never_raises(self):
         seen = []
         with mock.patch.object(subject, '_win32_message_box',
@@ -596,14 +607,28 @@ class LauncherWiringTests(unittest.TestCase):
 
     def test_second_instance_exit_precedes_crash_budget(self):
         exit_at = self.source.index('sys.exit(0)')
-        budget_at = self.source.index('startup_gate(')
+        budget_at = self.source.index('run_preflight(')
         self.assertLess(exit_at, budget_at,
-                        '单实例二次启动必须在崩溃预算之前退出（不计数不清零）')
+                        '单实例二次启动必须在启动预检（含崩溃预算）之前退出（不计数不清零）')
 
     def test_selfcheck_runs_before_tk_construction(self):
-        check_at = self.source.index('run_startup_selfcheck(')
+        check_at = self.source.index('run_preflight(')
         tk_at = self.source.index('tk.Tk()')
-        self.assertLess(check_at, tk_at, '自检必须在建 Tk 之前运行')
+        self.assertLess(check_at, tk_at, '启动预检必须在建 Tk 之前运行')
+
+    def test_launcher_uses_shared_run_preflight(self):
+        """REF-L5-1：启动器与 ``desktop_launcher.launch()`` 共用一个预检入口。"""
+        self.assertIn('desktop_launcher.run_preflight(', self.source)
+
+    def test_mutex_uses_last_error_safe_kernel(self):
+        """L5-REF：CreateMutexW 竞态修复——WinDLL(use_last_error=True)＋get_last_error。"""
+        self.assertIn('use_last_error=True', self.source)
+        self.assertIn('get_last_error()', self.source)
+        self.assertNotIn('kernel.GetLastError', self.source)
+
+    def test_program_dir_is_added_to_sys_path_once(self):
+        """L5-REF：程序目录只入 sys.path 一次（第 39 行重复 insert 已删）。"""
+        self.assertEqual(self.source.count('sys.path.insert'), 1)
 
     def test_early_imports_are_inside_try_and_except_has_no_contract_import(self):
         # hash_backend／APP_NAME／app_logging.install 必须在 try 保护内
@@ -618,6 +643,49 @@ class LauncherWiringTests(unittest.TestCase):
 
 class BrokenContractSubprocessTests(unittest.TestCase):
     """D3-n①：contract 包损坏时启动器仍给出提示（子进程＋坏 sys.path，不弹真窗口）。"""
+
+    def test_failure_first_line_literal_matches_registered_code(self):
+        """L5-E3：启动文件内含 E-START-FAILED 的字面量与 error_codes.describe 逐字一致。"""
+        tree = ast.parse(LAUNCHER.read_text(encoding='utf-8'))
+        literals = [node.value for node in ast.walk(tree)
+                    if isinstance(node, ast.Constant) and isinstance(node.value, str)
+                    and 'E-START-FAILED' in node.value]
+        self.assertEqual(literals, [describe('E-START-FAILED')])
+
+    def test_startup_failure_dialog_starts_with_error_code(self):
+        """L5-E3：contract 损坏时弹窗文案以 [E-START-FAILED] 开头，并给出日志完整路径。"""
+        self.assertTrue(LAUNCHER.is_file(), '仓库根缺少 启动漫剧制作助手.pyw')
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            program = root / '程序'
+            (program / 'contract').mkdir(parents=True)
+            (program / 'hash_backend.py').write_text(
+                'def install():\n    pass\n', encoding='utf-8')
+            (program / 'contract' / '__init__.py').write_text('', encoding='utf-8')
+            (program / 'contract' / 'app_metadata.py').write_text(
+                'raise RuntimeError("contract broken for test")\n', encoding='utf-8')
+            launcher = root / '启动漫剧制作助手.pyw'
+            shutil.copy(LAUNCHER, launcher)
+            wrapper = root / 'wrap.py'
+            wrapper.write_text(textwrap.dedent('''
+                import sys, types, ctypes, runpy
+                class _User32:
+                    def MessageBoxW(self, *args):
+                        print('DIALOG_TEXT=' + str(args[1]))
+                        return 1
+                ctypes.windll = types.SimpleNamespace(user32=_User32())
+                runpy.run_path(sys.argv[1], run_name='__main__')
+            '''), encoding='utf-8')
+            done = subprocess.run(
+                [sys.executable, '-X', 'utf8', '-B', str(wrapper), str(launcher)],
+                capture_output=True, text=True, encoding='utf-8', errors='replace', timeout=60)
+            self.assertEqual(done.returncode, 0, done.stderr[-2000:])
+            line = next((row for row in done.stdout.splitlines()
+                         if row.startswith('DIALOG_TEXT=')), '')
+            self.assertTrue(line, '弹窗文案没有回传：%r' % done.stdout[-800:])
+            text = line.split('=', 1)[1]
+            self.assertTrue(text.startswith('[E-START-FAILED]'), text[:200])
+            self.assertIn('详情已保存到：' + str(root / '启动错误.log'), done.stdout)
 
     def test_broken_contract_still_reports_failure(self):
         # 启动器是仓库根必备文件：缺失属检出损坏，按失败处理而非跳过（skip 卫生门禁）。
@@ -693,6 +761,7 @@ class BrokenContractSubprocessTests(unittest.TestCase):
                 os.chmod(log, 0o666)                 # 恢复可写，临时目录才能清掉
             self.assertEqual(done.returncode, 0, done.stderr[-2000:])
             self.assertIn('DIALOG_TITLE=漫剧助手', done.stdout)
+            self.assertIn('[E-START-FAILED]', done.stdout)
             self.assertIn('日志没能保存', done.stdout)
             self.assertIn('contract broken for test', done.stdout)
 
