@@ -243,7 +243,7 @@ def _media_placeholder(master, kind, size):
 
     占位图按（解释器, 类型, 画幅）缓存，不把每张坏文件各画一遍。
     """
-    from ui.ui_media import draw_media_placeholder
+    from ui.ui_icons import draw_media_placeholder
     width, height = media_geometry(kind, size)
     key = ('media-placeholder', _root_key(master), kind, width, height)
     image = _MEDIA_PH.get(key)
