@@ -309,6 +309,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('asset_reference_prompts_dialog', 'prompt_window'),
     ('asset_reference_search', 'asset_reference_images'),
     ('asset_skill_batch', 'asset_reference_images'),
+    ('asset_thumbs', 'ui_icons'),  # 媒体占位标记复用图标绘制，图片生命周期仍归缩略图缓存。
     ('asset_versions', 'asset_context'),
     ('audio_direct_api', 'stage_execution_service'),
     ('audio_direct_api', 'stage_publication'),

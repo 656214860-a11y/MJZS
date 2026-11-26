@@ -1,0 +1,15 @@
+{
+  "round": 4603,
+  "commit_base": "3a8910abb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_layer_relations",
+    "exit": 0,
+    "passed": 5,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T04:32:13"
+}
