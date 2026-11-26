@@ -19,7 +19,7 @@ def _migrate_imported_skills():
 
 class AutomationTickMixin:
     def _startup_window_held(self):
-        """启动器让主窗口保持透明、由启动画面盖住时为真。"""
+        """启动器等待主窗口完成初始布局时为真。"""
         return getattr(self.win,'_drama_hold_alpha',False) is True
 
     def _after_first_paint(self):
@@ -39,7 +39,7 @@ class AutomationTickMixin:
         # 自动续开尚未选择项目时才显示这条启动提示。已有项目（含测试或
         # 外部入口已经装配好的项目）不能让延后的首帧回调覆盖刚完成的操作结果。
         if self.root is None and not self.worker and not self.projects.legacy_migration_pending:
-            self.status.set('正在打开今日项目…')
+            self.status.set('正在载入项目…')
         if isinstance(getattr(self,'task_queue',None),PersistentBackgroundTaskQueue):
             self._start_next_queued()
 

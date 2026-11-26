@@ -195,6 +195,38 @@ class RecyclePanelMixin:
         return dialog
 
 
+
+def _startup_project_list(page, parent):
+    """在主窗口内容区列出项目，单击或回车进入。"""
+    items=sorted(page.projects.info['projects'],key=project_sort_key)
+    rows=min(len(items),TEXT_ROWS['2xl'])
+    panel=ttk.Frame(parent)
+    panel.pack(fill='x',padx=SPACING['xl'],pady=SPACING['xl'])
+    tree=ttk.Treeview(panel,show='tree',selectmode='browse',height=rows)
+    page._project_home_tree=tree
+    if len(items)>rows:
+        scrollbar=ttk.Scrollbar(panel,orient='vertical',command=tree.yview)
+        tree.configure(yscrollcommand=scrollbar.set)
+        scrollbar.pack(side='right',fill='y')
+    tree.pack(side='left',fill='x',expand=True)
+    bind_row_hover(tree)
+    for item in items:
+        tree.insert('','end',iid=item['path'],text=item['name'])
+    active=page.projects.info.get('active')
+    initial=active if active and tree.exists(active) else tree.get_children()[0]
+    tree.selection_set(initial)
+    tree.focus(initial)
+    tree.see(initial)
+    def enter(event):
+        row=tree.identify_row(event.y) if event.num==1 else tree.focus()
+        if row:page.safe(lambda:page._open_startup_choice(row))
+        return 'break'
+    tree.bind('<ButtonRelease-1>',enter)
+    tree.bind('<Return>',enter)
+    tree.bind('<Button-3>',lambda event:page.project_menu(event,tree))
+    tree.focus_set()
+
+
 class ProjectPagesMixin(RecyclePanelMixin):
     """Desktop 的项目管理方法集（见模块说明）。"""
     def _start_legacy_project_migration(self):
@@ -401,19 +433,34 @@ class ProjectPagesMixin(RecyclePanelMixin):
         # 记住实际打开的项目，不能把调用入口携带的旧路径再写回设置。
         self.remember_daily_project_choice(getattr(self,'root',None) or path)
         return True
-    def daily_project_choice(self):
-        """返回今天已确认过的项目；过期、已删或未登记的记录一律不使用。"""
-        if self.settings.get('project_choice_day')!=date.today().isoformat():return None
-        path=str(self.settings.get('project_choice_path') or '')
-        if path in [item.get('path') for item in self.projects.info.get('projects',[])]:return path
+    def _startup_project_to_open(self, items):
+        if len(items)==1:
+            return items[0]['path']
+        last_prompt=self.settings.get('project_startup_choice_day')
+        try:
+            elapsed=(date.today()-date.fromisoformat(last_prompt)).days
+        except (TypeError,ValueError):
+            return None
+        if 0<=elapsed<7:
+            registered={item['path'] for item in items}
+            for path in (self.projects.info.get('active'),self.settings.get('project_choice_path')):
+                if path in registered:return path
         return None
-    def remember_daily_project_choice(self,path):
+
+    def _open_startup_choice(self,path):
+        try:
+            self.load(path)
+        except (ValueError,OSError) as exc:
+            self.status.set(str(exc))
+            return
+        self.remember_daily_project_choice(self.root or path,startup_prompt=True)
+
+    def remember_daily_project_choice(self,path,*,startup_prompt=False):
         """仅记录项目入口，不写入用户的剧本、分镜或阶段配置。"""
         from stage_execution_service import publish_desktop_preferences
-        result=publish_desktop_preferences(self.settings_file,self.settings,{
-            'project_choice_day':date.today().isoformat(),
-            'project_choice_path':str(path),
-        })
+        updates={'project_choice_path':str(path)}
+        if startup_prompt:updates['project_startup_choice_day']=date.today().isoformat()
+        result=publish_desktop_preferences(self.settings_file,self.settings,updates)
         if not result.ok:raise ValueError(result.reason)
         self.settings=result.data
     def _sync_desktop_project_paths(self,old_path,new_path):
@@ -446,17 +493,30 @@ class ProjectPagesMixin(RecyclePanelMixin):
         finally:
             self.win._desktop_loading_project=False
     def _choose_project_impl(self):
-        if not self.projects.info['projects']:
-            self.safe(self.new)
-            return
         cleanup_path=getattr(self,'_cleanup_project_path',None)
         self._cleanup_project_path=None
         startup=bool(getattr(self,'_startup_project_choice',False));self._startup_project_choice=False
-        remembered=self.daily_project_choice() if startup and not cleanup_path else None
-        if remembered:
-            try:self.load(remembered,defer_page=startup);return
-            except (ValueError,OSError):
-                self.status.set('今天选定的项目已不可用，请选择其他项目或导入新剧本')
+        if not self.projects.info['projects']:
+            if startup:
+                self.show(0)
+                self._request_tick_resume_after_first_paint()
+            else:self.safe(self.new)
+            return
+        if startup and not cleanup_path:
+            remembered=self._startup_project_to_open(self.projects.info['projects'])
+            if remembered:
+                try:self.load(remembered,defer_page=True);return
+                except (ValueError,OSError) as exc:notice=str(exc)
+            else:notice=''
+            self._inline_startup_picker=True
+            try:self.show(0)
+            finally:self._inline_startup_picker=False
+            if notice:self.status.set(notice)
+            self._request_tick_resume_after_first_paint()
+            return
+        return self._choose_project_dialog(cleanup_path)
+
+    def _choose_project_dialog(self,cleanup_path):
         popup=BaseDialog(self.win,'选择项目 · '+APP_NAME,geometry='640x480',minsize=(500,380),modal=False,chrome=False);popup.attributes('-alpha',0)
         # 动作区先占底边：窗口再矮也只压缩项目列表，不把按钮挤到可视区外；
         # FlowBar 在窄窗里自动换行，每个按钮保持自己的请求宽度。
@@ -596,6 +656,8 @@ class ProjectPagesMixin(RecyclePanelMixin):
         Tooltip(self.account_button,ACCOUNT_TITLE)
         self.account_button.pack(anchor='w',padx=(DESKTOP_LAYOUT['nav_primary_inset'],SPACING['none']),pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
     def project_home(self):
+        if getattr(self,'_inline_startup_picker',False):
+            return _startup_project_list(self,self.content)
         self.note('选择一个故事继续制作。右键项目可标记完成、恢复制作或删除项目。删除项目＝移入项目库回收站（可恢复，不是永久清除）；同一块磁盘上回收不等于释放空间；登记与磁盘不一致时点“重建项目索引”；可再生缓存由自动清理单独回收。')
         tree=ttk.Treeview(self.content,show='tree',height=TEXT_ROWS['2xl'],selectmode='browse')
         # 动作区先占底边：矮窗口只缩短项目列表，不允许把动作按钮推出可视区。

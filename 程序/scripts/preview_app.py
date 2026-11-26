@@ -157,7 +157,7 @@ def _remember_choice(app: Path, project) -> None:
     settings = _read_json(app / "desktop_settings.json")
     if not isinstance(settings, dict):
         settings = {}
-    settings["project_choice_day"] = date.today().isoformat()
+    settings["project_startup_choice_day"] = date.today().isoformat()
     settings["project_choice_path"] = str(project)
     _write_json(app / "desktop_settings.json", settings)
 
@@ -212,7 +212,7 @@ def build_sample(data_dir) -> dict:
         "projects": [{"name": "预览示例项目", "path": str(project)}],
     })
     _write_json(app / "desktop_settings.json", {
-        "project_choice_day": today.isoformat(),
+        "project_startup_choice_day": today.isoformat(),
         "project_choice_path": str(project),
     })
     (data_dir / MARKER).write_text(

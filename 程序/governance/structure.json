@@ -1363,7 +1363,6 @@
       "程序/tests/test_smoke_affected_consumers.py",
       "程序/tests/test_soak_light.py",
       "程序/tests/test_space_toggle.py",
-      "程序/tests/test_splash_timing.py",
       "程序/tests/test_stage_command_contract.py",
       "程序/tests/test_stage_config_empty_project_cache.py",
       "程序/tests/test_stage_copy_on_write.py",

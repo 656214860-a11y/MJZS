@@ -118,7 +118,7 @@ class BuildSampleTests(unittest.TestCase):
             rebuilt = preview_app.build_sample(self.data)
             self.assertEqual(json.loads(projects_file.read_text(encoding='utf-8'))['custom_flag'], 'keep')
             settings = json.loads((built['app'] / 'desktop_settings.json').read_text(encoding='utf-8'))
-            self.assertEqual(settings['project_choice_day'], date.today().isoformat())
+            self.assertEqual(settings['project_startup_choice_day'], date.today().isoformat())
             self.assertEqual(settings['project_choice_path'], info['active'])
             self.assertEqual(rebuilt['project'], Path(info['active']))
 

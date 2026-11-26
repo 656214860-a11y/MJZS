@@ -15,7 +15,7 @@ AST 口径（``production_files_recursive``，不含 tests／tasks_round／维�
   与作者估计的差异：``ui/pet_cloud.py`` 的 ``configure(font=FONT if ... else (FONT[0], STICKER_FONTS[0]))``
   三元表达式内嵌元组，按「值子树含元组」计 1 处，正则口径未必覆盖。
 - 豁免：``ui_tokens.py``（``FONTS`` 与 ``*_FONT`` 常量本体）、``ui_theme.py``（主题字体装配）、
-  ``ui_widgets.py``／``ui_splash.py``／``ui_tooltip.py``／``ui_icons.py``（组件与提示层即字体定义处），
+  ``ui_widgets.py``／``ui_tooltip.py``／``ui_icons.py``（组件与提示层即字体定义处），
   与 ``test_token_boundary`` 的 AUTHORITY 口径一致。
 - 已知盲区（AST 固有）：``spec=('YaHei',10); font=spec`` 经普通变量间接传递、
   ``f(**{'font': (...)})`` 字典解包不在口径内；新代码一律 ``font=FONTS[...]``
@@ -37,7 +37,7 @@ from tests.architecture._scan import ROOT, production_files_recursive
 
 AUTHORITY_FILES = frozenset({
     'ui_tokens.py', 'ui_theme.py', 'ui_widgets.py',
-    'ui_splash.py', 'ui_tooltip.py', 'ui_icons.py',
+    'ui_tooltip.py', 'ui_icons.py',
 })
 
 # U6 AST 实测冻结（只减不增）：见文件头口径说明。

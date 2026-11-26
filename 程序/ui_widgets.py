@@ -27,7 +27,6 @@ from ui.ui_composer_style import install_composer_styles
 from ui.ui_popup import register_menu, text_units_width
 from ui.ui_rounded import (button_specs, pressed_padding, rounded_layout, set_button_padding, rounded_photo as _rounded_photo,
                         rounded_png_bytes as _rounded_png_bytes)
-from ui.ui_splash import Splash  # noqa: F401  转出，旧导入路径不变
 from ui.ui_tooltip import EllipsisLabel, Tooltip, TreeRowTooltip  # noqa: F401  转出，旧导入路径不变
 from ui.ui_status_bus import deliver_notice  # R3056：通知分级逻辑迁至 ui_status_bus，本模块守住行数棘轮
 

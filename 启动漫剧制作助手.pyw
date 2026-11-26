@@ -1,4 +1,4 @@
-import os,sys,traceback
+import os,sys,time,traceback
 from pathlib import Path
 root=Path(__file__).resolve().parent
 os.chdir(root)
@@ -85,57 +85,24 @@ try:
             degraded_items.append(item)
             diagnostic_capture.record_selfcheck(selfcheck_items+[item])
         except Exception:app_logging.swallowed()
-    # 主窗口在加载完成前一直透明（ui_theme 摆位置时也不显形），由启动画面整块盖住。
+    # 首帧内容排好后直接显示主窗口。
     window._drama_hold_alpha=True
-    import platform_tools
-    def expected_rect():
-        # 直接复用 ui_theme 首次摆放主窗口的尺寸规则并居中；改默认尺寸时启动画面跟着变，不会揭开前突然放大。
-        from ui_theme import main_window_size
-        area=platform_tools.work_area() or (0,0,window.winfo_screenwidth(),window.winfo_screenheight())
-        left,top,right,bottom=area
-        width,height=main_window_size(right-left,bottom-top)
-        x,y=left+(right-left-width)//2,top+(bottom-top-height)//2
-        # Tk 的 +x+y 定的是外框左上角，只有宽高要加上标题栏与边框。
-        _,_,outer_w,outer_h=platform_tools.outer_rect_for_client(x,y,width,height)
-        return (x,y,outer_w,outer_h)
-    try:
-        from ui_widgets import Splash
-        splash=Splash(window,expected_rect())
-        def record_splash(marks):
-            import diagnostic_capture
-            for key in ('ready','total'):
-                if key in marks:diagnostic_capture.record_startup_timing('splash_'+key,marks[key])
-        splash.on_finish=record_splash
-    except Exception:
-        splash=None
-    def step(index):
-        if splash:splash.step(index)
-    # L5 组合根：把 L4 的 SKILL 工具适配器注入 L3；编排器本身不反向依赖 UI。
     import ui.skill_tools as skill_tools
     skill_tools.install_executor()
     from desktop import Desktop
-    step(1)
     desk=Desktop(window,root=program,require_login=True)
-    step(2)
+    reveal_deadline=time.monotonic()+1
     def reveal():
+        waiting=(getattr(desk,'_startup_project_choice',False)
+                 or getattr(desk,'_startup_project_page_job',None)
+                 or getattr(desk,'_startup_script_build_job',None))
+        if waiting and not getattr(desk,'login_gate_active',False) and time.monotonic()<reveal_deadline:
+            window.after(20,reveal)
+            return
         window._drama_hold_alpha=False
-        # 揭开前把挂起的布局和重绘一次做完，避免透明转不透明的瞬间露出空白底色。
         window.update_idletasks()
         window.attributes('-alpha',1);window.lift();window.focus_force()
-    def loaded():
-        # 未登录时登录闸已盖满主窗口，首帧启动要等登录后才开始：直接揭开，让用户看到登录页。
-        if getattr(desk,'login_gate_active',False):return True
-        # 首帧完成、今日项目页与剧本准备整页都在启动画面后建好才揭开（R1413 先揭外壳的做法会白屏）。
-        if not getattr(window,'_desktop_first_paint_complete',False):return False
-        if getattr(window,'_desktop_loading_project',False):return False
-        # 剧本准备整页在启动画面后面建完才揭开；只等外壳会让用户看到白屏。
-        return (getattr(desk,'_startup_project_page_job',None) is None
-                and getattr(desk,'_startup_script_build_job',None) is None)
-    def track():
-        try:return platform_tools.window_outer_rect(int(window.wm_frame(),16))
-        except (tk.TclError,ValueError):return None
-    if splash:splash.wait(loaded,reveal,track=track)
-    else:reveal()
+    window.after_idle(reveal)
     def activate_existing():
         if kernel.WaitForSingleObject(activation,0)==0:
             window.deiconify();window.attributes('-alpha',1);window.lift()

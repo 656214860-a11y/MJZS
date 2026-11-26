@@ -9,7 +9,7 @@ from tests.architecture._scan import ROOT, entity_file, parse
 
 # 统一基类、主题与全量自检器允许自行构造 Toplevel；其余生产模块一律经
 # BaseDialog／FormDialog／ConfirmDialog。
-TOPLEVEL_OWNERS = {'ui_widgets.py', 'ui_splash.py', 'ui_tooltip.py', 'ui_theme.py', 'run_selftests.py'}  # ui_splash/ui_tooltip 自 ui_widgets 拆出，职责不变
+TOPLEVEL_OWNERS = {'ui_widgets.py', 'ui_tooltip.py', 'ui_theme.py', 'run_selftests.py'}
 # 与 test_data_table_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
 EXCLUDED_PARTS = {'tests', 'tasks_round', '维护记录', '.git', '__pycache__', 'voice_asr_venv'}
 

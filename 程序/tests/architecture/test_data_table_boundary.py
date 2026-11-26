@@ -22,7 +22,7 @@ class DataTableBoundaryTests(unittest.TestCase):
                      and isinstance(node.func, ast.Attribute) and node.func.attr == 'Treeview']
             if calls:
                 actual[path.relative_to(ROOT).as_posix()] = len(calls)
-        self.assertEqual(actual, {'ui/desktop_project_pages.py': 2},  # R2897：侧栏项目树改分组筛选＋选择器，desktop.py 不再有树；项目选择弹窗与首页仍各一处
+        self.assertEqual(actual, {'ui/desktop_project_pages.py': 3},
                          
                          '业务数据表必须通过 DataTable；项目树是唯一语义导航例外')
 
@@ -69,13 +69,14 @@ class DataTableBoundaryTests(unittest.TestCase):
     def test_project_selection_pages_use_data_table_not_a_page_treeview(self):
         tree = parse_desktop()
         desktop = ast.Module(body=[member for cls in tree.body if isinstance(cls, ast.ClassDef) for member in cls.body], type_ignores=[])  # R1499：Desktop 方法分布在 desktop.py 与迁出的 Mixin 类里
-        methods = [node for node in desktop.body if isinstance(node, ast.FunctionDef)
-                   and node.name in {'__init__', '_init_window_and_sidebar', 'choose_project', 'project_home'}]  # R1808：__init__ 的侧栏段切到 _init_window_and_sidebar，计数断言不变
-        direct = [node for method in methods for node in ast.walk(method)
+        selectors = {'_startup_project_list', '_choose_project_dialog', 'project_home'}
+        audited = selectors | {'__init__', '_init_window_and_sidebar', 'choose_project', '_choose_project_impl'}
+        direct = [method.name for method in [*desktop.body, *tree.body]
+                  if isinstance(method, ast.FunctionDef) and method.name in audited
+                  for node in ast.walk(method)
                   if isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
                   and node.func.attr == 'Treeview']
-        self.assertEqual(len(direct), 1,
-                         'R2897 侧栏项目树改选择器后，仅项目主页保留树形导航选择器')
+        self.assertCountEqual(direct, selectors, '只允许项目首页、启动列表和手动选择窗使用项目选择树')
 
     def test_script_file_lists_use_data_table_not_a_page_treeview(self):
         tree = parse_desktop()

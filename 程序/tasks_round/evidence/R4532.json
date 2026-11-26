@@ -1,0 +1,15 @@
+{
+  "round": 4532,
+  "commit_base": "3696f221b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_data_table_boundary test_source_text_contracts",
+    "exit": 0,
+    "passed": 29,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T15:05:59"
+}

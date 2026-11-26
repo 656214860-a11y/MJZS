@@ -87,7 +87,7 @@ class DesktopSourceContracts(unittest.TestCase):
 
     def test_recycle_copy_is_recoverable_and_separate_from_permanent(self):
         import desktop
-        confirm_source = inspect.getsource(desktop.Desktop._choose_project_impl)
+        confirm_source = inspect.getsource(desktop.Desktop._choose_project_dialog)
         self.assertIn('不是永久清除', confirm_source)
         self.assertIn('回收不等于释放空间', confirm_source)
         home_source = inspect.getsource(desktop.Desktop.project_home)
@@ -96,7 +96,7 @@ class DesktopSourceContracts(unittest.TestCase):
 
     def test_missing_directory_notice_does_not_claim_files_were_deleted(self):
         import desktop
-        source = inspect.getsource(desktop.Desktop._choose_project_impl)
+        source = inspect.getsource(desktop.Desktop._choose_project_dialog)
         self.assertNotIn('剧本已被删除', source)
         self.assertNotIn('清理残留文件夹', source)
         self.assertIn('只清除登记，不动磁盘', source)

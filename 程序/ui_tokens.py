@@ -363,21 +363,6 @@ TEXT_PROGRESS = {
     "max_chars": 40,
 }
 
-# 启动画面：深色底＋播放键＋细进度条，整块盖住主窗口直到加载完成。
-SPLASH_BACKGROUND = "#0F172A"
-SPLASH_FILM = "#1E293B"
-SPLASH_ACCENT = "#38BDF8"
-SPLASH_ACCENT_ALT = "#A78BFA"
-SPLASH_TITLE = "#F8FAFC"
-SPLASH_SUBTITLE = "#94A3B8"
-SPLASH_TITLE_FONT = ("Microsoft YaHei UI", 22, "bold")
-SPLASH_SUBTITLE_FONT = ("Microsoft YaHei UI", 10)
-SPLASH_BAR_HALF = 160
-SPLASH_FRAME_MS = 33
-SPLASH_POLL_MS = 30
-SPLASH_FINISH_MS = 160
-SPLASH_CREEP = 0.12
-SPLASH_MAX_SECONDS = 2.5   # 画面最长盖这么久，超时强制揭开（页面接着在原位建完）
 
 # 侧栏 Fluent PNG 使用固定 24px 方形画布（design_tokens.md: icon.nav.size）。
 NAV_ICON_SIZE = 24

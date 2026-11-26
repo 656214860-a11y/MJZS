@@ -15,7 +15,8 @@ import time
 import unittest
 import traceback
 import json
-from datetime import date
+from datetime import date, timedelta
+from types import SimpleNamespace
 from pathlib import Path
 from unittest import mock
 
@@ -37,6 +38,21 @@ from performance_contract import (AUTO_RESUME_TO_SCRIPT_SECONDS,
 
 
 class DesktopStartupPerfTests(unittest.TestCase):
+    def test_weekly_policy_uses_last_active_until_seventh_day(self):
+        items = [{'path': 'old'}, {'path': 'latest'}]
+        host = SimpleNamespace(settings={'project_choice_path': 'old'},
+                               projects=SimpleNamespace(info={'active': 'latest'}))
+        choose = Desktop._startup_project_to_open
+        self.assertIsNone(choose(host, items))
+        self.assertEqual(choose(host, items[:1]), 'old')
+        self.assertIsNone(choose(host, []))
+        for days, expected in ((0, 'latest'), (6, 'latest'), (7, None), (-1, None)):
+            host.settings['project_startup_choice_day'] = (date.today()-timedelta(days=days)).isoformat()
+            with self.subTest(days=days):
+                self.assertEqual(choose(host, items), expected)
+        host.settings['project_startup_choice_day'] = 'invalid'
+        self.assertIsNone(choose(host, items))
+
     @staticmethod
     def _startup_app(temporary, *, remembered):
         """构造首日/同日两条真实启动分支所需的最小程序与项目登记。"""
@@ -52,7 +68,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         }), encoding='utf-8')
         settings = {'comfy_url': 'http://127.0.0.1:8189', 'jianying': ''}
         if remembered:
-            settings.update({'project_choice_day': date.today().isoformat(),
+            settings.update({'project_startup_choice_day': date.today().isoformat(),
                              'project_choice_path': str(project)})
         (app / 'desktop_settings.json').write_text(json.dumps(settings), encoding='utf-8')
         return app, project
@@ -86,7 +102,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
         return measurements
 
     def test_first_day_selector_never_leaves_a_child_widget_holding_grab(self):
-        """R772：真实首日启动期间 grab 只能属于 Toplevel，不能是其子控件。"""
+        """单项目直接进入，启动过程中没有选择弹窗或焦点抓取。"""
         try:
             window = tk.Tk()
         except tk.TclError as exc:
@@ -94,20 +110,13 @@ class DesktopStartupPerfTests(unittest.TestCase):
         desktop = None
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-grab-safety-') as temporary:
-                app, _project = self._startup_app(temporary, remembered=False)
+                app, project = self._startup_app(temporary, remembered=False)
                 desktop = Desktop(window, root=app)
-                deadline = time.perf_counter() + 1.2
-                saw_selector = False
-                while time.perf_counter() < deadline:
-                    window.update()
-                    holder = window.grab_current()
-                    self.assertTrue(holder is None or isinstance(holder, tk.Toplevel),
-                                    '启动期间 grab 不得落到 Label／Frame／Button 等子控件')
-                    saw_selector = saw_selector or any(
-                        isinstance(child, tk.Toplevel) and child.winfo_viewable()
-                        for child in window.winfo_children())
-                    time.sleep(.005)
-                self.assertTrue(saw_selector, '首日分支须实际打开项目选择弹窗')
+                deadline = time.perf_counter() + 2
+                self.assertTrue(self._pump_until(window, lambda: desktop.root == project, deadline))
+                self.assertIsNone(window.grab_current())
+                self.assertFalse(any(isinstance(child, tk.Toplevel) and child.winfo_viewable()
+                                     for child in window.winfo_children()))
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
@@ -159,27 +168,12 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 (app / 'projects.json').write_text(json.dumps({
                     'active': None, 'projects': [],
                 }), encoding='utf-8')
-                cancelled = []
-                deadline = time.perf_counter() + 2
-                def cancel_new_dialog():
-                    dialog = next((child for child in window.winfo_children()
-                                   if isinstance(child, tk.Toplevel)
-                                   and child.title() == '新建项目'), None)
-                    if dialog is not None:
-                        cancelled.append(desktop.status.get())
-                        dialog.cancel()
-                    elif time.perf_counter() < deadline:
-                        window.after(10, cancel_new_dialog)
                 desktop = Desktop(window, root=app)
-                window.update_idletasks()
-                window.after(10, cancel_new_dialog)
-                self.assertTrue(self._pump_until(window, lambda: bool(cancelled), deadline))
-                window.update()
-                self.assertEqual(len(cancelled), 1)
-                self.assertIn('正在打开今日项目', cancelled[0])
-                self.assertNotIn('正在打开今日项目', desktop.status.get())
-                self.assertFalse(desktop._startup_project_choice,
-                                 '取消后状态：' + desktop.status.get())
+                deadline = time.perf_counter() + 4
+                with mock.patch('desktop.ask_string') as dialog:
+                    self.assertTrue(self._pump_until(window, lambda: not desktop._startup_tick_paused, deadline))
+                    dialog.assert_not_called()
+                self.assertFalse(desktop._startup_project_choice)
                 self.assertFalse(desktop._startup_tick_paused)
                 self.assertFalse(window._desktop_loading_project)
                 self.assertIsNone(desktop.root)
@@ -249,7 +243,7 @@ class DesktopStartupPerfTests(unittest.TestCase):
                 pass
 
     def test_first_day_selector_is_visible_and_selection_enters_script_within_bound(self):
-        """首日：选择框可见；用户确认选择后的项目页停留不应超过 1 秒。"""
+        """多项目：内嵌列表可见，单击进入项目。"""
         try:
             window = tk.Tk()
         except tk.TclError as exc:
@@ -258,23 +252,31 @@ class DesktopStartupPerfTests(unittest.TestCase):
         try:
             with tempfile.TemporaryDirectory(prefix='desktop-first-day-choice-') as temporary:
                 app, project = self._startup_app(temporary, remembered=False)
+                registry = app / 'projects.json'
+                info = json.loads(registry.read_text(encoding='utf-8'))
+                other = project.with_name('第二个项目')
+                other.mkdir()
+                (other / 'config.json').write_text('{}', encoding='utf-8')
+                info['projects'].append({'name': '第二个项目', 'path': str(other)})
+                registry.write_text(json.dumps(info), encoding='utf-8')
                 started = time.perf_counter()
                 desktop = Desktop(window, root=app)
-                popup = None
                 def selector_is_visible():
-                    nonlocal popup
-                    popup = next((child for child in window.winfo_children()
-                                  if isinstance(child, tk.Toplevel)), None)
-                    return popup is not None and popup.winfo_viewable()
+                    tree = getattr(desktop, '_project_home_tree', None)
+                    return tree and tree.winfo_viewable() and tree.exists(str(project))
                 self.assertTrue(self._pump_until(window, selector_is_visible,
-                                                  started + FIRST_DAY_SELECTOR_SECONDS),
-                                '首日项目选择框须在启动后 1 秒内可见')
+                                                  started + FIRST_DAY_SELECTOR_SECONDS))
+                tree = desktop._project_home_tree
+                self.assertEqual(set(tree.get_children()), {str(project), str(other)})
+                self.assertFalse(any(isinstance(w, tk.Toplevel) for w in window.winfo_children()))
+                x, y, _, _ = tree.bbox(str(project))
                 selected_at = time.perf_counter()
-                self.assertTrue(desktop.open_project_or_cleanup(project))
+                tree.event_generate('<ButtonRelease-1>', x=x + 2, y=y + 2)
+                self.assertEqual(desktop.root, project)
+                self.assertEqual(desktop.settings['project_startup_choice_day'], date.today().isoformat())
                 self.assertEqual(desktop.page_index, 0)
                 self.assertEqual(desktop.status_bar._segments['page'][1].full_text, PAGES[0])
                 self.assertLessEqual(time.perf_counter() - selected_at, FIRST_DAY_SELECTOR_SECONDS)
-                popup.destroy()
         finally:
             if desktop is not None:
                 desktop.cancel_timers()
