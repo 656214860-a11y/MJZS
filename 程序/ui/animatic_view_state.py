@@ -1,11 +1,16 @@
 """分镜预演界面使用的指令解析、摘要、镜头图版本、时间线度量与宿主回调小助手。"""
+import math
 import re
+from pathlib import Path
 
 import contract.error_codes as error_codes
 import infra.app_logging as app_logging
+import infra.file_cache as file_cache
+import stage_execution_service
 from contract.platform_tools import ExecutionStopped
 from contract.stage_path_service import write_dir
 from domain import animatic_audio
+from domain.animatic_service import CONFIRMATIONS, MANIFEST
 from ui_tokens import DESKTOP_LAYOUT, SPACING
 
 _REDO = re.compile(r'重做[^0-9a-zA-Z]{0,8}sh?\s*(\d+)', re.IGNORECASE)
@@ -286,3 +291,249 @@ def _refresh_files_panel(page):
     refresh = getattr(getattr(page, 'files_panel', None), 'fill_script_list', None)
     if callable(refresh):
         _quiet(refresh)
+
+
+TIMELINE_PAGE_SIZE = 20
+CONFIGURE_DEBOUNCE_MS = 150
+PLAYER_MODES = ('external', 'jianying', 'inline')
+PLAYER_CAPTIONS = {
+    'external': '点击用本地播放器打开（右键切换剪映/页内试播）',
+    'jianying': '点击在剪映中打开（右键切换本地/页内试播）',
+    'inline': '点击页内试播（右键切换本地播放器/剪映）',
+}
+
+
+def _animatic_settings(page):
+    """页面设置浅拷贝：comfy_url 映射为网关约定的 url，其余键原样透传。"""
+    settings = dict(getattr(page, 'settings', None) or {})
+    if 'comfy_url' in settings and 'url' not in settings:
+        settings['url'] = settings['comfy_url']
+    return settings
+
+
+def _is_alive(page, state):
+    """页面框还在且仍是当前页码才允许写界面——切页后迟到的回调一律静默。"""
+    frame = state.get('frame')
+    if frame is None or not _quiet(frame.winfo_exists, False):
+        return False
+    index = state.get('page_index')
+    return index is None or getattr(page, 'page_index', None) == index
+
+
+def _version_tag(video, manifest):
+    if video is not None:
+        return Path(video).stem
+    raw = (manifest or {}).get('video')
+    return Path(raw).stem if raw else None
+
+
+def player_mode_of(page):
+    """读取并归一化默认播放方式，默认 external（优先本地默认播放器）。"""
+    raw = str((getattr(page, 'settings', None) or {}).get('animatic_player_mode') or '').strip()
+    return raw if raw in PLAYER_MODES else 'external'
+
+
+def timeline_page_slice(shots, page_number, page_size=TIMELINE_PAGE_SIZE):
+    """REQ-S04-108：按每页 page_size 镜切分时间线，返回 (page_shots, clamped_page, total_pages)。"""
+    items = list(shots or ())
+    size = max(1, int(page_size or TIMELINE_PAGE_SIZE))
+    total_pages = max(1, (len(items) + size - 1) // size)
+    try:
+        wanted = int(page_number)
+    except (TypeError, ValueError):
+        wanted = 1
+    clamped = max(1, min(total_pages, wanted))
+    start = (clamped - 1) * size
+    return items[start:start + size], clamped, total_pages
+
+
+def shot_page_for_id(shots, shot_id, page_size=TIMELINE_PAGE_SIZE):
+    """返回指定镜头 ID 所在的 1-based 页码；找不到时返回第 1 页。"""
+    size = max(1, int(page_size or TIMELINE_PAGE_SIZE))
+    for index, row in enumerate(shots or ()):
+        if isinstance(row, dict) and row.get('id') == shot_id:
+            return (index // size) + 1
+    return 1
+
+
+def shot_dialogue_seconds(project, row, probe=None):
+    """REQ-S04-105/112：优先读时间线落盘的 dialogue_seconds，缺省再兜底 probe。"""
+    if not isinstance(row, dict):
+        return 0.0
+    recorded = row.get('dialogue_seconds')
+    if recorded is not None and not isinstance(recorded, bool):
+        try:
+            value = float(recorded)
+            if math.isfinite(value) and value >= 0:
+                return value
+        except (TypeError, ValueError):
+            pass
+    clip = row.get('dialogue_audio')
+    if not clip or not callable(probe) or not project:
+        return 0.0
+    target = Path(clip)
+    if not target.is_absolute():
+        target = Path(project) / target
+    info = _quiet(lambda: probe(target))
+    raw = info.get('duration') if isinstance(info, dict) else info
+    if raw is None or isinstance(raw, bool):
+        return 0.0
+    try:
+        value = float(raw)
+    except (TypeError, ValueError):
+        return 0.0
+    return value if math.isfinite(value) and value > 0 else 0.0
+
+
+def cancel_debounced_layout(state):
+    """取消挂起的 <Configure> 防抖定时器，避免销毁后迟到重绘。"""
+    job = state.get('resize_job')
+    state['resize_job'] = None
+    frame = state.get('frame')
+    if job is not None and frame is not None:
+        _quiet(lambda: frame.after_cancel(job))
+
+
+def schedule_debounced_layout(state, callback, *, delay_ms=CONFIGURE_DEBOUNCE_MS):
+    """REQ-S04-108：<Configure> 150ms 防抖调度；连续触发合并为 1 次重绘。"""
+    frame = state.get('frame')
+    if frame is None or not _quiet(frame.winfo_exists, False):
+        cancel_debounced_layout(state)
+        return None
+    cancel_debounced_layout(state)
+
+    def run():
+        state['resize_job'] = None
+        if not _quiet(frame.winfo_exists, False):
+            return
+        callback()
+
+    job = _quiet(lambda: frame.after(int(delay_ms), run))
+    state['resize_job'] = job
+    return job
+
+
+def _load_board(project, source):
+    """把已采用分镜读成 ``{镜头 id: 行}``，供「查看提示词与所用参考图」用。"""
+    data = _quiet(lambda: file_cache.read_json(Path(project) / source), {}) if source else {}
+    rows = data.get('shots') if isinstance(data, dict) else []
+    return {str(row.get('id')): row for row in rows or [] if isinstance(row, dict)}
+
+
+def _playable_video(project):
+    return _quiet(lambda: stage_execution_service.animatic_video(project))
+
+
+def _manifest(project):
+    data = _quiet(lambda: file_cache.read_json(write_dir(project, 'animatic') / MANIFEST))
+    return data if isinstance(data, dict) else None
+
+
+def _confirmed(manifest):
+    flags = (manifest or {}).get('confirmed') or {}
+    return bool(flags) and all(bool(flags.get(key)) for key in CONFIRMATIONS)
+
+
+def _music_text(state):
+    folder = write_dir(state['project'], 'animatic') / animatic_audio.SUBDIRS['music']
+    if folder.is_dir() and any(folder.iterdir()):
+        return '已导入'
+    return '未导入'
+
+
+def _open_video(page, state):
+    """外部播放经注入的 media_page_services.open_path，不直接碰系统出口。"""
+    services = getattr(page, 'media_page_services', None)
+    opener = getattr(services, 'open_path', None)
+    if state.get('video') is None or not callable(opener):
+        return
+    _safe_call(page, lambda: opener(state['video']))
+
+
+def _open_in_jianying(page, state):
+    """REQ-S04-106：复用 launch_editor 打开剪映并定位预演视频目录；未安装则只开目录并提示。"""
+    video = state.get('video')
+    folder = Path(video).parent if video is not None else None
+    services = getattr(page, 'media_page_services', None)
+    opener = getattr(services, 'open_path', None)
+    launcher = getattr(page, 'launch_editor', None)
+    launched = False
+    if callable(launcher):
+        try:
+            launcher()
+            launched = True
+        except Exception:
+            launched = False
+    if folder is not None and callable(opener):
+        _safe_call(page, lambda: opener(folder))
+    if not launched:
+        page.status.set('未检测到剪映，已打开预演视频目录')
+
+
+def _audition_dialogue(page, state, row):
+    """REQ-S04-107：非阻塞试听本镜对白音频；无对白时写状态栏不报错。"""
+    clip = row.get('dialogue_audio') if isinstance(row, dict) else None
+    if not clip:
+        page.status.set('该镜头暂无对白音频')
+        return False
+    target = Path(clip)
+    if not target.is_absolute():
+        target = Path(state['project']) / target
+    services = getattr(page, 'media_page_services', None)
+    opener = getattr(services, 'open_path', None)
+    if not callable(opener):
+        return False
+    _safe_call(page, lambda: opener(target))
+    return True
+
+
+def _registered_hook(panel, kind, key, ours):
+    """当前登记是不是本页挂上去的——换页／重建时只释放自己的，不动别页的。"""
+    box = getattr(panel, '_' + kind + '_handlers', None)
+    if box is None:
+        box = getattr(panel, kind + 's', None)
+    entry = (box or {}).get(key)
+    if entry is None:
+        return False
+    current = entry[1] if isinstance(entry, tuple) else entry
+    return current is ours
+
+
+def _registered_select(panel, index, ours):
+    box = getattr(panel, '_select_handlers', None)
+    if box is None:
+        box = getattr(panel, 'select', None)
+    entry = (box or {}).get(index)
+    return bool(entry and entry[0] is ours)
+
+
+def _release_panel(page, state):
+    panel = getattr(page, 'files_panel', None)
+    if panel is None:
+        return
+    index = state.get('page_index')
+    if _registered_select(panel, index, state.get('select_fn')):
+        setter = getattr(panel, 'set_select_handler', None)
+        if callable(setter):
+            setter(index, None)
+    for kind, key in (('import', 'import_fn'), ('menu', 'menu_fn')):
+        if _registered_hook(panel, kind, 'animatic', state.get(key)):
+            setter = getattr(panel, 'set_' + kind + '_handler', None)
+            if callable(setter):
+                setter('animatic', None)
+
+
+def _register_panel(page, state):
+    panel = getattr(page, 'files_panel', None)
+    if panel is None:
+        return
+    select = getattr(panel, 'set_select_handler', None)
+    if callable(select):
+        select(getattr(page, 'page_index', None), state['select_fn'],
+               default=state.get('source') or None)
+    importer = getattr(panel, 'set_import_handler', None)
+    if callable(importer):
+        importer('animatic', state['import_fn'])
+    menus = getattr(panel, 'set_menu_handler', None)
+    if callable(menus):
+        menus('animatic', state['menu_fn'])

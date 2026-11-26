@@ -1,0 +1,15 @@
+{
+  "round": 4552,
+  "commit_base": "5ae6d38d8",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k animatic_page ui_edges_pages media_page_buttons copy_rules",
+    "exit": 0,
+    "passed": 149,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T18:22:00"
+}

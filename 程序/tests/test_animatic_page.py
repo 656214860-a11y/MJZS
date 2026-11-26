@@ -267,11 +267,13 @@ class SourceBoundaryTests(unittest.TestCase):
     """REQ-S04-99：新页面不弹窗、不手写 PhotoImage、不用裸控件、不读裸 JSON。"""
 
     def test_module_has_no_forbidden_calls(self):
-        source = Path(animatic_page.__file__).read_text(encoding='utf-8')
-        for needle in ('tk.PhotoImage', 'messagebox', 'simpledialog', 'Toplevel(',
-                       'tk.Menu(', 'ttk.Button(', 'tk.Button(', 'json.loads', 'json.load('):
-            with self.subTest(needle=needle):
-                self.assertNotIn(needle, source)
+        import ui.animatic_prefs_bar as animatic_prefs_bar
+        for mod in (animatic_page, animatic_prefs_bar):
+            source = Path(mod.__file__).read_text(encoding='utf-8')
+            for needle in ('tk.PhotoImage', 'messagebox', 'simpledialog', 'Toplevel(',
+                           'tk.Menu(', 'ttk.Button(', 'tk.Button(', 'json.loads', 'json.load('):
+                with self.subTest(module=mod.__name__, needle=needle):
+                    self.assertNotIn(needle, source)
 
 
 class _PageCase(unittest.TestCase):
@@ -469,9 +471,10 @@ class ConfirmBarTests(_PageCase):
         self.assertLessEqual(lock.winfo_rooty() + lock.winfo_height(),
                              self.frame.winfo_rooty() + self.frame.winfo_height() + 1,
                              '锁定按钮不得纵向越出分镜预演页')
-        video_view = state.get('video_view')
-        self.assertIsNotNone(video_view, '紧凑布局仍应保留真实内嵌播放器')
-        self.assertEqual(metrics['player_height'], int(float(video_view.cget('height'))))
+        self.assertIsNone(state.get('video_view'), '默认优先外置播放，不应预先挂载 VideoPreview')
+        player_cover = state.get('player_cover')
+        self.assertIsNotNone(player_cover, '紧凑布局应保留轻量封面容器')
+        self.assertEqual(metrics['player_height'], int(float(player_cover.cget('height'))))
         compact_cell = state['shot_widgets']['SH001']
         self.assertEqual(metrics['cell_height'], int(float(compact_cell.cget('height'))))
         self.win.geometry('1280x900+0+0')
@@ -624,7 +627,7 @@ class ShotMenuTests(_PageCase):
             menu = animatic_page.shot_context_menu(self.page, state, row)
             self.assertEqual(
                 ['重做这一镜', '用导入的图替换', '改时长', '切换图版本',
-                 '查看提示词与所用参考图', '写批注'],
+                 '查看提示词与所用参考图', '写批注', '试听本镜对白'],
                 _menu_labels(menu))
             menu.invoke(0)
         redo.assert_called_once_with(self.project, 'SH001', settings={})
@@ -868,10 +871,12 @@ class PlayAreaTests(_PageCase):
     def test_cover_plays_and_pauses_in_page_and_releases_on_destroy(self):
         from ui.animatic_player import VideoPreview
         self.show()
-        view = self.state['video_view']
-        self.assertIsInstance(view, VideoPreview)
+        menu = animatic_page.video_context_menu(self.page, self.state)
+        labels = _menu_labels(menu)
         with patch('ui.animatic_player.EmbeddedVideo') as factory:
-            view.toggle()
+            menu.invoke(labels.index('页内试播'))
+            view = self.state['video_view']
+            self.assertIsInstance(view, VideoPreview)
             view.toggle()
             factory.assert_called_once_with(view.path, view.winfo_id())
             self.assertEqual(factory.return_value.toggle.call_count, 2)
@@ -881,9 +886,11 @@ class PlayAreaTests(_PageCase):
 
     def test_inline_play_failure_keeps_cover_and_reports_external_option(self):
         self.show()
-        view = self.state['video_view']
+        menu = animatic_page.video_context_menu(self.page, self.state)
+        labels = _menu_labels(menu)
         with patch('ui.animatic_player.EmbeddedVideo', side_effect=OSError('codec')):
-            view.toggle()
+            menu.invoke(labels.index('页内试播'))
+        view = self.state['video_view']
         self.assertEqual(view.cover.winfo_manager(), 'pack')
         self.assertIn('外部播放器', self.page.status.get())
 
@@ -891,9 +898,12 @@ class PlayAreaTests(_PageCase):
         self.show()
         state = self.state
         labels = _menu_labels(animatic_page.video_context_menu(self.page, state))
-        self.assertIn('用外部播放器打开', labels)
+        self.assertIn('用本地播放器打开', labels)
+        self.assertIn('在剪映中打开', labels)
+        self.assertIn('页内试播', labels)
         self.assertIn('重新合成新版本', labels)
         self.assertIn('本地生成参考草图', labels, '播放区右键应常驻草图入口')
+        self.assertIn('预演设置…', labels)
 
 
 class TimelineTrackTests(_PageCase):
@@ -1000,7 +1010,8 @@ class SketchEntryTests(_PageCase):
         labels = _menu_labels(animatic_page.video_context_menu(self.page, self.state))
         self.assertIn('本地生成参考草图', labels)
         self.assertIn('生成分镜预演', labels)
-        self.assertNotIn('用外部播放器打开', labels)
+        self.assertIn('预演设置…', labels)
+        self.assertNotIn('用本地播放器打开', labels)
 
     def test_empty_player_binds_context_menu(self):
         self.show()
@@ -1319,6 +1330,297 @@ class MediaDbViewBoundaryTests(_PageCase):
         self.assertLessEqual(len(message), 45, f'报错文案超出 45 字: {message}')
         self.assertTrue(any('\u4e00' <= ch <= '\u9fff' for ch in message),
                         f'报错文案应为中文: {message}')
+
+
+class PaginationAndDialoguePerfTests(_PageCase):
+    """REQ-S04-105/108/112：时间线 20 镜分页、3000 镜有界控件与优先读 dialogue_seconds。"""
+
+    def test_timeline_page_slice_clamps_and_slices(self):
+        from ui.animatic_view_state import TIMELINE_PAGE_SIZE, timeline_page_slice
+        self.assertEqual(20, TIMELINE_PAGE_SIZE)
+        shots = [{'id': 'SH%03d' % i, 'seconds': 4} for i in range(1, 66)]
+        page1, current1, total1 = timeline_page_slice(shots, 1)
+        self.assertEqual((20, 1, 4), (len(page1), current1, total1))
+        self.assertEqual('SH001', page1[0]['id'])
+        self.assertEqual('SH020', page1[-1]['id'])
+        page4, current4, total4 = timeline_page_slice(shots, 4)
+        self.assertEqual((5, 4, 4), (len(page4), current4, total4))
+        self.assertEqual('SH061', page4[0]['id'])
+        self.assertEqual('SH065', page4[-1]['id'])
+        self.assertEqual((1, 4), timeline_page_slice(shots, 0)[1:])
+        self.assertEqual((4, 4), timeline_page_slice(shots, 99)[1:])
+
+    def test_65_shots_paginates_20_then_5_and_hides_pager_at_20(self):
+        self.source = _storyboard(
+            self.project, [('SH%03d' % i, 4) for i in range(1, 66)])
+        self.show()
+        state = self.state
+        self.assertEqual(20, len(state['shot_widgets']),
+                         '65 镜首次渲染只应创建第 1 页的 20 个镜头格')
+        self.assertIsNotNone(state.get('pager_bar'), '超过 20 镜应展示翻页条')
+        self.assertTrue(any('第 1/4 页（共 65 镜）' in text
+                            for text in _labels(state['timeline_box'])))
+        animatic_page.set_timeline_page(self.page, state, 4)
+        self.assertEqual(5, len(state['shot_widgets']),
+                         '切到第 4 页只应创建剩余 5 个镜头格')
+        self.assertEqual(['SH061', 'SH062', 'SH063', 'SH064', 'SH065'],
+                         list(state['shot_widgets'].keys()))
+        self.assertTrue(any('第 4/4 页（共 65 镜）' in text
+                            for text in _labels(state['timeline_box'])))
+
+    def test_20_or_fewer_shots_hides_pager_bar(self):
+        self.source = _storyboard(
+            self.project, [('SH%03d' % i, 4) for i in range(1, 21)])
+        self.show()
+        state = self.state
+        self.assertEqual(20, len(state['shot_widgets']))
+        self.assertIsNone(state.get('pager_bar'), '≤20 镜必须隐藏翻页条')
+        pager_buttons = [w for w in _walk(state['timeline_box'])
+                         if isinstance(w, (PrimaryButton, SecondaryButton))]
+        self.assertEqual([], pager_buttons)
+
+    def test_3000_shots_keeps_widget_count_bounded(self):
+        self.show()
+        state = self.state
+        state['timeline'] = {
+            'source': state['source'],
+            'shots': [{'id': 'SH%04d' % i, 'seconds': 3, 'image_version': 0}
+                      for i in range(1, 3001)],
+        }
+        animatic_page._render_timeline(self.page, state)
+        self.assertEqual(20, len(state['shot_widgets']))
+        total_widgets = len(list(_walk(self.frame)))
+        self.assertLessEqual(total_widgets, 140,
+                             f'3000 镜常驻控件应恒定 ≤140，实际 {total_widgets}')
+
+    def test_shot_dialogue_seconds_prefers_recorded_and_falls_back(self):
+        from ui.animatic_view_state import shot_dialogue_seconds
+        calls = []
+
+        def fake_probe(path):
+            calls.append(path)
+            return {'duration': 7.5}
+
+        recorded = {'id': 'SH001', 'seconds': 5,
+                    'dialogue_audio': '声音/对白/SH001.mp3', 'dialogue_seconds': 8.2}
+        self.assertEqual(8.2, shot_dialogue_seconds(self.project, recorded, probe=fake_probe))
+        self.assertEqual([], calls, '时间线已有 dialogue_seconds 时不得再扫盘探测')
+
+        legacy = {'id': 'SH001', 'seconds': 5, 'dialogue_audio': '声音/对白/SH001.mp3'}
+        self.assertEqual(7.5, shot_dialogue_seconds(self.project, legacy, probe=fake_probe))
+        self.assertEqual(1, len(calls), '旧时间线缺 dialogue_seconds 时应兼容兜底探测')
+
+        self.show()
+        state = self.state
+        state['timeline']['shots'][0].update(recorded)
+        with patch('ui.animatic_page.asset_thumbs.media_info') as probe_mock:
+            animatic_page._render_timeline(self.page, state)
+        self.assertFalse(probe_mock.called, '渲染对白轨有 dialogue_seconds 时不应调 media_info')
+        self.assertIn('对白超长', _labels(state['timeline_box']))
+
+
+class ExternalFirstPlaybackTests(_PageCase):
+    """REQ-S04-106：默认外置播放零内嵌解码器、剪映联动与按需页内试播。"""
+
+    with_bundle = True
+
+    def test_default_render_and_click_never_constructs_video_preview(self):
+        with patch('ui.animatic_player.VideoPreview') as preview_cls:
+            self.show()
+            state = self.state
+            self.assertIsNone(state.get('video_view'), '默认不应构造 VideoPreview')
+            self.assertIsNotNone(state.get('player_cover'), '默认应渲染轻量封面')
+            state['activate_player']()
+        preview_cls.assert_not_called()
+        expected = str(self._animatic_bundle / '版本' / 'animatic_v001.mp4')
+        self.assertEqual([expected], self.page.media_page_services.opened)
+
+    def test_jianying_menu_calls_launch_editor_and_opens_video_dir(self):
+        self.show()
+        state = self.state
+        launched = []
+        self.page.launch_editor = lambda: launched.append('jianying')
+        menu = animatic_page.video_context_menu(self.page, state)
+        labels = _menu_labels(menu)
+        self.assertIn('用本地播放器打开', labels)
+        self.assertIn('在剪映中打开', labels)
+        self.assertIn('页内试播', labels)
+        self.assertIn('预演设置…', labels)
+        menu.invoke(labels.index('在剪映中打开'))
+        self.assertEqual(['jianying'], launched)
+        self.assertIn(str(self._animatic_bundle / '版本'),
+                      self.page.media_page_services.opened)
+
+    def test_jianying_missing_falls_back_to_video_dir_and_status(self):
+        self.show()
+        state = self.state
+        menu = animatic_page.video_context_menu(self.page, state)
+        labels = _menu_labels(menu)
+        menu.invoke(labels.index('在剪映中打开'))
+        self.assertIn(str(self._animatic_bundle / '版本'),
+                      self.page.media_page_services.opened)
+        self.assertIn('剪映', self.page.status.get())
+
+    def test_inline_preview_menu_mounts_video_preview_on_demand(self):
+        from ui.animatic_player import VideoPreview
+        self.show()
+        state = self.state
+        self.assertIsNone(state.get('video_view'))
+        menu = animatic_page.video_context_menu(self.page, state)
+        labels = _menu_labels(menu)
+        with patch('ui.animatic_player.EmbeddedVideo') as factory:
+            menu.invoke(labels.index('页内试播'))
+            view = state.get('video_view')
+            self.assertIsInstance(view, VideoPreview)
+            factory.assert_called_once()
+            view.destroy()
+            factory.return_value.close.assert_called_once()
+
+
+class DialogueAuditionTests(_PageCase):
+    """REQ-S04-107：镜头格右键「试听本镜对白」非阻塞打开或友好提示。"""
+
+    def test_audition_with_audio_opens_path(self):
+        self.show()
+        state = self.state
+        row = state['timeline']['shots'][0]
+        row['dialogue_audio'] = '04分镜预演/声音/对白/SH001.mp3'
+        menu = animatic_page.shot_context_menu(self.page, state, row)
+        labels = _menu_labels(menu)
+        self.assertIn('试听本镜对白', labels)
+        menu.invoke(labels.index('试听本镜对白'))
+        expected = str(self.project / '04分镜预演/声音/对白/SH001.mp3')
+        self.assertEqual([expected], self.page.media_page_services.opened)
+
+    def test_audition_without_audio_sets_status_without_error(self):
+        self.show()
+        state = self.state
+        row = state['timeline']['shots'][0]
+        row['dialogue_audio'] = None
+        menu = animatic_page.shot_context_menu(self.page, state, row)
+        labels = _menu_labels(menu)
+        menu.invoke(labels.index('试听本镜对白'))
+        self.assertEqual([], self.page.media_page_services.opened)
+        self.assertEqual('该镜头暂无对白音频', self.page.status.get())
+
+
+class PrefsBarTests(_PageCase):
+    """REQ-S04-110：页内「预演设置…」条读写模型池 gflow-* 与桌面偏好，零弹窗。"""
+
+    def test_gflow_model_ids_filters_image_gflow_entries(self):
+        from ui.animatic_prefs_bar import gflow_model_ids
+        records = {
+            'gflow-zeta': {'modality': 'image'},
+            'gflow-nano2': {'modality': 'image'},
+            'gflow-veo': {'modality': 'video'},
+            'openai-img': {'modality': 'image'},
+        }
+        self.assertEqual(['gflow-nano2', 'gflow-zeta'], gflow_model_ids(records))
+        self.assertEqual([], gflow_model_ids({}))
+
+    def test_prefs_bar_lists_gflow_saves_settings_and_collapses(self):
+        from ui_widgets import SelectBox
+        self.show()
+        state = self.state
+        self.page.settings_file = Path(self._temp.name) / 'desktop_settings.json'
+        pool_data = {'gflow-nano2': {'modality': 'image', 'model': 'nano2'}}
+        with patch('infra.model_pool.pool', return_value=pool_data):
+            menu = animatic_page.video_context_menu(self.page, state)
+            labels = _menu_labels(menu)
+            menu.invoke(labels.index('预演设置…'))
+            combos = [w for w in _walk(state['edit_box']) if isinstance(w, SelectBox)]
+            all_values = [val for combo in combos for val in combo.cget('values')]
+            self.assertIn('gflow-nano2', all_values, '模型池存在 gflow-nano2 时下拉应可见')
+            entries = [w for w in _walk(state['edit_box']) if isinstance(w, LineInput)]
+            self.assertTrue(entries, '应包含本地参考图模型名输入框')
+            entries[0].delete(0, 'end')
+            entries[0].insert(0, 'sdxl_base.safetensors')
+            self.assertEqual([], [w for w in self.win.winfo_children()
+                                  if isinstance(w, tk.Toplevel)], '偏好条不得弹出新窗口')
+            state['edit_commit']()
+        self.assertEqual([], state['edit_box'].winfo_children(), '保存后偏好条应自动收起')
+        self.assertEqual('gflow-nano2', self.page.settings.get('animatic_gflow_model'))
+        self.assertEqual('sdxl_base.safetensors',
+                         self.page.settings.get('animatic_reference_model'))
+        saved = json.loads(self.page.settings_file.read_text(encoding='utf-8'))
+        self.assertEqual('gflow-nano2', saved.get('animatic_gflow_model'))
+        self.assertEqual('external', saved.get('animatic_player_mode'))
+
+    def test_prefs_bar_handles_empty_gflow_pool_without_crashing(self):
+        from ui.animatic_prefs_bar import GFLOW_EMPTY_OPTION
+        from ui_widgets import SelectBox
+        self.show()
+        state = self.state
+        with patch('infra.model_pool.pool', return_value={}):
+            menu = animatic_page.video_context_menu(self.page, state)
+            labels = _menu_labels(menu)
+            menu.invoke(labels.index('预演设置…'))
+            combos = [w for w in _walk(state['edit_box']) if isinstance(w, SelectBox)]
+            all_values = [val for combo in combos for val in combo.cget('values')]
+            self.assertIn(GFLOW_EMPTY_OPTION, all_values)
+            state['edit_commit']()
+        self.assertEqual('', self.page.settings.get('animatic_gflow_model'),
+                         '未配置 gflow-* 时保存不得写入占位提示文本')
+        self.assertEqual([], state['edit_box'].winfo_children())
+
+
+class DebounceAndPanelPerfTests(_PageCase):
+    """REQ-S04-108/109/111：<Configure> 150ms 防抖、销毁不迟到重绘与四分组折叠边界。"""
+
+    def test_five_configure_events_coalesce_to_one_sync(self):
+        frame = self.show()
+        with patch.object(animatic_page, '_sync_layout_metrics') as sync:
+            for _ in range(5):
+                frame.event_generate('<Configure>')
+            self.win.update()
+            self.assertEqual(0, sync.call_count, '150ms 防抖期内不应立即重绘')
+            tk_test_support.pump(self.win, .25)
+        self.assertEqual(1, sync.call_count, '连续 5 次 <Configure> 应合并为 1 次防抖重绘')
+
+    def test_destroy_cancels_pending_debounced_configure(self):
+        frame = self.show()
+        with patch.object(animatic_page, '_sync_layout_metrics') as sync:
+            frame.event_generate('<Configure>')
+            self.win.update()
+            frame.destroy()
+            tk_test_support.pump(self.win, .25)
+        self.assertEqual(0, sync.call_count, '页面销毁后不得再触发迟到防抖重绘')
+
+    def test_async_dispatch_and_s04_panel_four_groups_contract(self):
+        """REQ-S04-109/111：后台任务走宿主 async_ 且 S04 面板四分组折叠与预取上限生效。"""
+        from contract.file_index_contract import FileRow
+        from ui import desktop_files_panel_index as panel_index
+        rows = [
+            FileRow(path='_shared/reference_images/角色/林夏.png', stage='animatic', kind='资产'),
+            FileRow(path='04分镜预演/版本/animatic_v001.mp4', stage='animatic', kind='视频'),
+            *[FileRow(path=f'04分镜预演/镜头/SH{i:03d}/v1.png', stage='animatic', kind='图片')
+              for i in range(1, 51)],
+            FileRow(path='04分镜预演/声音/对白/SH001.mp3', stage='animatic', kind='音频'),
+        ]
+        groups = panel_index.animatic_grouped_rows(rows)
+        labels = [label for _gid, label, _members in groups]
+        self.assertEqual(['参考图库', '预演版本', '镜头草图', '临时声音'], labels)
+        open_map = {label: panel_index.group_default_open(gid)
+                    for gid, label, _members in groups}
+        self.assertEqual({'参考图库': True, '预演版本': True,
+                          '镜头草图': False, '临时声音': False}, open_map)
+        prefetch = panel_index.prefetch_media_paths(groups, self.project)
+        self.assertLessEqual(len(prefetch), 40)
+        self.assertFalse(any('镜头' in str(path) or '声音' in str(path) for path in prefetch))
+
+        async_calls = []
+        orig_async = self.page.async_
+
+        def track_async(fn, done=None, show_progress=True, label=None):
+            async_calls.append(label)
+            return orig_async(fn, done, show_progress=show_progress, label=label)
+
+        self.page.async_ = track_async
+        self.show()
+        with patch('stage_execution_service.run_animatic_timeline',
+                   return_value=self.project / '版本' / 'animatic_v001.mp4'):
+            animatic_page.run_command(self.page, self.state, '')
+        self.assertEqual(1, len(async_calls), '合成任务必须经宿主 async_ 托管执行')
 
 
 if __name__ == '__main__':

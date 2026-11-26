@@ -503,7 +503,7 @@
   {
    "module": "desktop_launcher.py",
    "covered": 0,
-   "total": 142,
+   "total": 147,
    "percent": 0.0
   },
   {
@@ -677,13 +677,13 @@
   {
    "module": "domain/animatic_service.py",
    "covered": 0,
-   "total": 215,
+   "total": 235,
    "percent": 0.0
   },
   {
    "module": "domain/animatic_sketch_backends.py",
    "covered": 0,
-   "total": 72,
+   "total": 242,
    "percent": 0.0
   },
   {
@@ -809,7 +809,7 @@
   {
    "module": "domain/edit_service.py",
    "covered": 0,
-   "total": 92,
+   "total": 122,
    "percent": 0.0
   },
   {
@@ -2279,7 +2279,7 @@
   {
    "module": "ui/animatic_page.py",
    "covered": 0,
-   "total": 713,
+   "total": 681,
    "percent": 0.0
   },
   {
@@ -2289,9 +2289,15 @@
    "percent": 0.0
   },
   {
+   "module": "ui/animatic_prefs_bar.py",
+   "covered": 0,
+   "total": 147,
+   "percent": 0.0
+  },
+  {
    "module": "ui/animatic_view_state.py",
    "covered": 0,
-   "total": 172,
+   "total": 406,
    "percent": 0.0
   },
   {
@@ -2429,13 +2435,13 @@
   {
    "module": "ui/desktop_files_panel_filters.py",
    "covered": 0,
-   "total": 746,
+   "total": 752,
    "percent": 0.0
   },
   {
    "module": "ui/desktop_files_panel_index.py",
    "covered": 0,
-   "total": 351,
+   "total": 476,
    "percent": 0.0
   },
   {
@@ -2525,7 +2531,7 @@
   {
    "module": "ui/desktop_pet_bridge.py",
    "covered": 0,
-   "total": 120,
+   "total": 124,
    "percent": 0.0
   },
   {
@@ -3316,15 +3322,15 @@
   },
   {
    "module": "orchestrator/stage_animatic_gateways.py",
-   "covered": 44,
-   "total": 518,
-   "percent": 8.5
+   "covered": 51,
+   "total": 621,
+   "percent": 8.2
   },
   {
    "module": "ui/pet_ui_stages.py",
-   "covered": 77,
-   "total": 893,
-   "percent": 8.6
+   "covered": 79,
+   "total": 888,
+   "percent": 8.9
   },
   {
    "module": "ui/ui_composer_style.py",
@@ -3339,12 +3345,6 @@
    "percent": 11.0
   },
   {
-   "module": "ui/desktop_project_pages.py",
-   "covered": 80,
-   "total": 706,
-   "percent": 11.3
-  },
-  {
    "module": "ui/pet_cloud_geometry.py",
    "covered": 8,
    "total": 69,
@@ -3354,6 +3354,12 @@
    "module": "orchestrator/engine.py",
    "covered": 90,
    "total": 760,
+   "percent": 11.8
+  },
+  {
+   "module": "ui/desktop_project_pages.py",
+   "covered": 84,
+   "total": 711,
    "percent": 11.8
   },
   {
@@ -3406,8 +3412,8 @@
   },
   {
    "module": "contract/platform_tools.py",
-   "covered": 104,
-   "total": 712,
+   "covered": 105,
+   "total": 720,
    "percent": 14.6
   },
   {
@@ -3549,16 +3555,22 @@
    "percent": 19.5
   },
   {
+   "module": "infra/diagnostic_capture.py",
+   "covered": 104,
+   "total": 530,
+   "percent": 19.6
+  },
+  {
    "module": "domain/asset_context.py",
    "covered": 23,
    "total": 117,
    "percent": 19.7
   },
   {
-   "module": "infra/diagnostic_capture.py",
-   "covered": 104,
-   "total": 528,
-   "percent": 19.7
+   "module": "orchestrator/skill_budget.py",
+   "covered": 51,
+   "total": 258,
+   "percent": 19.8
   },
   {
    "module": "ui/pet_cloud_place.py",
@@ -3627,10 +3639,10 @@
    "percent": 22.4
   },
   {
-   "module": "orchestrator/skill_budget.py",
-   "covered": 44,
-   "total": 194,
-   "percent": 22.7
+   "module": "ui/ui_status_bus.py",
+   "covered": 47,
+   "total": 205,
+   "percent": 22.9
   },
   {
    "module": "orchestrator/stage_gate_gateways.py",
@@ -3669,12 +3681,6 @@
    "percent": 24.2
   },
   {
-   "module": "ui/ui_status_bus.py",
-   "covered": 35,
-   "total": 142,
-   "percent": 24.6
-  },
-  {
    "module": "contract/storyboard_paths.py",
    "covered": 11,
    "total": 43,
@@ -3694,9 +3700,9 @@
   },
   {
    "module": "infra/app_logging.py",
-   "covered": 88,
-   "total": 311,
-   "percent": 28.3
+   "covered": 91,
+   "total": 328,
+   "percent": 27.7
   },
   {
    "module": "domain/project_naming.py",
@@ -4054,9 +4060,9 @@
   },
   {
    "module": "infra/executors.py",
-   "covered": 219,
+   "covered": 220,
    "total": 238,
-   "percent": 92.0
+   "percent": 92.4
   },
   {
    "module": "domain/video_lifecycle_service.py",
@@ -4204,5 +4210,5 @@
   }
  ],
  "modules_covered": 148,
- "modules_total": 697
+ "modules_total": 698
 }
