@@ -694,7 +694,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
                 padding = (cell_height - box[1] - box[0]) % box[3]
         if padding != getattr(self, '_file_row_padding', 0):
             self._file_row_padding = padding
-            tree.grid_configure(pady=(0, padding))
+            tree.grid_configure(pady=(SPACING['none'], padding))
 
     def _on_files_area_resize(self, event=None):
         """内容区宽度变化（窗口缩放）时去抖重算面板宽；只在面板开着时跑。"""

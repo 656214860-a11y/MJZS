@@ -243,7 +243,7 @@ def _media_placeholder(master, kind, size):
 
     占位图按（解释器, 类型, 画幅）缓存，不把每张坏文件各画一遍。
     """
-    from ui.asset_thumb_placeholder import draw_media_placeholder
+    from ui.ui_media import draw_media_placeholder
     width, height = media_geometry(kind, size)
     key = ('media-placeholder', _root_key(master), kind, width, height)
     image = _MEDIA_PH.get(key)
@@ -254,7 +254,8 @@ def _media_placeholder(master, kind, size):
         except Exception:
             _MEDIA_PH.pop(key, None)
     try:
-        image = draw_media_placeholder(master, kind, width, height)
+        image = tk.PhotoImage(master=master, width=width, height=height)
+        draw_media_placeholder(image, kind, width, height)
     except Exception:
         return None
     if len(_MEDIA_PH) >= 8:

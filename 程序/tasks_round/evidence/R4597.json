@@ -1,0 +1,15 @@
+{
+  "round": 4597,
+  "commit_base": "3a17b87e9",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_asset_thumbs test_token_boundary test_coverage_baseline test_ui_icons_boundary",
+    "exit": 0,
+    "passed": 59,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T04:04:01"
+}
