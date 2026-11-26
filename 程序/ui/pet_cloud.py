@@ -55,15 +55,16 @@ from ui.pet_cloud_geometry import inflate, inside_parts as _inside_parts, rounde
 from ui.pet_cloud_shape import (SHAPE_CLOUD, SHAPE_PUFF, SHAPE_ROUND, SHAPE_TAG, SHAPES,
                              configured_value as _configured_value,
                              normalized as _normalized_shape, text_box as _shape_text_box)
+from ui.ui_motion import blend
 from ui.pet_cloud_tail import tail_points
-from ui_tokens import (CLOSE_BUTTON_ACTIVE_BG, CLOSE_BUTTON_ACTIVE_FG, CLOSE_BUTTON_BG, CLOSE_BUTTON_FG, CLOSE_BUTTON_FONT, CLOSE_BUTTON_MARK, CLOSE_BUTTON_SIZE, COLORS, FONTS, PET_CLOUD_AUTO_CLOSE_MS)
+from ui_tokens import (CLOSE_BUTTON_ACTIVE_BG, CLOSE_BUTTON_ACTIVE_FG, CLOSE_BUTTON_BG, CLOSE_BUTTON_FG, CLOSE_BUTTON_FONT, CLOSE_BUTTON_MARK, CLOSE_BUTTON_SIZE, COLORS, FONTS, PET_PALETTE, PET_CLOUD_AUTO_CLOSE_MS)
 from ui.pet_cloud_timing import ALPHA, FADE_OUT_STEPS, GROW_STEPS, HOLD_MS, READ_MAX_MS, WATCH_RECHECK_MS, CloudTimingMixin
 from ui.pet_cloud_move_guard import CloudMoveGuardMixin
 from ui.pet_cloud_hint import (HINT_MS, HINT_STEP_PX, HINT_X, REPLY_HINTS, CloudHintMixin, CloudHintState)
 from ui.pet_cloud_place import ANCHOR_DROP, CHEEK_X, CHEEK_Y, MARGIN, MAX_BODY, MAX_BODY_DOWN, MAX_GAP, MIN_BODY, PET_GAP, PET_SIZE, POSITION_RETRY_MAX, SHAPE_MIN_BODY, TAIL, TIP_IN, shape_min_body, shape_root, CloudPlaceMixin
 
-WIDTH = 344                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
-PAD = 16                          # 云身内边距
+WIDTH = 288                       # 方框对话框的宽度（第 21 期收窄；第 28 期随字号放大一档；第 30 期第 4 条再收窄）
+PAD = 12                          # 云身内边距
 ROW_H = 30                        # 输入行高度
 # 第 45 期：用户要「三虎对话框右上角有颗关闭按钮」。带输入行的那一方框对话框顶上因此空出一条
 # CLOSE_H（云身跟着长高这么多，正文那块的大小与原来分毫不差），×就摆在那一格的右端。
@@ -77,38 +78,16 @@ FILL = COLORS['background_card']  # 云朵填充：与文字底色一致，看�
 EDGE = COLORS['border_default']   # 云朵描边
 STATUS_INK = COLORS['text_secondary']
 BG = COLORS['background_primary'] # 云外那层底色：用 -transparentcolor 透掉
-# 第 18 期：四种形状。方框＝平时说话的对话框；云朵框＝打招呼／夸一句这类「与工作无关的可爱话」；
-# 圆＝进度；标签＝关软件前的日报／周报。形状只改「云身怎么画、能写字的那块框有多大、用哪两个颜色」。
-# 第 24 期：云从「一堆圆叠出来的云」改成方框（用户要的「正方形」）——对话框本来就该是个规矩的框，
-# 画成一朵云反倒看不出边界在哪；四角只留一点点圆（SQUARE_ROUND），看着是方框，不是刀切的板子。
-# 第 25 期：爱心框下线，换成用户给的那张图上的**云朵框**（一圈小鼓包 ＋ 右下角挑出来的弯尾巴）：
-# 打招呼与随口一句的可爱话都用它，尾巴照旧指三虎的脸颊。
-# 第 57 期第 1 条：四种框**外形统一成方框**（就是第 24 期对话框那一种）——云朵框那圈鼓包、
-# 进度那个椭圆、标签那个大圆角都下线了，只保留颜色的区分（绿＝对话／红＝可爱话／蓝＝提示／
-# 清绿＝标签）与各自的宽窄。四个名字留着，是指「用哪两个颜色、多宽」，不再是四种外形。
-# 四个名字本身定义在 pet_cloud_shape——pet_cloud_timing 也要用，见那边的说明。
-# 第 26 期第 5 条：三种常用框按用途分色——云朵框红、提示框蓝、对话框绿。都取浅底 ＋
-# 深一档的描边：底浅才压得住深色正文（正文是 #243247），描边深才在浅色界面上立得住。
-# 标签框（关软件那一眼的日报／周报）不在用户点名的那三种里，沿用原来那抹清绿。
+# 未绑定三虎等级时，按消息用途取默认配色。
 SHAPE_COLORS = {SHAPE_CLOUD: (COLORS['background_card'], COLORS['success']),
                 SHAPE_PUFF: (COLORS['background_card'], COLORS['danger']),
                 SHAPE_ROUND: (COLORS['primary_subtle'], COLORS['primary']),
                 SHAPE_TAG: (COLORS['background_card'], COLORS['warning'])}
-# 第 57 期第 1 条：四种聊天框（对话框／可爱话／提示／标签）**外形统一成方形框**——原来分四种
-# 外形（方框／一圈鼓包叠出来的云／椭圆／大圆角的标签），用户要的是「全部改成方形框，保留颜色的
-# 区分」。外形只剩这一份几何，不分工的只剩颜色（SHAPE_COLORS）与宽窄（SHAPE_WIDTH）。
-# 四角留一点点圆（SQUARE_ROUND，占云身高）是为了不割手，看着仍是规矩的方框。
+# 四类消息共用圆角方框，尺寸按用途单独设置。
 SQUARE_ROUND = 0.10                # 方框四角的圆角半径（占云身高）
 # 第 27 期第 3 条给圆留的那一档宽度：提示框比对话框瘦一点，进度的字少、框不必那么宽。
 ROUND_WIDTH = 336                  # 提示框的宽度
 SHAPE_WIDTH = {SHAPE_CLOUD: WIDTH, SHAPE_PUFF: 400, SHAPE_ROUND: ROUND_WIDTH, SHAPE_TAG: 316}
-# 第 28 期第 1 条：可爱话那一档从 320 加宽到 400——那句话拆成三行，最大那档字号才装得下。
-# 第 58 期第 5 条：量高度只剩这一份口径——「装得下这一条内容」加上一个最小高度（MIN_BODY）。
-# 原来 PUFF 200／ROUND 188／TAG 110 各是「一圈鼓包／椭圆／大圆角」内接写字框留下的底数，
-# 第 57 期外形统一成方框之后它们就只剩一个效果：一句话也留一大片空白——开机招呼那朵 374×230 的框里
-# 只有两行字（用户报的「打招呼的聊天框没有按内容自动调整大小」）。
-# 可爱话／提示／标签是「一句话」的贴纸：只带最新那一条（第 21 期把提示框也归到这一类——进度那
-# 一段本身就好几行，再把前几条一起搬进来就会挤成一坨，用户报的就是「过大、排版乱」）。
 WHISPER_MS = 5200                 # 云朵框（做动作时随口一句）停留多久（第 24 期起还与阅读时间取大）
 BANNER_MS = 6000                  # 标签框（关软件前的日报／周报）渐入后停留多久
 PROGRESS_MS = 12000               # 进度圆气泡停留多久（与 pet_ui.PROGRESS_MS 同一口径）
@@ -304,6 +283,7 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         # 主窗口先走一步的话，得把待触发的定时器收回来：after 的 Tcl 命令随控件一起被删，
         # 到点再触发就是一句「invalid command name ..._expire」打到控制台（第 14 期实测到的）。
         try:
+            self.parent.bind('<ButtonPress-1>', self._outside_press, add='+')
             self.parent.bind('<Destroy>', self._parent_gone, add='+')
             # 第 18 期：主界面一挪，云也跟着重新摆位（否则聊天框停在原地，人走云不走）
             self.parent.bind('<Configure>', self.follow, add='+')
@@ -317,8 +297,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
     # ── 建造 ────────────────────────────────────────────────────────────────
     def build(self):
         """建浮窗、画布与文字／输入控件（只建一次，之后反复 show／close）。"""
-        if self.win is not None:
+        if self.win is not None or getattr(self, '_building', False):
             return self.canvas
+        self._building = True
         try:
             win = BaseDialog(self.parent, '', modal=False, chrome=False)
             win._positioned_once = True    # 别让 ui_theme 按对话框接管（-alpha 0 ＋ <Map> grab_set）
@@ -358,6 +339,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         except Exception as exc:
             self.errors.append(('build', str(exc)))
             self.win, self.canvas = None, None
+        finally:
+            self._building = False
         return self.canvas
 
     def _build_chat_row(self, canvas):
@@ -478,6 +461,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         if getattr(getattr(self, 'pet', None), 'login_locked', lambda: False)() is True or (
                 not focus and self._defer_while_moving(pinned=pinned, hold=hold, focus=focus, shape=shape)):
             return None                    # R2051：登录闸挡着不弹；R1976：用户正拖着窗口，自动冒出来的云等松手再出
+        if not focus and self.visible and getattr(self.pet, 'chat', None) is self:
+            return self.canvas
         if self.win is None and self.build() is None:
             return None
         if shape is not None:
@@ -501,8 +486,10 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
         except Exception as exc:
             self.errors.append(('show', str(exc)))
             return None
+        already_visible = self.visible
         self.visible = True
-        self._fade_in()                    # 浮出：淡着冒一下
+        if not already_visible:
+            self._fade_in()                    # 浮出：淡着冒一下
         if self._replies() and focus:
             # 自动冒出来的云不抢焦点（focus=False）：用户可能正在别处打字，被抢一次就白打一段。
             try:
@@ -650,7 +637,9 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     def fill(self):
         """这一形状的填充色。"""
-        return shape_colors(self.shape)[0]
+        level = getattr(getattr(self.pet, 'agent', None), 'level', '')
+        color = PET_PALETTE.get('level_' + level)
+        return blend(COLORS['background_card'], color, 0.24) if color else shape_colors(self.shape)[0]
 
     def field_bg(self):
         """回复框里那条滚动小字的底色：跟着 ttk.Entry 自己的底色走。
@@ -678,7 +667,8 @@ class Cloud(CloudTimingMixin, CloudHintMixin, CloudPlaceMixin, CloudMoveGuardMix
 
     def edge(self):
         """这一形状的描边色。"""
-        return shape_colors(self.shape)[1]
+        level = getattr(getattr(self.pet, 'agent', None), 'level', '')
+        return PET_PALETTE.get('level_' + level + '_outline', shape_colors(self.shape)[1])
 
     # ── 记录排版与滚动 ──────────────────────────────────────────────────────
     def _body_text(self):

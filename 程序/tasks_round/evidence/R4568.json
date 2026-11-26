@@ -1,0 +1,15 @@
+{
+  "round": 4568,
+  "commit_base": "b886d288c",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k sanhu_mode",
+    "exit": 0,
+    "passed": 25,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T01:06:45"
+}

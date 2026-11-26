@@ -52,7 +52,7 @@ class TooltipTests(unittest.TestCase):
         widget = _Widget()
         Tooltip(widget, "完整说明")
         self.assertEqual([item[0] for item in widget.bindings],
-                         ["<Enter>", "<Leave>", "<FocusIn>", "<FocusOut>", "<Button-1>", "<Destroy>"])
+                         ["<Enter>", "<Leave>", "<<TraverseIn>>", "<FocusOut>", "<Button-1>", "<Unmap>", "<Destroy>"])
         self.assertTrue(all(item[2] == "+" for item in widget.bindings))
 
     def test_reenter_cancels_old_delayed_show_and_leave_cleans_up(self):

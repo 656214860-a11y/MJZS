@@ -84,9 +84,10 @@ class Tooltip:
         self._pin_binds = ()        # (root, press_funcid, escape_funcid)
         widget.bind("<Enter>", self._schedule_from_pointer, add="+")
         widget.bind("<Leave>", self._leave, add="+")
-        widget.bind("<FocusIn>", self._schedule_from_focus, add="+")
+        widget.bind("<<TraverseIn>>", self._schedule_from_focus, add="+")
         widget.bind("<FocusOut>", self._focus_out, add="+")
         widget.bind("<Button-1>", self._press, add="+")
+        widget.bind("<Unmap>", self.hide, add="+")
         widget.bind("<Destroy>", self._on_widget_destroyed, add="+")
 
     # ── 事件入口 ─────────────────────────────────────────────

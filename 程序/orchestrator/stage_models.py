@@ -48,7 +48,7 @@ def assets_choices():
     return tuple([(LOCAL, LOCAL)] + [(name, name) for name in MODELS])
 
 
-def keyframe_choices(project=None):
+def keyframe_choices(project=None, *, call_modes=None):
     """首帧这一阶段的生产模型：本地 ComfyUI、Seedream 云接口，加上首帧 Agent 的三个引擎（第 46 期第 7 条）。
 
     引擎那几条的名字跟着「Skill 调用设置」里那一档走（与 keyframe_comfy 原来那个合并下拉框
@@ -69,6 +69,9 @@ def keyframe_choices(project=None):
             while any(name == value for value, _label in items):
                 name += ' · ' + display
             items.append((name, name))
+            if call_modes is not None:
+                from infra.model_pool import call_mode
+                call_modes[name] = call_mode({'provider': 'desktop', 'model': engine_name})
     except Exception:
         app_logging.swallowed()
     return tuple(items)
@@ -363,12 +366,12 @@ def manual_command(desktop, stage, action, parent=None, trigger='manual'):
     return run
 
 
-def production_choices(stage, project=None):
+def production_choices(stage, project=None, *, call_modes=None):
     """这一阶段的生产模型选项（不是这两个阶段就是空的）。"""
     if stage == 'assets':
         return assets_choices()
     if stage == 'keyframe':
-        return keyframe_choices(project)
+        return keyframe_choices(project, call_modes=call_modes)
     return ()
 
 

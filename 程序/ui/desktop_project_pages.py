@@ -180,6 +180,9 @@ class RecyclePanelMixin:
             record=selected_batch()
             if record is None:raise ValueError('请先选中一个回收批次')
             self.purge_recycled([record]);refresh()
+        def purge_expired():
+            self.purge_expired_recycle()
+            refresh()
         def purge_all():
             self.purge_recycled(batches);refresh()
         # 统一动作区：关闭在最右，主操作紧挨其左，刷新降为最左的次操作。
@@ -189,7 +192,7 @@ class RecyclePanelMixin:
         dialog.add_action('刷新',lambda:self.safe(refresh))
         maintenance=FlowBar(dialog.content);maintenance.pack(fill='x',pady=SPACING['xs'])
         for text,action in (('永久清空选中批次',purge_selected),('永久清空全部批次',purge_all),
-                            ('设置保留期',self.configure_recycle_retention)):
+                            ('清空过期回收站',purge_expired), ('设置保留期',self.configure_recycle_retention)):
             SecondaryButton(maintenance,text=text,command=lambda fn=action:self.safe(fn)).pack(side='left')
         refresh()
         return dialog
@@ -648,7 +651,7 @@ class ProjectPagesMixin(RecyclePanelMixin):
         tree.bind('<Double-1>',enter);tree.bind('<Return>',enter)
         popup.bind('<Escape>',lambda e:popup.destroy());popup.grab_set();tree.focus_set()
     def build_account_nav(self,side):
-        """「00 会员账户」排在 01 之上；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
+        """「00 会员账户」排在设置之后；它不在 self.nav 里，翻页键与阶段页序号都不受影响。"""
         image=IconLoader.nav_icon(side,PAGE_NAV_ICONS.get(PAGE_ACCOUNT),size=NAV_PRIMARY_ICON_SIZE)
         self.account_button=SecondaryButton(side,text=nav_label(PAGE_ACCOUNT),image=image,
             compound='image' if image is not None else 'text',width=0,

@@ -38,12 +38,6 @@ PANEL_PREVIEW_COL_WIDTH = PANEL_PREVIEW_SIZE + SPACING['sm']   # 48：预览列�
 PANEL_META_WIDTH = SPACING['xl'] * 5                            # 120：时长／分辨率列宽
 
 
-def _retention_days():
-    """回收站保留期（天）：唯一定义在 ``storage_maintenance``，这里只读不复制数字。"""
-    from infra.storage_maintenance import RECYCLE_RETENTION_DAYS
-    return RECYCLE_RETENTION_DAYS
-
-
 class FilesPanelFilterMixin(FilesPanelIndexMixin):
     """阶段图标列＋筛选条＋按索引填表。"""
 
@@ -478,14 +472,6 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         from ui_icons import IconLoader
         from ui_tokens import COLORS
         self._ensure_filter_state()
-        # R3971（任务书 L4-U1）：齿轮设置钮钉在列顶——pack 先于滚动画布，
-        # 否则它落进滚动条与画布之间的中间腔，把画布挤成 1px 宽。
-        # UX-C1：与侧栏同套 PNG（library_settings），缺图退回 ⚙。
-        settings = self._make_rail_icon_button(
-            self.stage_rail, 'library_settings', '⚙', '设置全局素材库目录',
-            self.configure_library)
-        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        self.library_settings_button = settings
         # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
         self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
         self.stage_rail_form = self.stage_rail_scroller.form
@@ -504,15 +490,17 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.recycle_button = self._add_rail_action(
             '♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery',
             icon_name='recycle')
-        self.recycle_purge_button = self._add_rail_action(
-            '🗑', '清空过期回收站（保留 %d 天）' % _retention_days(),
-            'purge_expired_recycle', icon_name='recycle_purge')
         # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
         library = self._make_rail_icon_button(
             self.stage_rail_form, 'library', '🗂',
             '全局素材库：跨项目的共享素材（可在设置里指定目录）', self.show_library)
         library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
         self.library_button = library
+        settings = self._make_rail_icon_button(
+            self.stage_rail_form, 'library_settings', '📂', '设置全局素材库目录',
+            self.configure_library)
+        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
+        self.library_settings_button = settings
         # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
         self.stage_rail_scroller.bind_wheel()
         # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
@@ -780,12 +768,14 @@ def _stage_view_request_index(panel, root, library=False):
     ``panel.X`` 形式不计入 Mixin 组合类的多写者统计。
     """
     panel.cancel_script_load()
-    panel._clear_index_tree()
     if root is None or not panel._open:
+        panel._clear_index_tree()
         return
     generation = panel._index_generation
     panel._index_loading = True
     context = panel._index_context(root, library)
+    if context != getattr(panel, '_displayed_index_context', None):
+        panel._clear_index_tree()
     filters = (panel.stage_filter, panel.kind_filter, panel.status_filter,
                panel.keyword_filter, getattr(panel, 'sort_mode', '类型'))
     refresh = getattr(panel, '_index_refresh', False)
@@ -817,6 +807,7 @@ def _stage_view_request_index(panel, root, library=False):
 def _stage_view_index_render(panel, rows, categories, root, library, generation, context):
     """``_start_index_render`` 的跟随页变体：分组来自 ``_index_groups``，按组默认展开。"""
     panel._clear_index_tree()
+    panel._displayed_index_context = context
     panel.script_tree.tag_configure('missing', foreground=COLORS['text_muted'])
     groups = panel._index_groups(rows, library)
     show_groups = files_panel_index.should_show_groups(groups)

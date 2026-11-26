@@ -1,0 +1,15 @@
+{
+  "round": 4566,
+  "commit_base": "a591774d2",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k stage_reasoning tooltip recycle_panel_actions",
+    "exit": 0,
+    "passed": 33,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T00:42:22"
+}

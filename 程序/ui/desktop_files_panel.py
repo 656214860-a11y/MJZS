@@ -38,6 +38,7 @@ from ui.writing_page_controller import ScriptListLoadController
 SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
 SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
 SCRIPT_PANEL_USER_MAX_SHARE = 0.7                # 手动拖动时面板最多占内容区 70% 宽
+SCRIPT_PANEL_DEFAULT_WIDTH = SPACING['sm'] * 38
 SCRIPT_PANEL_MAX_WIDTH = SPACING['sm'] * 60      # 480：更长的文件名靠悬停看全
 SCRIPT_CELL_OVERHEAD = SPACING['md'] * 4         # 48：格内边距＋滚动条＋面板留白
 # R4005（任务书 L4-U3，Q3）：文件名列优先——属性列放不进面板内宽时按
@@ -141,12 +142,12 @@ def _build_stage_rail_state(panel):
     返回要落到 ``panel`` 上的属性字典；``ProjectFilesPanel._build_stage_rail``
     经 ``vars(self).update`` 落位——这些属性名与 ``FilesPanelFilterMixin``
     历史构建路径一致，写者登记只计 mixin 单侧，避免双写者棘轮误报。
-    装配顺序与抽取前一致：设置钮钉列顶、其余进滚动表单；
+    全部动作位于同一滚动列；
     ``frame=panel.stage_rail`` 收养既有停靠框，宽度钉法不变。
     """
     from contract.pet_bus import STAGES, stage_name
     from ui.desktop_expand_column import ExpandIconColumn, align_stage_rows
-    from ui.desktop_files_panel_filters import STAGE_RAIL_ICONS, _retention_days
+    from ui.desktop_files_panel_filters import STAGE_RAIL_ICONS
     from ui_tokens import COLORS, NAV_PRIMARY_ICON_SIZE
     panel._ensure_filter_state()
     column = ExpandIconColumn(panel.script_box, panel.page.win,
@@ -160,9 +161,6 @@ def _build_stage_rail_state(panel):
         command = (lambda: panel.page.safe(action)) if callable(action) else None
         return column.add(key, icon_name, glyph, tip, command)
 
-    state['library_settings_button'] = column.add(
-        'library_settings', 'library_settings', '⚙',
-        '设置全局素材库目录', panel.configure_library, pinned=True)
     stage_buttons = {}
     for stage in STAGES:
         stage_buttons[stage] = column.add(
@@ -173,14 +171,13 @@ def _build_stage_rail_state(panel):
     state['recycle_button'] = rail_action(
         'recycle', 'recycle', '♻', '回收站：浏览与恢复已删除的文件',
         'open_recycle_recovery')
-    state['recycle_purge_button'] = rail_action(
-        'recycle_purge', 'recycle_purge', '🗑',
-        '清空过期回收站（保留 %d 天）' % _retention_days(),
-        'purge_expired_recycle')
     state['library_button'] = column.add(
         'library', 'library', '🗂',
         '全局素材库：跨项目的共享素材（可在设置里指定目录）',
         panel.show_library)
+    state['library_settings_button'] = column.add(
+        'library_settings', 'library_settings', '📂',
+        '设置全局素材库目录', panel.configure_library)
     column.finalize()
     align_stage_rows(panel.page, column, stage_buttons['script'])
     state['stage_rail_scroller'] = column.scroller
@@ -347,6 +344,22 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
                                       compound='image' if image is not None else 'text',
                                       command=self.toggle, style='RailIcon.TButton')
         self._pack_button()
+        if getattr(page, 'nav', None):
+            source = page.nav[0]
+            def align_entry(_event=None):
+                if self.button.winfo_ismapped() and source.winfo_ismapped():
+                    top = (source.winfo_rooty() + page.sidebar_canvas.canvasy(0)
+                           + (source.winfo_height() - self.button.winfo_reqheight()) / 2)
+                    offset = max(0, round(top - self.rail.winfo_rooty()))
+                    current = self.button.tk.splitlist(self.button.pack_info()['pady'])
+                    if offset != int(current[0]):
+                        self.button.pack_configure(pady=(offset, SPACING['xs']))
+            page.sidebar_scroll.form.bind('<Configure>', align_entry, add='+')
+            self.rail.bind('<Configure>', align_entry, add='+')
+            source.bind('<Configure>', align_entry, add='+')
+            source.bind('<Map>', align_entry, add='+')
+            self.button.bind('<Configure>', align_entry, add='+')
+            self.button.bind('<Map>', align_entry, add='+')
         Tooltip(self.button, '项目文件')
         page.files_button = self.button
 
@@ -358,7 +371,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_box = ttk.Frame(area, padding=(SPACING['none'], SPACING['xs'], SPACING['xs'], SPACING['xs']))
         self.sep = ttk.Separator(area, orient='vertical')
         self.resize_grip = ttk.Frame(area, width=SPACING['xs'], cursor='sb_h_double_arrow')
-        Tooltip(self.resize_grip, '拖动调整面板宽度，双击恢复自动宽度')
+        Tooltip(self.resize_grip, '拖动调整面板宽度，双击恢复默认宽度')
         self.resize_grip.bind('<Button-1>', self._start_resize, add='+')
         self.resize_grip.bind('<B1-Motion>', self._do_resize, add='+')
         self.resize_grip.bind('<ButtonRelease-1>', self._end_resize, add='+')
@@ -403,7 +416,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
         self.script_list.pack(fill='both', expand=True, pady=(SPACING['none'], SPACING['xs']))
         self.script_list.grid_propagate(False)
-        self.script_width_sizer = tk.Frame(self.script_box, width=SCRIPT_LIST_MIN_WIDTH, height=0)
+        self.script_width_sizer = tk.Frame(self.script_box, width=SCRIPT_PANEL_DEFAULT_WIDTH, height=0)
         self.script_width_sizer.pack()
         ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT, indent=SPACING['sm'])
         fit_row_height(self.script_tree, style='Script.Treeview')
@@ -540,6 +553,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         if not self._open:
             return
         self._open = False
+        self._displayed_index_context = None
         self.cancel_script_load()
         self._unbind_outside()
         self.script_box.pack_forget()
@@ -614,10 +628,8 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         return font
 
     def _fit_script_width(self):
-        """按最长文件名量出停靠面板宽度：sizer 驱动 script_box 请求宽，列 stretch 铺满。
+        """按默认或手动宽度排布文件列。
 
-        上限取「内容区宽一半」与 ``SCRIPT_PANEL_MAX_WIDTH`` 的较小者，保证主内容区
-        不被超长文件名挤没；更长的名字仍可经行悬停卡片看全文。
         R4005（任务书 L4-U3）：文件名列优先——属性列放不进面板内宽时按
         ``SCRIPT_AUX_HIDE_ORDER`` 整列隐藏（displaycolumns），只剩文件名列仍
         不够宽时文件名中间省略，表格不再横向滚动。
@@ -635,44 +647,14 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         name_need = max(SCRIPT_NAME_MIN_WIDTH, widest + SCRIPT_NAME_CELL_PAD)
         preview_w = (int(tree.column('#0', 'width'))
                      if 'tree' in str(tree.cget('show')) else 0)
-        try:
-            # R3060：script_box.master 已是自适应宽度的 panel_dock，拿它当分母会形成
-            # 「面板宽→停靠列宽→上限」的循环；内容区宽度应量 panel_area（画布列同级外框）。
-            host = getattr(self.page, 'panel_area', None) or self.script_box.master
-            content_width = int(host.winfo_width())
-        except (tk.TclError, AttributeError, TypeError, ValueError):
-            content_width = 0
-        user_width = getattr(self, '_user_panel_width', None)
-        if user_width is not None:
-            # 手动宽度：直接夹紧，跳过按最长文件名与实宽缺口补偿。
-            if content_width > 0:
-                cap = max(SCRIPT_LIST_MIN_WIDTH, int(content_width * SCRIPT_PANEL_USER_MAX_SHARE))
-            else:
-                cap = max(SCRIPT_LIST_MIN_WIDTH, user_width)
-            panel_width = max(SCRIPT_LIST_MIN_WIDTH, min(user_width, cap))
-        else:
-            if content_width > 0:
-                share = int(content_width * SCRIPT_PANEL_MAX_SHARE)
-            else:
-                share = SCRIPT_PANEL_MAX_WIDTH
-            cap = max(SCRIPT_LIST_MIN_WIDTH, min(share, SCRIPT_PANEL_MAX_WIDTH))
-            # sizer 宽＝预览列＋文件名列＋边框与竖滚动条余量（属性列不再占面板宽）。
-            needed = name_need + preview_w + SCRIPT_PANEL_EDGE + SCRIPT_VSCROLL_WIDTH
-            panel_width = max(SCRIPT_LIST_MIN_WIDTH, min(needed, cap))
+        preferred = getattr(self, '_user_panel_width', None) or SCRIPT_PANEL_DEFAULT_WIDTH
+        panel_width = max(SCRIPT_LIST_MIN_WIDTH, min(preferred, self._manual_cap()))
         # sizer 只是请求宽：窄窗时停靠列被内容区挤到请求宽之下，stretch 的
         # name 列随 Treeview 实宽收缩，所以隐藏判定与省略预算都按实宽算；
         # 实宽变化（<Configure>→本函数重跑）会逐级收敛到稳定值。
         realized = tree.winfo_width()
         inner = realized if realized > 1 else panel_width - SCRIPT_VSCROLL_WIDTH
         inner = max(1, inner - preview_w - SCRIPT_PANEL_EDGE)
-        # 实宽缺口补偿：请求宽够但实宽不足（盒内边距/图标列/滚动条吃掉差额）时，
-        # 把缺口一次性补进 sizer——没挤到上限就追平，挤到上限就停在 cap，靠
-        # 下一轮 <Configure> 收敛，不靠固定余量逐像素猜。
-        # 手动宽度（_user_panel_width 不为 None）不做这一步。
-        if getattr(self, '_user_panel_width', None) is None:
-            shortfall = name_need - inner
-            if shortfall > 0 and realized > 1 and panel_width < cap:
-                panel_width = min(cap, panel_width + shortfall + SCRIPT_NAME_CELL_PAD)
         if int(sizer.cget('width')) != panel_width:
             sizer.configure(width=panel_width)
         # 面板内宽放不下属性列时按 meta→size→kind→mtime 整列隐藏，直到文件名列

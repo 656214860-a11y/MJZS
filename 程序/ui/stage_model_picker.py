@@ -14,6 +14,7 @@
 import tkinter as tk
 from tkinter import ttk
 
+from contract.production_model_contract import ASSET_CLOUD_MODELS
 import infra.model_pool as model_pool
 import infra.model_router as model_router
 import orchestrator.stage_config as stage_config
@@ -96,7 +97,8 @@ class StageModelPicker(ttk.Frame):
 
     def refresh_models(self):
         """模型池或项目变了：重读选项，并把已保存的那一档摆回去。"""
-        self.groups = grouped_model_choices(self.desktop, self.stage)
+        self._call_modes = {}
+        self.groups = grouped_model_choices(self.desktop, self.stage, call_modes=self._call_modes)
         records = pool_records(self.desktop)
         self._items = []
         self._by_display = {}
@@ -105,6 +107,11 @@ class StageModelPicker(ttk.Frame):
             for model_id, label in options:
                 self._by_display.setdefault(label, model_id)
                 self._items.append((model_id, label))
+                record = records.get(model_id)
+                if record:
+                    self._call_modes[model_id] = model_pool.call_mode(record, model_id)
+                elif model_id in ASSET_CLOUD_MODELS:
+                    self._call_modes[model_id] = 'API'
                 if 'reasoning' in model_pool.capabilities_of(
                         (records.get(model_id) or {}).get('capabilities')):
                     self._capable.add(model_id)
@@ -190,6 +197,7 @@ class StageModelPicker(ttk.Frame):
         top = Flyout(win, noactivate=True)
         self._popup = top
         self._popup_win = win
+        self._category = self._call_modes.get(self.model_id(), 'Desktop')
         self._fill_popup(top.body)
         self._place_popup(top)
         # 点外部／Esc 关：监听挂主窗绑定（bindtags 让窗内控件点击都经过），浮层内点击到不了。
@@ -228,8 +236,22 @@ class StageModelPicker(ttk.Frame):
         models = [row for row in spec if row['kind'] == 'model']
         pinned_spec = [row for row in spec if row['kind'] != 'model']
 
-        holder = tk.Frame(body, bg=COLORS['background_primary'])
-        holder.pack(fill='x')
+        columns = ttk.Frame(body)
+        columns.pack(fill='both', expand=True)
+        nav = ttk.Frame(columns)
+        nav.pack(side='left', fill='y')
+        def select(category):
+            self._category = category
+            self._fill_popup(body)
+            self._place_popup(self._popup)
+        for category in ('Desktop', 'CLI', 'API'):
+            button = SecondaryButton(nav, text=category, command=lambda c=category: select(c),
+                                     style='Selected.Nav.TButton' if category == self._category else 'Nav.TButton')
+            button.pack(fill='x')
+        models = [row for row in models if row['id'] == model_router.AUTO
+                  or self._call_modes.get(row['id'], 'Desktop') == self._category]
+        holder = tk.Frame(columns, bg=COLORS['background_primary'])
+        holder.pack(side='left', fill='both', expand=True)
         scroll = ScrollForm(holder, bg=COLORS['background_primary'], scrollbar=True)
         first_row = [None]
         row_widgets = []
@@ -256,7 +278,7 @@ class StageModelPicker(ttk.Frame):
         # 画布需求宽度不含窗内 form：把最宽模型行的需求宽度直接喂给画布，
         # 否则长模型名会被画布默认宽度裁掉（R2964 预览反馈）。不拿 Tk 画布的默认宽度兜底：
         # 模型名短时它会把卡片撑宽，右侧留出一大块空白。
-        scroll.canvas.configure(width=need_w)
+        scroll.canvas.configure(width=need_w, height=view_h)
         scroll.bind_wheel()
 
         pinned = tk.Frame(body, bg=COLORS['background_primary'])

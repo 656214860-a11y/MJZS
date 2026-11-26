@@ -166,10 +166,9 @@ def align_stage_rows(desktop, column, first_file_button):
     padding.pack(before=first_file_button)
     job = None
     bindings = []
-    last_offsets = None
 
     def sync():
-        nonlocal job, last_offsets
+        nonlocal job
         job = None
         nav = getattr(desktop, 'nav', ())
         if len(nav) <= PAGE_OF['script']:
@@ -183,21 +182,9 @@ def align_stage_rows(desktop, column, first_file_button):
         wanted = max(1, round(padding.winfo_height() + left_center + left_top
                               - right_center - right.canvasy(0)))
         if int(padding.cget('height')) != wanted:
-            last_offsets = None
             padding.configure(height=wanted)
             schedule()
             return
-        right_top = right.canvasy(0)
-        if last_offsets is None or left_top != last_offsets[0]:
-            target, offset = right, left_top
-        elif right_top != last_offsets[1]:
-            target, offset = left_canvas, right_top
-        else:
-            return
-        region = target.bbox('all')
-        if region and abs(target.canvasy(0) - offset) > 1:
-            target.yview_moveto(offset / max(1, region[3] - region[1]))
-        last_offsets = (left_canvas.canvasy(0), right.canvasy(0))
 
     def schedule(_event=None):
         nonlocal job

@@ -245,7 +245,6 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
         self._build_project_rail(side)
         ttk.Separator(side).pack(fill='x',pady=DESKTOP_LAYOUT['section_gap'])
         self.nav=[]
-        self.build_account_nav(side)
         for i,title in enumerate(PAGES):
             # 第 48 期第 3 条：点「10 视频生成」的入口逻辑——本次启动第一次点先摆「选择生成方式」
             # 那一屏；之后（用户已经选过线上或线下）再点就直接回他选的那一侧，不再反复拦在选择页上。
@@ -270,6 +269,7 @@ class Desktop(StatusBridgeMixin, PageNavMixin, LifecycleMixin, AutoStateHolderMi
             width=0,command=self._open_rail_settings,style='RailIcon.TButton')
         self.settings_rail_button._nav_tooltip=Tooltip(self.settings_rail_button,'设置')
         self.settings_rail_button.pack(anchor='w',padx=(DESKTOP_LAYOUT['nav_primary_inset'],SPACING['none']),pady=(SPACING['none'],DESKTOP_LAYOUT['nav_gap']))
+        self.build_account_nav(side)
         # 侧栏内容按自然高度依次 pack；超出视口的部分由外层 ScrollForm 滚动。
         self.sidebar_size=None
         self.project_block.bind('<Configure>',self.schedule_sidebar_fit,add='+')

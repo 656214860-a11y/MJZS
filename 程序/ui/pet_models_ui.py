@@ -682,10 +682,10 @@ class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin,
     def _ensure_speech_panel(self):
         if self._speech_panel is None:
             import ui.speech_settings_ui as speech_settings_ui
-            if not self._embedded:
-                bar = ttk.Frame(self.speech_container)
-                bar.pack(side='bottom', fill='x', pady=(SPACING['xs'], SPACING['none']))
-                PrimaryButton(bar, text='保存', command=self.save_and_close).pack(side='right')
+            bar = ttk.Frame(self.speech_container)
+            bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']))
+            save = self.save_current if self._embedded else self.save_and_close
+            PrimaryButton(bar, text='保存语音设置', command=save).pack(side='right')
             host = ttk.Frame(self.speech_container)
             host.pack(fill='both', expand=True)
             self._speech_panel = speech_settings_ui.speech_settings_panel(

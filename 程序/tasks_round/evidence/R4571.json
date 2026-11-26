@@ -1,0 +1,15 @@
+{
+  "round": 4571,
+  "commit_base": "2f3ae38b3",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k token_boundary pet_cloud_contract",
+    "exit": 0,
+    "passed": 22,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T01:14:13"
+}

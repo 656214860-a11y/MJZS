@@ -566,7 +566,7 @@ def model_fits_stage(value, stage, registry=None):
     return not tags or any(tag in needed for tag in tags)
 
 
-def model_choices(desktop, stage=None):
+def model_choices(desktop, stage=None, *, call_modes=None):
     """面板下拉的选项：(id, 文案)——「自动」在前，后面是模型管理里的每一条。
 
     第 46 期第 7／8 条：首帧与资产这两个阶段还要接上它们的**生产模型**（本地 ComfyUI／云端生图／
@@ -582,18 +582,18 @@ def model_choices(desktop, stage=None):
     options = list(model_pool.options(records, with_auto=True,
                                       labeler=workflow_settings.desktop_model_label))
     seen = {label for _model_id, label in options}
-    for value, label in stage_models.production_choices(stage, desktop_project(desktop)):
+    for value, label in stage_models.production_choices(stage, desktop_project(desktop), call_modes=call_modes):
         if label not in seen:
             seen.add(label)
             options.append((value, label))
     return tuple(options)
 
 
-def grouped_model_choices(desktop, stage=None):
+def grouped_model_choices(desktop, stage=None, *, call_modes=None):
     """模型下拉的两级数据：供应商 → 具体模型，第二级仍保存稳定的模型 id。"""
     records = pool_records(desktop)
     groups = {}
-    for model_id, label in model_choices(desktop, stage):
+    for model_id, label in model_choices(desktop, stage, call_modes=call_modes):
         if model_id == model_router.AUTO:
             provider = '自动选择'
         elif model_id in records:

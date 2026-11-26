@@ -649,6 +649,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_cloud', 'pet_cloud_text'),
     ('pet_cloud', 'pet_cloud_timing'),
     ('pet_cloud', 'pet_ui_support'),
+    ('pet_cloud', 'ui_motion'),
     ('pet_cloud', 'ui_widgets'),
     ('pet_cloud_place', 'pet_cloud_geometry'),
     ('pet_cloud_place', 'pet_cloud_shape'),

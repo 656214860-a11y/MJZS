@@ -52,7 +52,7 @@ ICONS = {
     'back':           0xF178,  # arrow_reply    返回（卡片底，墨水用主题色——沿用原手绘箭头的品牌色）
     # UX-C1：停靠面板右缘动作钮（素材库／设置／回收站／清空）与侧栏同套 Filled 图标
     'library':           0xE770,   # library           全局素材库
-    'library_settings':  0xF6B2,   # settings          设置全局素材库目录
+    'library_settings':  0xF420,   # 文件夹轮廓上叠加路径编辑笔
     'recycle':           0xF01C4,  # bin-recycle       回收站浏览与恢复
     'recycle_purge':     0xF01C6,  # bin-recycle-full  清空过期回收站
     # 设置页左侧 8 枚专属目录图标（与主界面 0 复用）
@@ -103,6 +103,11 @@ def render_icons(ink: tuple[int, int, int, int], accent_ink=None):
             use_ink = ink
         char = chr(codepoint)
         canvas = _nav_glyph_image(font, char, use_ink)
+        if key == 'library_settings':
+            from PIL import ImageDraw
+            draw = ImageDraw.Draw(canvas)
+            draw.polygon([(9, 18), (18, 9), (23, 14), (14, 23), (8, 24)],
+                         fill=use_ink, outline='white', width=max(1, canvas.width // 12))
         path = OUT_DIR / f'{key}.png'
         canvas.save(path)
         written.append((path.name, canvas.width, canvas.height))

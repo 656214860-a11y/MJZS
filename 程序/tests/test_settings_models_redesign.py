@@ -142,7 +142,7 @@ class EmbeddedModelConfigTests(Batch7Case):
         self.assertTrue(page.winfo_ismapped())
         seam = win._pet_seams['model_config']
         self.assertIn('manager', seam)
-        self.assertNotIn('disabled', _button(win, '保存').state(), '模型配置页启用设置窗底部保存')
+        self.assertFalse(win._pet_footer.winfo_ismapped())
         # 选下拉置脏 → 切页与关窗均触发确认守卫
         entries = seam['entries']
         entries['note'].set('备用兜底线路')
@@ -157,15 +157,15 @@ class EmbeddedModelConfigTests(Batch7Case):
             self.assertFalse(pet_settings_ui.request_close(win))
             self.assertTrue(ask.called)
             self.assertTrue(win.winfo_exists())
-        # 通过设置窗底部「保存」保存当前模型并关闭
+        # 编辑区就地保存当前模型
         entries['model'].set('deepseek-chat')
         entries['model'].event_generate('<<ComboboxSelected>>')
         win.update()
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '保存').invoke()
+            _button(win, '保存当前').invoke()
         save_pool.assert_called_once()
         self.assertEqual(save_pool.call_args.args[0]['model'], 'deepseek-chat')
-        self.assertFalse(win.winfo_exists())
+        self.assertTrue(win.winfo_exists())
 
     def test_embedded_model_config_keeps_actions_visible_at_hub_sizes(self):
         win = self._hub('model_config')
@@ -173,7 +173,7 @@ class EmbeddedModelConfigTests(Batch7Case):
             win.geometry(geometry)
             win.update()
             bottom = win.winfo_rooty() + win.winfo_height()
-            for label in ('+ 新建模型', '检测全部', '删除', '保存当前', '测试', '关闭', '保存'):
+            for label in ('+ 新建模型', '检测全部', '删除', '保存当前', '测试'):
                 btn = _button(win, label)
                 self.assertTrue(btn.winfo_ismapped(), (geometry, label))
                 self.assertLessEqual(btn.winfo_rooty() + btn.winfo_height(), bottom + 1,
@@ -221,13 +221,13 @@ class SpeechTabInModelManagerTests(Batch7Case):
         # 点底部「保存」保存语音设置
         with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_s, \
                 mock.patch.object(speech_settings_ui.speech_api, 'save_dictionary') as save_d:
-            _button(win, '保存').invoke()
+            _button(win, '保存语音设置').invoke()
         save_s.assert_called_once()
         self.assertEqual(save_s.call_args.args[0]['model'], 'paraformer-realtime-v2')
         save_d.assert_called_once()
         self.assertFalse(win.winfo_exists())
 
-    def test_embedded_hub_speech_tab_saves_via_hub_save_button(self):
+    def test_embedded_speech_tab_saves_in_place(self):
         win = self._hub('model_config')
         seam = win._pet_seams['model_config']
         with mock.patch.object(speech_api, 'read_settings', return_value=dict(speech_api.DEFAULTS)), \
@@ -241,11 +241,11 @@ class SpeechTabInModelManagerTests(Batch7Case):
         self.assertTrue(pet_settings_ui.hub_dirty(win))
         with mock.patch.object(speech_settings_ui.speech_api, 'save_settings') as save_s, \
                 mock.patch.object(speech_settings_ui.speech_api, 'save_dictionary') as save_d:
-            _button(win, '保存').invoke()
+            _button(win, '保存语音设置').invoke()
         save_s.assert_called_once()
         self.assertEqual(save_s.call_args.args[0]['silence_ms'], '600')
         save_d.assert_called_once()
-        self.assertFalse(win.winfo_exists())
+        self.assertTrue(win.winfo_exists())
 
 
 class FiveMainstreamDropdownsTests(Batch7Case):
