@@ -47,6 +47,42 @@ def apply(win):
 
     s.configure('Card.TFrame',background=COLORS['background_card'])
     s.configure('SelectedShot.TFrame',background=COLORS['focus'],padding=1)
+    # 模型管理（REQ-UI-MODEL-PAGE-2）：主从分栏卡片、路线卡与四态可用性徽标样式（日夜双通）
+    s.configure('ModelListCard.TFrame', background=COLORS['background_card'],
+                bordercolor=COLORS['border_default'], relief='solid', borderwidth=1)
+    s.configure('ModelListCardSelected.TFrame', background=COLORS['selection_bg'],
+                bordercolor=COLORS['focus'], relief='solid', borderwidth=1)
+    s.configure('ModelRouteCard.TFrame', background=COLORS['background_card'],
+                bordercolor=COLORS['border_default'], relief='solid', borderwidth=1)
+    s.configure('ModelRouteHeader.TFrame', background=COLORS['surface_hover'])
+    s.configure('ModelCardTitle.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_primary'], font=FONTS['body_bold'])
+    s.configure('ModelCardTitleSelected.TLabel', background=COLORS['selection_bg'],
+                foreground=COLORS['selection_text'], font=FONTS['body_bold'])
+    s.configure('ModelCardMeta.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_secondary'], font=FONTS['hint'])
+    s.configure('ModelCardMetaSelected.TLabel', background=COLORS['selection_bg'],
+                foreground=COLORS['text_secondary'], font=FONTS['hint'])
+    s.configure('ModelSection.TLabel', background=BG,
+                foreground=COLORS['text_heading'], font=FONTS['heading_4'])
+    s.configure('ModelField.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_primary'], font=FONTS['body'])
+    s.configure('ModelFieldMuted.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_secondary'], font=FONTS['hint'])
+    s.configure('ModelRouteTitle.TLabel', background=COLORS['surface_hover'],
+                foreground=COLORS['text_primary'], font=FONTS['body_bold'])
+    for suffix, color_key in (('Ok', 'success_text'), ('Idle', 'primary_text'),
+                              ('Warn', 'warning_text'), ('Err', 'danger_text'),
+                              ('Muted', 'disabled_text')):
+        s.configure(f'ModelStatus{suffix}.TLabel', background=COLORS['background_card'],
+                    foreground=COLORS[color_key], font=FONTS['hint'])
+        s.configure(f'ModelStatus{suffix}Selected.TLabel', background=COLORS['selection_bg'],
+                    foreground=COLORS[color_key], font=FONTS['hint'])
+        s.configure(f'ModelRouteStatus{suffix}.TLabel', background=COLORS['surface_hover'],
+                    foreground=COLORS[color_key], font=FONTS['hint'])
+    s.configure('Card.TCheckbutton', background=COLORS['background_card'], foreground=INK)
+    s.map('Card.TCheckbutton', background=[('active', COLORS['background_card'])],
+          foreground=[('disabled', COLORS['disabled_text'])])
 
     s.configure('TLabel',background=BG,foreground=INK)
 

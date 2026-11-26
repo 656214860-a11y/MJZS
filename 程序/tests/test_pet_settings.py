@@ -518,100 +518,60 @@ class ManagerProviderTests(SettingsCase):
             entries[field].insert(0, value)
         win._pet_provider.set('Moonshot')
         button = next(button for button in self.walk(win, self.ttk.Button)
-                      if str(button.cget('text')) == '保存这条')
+                      if str(button.cget('text')) == '保存')
         button.invoke()
         self.assertIn('Moonshot', tuple(str(item) for item in win._pet_provider_box.cget('values')))
 
-    def test_the_manager_groups_gpt_entries_and_sorts_rows_by_label(self):
+    def test_the_manager_groups_gpt_entries_and_sorts_cards_by_provider_and_label(self):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
-        tree = win._pet_tree
-
-        def group_rows():
-            rows = [tree.item(row, 'values') for row in tree.get_children()]
-            # 列顺序：功能／Provider／调用方式／模型 ID／显示名…；同一 Provider 只在分组首行写名字。
-            providers, last = {}, ''
-            for row in rows:
-                last = str(row[1]) or last
-                providers[str(row[4])] = last
-            heads = [str(row[1]) for row in rows if str(row[1])]
-            return rows, providers, heads
-
-        # 页签化（R2398）后列表只显示当前调用方式；GPT 厂商的条目分散在 API／Desktop 两页签，
-        # 分别验证：同一 Provider 首行写名＋按名排序、GPT 条目按显示名归组排序。
-        rows, providers, heads = group_rows()
-        self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
-        self.assertEqual(providers['GPT-4o'], 'GPT')
-        gpt = [str(row[4]) for row in rows if providers[str(row[4])] == 'GPT']
-        self.assertEqual(gpt, sorted(gpt, key=str.casefold))
+        cards = win._pet_cards
+        self.assertIn('gpt-4o', cards.item_ids())
+        self.assertEqual(cards.card_widgets()['gpt-4o']._badge['meta'].split(' · ')[0], 'GPT')
         win._pet_mode.set('Desktop')
-        rows, providers, heads = group_rows()
-        self.assertEqual(heads, sorted(set(heads), key=str.casefold), '每个 Provider 只出现一次且按名排序')
-        self.assertEqual(providers['ChatGPT Desktop · Codex'], 'GPT')
-        gpt = [str(row[4]) for row in rows if providers[str(row[4])] == 'GPT']
-        self.assertEqual(gpt, sorted(gpt, key=str.casefold))
+        win.update()
+        self.assertIn('chatgpt-desktop', cards.item_ids())
+        self.assertEqual(cards.card_widgets()['chatgpt-desktop']._badge['meta'].split(' · ')[0], 'GPT')
         self.assertEqual(str(win._pet_manager_hint_label.cget('style')), 'PaleGreenHint.TLabel')
 
-    def test_the_list_shows_the_call_mode_and_leaves_api_details_to_the_form(self):
-        """R2174：列表加一列「调用方式」；根地址／协议／密钥名只在下面表单里看，状态不再重复模型 ID。"""
+    def test_the_list_filters_by_call_mode_and_shows_four_state_badges(self):
+        """REQ-UI-MODEL-PAGE-2：左侧双行卡片按调用方式分流，显示四态徽标与路线概览。"""
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
-        tree = win._pet_tree
-        self.assertEqual([str(tree.heading(key, 'text')) for key in tree['columns']],
-                         ['功能', 'Provider', '调用方式', '模型 ID', '显示名', '能力标签', '状态'])
-        # 页签化（R2398）后列表只显示当前调用方式，分别切页签验证各类调用方式与状态。
-        def by_label():
-            return {str(values[4]): [str(value) for value in values]
-                    for values in (tree.item(row, 'values') for row in tree.get_children())}
-        self.assertEqual(by_label()['GPT-4o'][2], 'API')
+        cards = win._pet_cards
+        self.assertIn('gpt-4o', cards.item_ids())
+        self.assertNotIn('chatgpt-desktop', cards.item_ids())
+        self.assertIn('state', cards.card_widgets()['gpt-4o']._badge)
         win._pet_mode.set('Desktop')
-        rows = by_label()
-        self.assertEqual(rows['ChatGPT Desktop · Codex'][2], 'Desktop')
-        self.assertEqual(rows['ChatGPT Desktop · Codex'][6], '可用', '模型 ID 已有自己一列，状态不再带上')
+        win.update()
+        self.assertIn('chatgpt-desktop', cards.item_ids())
+        self.assertNotIn('gpt-4o', cards.item_ids())
         win._pet_mode.set('CLI')
-        self.assertEqual(by_label()['Claude Code'][2], 'CLI')
-        # 表单切到 Desktop 时列表不跟着藏列：每行的调用方式已经说明哪些信息适用。
-        win._pet_mode.set('Desktop')
-        shown = tuple(str(key) for key in tree['displaycolumns'])
-        self.assertIn(shown, (('#all',), tuple(str(key) for key in tree['columns'])))
+        win.update()
+        self.assertIn('claude-desktop', cards.item_ids())
 
-    def test_only_the_provider_heading_sorts_and_it_flips_the_group_order(self):
-        """列头只有 Provider 可点：其余列头没有排序命令；点 Provider 翻转分组顺序，再点翻回。"""
+    def test_search_filter_narrows_left_cards_without_losing_pool_order(self):
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
-        tree = win._pet_tree
-        for key in tree['columns']:
-            command = str(tree.heading(key, 'command'))
-            self.assertEqual(bool(command), key == 'provider', key)
+        manager = win._pet_reload.__self__
+        before = win._pet_cards.item_ids()
+        self.assertGreaterEqual(len(before), 3)
+        manager.search_entry.insert(0, 'DeepSeek')
+        manager.load_rows(refresh=False)
+        filtered = win._pet_cards.item_ids()
+        self.assertTrue(filtered)
+        self.assertTrue(all('deepseek' in mid for mid in filtered))
 
-        def heads():
-            return [str(tree.item(row, 'values')[1]) for row in tree.get_children()
-                    if str(tree.item(row, 'values')[1])]
-        before = heads()
-        tree.tk.call(tree.heading('provider', 'command'))
-        self.assertEqual(heads(), sorted(set(before), key=str.casefold, reverse=True))
-        tree.tk.call(tree.heading('provider', 'command'))
-        self.assertEqual(heads(), before)
-
-    def test_the_form_pairs_fields_on_one_row_with_short_boxes(self):
-        """表单：调用方式｜Provider、模型 ID｜显示名、上下文长度｜备注各占一行，下拉框与输入框定宽不拉长。"""
+    def test_the_form_stacks_fields_top_down_and_folds_advanced_params(self):
+        """REQ-UI-MODEL-PAGE-2：右侧自上而下单列输入，核心字段竖向对齐，高级参数默认折叠。"""
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         win.update_idletasks()
-        form = win._pet_provider_box.master
-        entries, labels = win._pet_entries, win._pet_labels
-
-        def row_of(widget):
-            return int(widget.grid_info()['row'])
-        self.assertEqual(row_of(win._pet_provider_box), 0)
-        self.assertEqual(row_of(entries['model']), row_of(entries['label']))
-        self.assertEqual(row_of(entries['context_length']), row_of(entries['note']))
-        self.assertLess(row_of(win._pet_provider_box), row_of(entries['model']))
-        self.assertLess(row_of(entries['model']), row_of(entries['base_url']))
-        self.assertEqual(row_of(labels['context_length']), row_of(entries['context_length']))
-        for widget in (win._pet_provider_box, entries['model'], entries['label'],
-                       entries['context_length'], entries['note']):
-            self.assertLess(widget.winfo_reqwidth(), form.winfo_reqwidth() // 2, widget)
+        entries = win._pet_entries
+        card = win._pet_route_cards()[0]
+        self.assertLess(entries['label'].winfo_rooty(), entries['model'].winfo_rooty())
+        self.assertLess(entries['model'].winfo_rooty(), card.base_url_entry.winfo_rooty())
+        self.assertFalse(win._pet_advanced_section.is_open())
 
 
 class CodexDesktopEntryTests(SettingsCase):

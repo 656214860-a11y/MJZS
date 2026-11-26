@@ -1,0 +1,15 @@
+{
+  "round": 4558,
+  "commit_base": "59e70ff15",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_model_routes test_settings_models_redesign test_model_manager_actions test_ui_batch7_settings_models test_pet_settings test_model_pool test_model_probe_layers test_model_failure_route test_model_gateway_robustness test_model_delete_presets test_model_delete_stays_deleted",
+    "exit": 0,
+    "passed": 270,
+    "failed": 0
+  },
+  "generated_at": "2026-11-26T22:24:00"
+}

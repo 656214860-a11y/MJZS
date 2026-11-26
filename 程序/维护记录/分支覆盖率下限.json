@@ -53,6 +53,7 @@
     "model_pool.py": 40.0,
     "model_protocol.py": 100.0,
     "model_router.py": 40.0,
+    "model_routes.py": 25.0,
     "model_secrets.py": 51.0,
     "native_apps.py": 5.0,
     "native_asset_codec.py": 66.0,

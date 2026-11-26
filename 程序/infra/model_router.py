@@ -498,14 +498,10 @@ class AnthropicAdapter(ModelAdapter):
 
 
 class PoolAdapter(ModelAdapter):
-    """池里任意一条模型：地址／协议／模型名／密钥名全照「模型管理」的那一份记录来。
-
-    模型管理是 API 配置的唯一入口——用户在那一栏把地址、协议或密钥名改了，阶段配置挑中这条时
-    就得发到新地方去，所以这里不照着服务商写死一份。一条记录一个适配器：池里的密钥是「每条一个
-    变量名」，合在一个适配器里就没法把 available() 说清楚是哪条缺密钥。
-    """
+    """池里任意一条模型：支持单路线与单模型多有序 API 路线自动故障转移。"""
 
     def __init__(self, record, model_id='', program=None, transport=None, key='', timeout=60):
+        import infra.model_routes as model_routes
         item = model_pool.record(record, model_id)
         model = item['model'] or str(model_id or '')
         super().__init__(program=program, transport=transport, key=key, timeout=timeout)
@@ -514,18 +510,44 @@ class PoolAdapter(ModelAdapter):
         self.base_url = item['base_url']
         self.path = item['path']
         self.wire_api = item['wire_api']
+        self.model_id = str(model_id or model or '')
         self.record = item
+        self.routes = model_routes.routes_of(item, model_id=self.model_id)
         self.models = ({model: {'capabilities': tuple(item['capabilities']),
                                 'cost': int(item['cost'] or 1)}} if model else {})
 
     def credential(self):
-        """密钥只有一处判据：问 model_pool（.env → private/.env → 同名环境变量）。"""
         if self.key:
             return self.key
         try:
             return model_pool.key_of(self.record, self.program)
         except Exception:
             return ''
+
+    def available(self):
+        if self.key:
+            return True
+        if len(self.routes) > 1:
+            import infra.model_routes as model_routes
+            return model_routes.adapter_has_available_route(self)
+        return super().available()
+
+    def chat(self, messages, options=None, model='', system=''):
+        if len(self.routes) <= 1:
+            return super().chat(messages, options=options, model=model, system=system)
+        import infra.model_routes as model_routes
+        import sys
+        return model_routes.execute_route_chat(self, messages, options, model, system, sys.modules[__name__])
+
+    def stream(self, messages, options=None, model='', system='', on_chunk=None, cancelled=None):
+        if len(self.routes) <= 1:
+            return super().stream(messages, options=options, model=model, system=system,
+                                  on_chunk=on_chunk, cancelled=cancelled)
+        import infra.model_routes as model_routes
+        import sys
+        return model_routes.execute_route_stream(
+            self, messages, {'options': options, 'model': model, 'system': system,
+                             'on_chunk': on_chunk, 'cancelled': cancelled}, sys.modules[__name__])
 
 
 class Choice:

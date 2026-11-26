@@ -22,6 +22,7 @@ SHARED_STATE_CAPS = {
     'Panel': 4,  # R2862：总控/预设/模型选择行删除后跨类写入实测 4
     'ProjectFilesPanel': 0,  # R4076：加第三个 Mixin 基类（FilesPanelResizeMixin）后登记；拖动状态只由该 Mixin 写入；只许下降
     'IdeaChatMixin': 2,  # R2505：加第三个 Mixin 基类（IdeaAttachmentsMixin）后按实测登记；只许下降
+    '_ModelManager': 6,  # 模型管理页重构（REQ-UI-MODEL-PAGE-2）拆分 Routes/Actions Mixin 后按实测登记；只许下降
 }
 MIXIN_BASE_THRESHOLD = 3
 

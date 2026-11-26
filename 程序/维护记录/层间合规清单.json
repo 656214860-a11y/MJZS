@@ -87,8 +87,8 @@
         "tests/test_infra_errors.py"
       ],
       "metric": "L1 中 raise 节点异常表达式含 CJK 字符串且异常类型非 contract.infra_errors 族（含其子类）的处数；I6 起生效",
-      "violations": 176,
-      "baseline": 176,
+      "violations": 175,
+      "baseline": 175,
       "note": "I7（本轮）迁移 request_ledger/comfy_service/unit_of_work 三模块 71 处内置异常 raise 至 infra_errors 族（含模块自有子类多重继承兼容），实测 257→186；I9a 迁移 agent/core.command() 4 处至 ProcessError，实测 186→184；I10–I11 续迁下调。"
     },
     {

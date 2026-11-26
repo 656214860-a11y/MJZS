@@ -177,7 +177,7 @@ class PagePaintMetricTests(unittest.TestCase):
             window, desktop = self._make_desktop(td)
             desktop.show(PAGE['script'])
             desktop._fit_pending = True
-            window.update()
+            self._wait_for_paint(window, 'page.paint.script.boot')
             window.update_idletasks()
             window.update()
         snap = app_logging.metrics_snapshot()

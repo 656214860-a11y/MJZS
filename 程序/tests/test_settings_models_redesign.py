@@ -46,10 +46,10 @@ EXPECTED_TABS = (
     ('dev', '开发信息'),
 )
 
+# REQ-UI-MODEL-PAGE-2 已退役旧「模型组/权重」UI 字段，其余 12 个非密钥单行字段均保持 5+ 预设可编辑下拉。
 MODEL_DROPDOWN_FIELDS = (
     'model', 'label', 'base_url', 'key_env', 'context_length', 'note',
-    'rpm', 'group', 'weight', 'max_output', 'temperature', 'timeout',
-    'retries', 'program',
+    'rpm', 'max_output', 'temperature', 'timeout', 'retries', 'program',
 )
 
 SPEECH_FIVE_PLUS_FIELDS = (
@@ -173,7 +173,7 @@ class EmbeddedModelConfigTests(Batch7Case):
             win.geometry(geometry)
             win.update()
             bottom = win.winfo_rooty() + win.winfo_height()
-            for label in ('新建一条', '测试连接', '删除这条', '保存这条', '关闭', '保存'):
+            for label in ('+ 新建模型', '检测全部', '删除', '保存当前', '测试', '关闭', '保存'):
                 btn = _button(win, label)
                 self.assertTrue(btn.winfo_ismapped(), (geometry, label))
                 self.assertLessEqual(btn.winfo_rooty() + btn.winfo_height(), bottom + 1,
@@ -199,11 +199,11 @@ class SpeechTabInModelManagerTests(Batch7Case):
             win._pet_mode_buttons['语音识别'].invoke()
             win.update()
         self.assertEqual(win._pet_mode.get(), '语音识别')
-        for label in ('新建一条', '测试连接', '删除这条', '保存这条'):
+        for label in ('+ 新建模型', '检测全部', '删除'):
             self.assertFalse([b for b in _buttons(win)
                               if str(b.cget('text')) == label and b.winfo_ismapped()],
                              f'切到语音识别时应隐藏模型动作钮 {label}')
-        self.assertFalse(win._pet_tree.winfo_ismapped(), '切到语音识别时应隐藏模型列表')
+        self.assertFalse(win._pet_cards.winfo_ismapped(), '切到语音识别时应隐藏模型卡片列表')
         # 语音识别内嵌面板展示完整控件并可经底部保存
         manager = win._pet_reload.__self__
         speech = manager._speech_panel

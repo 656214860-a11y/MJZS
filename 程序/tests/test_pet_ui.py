@@ -3478,13 +3478,12 @@ class ModelPoolTests(PetTestCase):
         win._pet_entries['model'].insert(0, 'Google Gemini 4 Argon')
         win._pet_provider.set('Google')
         buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
-        buttons['保存这条'].invoke()
+        buttons['保存'].invoke()
         win.update()
         self.assertEqual(win._pet_provider.get(), 'Google')
         records = model_pool.pool(program=self.pet.program)
         picked = next(key for key, item in records.items() if item['model'] == 'Google Gemini 4 Argon')
-        win._pet_tree.selection_set(picked)
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model(picked)
         win.update()
         self.assertEqual(win._pet_provider.get(), 'Google')
         item = records[picked]
@@ -3568,8 +3567,7 @@ class ModelPoolTests(PetTestCase):
         self.addCleanup(win.destroy)
         # 页签化后列表按调用方式过滤：先切到 Desktop 页签，claude-desktop-app 才在列表里。
         win._pet_mode.set('Desktop')
-        win._pet_tree.selection_set('claude-desktop-app')
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('claude-desktop-app')
         win.update()
         self.assertEqual(win._pet_mode.get(), 'Desktop')
         entries = win._pet_entries
@@ -3595,7 +3593,7 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(win._pet_read_form()['call_mode'], 'CLI')
 
     def test_manager_layout_leaves_room_for_the_model_list(self):
-        """说明与标题同一行；表单输入框纵向内边距归零；本地调用时「模型 ID」叫「程序名」。"""
+        """说明与标题同一行；紧凑输入框纵向内边距归零；非密钥表单项为可编辑预设下拉；本地调用时「模型 ID」叫「程序名」。"""
         import pet_models_ui
         from tkinter import ttk
         from ui_widgets import LineInput
@@ -3607,9 +3605,10 @@ class ModelPoolTests(PetTestCase):
         self.assertEqual(len(notes), 1)
         self.assertIn(notes[0].master, [title.master for title in titles], '说明跟在标题右侧，同一行')
         regular = LineInput(win); self.addCleanup(regular.destroy)
-        compact = win._pet_entries['note']
+        compact = win._pet_search_entry
         self.assertIsInstance(compact, pet_models_ui.CompactLineInput)
         self.assertLessEqual(compact.winfo_reqheight(), regular.winfo_reqheight() * 0.7)
+        self.assertEqual(win._pet_entries['note'].winfo_class(), 'TCombobox')
         label = win._pet_labels['model']
         for mode, text in (('Desktop', '程序名'), ('CLI', '程序名'), ('API', '模型 ID')):
             win._pet_mode.set(mode)
@@ -3619,11 +3618,9 @@ class ModelPoolTests(PetTestCase):
         from unittest.mock import patch
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
-        tree = win._pet_tree
         # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
         win._pet_mode.set('Desktop')
-        tree.selection_set('claude-desktop-app')
-        tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('claude-desktop-app')
         win.update()
         # R1423 用户要求：本机 Claude 显示厂商名，表单仍是应用路径
         self.assertEqual(win._pet_provider.get(), 'anthropic')
@@ -3635,15 +3632,14 @@ class ModelPoolTests(PetTestCase):
         buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
         with patch('model_pool.probe', side_effect=AssertionError('desktop must not use HTTP')):
             buttons['检查程序'].invoke()
-        buttons['保存这条'].invoke()
+        buttons['保存'].invoke()
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['program'], str(executable))
         self.assertEqual(model_pool.pool(program=self.pet.program)['claude-desktop-app']['call_mode'], 'Desktop')
         win._pet_mode.set('API')
-        tree.selection_set('gpt-4o')
-        tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('gpt-4o')
         win.update()
         self.assertFalse(win._pet_program_row.winfo_manager())
-        self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
+        self.assertTrue(all(w.winfo_manager() for w in win._pet_api_controls))
 
     def test_typing_model_id_automatically_searches_after_debounce(self):
         import tkinter as tk
@@ -3667,11 +3663,9 @@ class ModelPoolTests(PetTestCase):
         """R1423：本机 Claude 选 anthropic 仍是应用路径表单，存储协议仍为 desktop。"""
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
-        tree = win._pet_tree
         # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
         win._pet_mode.set('Desktop')
-        tree.selection_set('claude-desktop-app')
-        tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('claude-desktop-app')
         win.update()
         win._pet_provider.set('anthropic')
         win._pet_provider_box.event_generate('<<ComboboxSelected>>')
@@ -3683,13 +3677,13 @@ class ModelPoolTests(PetTestCase):
         win._pet_entries['program'].delete(0, 'end')
         win._pet_entries['program'].insert(0, str(executable))
         buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
-        buttons['保存这条'].invoke()
+        buttons['保存'].invoke()
         saved = model_pool.pool(program=self.pet.program)['claude-desktop-app']
         self.assertEqual(saved['provider'], 'desktop')
         self.assertEqual(saved['program'], str(executable))
         self.assertEqual(saved['wire_api'], 'chat')
-        # 新建一条：模型 ID 是本机引擎、Provider 选 anthropic，同样显示应用路径。
-        buttons['新建一条'].invoke()
+        # 新建模型：模型 ID 是本机引擎、Provider 选 anthropic，同样显示应用路径。
+        buttons['+ 新建模型'].invoke()
         win._pet_entries['model'].insert(0, 'claude-desktop-app')
         win._pet_entries['model'].event_generate('<KeyRelease>')
         win._pet_provider.set('anthropic')
@@ -3704,14 +3698,14 @@ class ModelPoolTests(PetTestCase):
         win._pet_provider.set('anthropic')
         win.update()
         self.assertFalse(win._pet_program_row.winfo_manager())
-        self.assertTrue(all(w.winfo_manager() == 'grid' for w in win._pet_api_controls))
+        self.assertTrue(all(w.winfo_manager() for w in win._pet_api_controls))
 
     def test_cli_entry_pointing_at_claude_desktop_gui_is_rejected(self):
         """R1425：命令行 Claude 条目不能保存为 Claude Desktop 图形程序路径。"""
         win = self.pet.open_model_manager()
         self.addCleanup(win.destroy)
         buttons = {str(w.cget('text')): w for w in self._walk(win, self.ttk.Button)}
-        buttons['新建一条'].invoke()
+        buttons['+ 新建模型'].invoke()
         win._pet_mode.set('CLI')
         entries = win._pet_entries
         entries['label'].insert(0, 'Claude Code Cli')
@@ -3723,7 +3717,7 @@ class ModelPoolTests(PetTestCase):
         gui.write_bytes(b'test executable; never launched')
         entries['program'].delete(0, 'end')
         entries['program'].insert(0, str(gui))
-        buttons['保存这条'].invoke()
+        buttons['保存'].invoke()
         self.assertIn('图形界面', win._pet_hint.get())
         self.assertNotIn('claude code', model_pool.pool(program=self.pet.program))
 
@@ -3875,7 +3869,7 @@ class ModelPoolTests(PetTestCase):
         self.pet.save_pool({'label': '删除目标', 'model': 'delete-target',
                             'base_url': 'http://127.0.0.1:8000/v1', 'key_env': '', 'wire_api': 'chat'})
         win._pet_reload()
-        win._pet_tree.selection_set('delete-target')
+        win._pet_select_model('delete-target')
         self.assertEqual(win._pet_delete_one(), 'delete-target')
         self.assertNotIn('delete-target', self.pet.agent_model_records())
         self.assertNotIn('delete-target', model_pool.pool(program=self.pet.program))
@@ -3886,26 +3880,24 @@ class ModelPoolTests(PetTestCase):
         self.pet.asker = lambda _title, _text: True
         # 页签化后列表按调用方式过滤：先切 Desktop 页签才能选到 claude-desktop-app。
         win._pet_mode.set('Desktop')
-        win._pet_tree.selection_set('claude-desktop-app')
+        win._pet_select_model('claude-desktop-app')
         self.assertEqual(win._pet_delete_one(), 'claude-desktop-app')
         self.assertNotIn('claude-desktop-app', self.pet.agent_model_records())
         self.assertNotIn('claude-desktop-app', model_pool.pool(program=self.pet.program))
         win._pet_reload()
-        self.assertNotIn('claude-desktop-app', win._pet_tree.get_children())
+        self.assertNotIn('claude-desktop-app', win._pet_cards.item_ids())
 
     def test_save_and_close_right_after_delete_does_not_save_it_back(self):
-        """R2166：删完表单还停在那一条，紧接着点「保存并关闭」会把它按表单内容存回模型池。
+        """R2166：删完表单还停在那一条，紧接着保存并关窗不得把它按表单内容存回模型池。
 
-        R2167 起底栏的「保存并关闭」拆成了「保存这条」和只关窗的「关闭」；
-        R4394(DES《05》§15.2) 把只关窗的那颗改名「取消」，这里依次点「保存这条」与「取消」。"""
+        REQ-UI-MODEL-PAGE-2（2026-11-26 重构）：底栏已取消，右顶栏为「保存」，关窗统一经 ×／Esc（`_pet_cancel`）。"""
         win = self.pet.open_model_manager()
         self.addCleanup(lambda: win.winfo_exists() and win.destroy())
         self.pet.asker = lambda _title, _text: True
         self.pet.save_pool({'label': '删后关窗', 'model': 'delete-then-close',
                             'base_url': 'http://127.0.0.1:8000/v1', 'key_env': '', 'wire_api': 'chat'})
         win._pet_reload()
-        win._pet_tree.selection_set('delete-then-close')
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('delete-then-close')
         self.assertEqual(win._pet_entries['model'].get(), 'delete-then-close')
         self.assertEqual(win._pet_delete_one(), 'delete-then-close')
         self.assertEqual(win._pet_entries['model'].get(), '', '删掉之后表单不能还停在那一条')
@@ -3918,9 +3910,9 @@ class ModelPoolTests(PetTestCase):
         def button(text):
             return [child for child in walk(win)
                     if child.winfo_class() == 'TButton' and str(child.cget('text')) == text][0]
-        button('保存这条').invoke()
+        button('保存').invoke()
         self.assertNotIn('delete-then-close', model_pool.pool(program=self.pet.program))
-        button('取消').invoke()
+        win._pet_cancel()
         self.assertFalse(win.winfo_exists())
         self.assertNotIn('delete-then-close', model_pool.pool(program=self.pet.program))
 
@@ -3931,8 +3923,7 @@ class ModelPoolTests(PetTestCase):
         self.pet.save_pool({'label': '自定义 GPT', 'model': 'custom-gpt',
                             'provider': '我的厂商', 'base_url': 'https://example.invalid/v1'})
         win._pet_reload()
-        win._pet_tree.selection_set('custom-gpt')
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('custom-gpt')
         self.win.update_idletasks()
         self.assertEqual(win._pet_provider.get(), '我的厂商')
 
