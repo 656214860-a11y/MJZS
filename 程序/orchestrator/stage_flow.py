@@ -59,7 +59,7 @@ OWN_ORDER = list(STAGES)
 # 依赖图（附件四第 5 条那条链）：后一步要看前一步有没有成。只登记硬依赖——
 # 「视频生成」要首帧，「配音」要定稿资产，「剪辑」要成片，「交付」要粗剪。
 DEPENDS = {'script': (), 'script_structure': ('script',), 'storyboard': ('script_structure',),
-           'animatic': ('storyboard',), 'assets': ('animatic',),
+           'animatic': ('storyboard',), 'assets': ('storyboard',),
            'continuity': ('assets',), 'final': ('storyboard',), 'keyframe': ('final',),
            'previs': ('keyframe',), 'video': ('keyframe',), 'audio': ('final',),
            'edit': ('video', 'audio'), 'delivery': ('edit',)}
@@ -306,7 +306,7 @@ def blockers(project, stage):
 
     第 63 期任务 3.2 又加了一条同样的口径：上游**真的做了却没做全**（资产没锁完、台账没
     生成、批次没划完……）时也挡住，并说清缺什么、去哪儿补；旧门禁上游没开始时照旧放行。
-    新增 SG-A / SG-B 为强制门禁：缺初稿不能预演，缺预演确认不能投入资产。
+    新增 SG-A 为强制入口闸（缺初稿不能预演），SG-B 对手动资产改为提醒型不拦截（REQ-S05-53）。
 
     没打开项目时没有状态可看，门禁也无从查起（各门禁检查要读项目文件，传 None 会抛
     TypeError），按「读不出来就当空」处理，与 state_of／selected_skills 同一口径。

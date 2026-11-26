@@ -345,7 +345,9 @@ class _AssetBatchWindow:
         from infra.asset_prompt_rules import issues
         from stage_execution_service import require_formal_asset_generation
         options=self.work_options()
-        require_formal_asset_generation(self.project, online_model=self.backend.get() in self.MODELS)
+        advisory=require_formal_asset_generation(self.project, online_model=self.backend.get() in self.MODELS)
+        if isinstance(advisory, str) and advisory:
+            self.status.set(advisory);self.app.status.set(advisory)
         decision=self.controller.start_decision(
             self.app.root==self.project and self.app.current_frame_json()==self.source and self.app.asset_scope()==self.scope and self.app.asset_sources()==self.sources,
             self.enabled(), issues, options, self.backend.get(), None if self.skill_mode else self.LOCAL, uncertain_assets(self.project))

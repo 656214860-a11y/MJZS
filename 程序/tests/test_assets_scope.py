@@ -24,9 +24,10 @@ def write_json(path, data):
 
 class AssetsScopeTests(unittest.TestCase):
     def test_req_s05_02_assets_depends_on_animatic_and_sg_b_guards_entry(self):
-        self.assertEqual(stage_flow.DEPENDS['assets'], ('animatic',))
+        self.assertEqual(stage_flow.DEPENDS['assets'], ('storyboard',))
         gate = next(row for row in stage_parallel.GATES if row['id'] == 'SG-B')
         self.assertEqual((gate['from'], gate['to']), ('animatic', 'assets'))
+        self.assertTrue(gate.get('advisory'))
         self.assertEqual(stage_flow.DEPENDS['continuity'], ('assets',))
 
     def test_req_s05_10_asset_id_prefixes(self):

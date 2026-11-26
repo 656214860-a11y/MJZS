@@ -252,8 +252,7 @@ class SummaryTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             proj = self.project(td)
             for stage in ('storyboard', 'assets', 'final', 'keyframe'):
-                expected = ['animatic'] if stage == 'assets' else []
-                self.assertEqual(self.module.blockers(proj, stage), expected)
+                self.assertEqual(self.module.blockers(proj, stage), [])
             self.assertEqual(self.module.blockers(proj, 'animatic'), ['storyboard'])
 
     def test_the_graph_starts_at_the_script(self):

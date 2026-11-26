@@ -206,6 +206,26 @@ class AssetBatchFinishStaysOnPageTests(unittest.TestCase):
         self.assertEqual(window.app.shown, [])
         window.app.status.set.assert_called_with(self.RESULT)
 
+    def test_req_s05_53_start_writes_sg_b_advisory_to_status_bar(self):
+        """REQ-S05-53：未锁定分镜预演时，批量生图启动把提醒写入状态栏且不阻塞启动。"""
+        window = mock.MagicMock()
+        window.app = _Host('项目甲', PAGE_OF['assets'])
+        window.project = '项目甲'
+        window.skill_mode = False
+        window.events = queue.Queue()
+        window.checks = {}
+        window.work_options.return_value = {'url': 'http://127.0.0.1:8188'}
+        window.controller.start_decision.return_value = SimpleNamespace(items=[], uncertain_ids=[])
+        note = '提示：尚未锁定分镜预演，将先按已采用分镜制作资产'
+        with mock.patch('stage_execution_service.require_formal_asset_generation', return_value=note), \
+                mock.patch.object(asset_batch, 'uncertain_assets', return_value=[]), \
+                mock.patch.object(asset_batch, 'Comfy'), \
+                mock.patch.object(asset_batch, 'save_settings',
+                                  return_value=SimpleNamespace(ok=True, reason='')):
+            asset_batch._AssetBatchWindow.start(window)
+        window.status.set.assert_any_call(note)
+        window.app.status.set.assert_any_call(note)
+
 
 class DeleteConfirmCopyTests(unittest.TestCase):
     """UX-S05-54／55：删图确认文案接引用摘要；封装抛错退回纯文案。"""

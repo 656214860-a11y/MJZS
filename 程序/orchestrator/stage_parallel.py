@@ -11,9 +11,7 @@
 三条判定口径（照 app 一直的规矩来）：
 
 1. 并行只给「生成类」阶段（分镜、资产、首帧、预演、视频、配音），校验／编排类一律单 Agent（并行度 1）；
-2. 门禁只拦**上游真的做了却没做全**的情况。上游压根没开始时不拦——从第 47 期起就是「用户想先做
-   哪一步就做哪一步」，门禁不该把空项目锁死；
-3. 并发上限是硬上限（全局 8，单阶段按表），挡下来的活儿排队降速，直接丢掉。
+2. 门禁只拦上游做了却没做全的情况（未开始不拦；SG-B 对手动资产为提醒型）；并发上限硬控全局 8。
 """
 import json
 import logging
@@ -512,13 +510,11 @@ def log_line(row):
     return '%s　%s　%s　%s　%s' % (row.get('time', ''), row.get('stage_name') or row.get('stage', ''),
                                   row.get('task', ''), row.get('status', ''), row.get('detail', ''))
 
-# ── 四、阶段间门禁（附件任务3.2：上游产出不全就挡住，不让往下走） ───────────────────
-# 每条门禁查三件事：上游输出 JSON 是否完整、关键字段是否齐全、有没有未处理的错误。
-# 判定口径见模块头第 2 条：上游**真的做了**却没做全才拦；压根没开始不拦。
+# ── 四、阶段间门禁（上游做了没做全才拦；未开始不拦；SG-B 对手动入口为提醒型） ──
 GATES = (
     {'id': 'SG-A', 'from': 'storyboard', 'to': 'animatic', 'title': '分镜初稿完成', 'check': 'animatic_input_ready',
      'condition': '已采用分镜初稿，镜头提示词和时长完整', 'reject': '先完成并采用初步分镜'},
-    {'id': 'SG-B', 'from': 'animatic', 'to': 'assets', 'title': '分镜预演确认', 'check': 'animatic_ready',
+    {'id': 'SG-B', 'from': 'animatic', 'to': 'assets', 'title': '分镜预演确认', 'check': 'animatic_ready', 'advisory': True,
      'condition': 'Animatic 可播放，节奏、时长和对白同步已确认', 'reject': '先完成分镜预演并确认三项检查'},
     {'id': 'SG-01', 'from': 'assets', 'to': 'continuity', 'title': '资产锁定', 'check': 'assets_locked',
      'condition': '资产清单每一项都导入了图片，角色锚点已锁定',
@@ -598,8 +594,8 @@ def _result(row, ok, started, detail, problems=(), artifacts=()):
     return {'id': row['id'], 'from': row['from'], 'to': row['to'], 'title': row['title'],
             'condition': row['condition'], 'reject': row['reject'], 'ok': ok,
             'started': started, 'verdict': verdict, 'mode': BROWSE, 'exempt': False,
-            'missing': (), 'detail': str(detail or ''), 'problems': tuple(problems),
-            'artifacts': tuple(str(item) for item in artifacts)}
+            'advisory': bool(row.get('advisory')), 'missing': (), 'detail': str(detail or ''),
+            'problems': tuple(problems), 'artifacts': tuple(str(item) for item in artifacts)}
 
 
 def blocked_text(result):
@@ -682,9 +678,14 @@ def animatic_input_ready(project):
 
 
 def animatic_ready(project):
-    from domain.animatic_service import evidence
+    from contract.stage_path_service import write_dir
+    from domain.animatic_service import MANIFEST, evidence
+    row = gate_for('assets')
+    ran = stage_state(project, 'animatic') in ('running', 'success', 'failed', 'retrying')
+    if not (ran or (write_dir(Path(project).resolve(), 'animatic') / MANIFEST).is_file()):
+        return _result(row, True, False, '分镜预演尚未开始，可先制作资产后再回预演确认')
     ok, reason = evidence(project)
-    return _result(gate_for('assets'), ok, True, reason or '分镜预演三项确认通过')
+    return _result(row, ok, True, reason or '分镜预演三项确认通过')
 
 
 def assets_locked(project):
@@ -936,9 +937,9 @@ def evaluate(project, stage, *, mode=BROWSE):
 
 
 def blocked_stages(project, stage):
-    """这一步被哪些上游阶段挡住（只算真的做了却没做全的）。stage_flow.blockers 用它。"""
+    """这一步被哪些上游阶段挡住（只算真的做了却没做全的；提醒型门禁不阻断手动入口）。"""
     result = evaluate(project, stage)
-    if result['ok'] or not result['started']:
+    if result['ok'] or not result['started'] or result.get('advisory'):
         return ()
     return (result['from'],) if result['from'] else ()
 

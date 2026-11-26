@@ -20,15 +20,15 @@ class AnimaticTests(unittest.TestCase):
         self.assertEqual(shots[0]['seconds'], 10)
 
     def test_formal_assets_require_confirmation_and_online_model(self):
-        """REQ-S04-26：预演不改资产；正式资产仍走线上 API 生成。"""
+        """REQ-S04-26／REQ-S05-53：预演不改资产；正式资产仍须线上 API，未锁预演仅返回提醒不拦截。"""
         from stage_execution_service import require_formal_asset_generation
         with tempfile.TemporaryDirectory() as temporary:
-            with self.assertRaises(ValueError):
-                require_formal_asset_generation(temporary, online_model=True)
-            with patch('stage_parallel.evaluate', return_value={'ok': True}):
+            advisory = require_formal_asset_generation(temporary, online_model=True)
+            self.assertTrue(advisory)
+            with patch('stage_parallel.evaluate', return_value={'ok': True, 'started': True}):
                 with self.assertRaisesRegex(ValueError, '线上 API'):
                     require_formal_asset_generation(temporary, online_model=False)
-                require_formal_asset_generation(temporary, online_model=True)
+                self.assertEqual(require_formal_asset_generation(temporary, online_model=True), '')
 
     def test_animatic_skill_tools_open_the_correct_stage(self):
         import skill_tools

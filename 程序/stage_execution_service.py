@@ -878,13 +878,14 @@ unwrap_project_result = unwrap_service_result
 
 
 def require_formal_asset_generation(project, *, online_model):
-    """生成正式资产前核验 SG-B 与线上模型；纯计划和浏览不受影响。"""
-    import orchestrator.stage_parallel as stage_parallel
-    gate = stage_parallel.evaluate(project, 'assets')
-    if not gate['ok']:
-        raise ValueError(stage_parallel.blocked_text(gate))
+    """生成正式资产前核验线上模型，未锁预演时返回非阻塞状态栏提醒（REQ-S05-53）。"""
     if not online_model:
         raise ValueError('正式资产请选择线上 API 模型；本地草图请在分镜预演阶段生成')
+    import orchestrator.stage_parallel as stage_parallel
+    gate = stage_parallel.evaluate(project, 'assets')
+    if not gate.get('ok') or gate.get('started') is False:
+        return '提示：尚未锁定分镜预演，将先按已采用分镜制作资产'
+    return ''
 
 
 def save_writing_production_locks(project, values, *, attachment_signature=None):

@@ -334,9 +334,12 @@ class ReqS04AnchorTests(unittest.TestCase):
             self.assertFalse(service.evidence(root)[0])
 
     def test_req_s04_42_sg_b_reuses_the_same_completion_verification(self):
-        """REQ-S04-42：SG-B 与阶段完成核验共用 animatic_service.evidence，不另立判定。"""
+        """REQ-S04-42：SG-B 已开始时与阶段完成核验共用 animatic_service.evidence，不另立判定。"""
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
+            marker = write_dir(root, 'animatic') / MANIFEST
+            marker.parent.mkdir(parents=True, exist_ok=True)
+            marker.write_text('{}', encoding='utf-8')
             with patch('domain.animatic_service.evidence', return_value=(False, '同一核验')) as shared:
                 self.assertFalse(stage_parallel.animatic_ready(root)['ok'])
                 self.assertEqual(stage_parallel.animatic_ready(root)['detail'], '同一核验')

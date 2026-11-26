@@ -280,6 +280,79 @@ class ReqS05AnchorTests(unittest.TestCase):
         for stale in ('02_assets', '03_continuity'):
             self.assertNotIn(stale, text)
 
+    def test_req_s05_53_sg_b_advisory_allows_manual_assets_and_keeps_guards(self):
+        """REQ-S05-53：S05 数据依赖回归 storyboard，SG-B 改为提醒型放行手动资产，保留线上模型与自动链门禁。"""
+        import infra.file_cache as file_cache
+        import infra.pet_state as pet_state
+        import stage_flow
+        import stage_parallel
+
+        self.assertEqual(stage_flow.DEPENDS['assets'], ('storyboard',))
+        gate = stage_parallel.gate_for('assets')
+        self.assertEqual(gate['id'], 'SG-B')
+        self.assertTrue(gate.get('advisory'))
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary)
+            # T1：空项目（未做 S04）——浏览放行并标未开始，手动不拦；全自动 PRODUCTION 拦住，标 skipped 后豁免
+            empty = stage_parallel.animatic_ready(root)
+            self.assertTrue(empty['ok'])
+            self.assertFalse(empty['started'])
+            self.assertEqual(empty['verdict'], stage_parallel.UPSTREAM_BLANK)
+            self.assertTrue(empty.get('advisory'))
+            self.assertEqual(stage_flow.blockers(root, 'assets'), [])
+            self.assertFalse(stage_parallel.production_ready(root, 'assets')['ok'])
+
+            advisory = require_formal_asset_generation(root, online_model=True)
+            self.assertIsInstance(advisory, str)
+            self.assertIn('分镜预演', advisory)
+            with self.assertRaisesRegex(ValueError, '线上 API 模型'):
+                require_formal_asset_generation(root, online_model=False)
+
+            machine = pet_state.Machine(root, persist=True).load()
+            machine.stages['animatic'] = {'state': 'skipped'}
+            machine.save()
+            exempt = stage_parallel.production_ready(root, 'assets')
+            self.assertTrue(exempt['ok'])
+            self.assertTrue(exempt['exempt'])
+
+            # T2：S04 已生成未锁定——animatic_ready 为 ok=False, started=True，但 advisory 不拦手动入口
+            source = root / '03初步分镜' / '分镜拆分' / 'ep1.json'
+            _write(source, {'episode_id': 'EP001', 'shots': [
+                {'id': 'SH001', 'duration': 3, 'image_prompt': '街角背影',
+                 'characters': ['CHAR_001'], 'location': 'LOC_001'}]})
+            _write(root / 'ui_settings.json', {'adopted_storyboards': ['03初步分镜/分镜拆分/ep1.json']})
+            folder = write_dir(root, 'animatic')
+            folder.mkdir(parents=True, exist_ok=True)
+            files = {}
+            for name, payload in (('preview.mp4', b'video'), ('temp.wav', b'audio'), ('SH001.png', b'png')):
+                (folder / name).write_bytes(payload)
+                files[name] = file_cache.file_digest(folder / name)
+            manifest = {
+                'kind': 'animatic', 'source': '03初步分镜/分镜拆分/ep1.json',
+                'source_sha256': file_cache.file_digest(source),
+                'video': 'preview.mp4', 'audio': 'temp.wav', 'files': files,
+                'shots': [{'id': 'SH001', 'image': 'SH001.png'}],
+                'confirmed': {'rhythm': False, 'duration': False, 'dialogue_sync': False},
+            }
+            _write(folder / animatic_service.MANIFEST, manifest)
+
+            unconfirmed = stage_parallel.animatic_ready(root)
+            self.assertFalse(unconfirmed['ok'])
+            self.assertTrue(unconfirmed['started'])
+            self.assertEqual(stage_parallel.blocked_stages(root, 'assets'), ())
+            self.assertFalse(stage_parallel.production_ready(root, 'assets')['ok'])
+            advisory2 = require_formal_asset_generation(root, online_model=True)
+            self.assertTrue(advisory2)
+
+            # S04 三项确认锁定后：SG-B 通过，不再返回提醒
+            manifest['confirmed'] = {'rhythm': True, 'duration': True, 'dialogue_sync': True}
+            _write(folder / animatic_service.MANIFEST, manifest)
+            locked = stage_parallel.animatic_ready(root)
+            self.assertTrue(locked['ok'])
+            self.assertTrue(locked['started'])
+            self.assertEqual(require_formal_asset_generation(root, online_model=True), '')
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)
