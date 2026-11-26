@@ -9,8 +9,10 @@ import infra.file_cache as file_cache
 import stage_execution_service
 from contract.platform_tools import ExecutionStopped
 from contract.stage_path_service import write_dir
-from domain import animatic_audio
+from domain import animatic_audio, animatic_timeline
+from domain.animatic_references import CATEGORIES, UNCATEGORIZED
 from domain.animatic_service import CONFIRMATIONS, MANIFEST
+from infra import file_index
 from ui_tokens import DESKTOP_LAYOUT, SPACING
 
 _REDO = re.compile(r'重做[^0-9a-zA-Z]{0,8}sh?\s*(\d+)', re.IGNORECASE)
@@ -133,6 +135,20 @@ _TIMELINE_COMPACT_THUMB_SIZE = SPACING['2xl']
 _PLAYER_COMPACT_HEIGHT = SPACING['2xl'] * 4
 _PLAYER_COMPACT_COVER_SIZE = SPACING['2xl'] * 3
 _PLAYER_REGULAR_COVER_SIZE = 160
+_SPLIT_MIN_WIDTH = 1200
+
+SCENE_ALL_LABEL = '全部场次'
+TIMELINE_STATUS_FILTERS = (
+    ('all', '全部'),
+    ('needs_revision', '需修改'),
+    ('overlong', '对白超长'),
+    ('missing_image', '缺草图'),
+)
+EMPTY_GUIDE_STEPS = (
+    '1. 在页顶选择草图引擎（默认「文字分镜卡·零成本」，开箱即可合成）',
+    '2. 可选导入参考图或临时声音（已自动优先复用 S05 正式资产图）',
+    '3. 点击「生成分镜预演」或按底栏发送键直接生成动态分镜',
+)
 
 
 def animatic_viewport_compact(win):
@@ -143,10 +159,17 @@ def animatic_viewport_compact(win):
     return height < DESKTOP_LAYOUT['compact_below']
 
 
+def animatic_viewport_split(win):
+    """REQ-S04-116：宽屏 >=1200px 启用左右分栏，窄屏或紧凑高度自动上下堆叠。"""
+    width = _quiet(win.winfo_width, 0) if win is not None else 0
+    return width >= _SPLIT_MIN_WIDTH and not animatic_viewport_compact(win)
+
+
 def animatic_layout_metrics(win):
     compact = animatic_viewport_compact(win)
     return {
         'compact': compact,
+        'split': animatic_viewport_split(win),
         'player_height': _PLAYER_COMPACT_HEIGHT if compact else None,
         'cover_size': (_PLAYER_COMPACT_COVER_SIZE if compact
                        else _PLAYER_REGULAR_COVER_SIZE),
@@ -155,6 +178,39 @@ def animatic_layout_metrics(win):
         'thumb_size': (_TIMELINE_COMPACT_THUMB_SIZE if compact
                        else _TIMELINE_THUMB_SIZE),
     }
+
+
+def scene_filter_options(board):
+    """提取分镜中的去重场次列表，首项为「全部场次」。"""
+    found = []
+    for row in (board or {}).values():
+        if not isinstance(row, dict):
+            continue
+        label = str(row.get('scene_id') or row.get('scene') or row.get('location') or '').strip()
+        if label and label not in found:
+            found.append(label)
+    return (SCENE_ALL_LABEL, *found)
+
+
+def filtered_timeline_shots(state):
+    """REQ-S04-115/116：按当前场次与状态筛选时间线镜头。"""
+    scene = str(state.get('filter_scene') or '').strip()
+    if scene == SCENE_ALL_LABEL:
+        scene = ''
+    status = str(state.get('filter_status') or 'all').strip() or 'all'
+    return animatic_timeline.filter_shots(
+        state.get('timeline'), state.get('board'), scene=scene, status=status)
+
+
+def shot_cell_caption(row):
+    """镜头格标题：镜号·时长，已通过或需修改时附紧凑审核角标。"""
+    base = '%s · %s 秒' % (row.get('id'), row.get('seconds'))
+    status = animatic_timeline.review_status_of(row)
+    if status == 'needs_revision':
+        return base + ' · 需修改'
+    if status == 'approved':
+        return base + ' · 通过'
+    return base
 
 
 def parse_animatic_command(text):
@@ -540,3 +596,286 @@ def _register_panel(page, state):
     menus = getattr(panel, 'set_menu_handler', None)
     if callable(menus):
         menus('animatic', state['menu_fn'])
+
+
+def _update_summary(page, state):
+    library = _quiet(lambda: stage_execution_service.animatic_reference_library(
+        state['project']), {})
+    formal = _quiet(lambda: stage_execution_service.formal_animatic_assets(
+        state['project']), {})
+    formal_count = sum(len(v) for v in formal.values()) if isinstance(formal, dict) else 0
+    segment = format_status_summary(
+        state['timeline'], library if isinstance(library, dict) else {},
+        _audio_mode(state), state.get('version_tag'), state.get('confirmed'),
+        formal_count=formal_count)
+    setter = getattr(page, 'set_status_segment', None)
+    if callable(setter):
+        setter('animatic_note', segment, tooltip=segment)
+
+
+def _locked(page, state):
+    if not _is_alive(page, state):
+        return
+    page.status.set('分镜预演已锁定，可以进入资产管理')
+    _reply_note(page, 'reply', '分镜预演已锁定；分镜时长已回写，可以进入资产管理')
+    report = getattr(page, 'pet_report', None)
+    if getattr(page, 'root', None) == state['project'] and callable(report):
+        report('animatic', '节奏、时长与对白同步均已确认')
+    state['confirmed'] = True
+    _update_summary(page, state)
+
+
+def _lock_finished(page, state, outcome):
+    if not _is_alive(page, state):
+        return
+    if _task_payload(page, outcome, '锁定分镜预演') is not _TASK_FAILED:
+        _locked(page, state)
+
+
+def _reclassify(page, state, path, category):
+    result = _safe_call(page, lambda: stage_execution_service.reclassify_animatic_reference(
+        state['project'], path, category))
+    if result is not None:
+        page.status.set('参考图已改分类：%s' % category)
+        _refresh_files_panel(page)
+
+
+def _rename_reference(page, state, path, value):
+    """修改参考图对应名：保留原扩展名，留在原分类，用文件名参与角色／场景匹配。"""
+    path = Path(path)
+    category = path.parent.name if path.parent.name in CATEGORIES else UNCATEGORIZED
+    name = str(value or '').strip()
+    if name and not Path(name).suffix:
+        name += path.suffix.lower()
+    result = _safe_call(page, lambda: stage_execution_service.reclassify_animatic_reference(
+        state['project'], path, category, new_name=name))
+    if result is not None:
+        try:
+            display = Path(result).name
+        except (TypeError, ValueError):
+            display = name
+        page.status.set('参考图已改名：%s' % display)
+        _refresh_files_panel(page)
+
+
+def _after_sketch(page, state, outcome):
+    if not _is_alive(page, state):
+        return
+    result = _task_payload(page, outcome, '生成参考草图')
+    if result is _TASK_FAILED:
+        return
+    ok = getattr(result, 'ok', result is not None)
+    if ok:
+        page.status.set('已生成共享参考草图')
+        data = getattr(result, 'data', result)
+        if isinstance(data, (str, Path)):
+            paths = (data,)
+        else:
+            paths = tuple(data or ()) if isinstance(data, (list, tuple)) else ()
+        if paths:
+            name = Path(str(paths[0])).name
+            _reply_note(page, 'artifact', '共享参考草图已生成：%s' % name,
+                        path=str(paths[0]), title=name)
+        else:
+            _reply_note(page, 'reply', '共享参考草图已生成')
+    else:
+        message = str(getattr(result, 'reason', '参考草图生成失败'))
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
+    _update_summary(page, state)
+
+
+def _apply_sketch(page, state, value):
+    prompt = str(value or '').strip()
+    if not prompt:
+        return False
+    settings = getattr(page, 'settings', None) or {}
+    model = str(settings.get('animatic_reference_model') or '').strip()
+    if not model:
+        message = '请先在设置里配置参考图模型名'
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
+        return False
+    url = settings.get('comfy_url')
+    _reply_note(page, 'user', '本地生成参考草图：%s' % prompt)
+    accepted = _run_async(
+        page,
+        lambda: stage_execution_service.generate_animatic_reference(
+            state['project'], prompt, model, {'url': url} if url else {}),
+        lambda result: _after_sketch(page, state, result), label='正在生成参考草图…')
+    if accepted:
+        _reply_note(page, 'progress', '正在生成参考草图…', expand=True)
+    return accepted
+
+
+def _open_shot_dir(page, state, shot_id):
+    """打开当前镜头的草图目录（若尚未生成则退回 04分镜预演 目录）。"""
+    folder = _shot_dir(state, shot_id) if shot_id else write_dir(state['project'], 'animatic')
+    target = folder if folder.is_dir() else write_dir(state['project'], 'animatic')
+    target.mkdir(parents=True, exist_ok=True)
+    services = getattr(page, 'media_page_services', None)
+    opener = getattr(services, 'open_path', None)
+    if callable(opener):
+        _safe_call(page, lambda: opener(target))
+
+
+def _import_references_dialog(page, state):
+    """右栏直达入口：弹出文件选择导入参考图并自动按分镜角色／场景归类。"""
+    dialog = getattr(page, 'file_dialog', None)
+    opener = getattr(dialog, 'open_files', None)
+    if not callable(opener):
+        return False
+    paths = opener(parent=getattr(page, 'win', None), title='导入参考图',
+                   filetypes=[('图片', '*.png *.jpg *.jpeg *.webp')])
+    if not paths:
+        return False
+    images = [Path(p) for p in paths if Path(p).suffix.lower() in file_index.IMAGE_SUFFIXES]
+    if not images:
+        page.status.set('请选择 PNG、JPEG 或 WebP 图片')
+        return False
+    characters, locations = _board_names(state.get('board'))
+    imported = _safe_call(
+        page, lambda: stage_execution_service.import_animatic_reference_library(
+            state['project'], images, characters=characters, locations=locations))
+    if imported is None:
+        return False
+    page.status.set('已导入 %d 张参考图' % len(imported) if imported else '所选参考图已存在，无需重复导入')
+    _refresh_files_panel(page)
+    _update_summary(page, state)
+    return True
+
+
+def _dispatch_generate(page, state, text, on_refresh):
+    """整片合成后台派发（供 animatic_page.run_command 委派）。"""
+    spoken = str(text or '').strip()
+    _reply_note(page, 'user', spoken or '生成分镜预演')
+    source = Path(state['project']) / state['source'] if state.get('source') else None
+
+    def done(outcome):
+        if not _is_alive(page, state):
+            return
+        result = _task_payload(page, outcome, '合成分镜预演')
+        if result is _TASK_FAILED:
+            return
+        if result:
+            name = Path(str(result)).name
+            _reply_note(page, 'artifact', '分镜预演已生成：%s' % name,
+                        path=str(result), title=name)
+        on_refresh()
+
+    accepted = _run_async(
+        page,
+        lambda: stage_execution_service.run_animatic_timeline(
+            state['project'], source=source, settings=_animatic_settings(page)),
+        done, label='正在合成分镜预演…')
+    if accepted:
+        _reply_note(page, 'progress', '正在合成分镜预演…', expand=True)
+    return accepted
+
+
+def _dispatch_redo_shot(page, state, shot_id, on_refresh):
+    """单镜重做后台派发。"""
+    _reply_note(page, 'user', '重做这一镜：%s' % shot_id)
+
+    def done(outcome):
+        if not _is_alive(page, state):
+            return
+        result = _task_payload(page, outcome, '重做 %s' % shot_id)
+        if result is _TASK_FAILED:
+            return
+        if result:
+            rows = result.get('shots') if isinstance(result, dict) else []
+            row = next((item for item in rows or []
+                        if isinstance(item, dict) and item.get('id') == shot_id), {})
+            version = row.get('image_version')
+            _reply_note(page, 'progress', '%s 已重做完成%s' % (
+                shot_id, '，当前图版本 v%s' % version if version else ''))
+        on_refresh()
+
+    accepted = _run_async(
+        page,
+        lambda: stage_execution_service.regenerate_animatic_shot(
+            state['project'], shot_id, settings=_animatic_settings(page)),
+        done, label='正在重做 %s' % shot_id)
+    if accepted:
+        _reply_note(page, 'progress', '正在重做 %s…' % shot_id, expand=True)
+    return accepted
+
+
+def _dispatch_redo_revisions(page, state, on_refresh):
+    """REQ-S04-115：批量重做全部「需修改」镜头后台派发。"""
+    _reply_note(page, 'user', '重做全部需修改镜头')
+
+    def done(outcome):
+        if not _is_alive(page, state):
+            return
+        if _task_payload(page, outcome, '重做需修改镜头') is _TASK_FAILED:
+            return
+        page.status.set('已重做全部需修改镜头')
+        _reply_note(page, 'progress', '已重做全部需修改镜头并重置为待审')
+        on_refresh()
+
+    accepted = _run_async(
+        page,
+        lambda: stage_execution_service.regenerate_revision_shots(
+            state['project'], settings=_animatic_settings(page)),
+        done, label='正在重做需修改镜头…')
+    if accepted:
+        _reply_note(page, 'progress', '正在重做全部需修改镜头…', expand=True)
+    return accepted
+
+
+def _dispatch_lock(page, state):
+    """三项未勾全只写状态栏；全勾后走 L3 锁定事务（含需修改拦截）。"""
+    if not all(var.get() for var in state['checks'].values()):
+        message = '请先勾选三项确认再锁定'
+        page.status.set(message)
+        _reply_note(page, 'error', message, expand=True)
+        return
+    _reply_note(page, 'user', '锁定分镜预演')
+    accepted = _run_async(
+        page,
+        lambda: stage_execution_service.lock_animatic(
+            state['project'], rhythm=True, duration=True, dialogue_sync=True),
+        lambda outcome: _lock_finished(page, state, outcome), label='正在锁定分镜预演…')
+    if accepted:
+        _reply_note(page, 'progress', '正在回写分镜时长并锁定预演…', expand=True)
+
+
+def _register_send_key_impl(page, state, run_cmd):
+    """底栏发送键绑定与离页释放。"""
+    shared = getattr(page, 'shared_input', None)
+    register = getattr(shared, 'set_stage_action', None)
+    action, wrapped, previous = None, None, None
+    if callable(register):
+        def action():
+            return run_cmd(shared.text())
+        register('animatic', action)
+        previous = getattr(shared, 'on_send', None)
+
+        def wrapped(value, parsed):
+            ours = getattr(shared, 'stage', 'animatic') == 'animatic'
+            if str(value or '').strip().startswith('/') or not ours:
+                return previous(value, parsed) if callable(previous) else True
+            accepted = run_cmd(value)
+            if accepted:
+                shared.end_request()
+            return accepted
+
+        shared.on_send = wrapped
+
+    def release(event=None):
+        if event is not None and event.widget is not state['frame']:
+            return
+        cancel_debounced_layout(state)
+        if wrapped is not None and getattr(shared, 'on_send', None) is wrapped:
+            shared.on_send = previous
+        if callable(register) and getattr(
+                shared, 'stage_action', lambda _s: None)('animatic') is action:
+            register('animatic', None)
+        setter = getattr(page, 'set_status_segment', None)
+        if callable(setter):
+            setter('animatic_note', '')
+        _release_panel(page, state)
+
+    state['frame'].bind('<Destroy>', release, add='+')

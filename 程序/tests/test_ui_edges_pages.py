@@ -98,7 +98,7 @@ class UiEdgePagesTests(UiEdgeCase):
                 win.destroy()
 
     def test_animatic_page_low_button_layout(self):
-        """REQ-S04-95…99：04 预演页登记发送动作与文件面板挂钩；常驻按钮 ≤1、未生成无确认勾选。"""
+        """REQ-S04-95…99/116：04 预演页登记发送动作与文件面板挂钩；页顶工具条 ≤5 项、未生成无确认勾选。"""
         if self.tk is None:
             self.skipTest(PLATFORM_TKINTER)
         with tempfile.TemporaryDirectory() as td:
@@ -108,25 +108,29 @@ class UiEdgePagesTests(UiEdgeCase):
                 from desktop import Desktop
                 from local_video import open_studio
                 from tkinter import ttk
-                from ui_widgets import PrimaryButton, SecondaryButton
+                from ui_widgets import PrimaryButton, SecondaryButton, SelectBox
                 d = Desktop(win, root=PROGRAM)
                 d.root = proj
                 d.studio = open_studio(proj)
                 d.show(PAGE["animatic"]); win.update_idletasks()
                 self.assertTrue(callable(d.shared_input.stage_action('animatic')),
                                 '04 页发送键应登记 animatic 阶段动作')
-                buttons = []
+                page_frame = next(
+                    (w for w in d.content.winfo_children() if hasattr(w, '_animatic_state')), None)
+                self.assertIsNotNone(page_frame, '04 页应挂出 _animatic_state')
+                toolbar = page_frame._animatic_state.get('toolbar')
+                self.assertIsNotNone(toolbar, '04 页应包含页顶工具条')
+                top_controls = [w for w in toolbar['frame'].winfo_children()
+                                if isinstance(w, (PrimaryButton, SecondaryButton, SelectBox))]
+                self.assertLessEqual(len(top_controls), 5, '04 页页顶工具条顶级入口不得超过 5 项')
                 checks = []
 
                 def walk(widget):
                     for child in widget.winfo_children():
-                        if isinstance(child, (PrimaryButton, SecondaryButton)):
-                            buttons.append(child)
                         if isinstance(child, ttk.Checkbutton):
                             checks.append(child)
                         walk(child)
                 walk(d.content)
-                self.assertLessEqual(len(buttons), 1, '04 页常驻按钮应不超过一颗')
                 self.assertEqual([], checks, '未生成版本时 04 页不得出现确认勾选')
             finally:
                 win.destroy()

@@ -116,29 +116,27 @@ def _match_formal(token, entries):
     return [item for item in entries if name_key in (item.get('name_keys') or ())]
 
 
-def refs_for_shot(shot, lib, *, formal_assets=None):
-    """命中角色图＋命中场景图＋全部风格图（去重保序）；全空退回未分类全部图。
-
-    传入 formal_assets 时（REQ-S04-113）：每个角色／场景优先匹配 S05 已入库正式资产图，
-    未命中再回退共享参考库同类别图，风格图始终附加。
-    """
+def _pick_shot_refs(shot, lib, *, formal_assets=None):
+    """按统一优先级与去重顺序收集命中参考图及来源徽章元数据。"""
     picked, seen = [], set()
 
-    def take(item):
-        key = Path(item['path']).resolve()
+    def take(item, source_label):
+        path = item['path']
+        key = Path(path).resolve()
         if key not in seen:
             seen.add(key)
-            picked.append(item['path'])
+            label = str(item.get('name') or item.get('aid') or Path(path).name).strip()
+            picked.append({'path': path, 'source': source_label, 'label': label})
 
     if formal_assets is None:
         wanted = {normalize_name(name) for name in shot.get('characters', ()) or ()}
         location = normalize_name(shot.get('location', '') or '')
         for item in lib.get('角色', ()):
             if item['stem_key'] in wanted:
-                take(item)
+                take(item, '角色')
         for item in lib.get('场景', ()):
             if location and item['stem_key'] == location:
-                take(item)
+                take(item, '场景')
     else:
         formal_chars = formal_assets.get('角色', ())
         formal_scenes = formal_assets.get('场景', ())
@@ -146,29 +144,44 @@ def refs_for_shot(shot, lib, *, formal_assets=None):
             hits = _match_formal(raw, formal_chars)
             if hits:
                 for item in hits:
-                    take(item)
+                    take(item, 'S05 资产')
             else:
                 key = normalize_name(raw)
                 for item in lib.get('角色', ()):
                     if key and item['stem_key'] == key:
-                        take(item)
+                        take(item, '角色')
         raw_loc = shot.get('location', '') or ''
         if raw_loc:
             hits = _match_formal(raw_loc, formal_scenes)
             if hits:
                 for item in hits:
-                    take(item)
+                    take(item, 'S05 资产')
             else:
                 key = normalize_name(raw_loc)
                 for item in lib.get('场景', ()):
                     if key and item['stem_key'] == key:
-                        take(item)
+                        take(item, '场景')
     for item in lib.get('风格', ()):
-        take(item)
+        take(item, '风格')
     if not picked:
         for item in lib.get(UNCATEGORIZED, ()):
-            take(item)
+            take(item, UNCATEGORIZED)
     return tuple(picked)
+
+
+def shot_ref_badges(shot, lib, *, formal_assets=None):
+    """REQ-S04-115/113：返回每镜命中参考图及来源徽章（与 refs_for_shot 严格同序）。"""
+    return _pick_shot_refs(shot, lib, formal_assets=formal_assets)
+
+
+def refs_for_shot(shot, lib, *, formal_assets=None):
+    """命中角色图＋命中场景图＋全部风格图（去重保序）；全空退回未分类全部图。
+
+    传入 formal_assets 时（REQ-S04-113）：每个角色／场景优先匹配 S05 已入库正式资产图，
+    未命中再回退共享参考库同类别图，风格图始终附加。
+    """
+    return tuple(entry['path'] for entry in _pick_shot_refs(
+        shot, lib, formal_assets=formal_assets))
 
 
 def import_plan(sources, *, characters=(), locations=(), existing=(), category=None):

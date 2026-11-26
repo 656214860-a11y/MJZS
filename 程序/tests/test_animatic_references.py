@@ -365,6 +365,52 @@ class FormalAssetReuseTests(unittest.TestCase):
             {'shots': [{'id': 'SH001'}]}, lib, '静音', None, False, formal_count=2)
         self.assertIn('参考图 3 张（含资产 2 张）', with_assets)
 
+    def test_req_s04_115_113_shot_ref_badges_and_gateway_details(self):
+        """REQ-S04-115/113：shot_ref_badges 与 refs_for_shot 严格同序，准确标出五类来源。"""
+        import json
+        from domain.animatic_references import formal_asset_entries, shot_ref_badges
+        from stage_execution_service import shot_ref_details
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            base = root / '05资产管理'
+            formal_lin = _image(base / 'assets' / 'characters', 'CHAR_001.png', b'formal-lin')
+            plan_path = base / 'assets' / '资产清单' / 'assets.json'
+            plan_path.parent.mkdir(parents=True, exist_ok=True)
+            plan_path.write_text(json.dumps({'CHAR_001': {'name': '林夏'}}, ensure_ascii=False),
+                                 encoding='utf-8')
+            (base / 'assets.json').write_text(
+                json.dumps({'CHAR_001': {'image': 'assets/characters/CHAR_001.png'}},
+                           ensure_ascii=False), encoding='utf-8')
+            shared = shared_reference_dir(root)
+            shared_gu = _image(shared / '角色', '顾城.png', b'gu')
+            shared_scene = _image(shared / '场景', '仓库.png', b'scene')
+            shared_style = _image(shared / '风格', '厚涂.png', b'style')
+            lib = library((shared,))
+            formal = formal_asset_entries(
+                {'CHAR_001': {'name': '林夏'}},
+                {'CHAR_001': {'image': 'assets/characters/CHAR_001.png'}},
+                base)
+            shot = {'characters': ['林夏', '顾城'], 'location': '仓库'}
+            refs = refs_for_shot(shot, lib, formal_assets=formal)
+            badges = shot_ref_badges(shot, lib, formal_assets=formal)
+            self.assertEqual([Path(b['path']).resolve() for b in badges],
+                             [Path(p).resolve() for p in refs])
+            self.assertEqual([b['source'] for b in badges], ['S05 资产', '角色', '场景', '风格'])
+            self.assertTrue(all(isinstance(b['label'], str) and b['label'] for b in badges))
+            gw_badges = shot_ref_details(root, shot)
+            self.assertEqual([b['source'] for b in gw_badges], ['S05 资产', '角色', '场景', '风格'])
+            self.assertEqual([Path(b['path']).resolve() for b in gw_badges],
+                             [formal_lin, shared_gu.resolve(), shared_scene.resolve(),
+                              shared_style.resolve()])
+
+        with tempfile.TemporaryDirectory() as temporary:
+            root = Path(temporary).resolve()
+            uncat = _image(shared_reference_dir(root), 'legacy.png', b'old')
+            badges = shot_ref_details(root, {'characters': ['无'], 'location': '无'})
+            self.assertEqual(len(badges), 1)
+            self.assertEqual(badges[0]['source'], UNCATEGORIZED)
+            self.assertEqual(Path(badges[0]['path']).resolve(), uncat.resolve())
+
 
 if __name__ == '__main__':
     unittest.main(verbosity=2)

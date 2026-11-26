@@ -16,7 +16,7 @@ ANIMATIC_GROUP_SPECS = (
     ('refs', '参考图库', True),
     ('versions', '预演版本', True),
     ('shots', '镜头草图', False),
-    ('audio', '临时声音', False),
+    ('audio', '临时声音', True),
     ('other', '其他预演文件', False),
 )
 _ANIMATIC_GROUP_OPEN = {ANIMATIC_GROUP_PREFIX + key: opened for key, _label, opened in ANIMATIC_GROUP_SPECS}
@@ -204,7 +204,7 @@ def animatic_grouped_rows(rows):
     for row in rows:
         buckets.setdefault(animatic_bucket(row), []).append(row)
     return [
-        (ANIMATIC_GROUP_PREFIX + key, label, buckets[key])
+        (ANIMATIC_GROUP_PREFIX + key, '%s (%d)' % (label, len(buckets[key])), buckets[key])
         for key, label, _opened in ANIMATIC_GROUP_SPECS
         if key in buckets
     ]

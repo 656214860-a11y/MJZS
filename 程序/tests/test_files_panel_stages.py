@@ -1841,7 +1841,7 @@ class AnimaticMediaDbViewTests(StageRailTests):
                 shutil.rmtree(folder, ignore_errors=True)
 
     def test_animatic_panel_four_groups_collapse_and_prefetch_throttle(self):
-        """S04 面板 4 组归位无重复，参考图库/预演版本默认展开，镜头草图/临时声音折叠且不进预取。"""
+        """REQ-S04-117：S04 面板 4 组标题带计数，参考图库/预演版本/临时声音默认展开，镜头草图折叠且不进预取。"""
         from unittest.mock import patch
         from contract.stage_path_service import shared_reference_dir, write_dir
         panel = self.desktop.files_panel
@@ -1878,11 +1878,11 @@ class AnimaticMediaDbViewTests(StageRailTests):
             'stage-group:animatic:audio',
         ))
         labels = tuple(tree.item(g, 'values')[0] for g in top_groups)
-        self.assertEqual(labels, ('参考图库', '预演版本', '镜头草图', '临时声音'))
+        self.assertEqual(labels, ('参考图库 (2)', '预演版本 (1)', '镜头草图 (50)', '临时声音 (10)'))
         self.assertTrue(bool(tree.item('stage-group:animatic:refs', 'open')))
         self.assertTrue(bool(tree.item('stage-group:animatic:versions', 'open')))
         self.assertFalse(bool(tree.item('stage-group:animatic:shots', 'open')))
-        self.assertFalse(bool(tree.item('stage-group:animatic:audio', 'open')))
+        self.assertTrue(bool(tree.item('stage-group:animatic:audio', 'open')))
         refs_children = tree.get_children('stage-group:animatic:refs')
         ver_children = tree.get_children('stage-group:animatic:versions')
         shot_children = tree.get_children('stage-group:animatic:shots')
@@ -1897,8 +1897,36 @@ class AnimaticMediaDbViewTests(StageRailTests):
         last_batch = prefetched[-1]
         self.assertLessEqual(len(last_batch), 40)
         batch_posix = [Path(p).as_posix() for p in last_batch]
-        self.assertFalse(any('/镜头/' in p or '/声音/' in p for p in batch_posix),
+        self.assertFalse(any('/镜头/' in p for p in batch_posix),
                          f'预取列表不得含折叠组路径: {batch_posix}')
+        self.assertTrue(any('/声音/' in p for p in batch_posix),
+                        f'临时声音默认展开应纳入预取: {batch_posix}')
+
+    def test_req_s04_117_3000_shots_collapsed_with_count_and_prefetch_cap(self):
+        """REQ-S04-117：3000 镜规模下镜头草图保持默认折叠并带计数，预取上限严格 <=40。"""
+        from contract.file_index_contract import FileRow
+        from ui import desktop_files_panel_index as panel_index
+        rows = [
+            FileRow(path='_shared/reference_images/角色/林夏.png', stage='animatic', kind='资产'),
+            FileRow(path='04分镜预演/版本/animatic_v001.mp4', stage='animatic', kind='视频'),
+            *[FileRow(path=f'04分镜预演/镜头/SH{i:04d}/v1.png', stage='animatic', kind='图片')
+              for i in range(1, 3001)],
+            *[FileRow(path=f'04分镜预演/声音/对白/SH{i:04d}.wav', stage='animatic', kind='音频')
+              for i in range(1, 61)],
+        ]
+        groups = panel_index.animatic_grouped_rows(rows)
+        self.assertEqual([label for _gid, label, _members in groups],
+                         ['参考图库 (1)', '预演版本 (1)', '镜头草图 (3000)', '临时声音 (60)'])
+        open_map = {gid: panel_index.group_default_open(gid) for gid, _l, _m in groups}
+        self.assertEqual(open_map, {
+            'stage-group:animatic:refs': True,
+            'stage-group:animatic:versions': True,
+            'stage-group:animatic:shots': False,
+            'stage-group:animatic:audio': True,
+        })
+        prefetch = panel_index.prefetch_media_paths(groups, Path(self.desktop.root))
+        self.assertEqual(len(prefetch), 40)
+        self.assertFalse(any('镜头' in str(path) for path in prefetch))
 
     def test_animatic_prefetch_caps_at_40_when_expanded_groups_exceed_limit(self):
         """展开组内文件超过 40 项时，单次预取路径上限严格为 40。"""
