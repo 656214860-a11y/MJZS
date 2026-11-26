@@ -667,10 +667,10 @@ class ReportTests(PetTestCase):
         第 44 期：用户附件把「退出」摆回功能栏最后一行，所以它不再算「搬走的那一项」。
         """
         labels = [text for _index, text in self.menu_items()]
-        for label in ('向三虎提问', '一键执行（重试＋补首帧＋日报）', pet_ui.QUIT_LABEL):
+        for label in ('向三虎提问', '推进当前阶段', '今日日报', pet_ui.QUIT_LABEL):
             self.assertIn(label, labels)
         for gone in ('生成今日日报', '生成本周周报', '显示主窗口（从常驻切回主界面）',
-                     '收集事件', '系统托盘（未开启）'):
+                     '收集事件', '系统托盘（未开启）', '一键执行（重试＋补首帧＋日报）'):
             self.assertNotIn(gone, labels, gone + ' 已经搬走／删掉')
         self.assertEqual([text for text in labels if text.startswith('开机自启')], [],
                          '开机自启默认开着，不再占一行')
@@ -949,7 +949,8 @@ class OneClickTests(PetTestCase):
         self.pet.agent.fail('keyframe', '超时', attempt=4)
         text = self.pet.one_click()
         self.assertIn('已重试失败项', text)
-        self.assertEqual(self.fake.kicks, ['pet'])
+        self.assertNotIn('pet', self.fake.kicks)
+        self.assertIn('keyframe', self.fake.advances)
         self.assertEqual(self.pet.agent.failures, [])
 
     def test_missing_first_frames_are_reported_without_generating(self):
@@ -1827,7 +1828,7 @@ class NotificationTests(PetTestCase):
     def test_the_buttons_reach_the_same_implementations(self):
         self.fail_once()
         self.pet.tap_safe("skip")
-        self.assertIn("已跳过一条待确认", self.pet.notice)
+        self.assertIn("已跳过当前阻塞项", self.pet.notice)
         self.assertEqual(self.pet.agent.failures, [], "跳过就是把那条摘掉")
         self.pet.tap_safe("model")
         self.assertEqual(self.pet.tier, "deepseek-v4-flash")
@@ -2393,48 +2394,36 @@ class LevelColorTests(PetTestCase):
         self.assertEqual(pet_ui.palette('worry', 'auto'), pet_ui.LEVEL_COLORS['auto'])
         self.assertEqual(pet_ui.palette('busy', '不存在'), pet_ui.MOODS['busy'])
 
-    def test_sanhu_avatar_and_paw_levels_use_cool_slate_palette(self):
-        """UX-SLATE-PALETTE-SYNC：三虎头像与三档猫爪收敛为低饱和冷墨高级灰且三档深浅递进。"""
-        def _rgb(hex_color):
-            return tuple(int(hex_color[i:i + 2], 16) for i in (1, 3, 5))
+    def test_sanhu_avatar_and_paw_levels_use_three_mode_day_and_night_palettes(self):
+        """UX-SANHU-FIX：三模式（只提醒石板蓝灰／半自动暖琥珀橘／全自动翡翠绿）在日夜双主题均有高区分度与清晰对比。"""
+        import ui_tokens
 
-        def _lum(hex_color):
-            r, g, b = (c / 255.0 for c in _rgb(hex_color))
-            lin = [c / 12.92 if c <= 0.03928 else ((c + 0.055) / 1.055) ** 2.4 for c in (r, g, b)]
-            return 0.2126 * lin[0] + 0.7152 * lin[1] + 0.0722 * lin[2]
+        origin = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, origin)
+        for theme, expected_caption in (('day', '#0F1419'), ('night', '#E8ECF2')):
+            ui_tokens.set_theme(theme)
+            self.assertEqual(pet_ui.CAPTION_INK, expected_caption)
+            bodies = {pet_ui.LEVEL_COLORS[level][0] for level in pet_agent.LEVELS}
+            outlines = {pet_ui.LEVEL_COLORS[level][1] for level in pet_agent.LEVELS}
+            self.assertEqual(len(bodies), 3, '%s 三模式毛色必须两两不同' % theme)
+            self.assertEqual(len(outlines), 3, '%s 三模式描边必须两两不同' % theme)
+            for level in pet_agent.LEVELS:
+                self.assertEqual(pet_ui.PAW_COLORS[level], pet_ui.LEVEL_COLORS[level][:2])
 
-        self.assertNotEqual(pet_ui.SANHU_FUR.lower(), '#ff8a3d')
-        self.assertNotEqual(pet_ui.SANHU_STAR.lower(), '#22d3ee')
-        for label, color in (
-            ('SANHU_FUR', pet_ui.SANHU_FUR),
-            ('SANHU_EAR', pet_ui.SANHU_EAR),
-            ('SANHU_STAR', pet_ui.SANHU_STAR),
-            ('level_hint', pet_ui.LEVEL_COLORS['hint'][0]),
-            ('level_semi', pet_ui.LEVEL_COLORS['semi'][0]),
-            ('level_auto', pet_ui.LEVEL_COLORS['auto'][0]),
-        ):
-            r, g, b = _rgb(color)
-            with self.subTest(label=label, color=color):
-                self.assertLessEqual(max(r, g, b) - min(r, g, b), 45,
-                                     '%s=%s 通道差过大，不属低饱和高级灰' % (label, color))
-                self.assertGreaterEqual(b, r, '%s=%s 应为冷中性石板灰（B>=R）' % (label, color))
-        self.assertGreater(_lum(pet_ui.LEVEL_COLORS['hint'][0]),
-                           _lum(pet_ui.LEVEL_COLORS['semi'][0]))
-        self.assertGreater(_lum(pet_ui.LEVEL_COLORS['semi'][0]),
-                           _lum(pet_ui.LEVEL_COLORS['auto'][0]))
-        self.assertEqual(pet_ui.CAPTION_INK, '#000000')
-
-    def test_switching_the_level_keeps_the_avatar_identity_colour(self):
+    def test_switching_the_level_changes_the_avatar_colour_per_mode(self):
         self.pet.agent.set_level('semi')
         self.pet.draw()
         self.assertEqual(self.pet.agent.level, 'semi')
+        self.assertEqual(self.body_colour(), pet_ui.LEVEL_COLORS['semi'][0],
+                         '半自动头像使用暖琥珀橘色')
         self.pet.click('level')                      # 半自动 → 全自动
         self.assertEqual(self.pet.agent.level, 'auto')
-        self.assertEqual(self.body_colour(), pet_ui.SANHU_FUR,
-                         '等级由猫爪与文字表达，三虎头像保持固定虎皮橙')
-        self.pet.click('level')                      # 全自动 → 只提示
+        self.assertEqual(self.body_colour(), pet_ui.LEVEL_COLORS['auto'][0],
+                         '全自动头像切换为翡翠运行绿')
+        self.pet.click('level')                      # 全自动 → 只提醒
         self.assertEqual(self.pet.agent.level, 'hint')
-        self.assertEqual(self.body_colour(), pet_ui.SANHU_FUR)
+        self.assertEqual(self.body_colour(), pet_ui.LEVEL_COLORS['hint'][0],
+                         '只提醒头像切换为冷静石板蓝灰')
 
     def body_colour(self):
         fur = self.pet.canvas.find_withtag('fur')
@@ -2579,36 +2568,36 @@ class MenuFeedbackTests(PetTestCase):
         blocks.append(current)
         return blocks
 
-    def test_the_menu_is_split_into_five_blocks(self):
-        """第 50 期第 3 条：右键栏按用途分成五块，块间拉开——原来只有两条分隔线，
-        十一项连成一大片（用户报「右键界面列表有点乱」）。块内次序照旧是「越靠上越常按」。
-        """
+    def test_the_menu_is_split_into_four_blocks(self):
+        """UX-SANHU-FIX：右键菜单重构为 4 块 3 条分隔线，按使用频率从上往下排列、删重补缺。"""
         blocks = self.groups()
-        self.assertEqual(blocks[0], ['向三虎提问', '一键执行（重试＋补首帧＋日报）'],
-                         '① 和三虎说话（一眼就懂，不加小标题）')
-        self.assertEqual(blocks[1], ['【进度与待确认】', pet_ui.PANEL_MENU_LABEL, '重试失败项',
-                                     pet_ui.DETAIL_MENU_LABEL, '跳过这张'],
-                         '② 进度与待确认')
-        self.assertEqual(blocks[2], ['【设置与模型】', pet_ui.SETTINGS_LABEL, self.pet.model_label()],
-                         '③ 设置与模型')
-        self.assertEqual(blocks[3], ['【运行状态】', self.pet.pause_label(), self.pet.snooze_label()],
-                         '④ 运行状态')
-        self.assertEqual(blocks[4], [pet_ui.QUIT_LABEL],
-                         '⑤ 退出程序单独一块，别跟免打扰挤在一起')
-        self.assertEqual(len(blocks), 5, '再多就又成一大片了')
+        self.assertEqual(blocks[0], ['向三虎提问', '推进当前阶段', pet_ui.PANEL_MENU_LABEL],
+                         '① 高频主操作（最顶部，不加小标题）')
+        self.assertEqual(blocks[1], ['【任务控制】', self.pet.pause_label(), '重试失败项',
+                                     pet_ui.DETAIL_MENU_LABEL, '跳过当前阻塞项'],
+                         '② 任务控制')
+        self.assertEqual(blocks[2], ['【常用工具】', self.pet.model_label(), '语音识别设置…',
+                                     self.pet.theme_label(), self.pet.snooze_label(), '今日日报'],
+                         '③ 常用工具')
+        self.assertEqual(blocks[3], ['打开设置…', pet_ui.QUIT_LABEL],
+                         '④ 设置入口与退出程序（退出固定最底行）')
+        self.assertEqual(len(blocks), 4, '4 块结构清晰紧凑')
 
     def test_the_section_headings_are_readable_but_not_clickable(self):
-        """第 60 期第 2 条：中间那三块各带一行灰色小标题——用户扫一眼就知道该去哪块找。"""
+        """中间两块各带一行灰色禁用小标题——用户扫一眼就知道去哪块找。"""
         headings = [(index, str(self.pet.menu.entrycget(index, 'label')))
                     for index in range(self.pet.menu.index('end') + 1)
                     if self.pet.menu.type(index) == 'command'
                     and str(self.pet.menu.entrycget(index, 'state')) == 'disabled']
         self.assertEqual([text for _index, text in headings],
-                         ['【进度与待确认】', '【设置与模型】', '【运行状态】'])
+                         ['【任务控制】', '【常用工具】'])
         for index, _text in headings:
             self.assertEqual(self.pet.menu.invoke(index), '', '标题按不动')
 
     def test_every_item_says_something_after_it_runs(self):
+        import ui_tokens
+        origin = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, origin)
         self.pet._autostart = pet_ui.Autostart(api=FakeWinreg())
         cloud = self.pet.cloud()
         for index, label in self.menu_items():
@@ -2676,7 +2665,8 @@ class MenuFeedbackTests(PetTestCase):
         self.pet.agent.fail('keyframe', '超时', attempt=4)
         self.pet.menu.invoke(self.index_of('重试失败项'))
         self.assertIn('已重试失败项：1 项', self.pet.notice)
-        self.assertEqual(self.fake.kicks, ['pet', 'pet'])
+        self.assertNotIn('pet', self.fake.kicks)
+        self.assertIn('keyframe', self.fake.advances)
 
     def test_collecting_the_events_says_how_many(self):
         """收集事件并进了进度气泡：时机由三虎自己挑。
@@ -2807,10 +2797,11 @@ class PetClickTests(PetTestCase):
                   for index in range(self.pet.menu.index('end') + 1)
                   if self.pet.menu.type(index) == 'command']
         self.assertEqual(labels[0], '向三虎提问')
-        self.assertLess(labels.index('一键执行（重试＋补首帧＋日报）'), labels.index('重试失败项'))
+        self.assertLess(labels.index('推进当前阶段'), labels.index('重试失败项'))
         self.assertLess(labels.index('重试失败项'), labels.index(pet_ui.DETAIL_MENU_LABEL))
-        self.assertNotIn('生成今日日报', labels, '日报周报搬走，功能照旧')
-        self.assertEqual(labels[-1], pet_ui.QUIT_LABEL, '第 44 期：附件里的「退出」落在最后一行')
+        self.assertNotIn('生成今日日报', labels, '旧文案已改为「今日日报」')
+        self.assertIn('今日日报', labels)
+        self.assertEqual(labels[-1], pet_ui.QUIT_LABEL, '「退出程序」固定在最后一行')
 
     def test_the_paws_set_the_level_directly(self):
         """等级从菜单搬到三虎身旁的猫爪上：点哪一爪就是哪一档，一次点到位。"""
@@ -3075,13 +3066,21 @@ class CaptionTests(PetTestCase):
                 # 「标题文字让开贴片」的旧契约随迁移作废（dock 与标题行不相交）。
 
     def test_the_caption_is_black_ink(self):
-        """第 21 期：三档小字一律黑色（用户要的「文字全部用黑色」）。"""
-        self.assertEqual(pet_ui.CAPTION_INK, '#000000')
+        """小字采用当前主题高对比文字色（日间 #0F1419，夜间 #E8ECF2），不随等级淡化。"""
+        import ui_tokens
+        origin = ui_tokens.current_theme()
+        self.addCleanup(ui_tokens.set_theme, origin)
+        ui_tokens.set_theme('day')
+        self.assertEqual(pet_ui.CAPTION_INK, '#0F1419')
         for level in pet_agent.LEVELS:
             with self.subTest(level=level):
                 self.pet.agent.set_level(level)
                 self.pet.draw()
                 self.assertEqual(str(self.pet.caption.cget('foreground')), pet_ui.CAPTION_INK)
+        ui_tokens.set_theme('night')
+        self.pet.draw()
+        self.assertEqual(pet_ui.CAPTION_INK, '#E8ECF2')
+        self.assertEqual(str(self.pet.caption.cget('foreground')), '#E8ECF2')
 
     def test_the_caption_follows_the_level(self):
         for level in pet_agent.LEVELS:
@@ -3776,27 +3775,15 @@ class ModelPoolTests(PetTestCase):
         self.addCleanup(win.destroy)
         self.assertFalse(hasattr(win, '_pet_open_claude'))
 
-    def test_the_settings_cascade_opens_the_model_page(self):
+    def test_the_settings_entry_is_a_single_command_keeping_entries_constant(self):
+        """UX-SANHU-FIX：右键删除重复 7 项设置级联，保留单一「打开设置…」入口与 SETTINGS_ENTRIES 契约常量。"""
+        import pet_settings_ui
         self.assertIn('settings', self.pet.menu_index)
         index = self.pet.menu_index['settings']
-        self.assertEqual(self.pet.menu.type(index), 'cascade')
-
-    def test_the_settings_cascade_offers_the_same_pages_as_the_gear(self):
-        """第 44 期：附件那几格；
-
-        第 59 期第 10 条：与齿轮那扇窗的分页**同步**——名字一模一样（原来这里自己
-        写了一份「模型配置…」，齿轮那边早改名「三虎模型配置」了）。
-        R3089（生命周期任务书 T7）：「SKILL 管理」格随 TABS 同步进子菜单。
-        """
-        import pet_settings_ui
-        index = self.pet.menu_index['settings']
-        sub = self.pet.menu.nametowidget(self.pet.menu.entrycget(index, 'menu'))
-        labels = self.menu_labels(sub)
-        self.assertEqual(self.pet.menu.entrycget(index, 'label'), pet_ui.SETTINGS_LABEL)
-        self.assertEqual(labels, [title for _key, title in pet_settings_ui.TABS])
+        self.assertEqual(self.pet.menu.type(index), 'command')
+        self.assertEqual(self.pet.menu.entrycget(index, 'label'), '打开设置…')
         self.assertEqual(pet_ui.SETTINGS_ENTRIES, tuple(pet_settings_ui.TABS),
-                         '两边只认同一份表，以后改名不会再各改各的')
-        self.assertIn('SKILL 管理', labels)
+                         'SETTINGS_ENTRIES 常量仍与设置页 TABS 同步')
 
     def test_switching_a_model_persists_and_ticks_it(self):
         self.assertEqual(self.pet.set_tier('deepseek-v4-pro'), 'deepseek-v4-pro')

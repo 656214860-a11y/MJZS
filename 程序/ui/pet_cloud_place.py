@@ -369,18 +369,61 @@ class CloudPlaceMixin:
             return (int(left), int(top))            # 拉回来会压住猫：不拉
         return (int(pulled), int(top))
 
-    def _origin(self):
-        """浮窗左上角（屏幕坐标）：云身整个站在三虎左边，下沿与它对齐，尾巴从空档里指到脸颊。
+    def _pet_horizontal_anchor(self, left, top):
+        """判定三虎在气泡右侧还是下方/偏左，并返回 (on_right, target_x, local_x)。"""
+        rect = self._patch_rect()
+        cheek_x, _cheek_y = self._anchor()
+        body_right = float(left) + float(self.width())
+        on_right = (float(cheek_x) >= body_right - PET_GAP
+                    or float(rect[0]) >= body_right - PET_GAP)
+        target_x = float(rect[0]) + max(8.0, float(rect[2])) * 0.5
+        return on_right, target_x, target_x - float(left)
 
-        左边按屏幕留边（贴片挨着屏幕右边也不顶出去）；上方放不下就翻到三虎下面去——
-        全屏时三虎贴着屏幕顶，「聊天框显示不正常」就是上方没有地方可放（第 18 期）。
-        整朵在屏幕外摆不下时挪进助手界面里（第 22 期）；最后再核一遍「不许压住三虎」（第 24 期）。
+    def _pet_docked_left(self):
+        """三虎是否停靠在窗口左侧或贴近屏幕左边，导致气泡无法摆在三虎左侧。"""
+        rect = self._patch_rect()
+        cheek_x, _cheek_y = self._anchor()
+        pw = max(8.0, float(rect[2]))
+        expected_cheek = float(rect[0]) + pw * CHEEK_X
+        if abs(float(cheek_x) - expected_cheek) > max(32.0, pw):
+            return False
+        width = float(self.width())
+        win_rect = self._window_rect()
+        if win_rect is not None:
+            x0 = float(win_rect[0])
+            if float(rect[0]) >= x0 - 4.0 and (float(rect[0]) - x0) < width:
+                return True
+        return float(rect[0]) - PET_GAP - width < float(self._work_left()) + MARGIN
+
+    def _origin(self):
+        """浮窗左上角（屏幕坐标）：左下角停靠时摆在三虎正上方并贴合窗口左内边；
+        经典右侧布局仍站在三虎左边、下沿与它对齐，尾巴指到脸颊。
         """
-        anchor_x, _anchor_y = self._anchor()
         total = self.total_width()
-        left = int(anchor_x - (total - TIP_IN))
         right = self._work_right()
         edge_left = self._work_left()
+        edge_top = self._work_top()
+        if self._pet_docked_left():
+            rect = self._patch_rect()
+            win_rect = self._window_rect()
+            base_left = (win_rect[0] + MARGIN) if win_rect is not None else (edge_left + MARGIN)
+            if right - edge_left > total + 2 * MARGIN:
+                left = max(edge_left + MARGIN, min(int(base_left), right - total - MARGIN))
+            else:
+                left = max(edge_left + MARGIN, int(base_left))
+            patch_top = rect[1] - PET_GAP
+            patch_bottom = rect[1] + max(8.0, rect[3]) + PET_GAP
+            if self._up():
+                top = int(patch_bottom - self._shift())
+            else:
+                top = int(patch_top - self._body)
+            top = max(edge_top + MARGIN, top)
+            screen = self._screen_height()
+            if screen > 0:
+                top = min(top, max(edge_top + MARGIN, screen - MARGIN - (self._body + TAIL)))
+            return (int(left), int(top))
+        anchor_x, _anchor_y = self._anchor()
+        left = int(anchor_x - (total - TIP_IN))
         if right - edge_left > total + 2 * MARGIN:
             left = max(edge_left + MARGIN, min(left, right - total - MARGIN))
         if self._can_align_top():
@@ -398,36 +441,46 @@ class CloudPlaceMixin:
         return self._near_pet(*spot)
 
     def _tip(self):
-        """画布坐标下的尾巴尖＝贴片脸颊（夹在画布内：横向落在云身右边那条空档里）。
-
-        第 24 期第 9 条：界面怎么缩放，尖角都钉在「三虎的脸颊」这一处屏幕坐标上——它只由
-        _cheek() 算出来，与云身落在哪、长多高无关；云身跟着界面挪动、变高变矮，只是让这条尾巴
-        变长变短、变弯变直（见 tail_points），尖角原地不动。
-        """
+        """画布坐标下的尾巴尖：三虎在右侧时指右颊；在左下/下方时动态指向三虎头像中心。"""
         left, top = self._origin()
         cheek_x, cheek_y = self._anchor()
-        x = min(max(int(cheek_x - left), int(self.width() * 0.75)), self.total_width() - 2)
+        on_right, _target_x, local_x = self._pet_horizontal_anchor(left, top)
+        if on_right:
+            x = min(max(int(cheek_x - left), int(self.width() * 0.75)), self.total_width() - 2)
+            if self._up():
+                y = min(max(int(cheek_y - top), 2), TAIL - 2)      # 带子在上：尖头进不了下面去
+            else:
+                y = min(max(int(cheek_y - top), 8), self._body + TAIL - 2)
+            return (x, y)
+        x = min(max(int(round(local_x)), MARGIN), max(MARGIN, self.width() - MARGIN))
         if self._up():
-            y = min(max(int(cheek_y - top), 2), TAIL - 2)      # 带子在上：尖头进不了下面去
+            y = min(max(int(cheek_y - top), 2), TAIL - 2)
         else:
-            y = min(max(int(cheek_y - top), 8), self._body + TAIL - 2)
+            y = min(max(int(cheek_y - top), self._body + 6), self._body + TAIL - 2)
         return (x, y)
 
     def _tail_polygon(self):
-        """尾巴＝一根尖角折线：底边长在云身里（被云身盖住），尖角指向三虎的脸颊。
-
-        第 21 期把三个圆点换成一根尖角（漫画对话框那种）；第 22 期指到嘴边；第 24 期指到脸颊，
-        而且两条边各往外鼓一点（tail_points 里那两段弧）——用户要的「斜向外延伸出尖锐有弧度的
-        三角形」。四种形状共用这一根尾巴。
-        """
+        """尾巴＝一根尖角折线：底边藏在云身里，根部与尖端按三虎真实方位动态同步指向。"""
         tip_x, tip_y = self._tip()
+        left, top = self._origin()
+        on_right, _target_x, _local_x = self._pet_horizontal_anchor(left, top)
         root_x, root_y = shape_root(self.shape, self.width(), self._body)
         half = TAIL_BASE * 0.5
-        if self._up():
-            base_y = float(TAIL) + root_y               # 根还在云身里（被云身盖住），尖头朝上
-            return ('poly', tail_points((root_x - half, base_y - 2.0), (root_x + half, base_y + 2.0),
+        if on_right:
+            if self._up():
+                base_y = float(TAIL) + root_y               # 根还在云身里（被云身盖住），尖头朝上
+                return ('poly', tail_points((root_x - half, base_y - 2.0), (root_x + half, base_y + 2.0),
+                                            (float(tip_x), float(tip_y))))
+            return ('poly', tail_points((root_x - half, root_y + 2.0), (root_x + half, root_y - 2.0),
                                         (float(tip_x), float(tip_y))))
-        return ('poly', tail_points((root_x - half, root_y + 2.0), (root_x + half, root_y - 2.0),
+        min_rx = float(TAIL_BASE + MARGIN)
+        max_rx = float(max(min_rx, self.width() - TAIL_BASE - MARGIN))
+        root_x = min(max(float(tip_x), min_rx), max_rx)
+        if self._up():
+            base_y = float(TAIL) + float(self._body) * (1.0 - TAIL_SPAN_Y)
+            return ('poly', tail_points((root_x - half, base_y), (root_x + half, base_y),
+                                        (float(tip_x), float(tip_y))))
+        return ('poly', tail_points((root_x - half, root_y), (root_x + half, root_y),
                                     (float(tip_x), float(tip_y))))
 
     def _reset_position_state(self):

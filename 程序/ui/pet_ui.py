@@ -44,6 +44,7 @@ import infra.model_router as model_router
 from contract.app_metadata import APP_NAME
 from infra.broadcaster import Broadcaster, PREFIX_PATTERNS
 import pet_agent
+import ui.pet_ask as pet_ask
 import ui.pet_cloud as pet_cloud
 from orchestrator.pet_chat_coordinator import ChatCoordinator
 import contract.pet_bus as pet_bus
@@ -320,6 +321,7 @@ def _click_pause(pet, at):
 def _click_resume(pet, at):
     pet.agent.resume()
     pet.auto.resume()
+    pet_ask.declined_set(pet).clear()
     pet.announce('已继续自动执行：按当前自动化等级推进，会花钱的步骤仍需您确认', at=at)
 
 
@@ -411,8 +413,6 @@ class Pet(PetBroadcastAliasesMixin, PetStagesMixin, PetSettingsMixin, PetVoiceMi
         self.cat = Cat()                  # 第 17 期：三虎的猫样（随机做点猫的事，见 Cat）
         self.caption = None               # 第 18 期：三虎图像下方那行小字（正常／半自动／全自动）
         self.menu_tier = None             # 「换模型」子菜单：接新模型时按登记表整栏重建
-        self.menu_mode = None             # 「模式」子菜单：手动／全自动的唯一界面入口
-        self.mode_var = None              # 仅绑定菜单单选状态；自动制作变量仍只归三虎管理
         self.paws = None                  # 第 19 期：贴片右侧那列猫爪按钮（自动化等级）
         self.gear = None                  # 第 44 期：窗口左上角那颗齿轮（设置入口）
         self._paws_key = None             # 上一次画的样子（档位 ＋ 悬停在哪只爪）：没变就不白画一遍

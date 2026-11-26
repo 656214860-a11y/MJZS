@@ -744,6 +744,12 @@ class ThemeRefreshTests(unittest.TestCase):
         self.assertEqual(pet_ui.CANVAS_BG, expected_bg)
         self.assertEqual(pet_ui_view.CANVAS_BG, expected_bg)
         self.assertEqual(pet_ui_support.CANVAS_BG, expected_bg)
+        self.assertEqual(pet_ui.CAPTION_INK, ui_tokens.PET_PALETTE['caption_ink'])
+        self.assertEqual(pet_ui.CAPTION_INK, '#E8ECF2')
+        self.assertEqual(pet_ui.LEVEL_COLORS['hint'][0], ui_tokens.PET_PALETTE['level_hint'])
+        self.assertEqual(pet_ui.LEVEL_COLORS['semi'][0], ui_tokens.PET_PALETTE['level_semi'])
+        self.assertEqual(pet_ui.LEVEL_COLORS['auto'][0], ui_tokens.PET_PALETTE['level_auto'])
+        self.assertEqual(pet_ui.PAW_COLORS['auto'][0], ui_tokens.PET_PALETTE['level_auto'])
 
         ui_tokens.set_theme(origin)
         restored_gear = (COLORS['primary'], COLORS['primary_pressed'])
@@ -756,6 +762,8 @@ class ThemeRefreshTests(unittest.TestCase):
         self.assertEqual(pet_ui.CANVAS_BG, restored_bg)
         self.assertEqual(pet_ui_view.CANVAS_BG, restored_bg)
         self.assertEqual(pet_ui_support.CANVAS_BG, restored_bg)
+        self.assertEqual(pet_ui.CAPTION_INK, ui_tokens.PET_PALETTE['caption_ink'])
+        self.assertEqual(pet_ui.LEVEL_COLORS['semi'][0], ui_tokens.PET_PALETTE['level_semi'])
 
     def test_night_theme_gear_button_uses_live_canvas_bg_and_gear_color(self):
         from ui import pet_ui, pet_ui_support

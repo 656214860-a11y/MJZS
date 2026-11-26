@@ -873,6 +873,22 @@
         "程序/scripts/commit_round.py"
       ]
     },
+    "程序/tests/test_sanhu_pointer_avatar_menu.py": {
+      "kind": "integration",
+      "owner": "项目维护者",
+      "contract": "三虎聊天框左下角动态指向与右侧兼容、只提醒/半自动/全自动三模式日夜高对比配色与重绘、三虎右键菜单4块频率排序与动作修复",
+      "targets": [
+        "程序/ui/pet_cloud_place.py",
+        "程序/ui_tokens.py",
+        "程序/ui/pet_ui_support.py",
+        "程序/ui/pet_ui_menu.py",
+        "程序/ui/pet_ui_view.py",
+        "程序/ui/pet_ui_stages.py",
+        "程序/ui/pet_ui.py",
+        "程序/ui/pet_ui_settings.py",
+        "程序/ui/pet_ui_voice.py"
+      ]
+    },
     "程序/tests/test_settings_models_redesign.py": {
       "kind": "integration",
       "owner": "项目维护者",

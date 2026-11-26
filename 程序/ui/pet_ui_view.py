@@ -6,6 +6,7 @@
 import pet_agent
 import contract.pet_bus as pet_bus
 import ui.pet_cloud as pet_cloud
+import ui.pet_ui_menu as pet_ui_menu
 from tkinter import TclError
 from ui_tokens import BUTTON_BORDER_WIDTH, COLORS, DESKTOP_LAYOUT, PET_LAYOUT, SPACING
 from ui_widgets import ContextMenu
@@ -157,6 +158,9 @@ class PetPatchLayoutMixin:
         # 第 23 期：鼠标扫过哪只爪就把哪只提亮——三档点哪一档，扫一眼就知道。
         self.paws.bind('<Motion>', self.paw_hover)
         self.paws.bind('<Leave>', self.paw_leave)
+        self.paws._refresh_theme_colors = lambda _w=None: (
+            self.paws.configure(bg=COLORS['background_primary']),
+            self.draw_paws(force=True))
         self.draw_paws()
         self._sync_patch_room()
         return self.paws
@@ -493,6 +497,7 @@ class PetViewMixin(PetPatchLayoutMixin, PetClickCancelMixin):
                   or getattr(self.desktop, 'pet_dock', None)
                   or getattr(self.desktop, 'title_row', None) or self.win)
         self.canvas = tk.Canvas(parent, width=SIZE, height=SIZE, bd=0, highlightthickness=0, bg=CANVAS_BG)
+        self.canvas._refresh_theme_colors = lambda _w=None: self.refresh_pet_theme()
         # 第 R2933 期：三虎簇进侧栏左下角固定底栏；第 R2946 期簇区收成正方形，
         # 头像／小字／猫爪的坐标统一由 _cluster_layout 细算（见 _align_cluster）。
         self.canvas.place(x=PATCH_X, y=DOCK_PAD_TOP, anchor='nw')
@@ -671,55 +676,58 @@ class PetViewMixin(PetPatchLayoutMixin, PetClickCancelMixin):
                 self.errors.append(('lift', str(exc)))
         return self.canvas
     def _build_menu(self):
-        """三虎的功能下拉栏（第 22 期／第 44 期）：越靠上越常按；等级仍由三虎身旁那排猫爪管。
+        """三虎右键菜单（UX-SANHU-FIX）：按使用频率从上往下拆为 4 块 3 条分隔线。
 
-        第 22 期按用户要求重排：① 独立小窗、② 自绘气泡两条彻底从功能栏拿掉；
-        「暂停自动执行」改名「暂停」、「稍后再说」放回一级栏紧挨在它下面；
-        「进度面板」回到功能栏（第 19 期被圆气泡顶替过），点开就是那十几行明细——
-        第 24 期第 10 条：用户自己点开的这段时间里，三虎不再弹进度气泡。
-
-        第 44 期照用户附件再对一遍：面板那一项叫「打开三虎面板」；「三虎设置」改名「设置」，
-        各格＝基础功能／模型配置／自动化等级／预算；R3089（生命周期任务书 T7）起
-        「SKILL 管理」格随 TABS 进子菜单；「稍后再说」改名「免打扰」；附件要的「退出」放回最后一行（按下去会先问一句）。
-
-        第 59 期第 10 条：右键「设置」子菜单与齿轮那扇窗的分页同步（见 SETTINGS_ENTRIES）——名字一模一样。
-        第 50 期第 3 条：用户报「三虎头像右键界面列表有点乱」——原来只有两条分隔线，
-        十一项连成一大片。现在按用途分五块，块间用分隔线拉开：
-        ① 和三虎说话（提问、一键收尾）；② 进度与待确认（面板、重试、详情、跳过）；
-        ③ 设置与模型（设置、切换模型）；④ 运行状态（暂停／继续、免打扰）；⑤ 退出程序（单独一块，
-        省得手一拖就点到）。块内次序照旧是「越靠上越常按」，所以只加线、不动顺序。
-
-        第 60 期第 2 条：光有分隔线还是看不出「这一块是干什么的」——中间那三块各加一行灰色
-        小标题（见 _add_section），用户扫一眼就知道该去哪一块找。头尾两块一眼就懂，不加。
+        ① 高频主操作：向三虎提问、推进当前阶段、进度面板；
+        ② 【任务控制】：暂停／继续、重试失败项、待确认项、跳过当前阻塞项；
+        ③ 【常用工具】：切换模型 ▸、语音识别设置…、切换日间/夜间主题、免打扰、今日日报；
+        ④ 底部入口：打开设置…（单入口）、退出程序（固定最底行）。
+        具体条目与回调集中在 ``ui.pet_ui_menu.build_menu``，此处仅保留转发入口。
         """
-        import tkinter as tk
-        self.menu = ContextMenu(self.win)
-        # ① 和三虎说话：提问、一键收尾。
-        self.menu.command('向三虎提问', lambda: self.act('chat'))
-        self._add_menu('一键执行（重试＋补首帧＋日报）', lambda: self.act('oneclick'))
-        self.menu.separator()
-        # ② 进度与待确认的事：面板、重试、详情、跳过。
-        self._add_section('进度与待确认')
-        self._add_menu(PANEL_MENU_LABEL, lambda: self.act(self.show_panel, speak=False), name='panel')
-        self._add_menu('重试失败项', lambda: self.act('retry'))
-        self._add_menu(DETAIL_MENU_LABEL, lambda: self.act(self.show_details, speak=False))
-        self._add_menu('跳过这张', lambda: self.act('skip'))
-        self.menu.separator()
-        # ③ 设置与模型：两子菜单。
-        self._add_section('设置与模型')
-        self._build_settings_menu()
-        self._build_model_menu()
-        self.menu.separator()
-        # ④ 运行状态：自动化入口只保留猫爪，右键不再重复提供手动／全自动。
-        self._add_section('运行状态')
-        self._add_menu(self.pause_label(), lambda: self.act(self.pause_action), name='pause')
-        self._add_menu(self.snooze_label(), lambda: self.act(self.toggle_snooze), name='snooze')
-        self.menu.separator()
-        # ⑤ 退出程序：单独一块（点错了真会关掉）。
-        self._add_menu(QUIT_LABEL, lambda: self.act(self.quit_app), name='quit')
+        self.menu = pet_ui_menu.build_menu(self)
         return self.menu
+    def refresh_pet_theme(self):
+        """主题切换后同步三虎画布底色、头像三模式色、猫爪、标题字色与右键菜单标签。"""
+        bg = COLORS['background_primary']
+        focus = COLORS['focus']
+        canvas = getattr(self, 'canvas', None)
+        if canvas is not None:
+            try:
+                canvas.configure(bg=bg)
+            except TclError:
+                pass
+        paws = getattr(self, 'paws', None)
+        if paws is not None:
+            try:
+                paws.configure(bg=bg)
+            except TclError:
+                pass
+        for hit in getattr(self, 'paw_hits', ()):
+            try:
+                hit.configure(bg=bg, highlightbackground=bg, highlightcolor=focus)
+            except TclError:
+                pass
+        self.draw()
+        self.draw_paws(force=True)
+        self.refresh_menu_labels()
+        return self.canvas
+    def theme_label(self):
+        """右键主题切换菜单项的实时文案（跟随当前日间／夜间主题）。"""
+        return pet_ui_menu.theme_label()
+    def toggle_theme(self):
+        """一键在日间／夜间主题间切换，刷新全窗与三虎并立即播报。"""
+        return pet_ui_menu.toggle_theme(self)
+    def open_speech_settings(self):
+        """右键「语音识别设置…」：直达语音识别设置弹窗。"""
+        return pet_ui_menu.open_speech_settings(self)
+    def show_daily_report(self):
+        """右键「今日日报」：生成并展示当日制作日报。"""
+        return pet_ui_menu.show_daily_report(self)
+    def advance_current_stage(self):
+        """右键「推进当前阶段」：按当前 13 阶段进度执行或指引当前阶段（付费阶段照旧确认）。"""
+        return pet_ui_menu.advance_current_stage(self)
     def pause_action(self):
-        """「暂停 / 继续」按下去做什么：现在是哪一头就翻到另一头。"""
+        """「暂停 / 继续」按下去做什么：现在是哪一头就翻到另一头（菜单不再二次包 act）。"""
         return self.act('resume' if self.agent.paused else 'pause')
     def panel_text(self):
         """面板正文：按节分块、逐行编号（第 26 期第 4 条）。
@@ -767,24 +775,10 @@ class PetViewMixin(PetPatchLayoutMixin, PetClickCancelMixin):
 
         第 18 期起整栏重建一次就跟着变；第 43 期起条目来自模型池（模型管理），不再硬编码档位。
         """
-        import tkinter as tk
         sub = self.menu.submenu()
         self.menu_tier = sub
         self._fill_model_menu()
         self._add_cascade(self.model_label(), sub, name='model')
-        return sub
-    def _build_settings_menu(self):
-        """「设置」子菜单（第 44 期）：基础功能／三虎模型配置／自动化等级／预算／开发信息，
-        每一格开的就是齿轮那扇窗的同一页（第 59 期第 10 条：两边同步，名字也一模一样）。
-
-        R3089（生命周期任务书 T7）：「SKILL 管理」格随 TABS 同步进子菜单。
-        """
-        import tkinter as tk
-        sub = self.menu.submenu()
-        self.menu_settings = sub
-        for tab, label in SETTINGS_ENTRIES:
-            sub.command(label, lambda key=tab: self.act(lambda: self.open_settings(key)))
-        self._add_cascade(SETTINGS_LABEL, sub, name='settings')
         return sub
     def _add_section(self, title):
         """右键栏的分块小标题：灰色的、点不动，只用来告诉用户「这一块是干什么的」。

@@ -95,6 +95,8 @@ _register(4, "desktop_auto_flows", "desktop_direct_dispatch", "desktop_storyboar
 _register(4, "pet_poll_policy")
 # SANHU-FIX-2：三虎「是/否、列表选一个」小窗与半自动付费放行裁决（pet_ui_stages→pet_ask→pet_ui_support/ui_widgets）。
 _register(4, "pet_ask")
+# UX-SANHU-FIX：三虎右键菜单构建与动作辅助（L4 无状态函数，避免顶破 PetViewMixin 行数上限）。
+_register(4, "pet_ui_menu")
 _register(5, "desktop_launcher")
 # R1895：账户会员客户端（设计文档 docs/specs/07_业务域规格.md §5.1）。
 _register(1, "lease_verifier", "account_store", "session_integrity", "update_notice")
@@ -685,6 +687,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_skills_manage', 'ui_widgets'),
     ('pet_state', 'core'),
     ('pet_ui', 'pet_agent'),
+    ('pet_ui', 'pet_ask'),
     ('pet_ui', 'pet_cloud'),
     ('pet_ui', 'pet_report'),
     ('pet_ui', 'pet_ui_popup'),
@@ -695,6 +698,10 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_ui', 'pet_ui_voice'),
     ('pet_ui', 'ui_status_bus'),
     ('pet_ui', 'ui_widgets'),
+    ('pet_ui_menu', 'pet_settings_ui'),
+    ('pet_ui_menu', 'pet_ui_support'),
+    ('pet_ui_menu', 'speech_settings_ui'),
+    ('pet_ui_menu', 'ui_widgets'),
     ('pet_ui_popup', 'pet_ui_support'),
     ('pet_ui_popup', 'ui_widgets'),
     ('pet_ui_settings', 'pet_agent'),
@@ -707,6 +714,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_ui_stages', 'pet_ask'),
     ('pet_ui_stages', 'pet_cloud'),
     ('pet_ui_stages', 'pet_poll_policy'),
+    ('pet_ui_stages', 'pet_ui_menu'),
     ('pet_ui_stages', 'pet_ui_support'),
     ('pet_ui_stages', 'skill_panel'),
     ('pet_ui_stages', 'ui_widgets'),
@@ -715,6 +723,7 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_ui_support', 'ui_widgets'),
     ('pet_ui_view', 'pet_agent'),
     ('pet_ui_view', 'pet_cloud'),
+    ('pet_ui_view', 'pet_ui_menu'),
     ('pet_ui_view', 'pet_ui_support'),
     ('pet_ui_view', 'ui_widgets'),
     ('pet_ui_voice', 'pet_agent'),

@@ -5,6 +5,7 @@ import contract.pet_bus as pet_bus
 import ui.pet_ask as pet_ask
 import ui.pet_cloud as pet_cloud
 import ui.pet_poll_policy as pet_poll_policy
+import ui.pet_ui_menu as pet_ui_menu
 import orchestrator.stage_flow as stage_flow
 import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_handler_registry as stage_handler_registry
@@ -194,35 +195,37 @@ class PetStagesMixin:
             self.errors.append(('advance.tune', str(exc)))
             return ''
     def retry_failures(self):
-        """失败清单交给链路自己重跑（无人值守链路的下游节流清零），宠物只负责记账。"""
-        count = len(self.agent.failures)
-        kick = getattr(self.desktop, 'kick_unattended', None)
-        if callable(kick):
-            try:
-                kick('pet')
-            except Exception as exc:
-                self.errors.append(('kick', str(exc)))
-        self.agent.clear_failures()
-        self.notice = ('已重试失败项：%d 项已交回链路重跑，无人值守会按原顺序继续' % count if count
-                       else '现在没有待确认的项，不用重试')
-        return True
-    def skip_failure(self, item=None):
-        """「跳过这张」：把一条待确认从清单里摘掉——用户显式跳过就是不再等它了。
+        """重试失败项（UX-SANHU-FIX）：记录失败与阻塞阶段、清账解阻，并真实重新放回执行链。
 
-        摘掉之后清单指纹变化，剩下那些仍然会被气泡提醒一次；清单本来就空就说明一句，
-        不做任何别的事（跳过不等于重试，也不动状态机）。
+        原实现空调用不存在的 ``kick_unattended('pet')`` 且未清 ``auto.blocked``，导致重试沦为
+        NO-OP；实际清除退避与重启链路的无状态实现收纳在 ``ui.pet_ui_menu.retry_failures``，
+        此处保留公开方法入口供右键菜单、一键执行与自检统一调用。
         """
+        return pet_ui_menu.retry_failures(self)
+    def skip_failure(self, item=None):
+        """「跳过当前阻塞项」（UX-SANHU-FIX）：摘除一条待确认并同步解除 ``auto.blocked``。"""
         entry = None
         try:
             entry = self.agent.skip_failure(item)
         except Exception as exc:
             self.errors.append(('skip', str(exc)))
+        blocked = getattr(self.auto, 'blocked', None)
+        blocked_stage = str(blocked[0] or '').strip() if isinstance(blocked, (tuple, list)) and blocked else ''
         if entry is None:
+            if blocked_stage:
+                self.auto.blocked = None
+                self._gate_said = ''
+                self.notice = '已跳过当前阻塞项：%s（自动链阻塞已解除）' % pet_bus.STAGE_NAMES.get(
+                    blocked_stage, blocked_stage)
+                return self.notice
             self.notice = '现在没有待确认的项，不用跳过'
             return ''
         stage = str(entry.get('stage') or '')
         category = str(entry.get('category') or '')
-        self.notice = '已跳过一条待确认：%s · %s（还剩 %d 项）' % (
+        if blocked_stage and (not self.agent.failures or blocked_stage == stage):
+            self.auto.blocked = None
+            self._gate_said = ''
+        self.notice = '已跳过当前阻塞项：%s · %s（还剩 %d 项）' % (
             pet_bus.STAGE_NAMES.get(stage, stage or '某阶段'),
             pet_agent.CATEGORY_NAMES.get(category, category or '未分类'), len(self.agent.failures))
         return self.notice
@@ -784,8 +787,9 @@ class PetStagesMixin:
                        and bool(self.auto.active))
         self.mode = mode
         try:
-            if self.mode_var is not None:
-                self.mode_var.set(mode)
+            mode_var = getattr(self, 'mode_var', None)
+            if mode_var is not None:
+                mode_var.set(mode)
         except TclError:
             # 仅允许窗口销毁竞态静默；变量类型或调用线程错误必须继续暴露。
             pass
