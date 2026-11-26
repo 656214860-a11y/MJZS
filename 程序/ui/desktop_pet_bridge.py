@@ -13,6 +13,7 @@ from orchestrator.desktop_auto_state import (
 from ui.desktop_page_registry import PAGES
 from contract.pet_bus import STAGES, stage_name
 from contract.storyboard_paths import media_root
+import orchestrator.skill_budget as skill_budget
 import orchestrator.stage_handler_registry as stage_handler_registry
 from ui.pet_ui_stages import stage_run_action, skip_unchecked
 
@@ -67,6 +68,18 @@ class PetBridgeMixin:
     def _start_unattended_stage(self,stage,trigger):
         """尚未拆出的无人值守阶段由 L3 启动适配器回调到此处。"""
         return stage_run_action(self, stage, trigger, unattended=True)
+
+    def authorize_paid_stage(self, stage, var=None):
+        """REL-09：全自动档付费步骤的一次一授权闸（三虎五类配额接线）。
+
+        实现唯一一份在 ``skill_budget.paid_stage_guard``（L4→L4 反向 import 会成环，
+        L3 是两侧都进得来的唯一落点）：先按当次估算查阶段配额与 Token 日额，见底不弹窗
+        直接转人工；确认框写清步骤名＋当次数量／秒数＋估算 Token＋剩余额度，授权只对
+        这一次步骤有效。授权后记一格生产配额并打开这一步自己的自动开关；拒绝／弹窗
+        失败／超时／配额或 Token 见底都在里面 pause＋stage.failed 收成人话返回，
+        绝不派发。self.pet 是三虎（.agent 接配额账与暂停出口）。
+        """
+        return skill_budget.paid_stage_guard(getattr(self, 'pet', None), stage, var)
 
     def _execute_unattended_stage(self, stage, trigger):
         """执行 L4 启动动作。直接派发的阶段由既有批次或清单处理器收场。"""

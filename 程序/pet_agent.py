@@ -744,8 +744,8 @@ class Agent:
         if level == 'hint':
             base.update(run=False, reason='只提醒模式：不自动执行')
             return base
-        if level == 'semi' and is_paid:
-            base.update(run=False, confirm=True, reason='半自动：付费步骤需您点一下确认')
+        if level in ('semi', 'auto') and is_paid:
+            base.update(run=False, confirm=True, reason=LEVEL_NAMES[level] + '：付费步骤需您点一下确认')
             return base
         base.update(run=True, reason='')
         return base
