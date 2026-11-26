@@ -1599,14 +1599,15 @@ class DebounceAndPanelPerfTests(_PageCase):
         ]
         groups = panel_index.animatic_grouped_rows(rows)
         labels = [label for _gid, label, _members in groups]
-        self.assertEqual(['参考图库', '预演版本', '镜头草图', '临时声音'], labels)
+        self.assertEqual(['参考图库 (1)', '预演版本 (1)', '镜头草图 (50)', '临时声音 (1)'], labels)
         open_map = {label: panel_index.group_default_open(gid)
                     for gid, label, _members in groups}
-        self.assertEqual({'参考图库': True, '预演版本': True,
-                          '镜头草图': False, '临时声音': False}, open_map)
+        self.assertEqual({'参考图库 (1)': True, '预演版本 (1)': True,
+                          '镜头草图 (50)': False, '临时声音 (1)': True}, open_map)
         prefetch = panel_index.prefetch_media_paths(groups, self.project)
         self.assertLessEqual(len(prefetch), 40)
-        self.assertFalse(any('镜头' in str(path) or '声音' in str(path) for path in prefetch))
+        self.assertFalse(any('镜头' in str(path) for path in prefetch))
+        self.assertTrue(any('声音' in str(path) for path in prefetch))
 
         async_calls = []
         orig_async = self.page.async_
