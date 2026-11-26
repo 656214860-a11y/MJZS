@@ -237,7 +237,6 @@ class LayoutMixin:
         # 页面重建（切换分镜、刷新列表）会产生新控件，必须每次重新补挂滚轮标签：
         # 漏挂标签时滚轮会落到控件自身的绑定上，只读下拉框会直接换选项并重建整页，
         # 表现出来就是「滚轮滑过下拉框，文件被切换，内容抖动」。
-        measured_requests=[]
         def resize(widget):
             for child in widget.winfo_children():
                 tags=child.bindtags()
@@ -245,12 +244,18 @@ class LayoutMixin:
                 if isinstance(child,ttk.Label) and not getattr(child,'local_wrap',False):
                     wrap=int(child.cget('wraplength') or 0)
                     if wrap>0 and wrap!=max(200,width-28):child.configure(wraplength=max(200,width-28))
-                measured_requests.append((str(child),child.winfo_reqwidth(),child.winfo_reqheight()))
                 resize(child)
         resize(self.content)
         if self.page_index==PAGE['script'] and hasattr(self,'_fit_talk'):
             self._fit_talk()
-        self._fit_request_signature=(width,req,target,tuple(measured_requests))
+        # C01：签名只量直接子级的请求尺寸，不递归全树。
+        # content.winfo_reqheight() 本身已经传播了全树高度变化，补进签名的直接子级
+        # reqwidth 负责检测换行等宽度变化；递归收集全树的开销在深页面里按子树规模放大。
+        measured_requests=tuple(
+            (str(child),child.winfo_reqwidth(),child.winfo_reqheight())
+            for child in self.content.winfo_children()
+        )
+        self._fit_request_signature=(width,req,target,measured_requests)
         # 缓存页会替换 content，且等宽标题切换不会触发 Configure。
         # 在当前页几何收敛时统一刷新，不沿用上一页的聊天内边距。
         self.align_header()
