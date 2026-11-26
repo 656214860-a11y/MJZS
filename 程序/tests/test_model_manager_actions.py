@@ -24,73 +24,70 @@ class ProviderChoicesTests(Batch7Case):
         records = {key: model_pool.record(value, key) for key, value in CLI_RECORDS.items()}
         self.pet.agent_model_records = lambda: dict(records)
         win = self._show(pet_models_ui.open_manager(self.pet))
+        # REQ-UI-MODEL-PAGE-2：API 路线内置 9 项主流预设＋已存自定义厂商（大小写去重）；Desktop/CLI 保留内建厂商去重。
         values = [str(item) for item in win._pet_provider_box.cget('values')]
         folded = [item.casefold() for item in values]
         self.assertEqual(len(folded), len(set(folded)), values)
-        self.assertIn('anthropic', values, '保留内建项')
-        self.assertNotIn('Anthropic', values)
+        self.assertIn('Anthropic (Claude)', values, 'API 预设包含 Anthropic')
         self.assertEqual(sum(item == 'moonshot' for item in folded), 1, values)
+        win._pet_mode.set('Desktop')
+        win.update()
+        local_vals = [str(item) for item in win._pet_provider_box.cget('values')]
+        local_folded = [item.casefold() for item in local_vals]
+        self.assertEqual(len(local_folded), len(set(local_folded)), local_vals)
+        self.assertIn('anthropic', local_vals, '本地厂商保留内建项')
+        self.assertNotIn('Anthropic', local_vals)
 
     def test_provider_dropdown_drops_openai_compatible_defaults_to_custom_and_is_sorted(self):
         win = self._show(pet_models_ui.open_manager(self.pet))
         values = [str(item) for item in win._pet_provider_box.cget('values')]
         self.assertNotIn('OpenAI 兼容接口', values)
-        self.assertEqual(values, sorted(values, key=str.casefold))
-        self.assertEqual(win._pet_provider.get(), '自定义')
+        self.assertIn('DeepSeek 官方', values)
+        self.assertEqual(win._pet_provider.get(), '自定义中转')
+        win._pet_mode.set('Desktop')
+        win.update()
+        local_vals = [str(item) for item in win._pet_provider_box.cget('values')]
+        self.assertEqual(local_vals, sorted(local_vals, key=str.casefold))
 
-    def test_paired_boxes_use_content_widths_and_right_labels_hug_their_box(self):
+    def test_top_down_form_aligns_primary_inputs_and_folds_advanced_params(self):
+        """REQ-UI-MODEL-PAGE-2：右侧改为 DSH 风格自上而下单列表单，核心输入共享左竖线、高级参数折叠。"""
         win = self._show(pet_models_ui.open_manager(self.pet))
         win.update_idletasks()
-        form = win._pet_provider_box.master
-        # 成对字段（Provider｜功能、模型 ID｜显示名、密钥名｜协议）仍落在 col1/col3 两条输入竖线上，
-        # 但每格按自身内容取宽，不再把短下拉框拉成半行。
-        pairs = []
-        for slave in form.grid_slaves():
-            info = slave.grid_info()
-            if int(info['column']) == 1 and int(info['columnspan']) == 1 and slave.winfo_class() != 'Frame':
-                other = form.grid_slaves(row=info['row'], column=3)
-                if other:
-                    pairs.append((slave, other[0]))
-        self.assertGreaterEqual(len(pairs), 3)
-        for left, right in pairs:
-            self.assertGreater(right.winfo_rootx() - left.winfo_rootx() - left.winfo_width(), 0)
-        key_env = win._pet_entries['key_env']
-        wire = form.grid_slaves(row=key_env.grid_info()['row'], column=3)[0]
-        self.assertGreater(wire.winfo_width(), key_env.winfo_width(),
-                           '协议长选项按内容更宽，密钥名保持紧凑')
-        self.assertLess(win._pet_modality_box.winfo_width(), wire.winfo_width(),
-                        '短功能下拉不得被拉成长协议同宽')
-        label = form.grid_slaves(row=0, column=2)[0]
-        self.assertEqual(str(label.grid_info()['sticky']), 'e')
+        card = win._pet_route_cards()[0]
+        self.assertFalse(win._pet_advanced_section.is_open(), '高级参数默认折叠')
+        self.assertFalse(card.route_adv.is_open(), '路线协议与环境变量默认折叠')
+        edges = {win._pet_entries['label'].winfo_rootx(), win._pet_entries['model'].winfo_rootx(),
+                 card.base_url_entry.winfo_rootx(), card.model_entry.winfo_rootx()}
+        self.assertEqual(len(edges), 1, f'自上而下核心输入左沿应对齐：{edges}')
 
 
 class ManagerActionTests(Batch7Case):
     def _manager(self):
         return self._show(pet_models_ui.open_manager(self.pet))
 
-    def test_save_one_sits_after_delete_on_the_left(self):
+    def test_save_sits_right_of_delete_in_top_bar_without_legacy_bottom_bar(self):
         win = self._manager()
-        delete, save = _button(win, '删除这条'), _button(win, '保存这条')
-        bottom_save = _button(win, '保存')
+        delete, save = _button(win, '删除'), _button(win, '保存')
         self.assertGreater(save.winfo_rootx(), delete.winfo_rootx())
-        self.assertGreater(bottom_save.winfo_rootx(), save.winfo_rootx())
-        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '关闭'])
-        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '保存并关闭'])
+        self.assertEqual(save.winfo_rooty(), delete.winfo_rooty())
+        for removed in ('关闭', '保存并关闭', '保存这条', '取消'):
+            self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == removed], removed)
 
     def test_blank_form_closes_without_saving(self):
-        # UX-MODEL-PAGE 契约变更：独立「关闭」改为底行「取消」（DES《05》§15.2），仍只关窗不保存。
+        # REQ-UI-MODEL-PAGE-2：去掉底栏取消按钮，Esc／窗口关闭走 cancel() 且干净表单直接关窗不保存。
         win = self._manager()
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '取消').invoke()
+            win.event_generate('<Escape>')
+            win.update()
             save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 
     def test_close_with_filled_form_does_not_save(self):
-        # UX-MODEL-PAGE 契约变更：「关闭」改为底行「取消」；程序化填入不算未保存改动，取消直关不保存。
         win = self._manager()
         win._pet_entries['model'].insert(0, 'kimi-k2')
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
-            _button(win, '取消').invoke()
+            win.event_generate('<Escape>')
+            win.update()
             save_pool.assert_not_called()
         self.assertFalse(win.winfo_exists())
 

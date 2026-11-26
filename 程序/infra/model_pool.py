@@ -227,6 +227,33 @@ def context_length_of(value):
     return number if number > 0 else ''
 
 
+def _clean_routes(raw_routes, base):
+    """就地规范化 routes 列表并镜像首选启用路线到顶层字段（零跨模块导入）。"""
+    out, used = [], set()
+    for i, entry in enumerate(raw_routes):
+        if not isinstance(entry, dict): continue
+        rid = str(entry.get('id') or '').strip()
+        if not rid or rid in used:
+            seq = i + 1
+            while f'r{seq}' in used: seq += 1
+            rid = f'r{seq}'
+        used.add(rid)
+        w = str(entry.get('wire_api') or base['wire_api'] or DEFAULT_WIRE).strip()
+        prov = str(entry.get('provider') or (base['provider'] if i == 0 else '') or '').strip()
+        f = lambda k: str(entry.get(k) if k in entry else (base[k] if i == 0 else '') or '').strip()
+        out.append({'id': rid, 'name': str(entry.get('name') or '').strip(),
+                    'provider': '' if prov == 'desktop' else prov, 'base_url': f('base_url'),
+                    'path': str(entry.get('path') or base['path'] or DEFAULT_PATH).strip() or DEFAULT_PATH,
+                    'wire_api': w if w in WIRE_LABELS else DEFAULT_WIRE, 'model': f('model'),
+                    'key_env': f('key_env'), 'enabled': True if entry.get('enabled') is None else bool(entry.get('enabled'))})
+    if not out: return
+    chosen = next((r for r in out if r['enabled']), out[0])
+    base['routes'] = out
+    base['base_url'], base['path'], base['wire_api'], base['key_env'] = chosen['base_url'], chosen['path'], chosen['wire_api'], chosen['key_env']
+    if chosen['provider'] and base['provider'] != 'desktop': base['provider'] = chosen['provider']
+    if not base['model'] and chosen['model']: base['model'] = chosen['model']
+
+
 def record(value, model_id=''):
     """一条模型记录：字段补全、空白剪掉；认不出来的键一律丢，不写进配置。"""
     source = value if isinstance(value, dict) else {}
@@ -237,21 +264,20 @@ def record(value, model_id=''):
         item['label'] = 'Claude Code'
     item['path'] = item['path'] or DEFAULT_PATH
     item['wire_api'] = item['wire_api'] if item['wire_api'] in WIRE_LABELS else DEFAULT_WIRE
-    # 第 65 期任务 5：用户报「provider → 自定义不可用」。Provider 只是一行标签（真发请求看
-    # wire_api），所以这里不再把写进来的名字换成默认值——选「自定义」的人自己敲一个服务商名
-    # 也要存得住，只有空着才退回默认。
     item['provider'] = item['provider'] or DEFAULT_PROVIDER
     item['capabilities'] = capabilities_of(source.get('capabilities'))
     item['context_length'] = context_length_of(source.get('context_length'))
     item['modality'] = item['modality'] if item['modality'] in MODALITY_LABELS else DEFAULT_MODALITY
     if isinstance(source.get('history_locations'), list):
-        item['history_locations'] = [dict(label=str(entry['label']), provider=str(entry['provider']))
-                                     for entry in source['history_locations'] if isinstance(entry, dict)
-                                     and entry.get('label') and entry.get('provider')]
+        item['history_locations'] = [dict(label=str(e['label']), provider=str(e['provider']))
+                                     for e in source['history_locations'] if isinstance(e, dict)
+                                     and e.get('label') and e.get('provider')]
     try:
         item['cost'] = max(1, min(3, int(source.get('cost') or 1)))
     except (TypeError, ValueError):
         item['cost'] = 1
+    if isinstance(source.get('routes'), list) and source['routes']:
+        _clean_routes(source['routes'], item)
     return item
 
 
@@ -278,21 +304,14 @@ def raw(program=None, config=None):
 
 
 def pool(config=None, program=None):
-    """模型池：配置里写了就用配置里的（模型管理是唯一入口），没写才是出厂那四条。
-
-    第 59 期第 5 条：顺序也要「简洁易懂」——出厂那几条按固定次序打头，其余按显示名排在后面；
-    阶段配置的下拉与设置里的模型池都读这一份，两边顺序自然一致。
-    """
+    """模型池：配置里写了就用配置里的，没写用出厂四条（按出厂序＋显示名排序）。"""
     data = raw(program, config)
     stored = data.get('models')
-    if not isinstance(stored, dict):
-        return default_pool()
+    if not isinstance(stored, dict): return default_pool()
     out = {}
     for model_id, value in stored.items():
         item = record(value, model_id)
-        if item['model']:
-            out[str(model_id)] = item
-    # 旧配置补齐桌面入口，但尊重用户在模型管理中明确删除的记录。
+        if item['model']: out[str(model_id)] = item
     deleted = data.get('deleted_desktop_models') or []
     for model_id, value in BUILTIN:
         if model_id in DESKTOP_ENGINES and model_id not in out and model_id not in deleted:
@@ -301,17 +320,16 @@ def pool(config=None, program=None):
 
 
 def ordered(items):
-    """模型池的展示顺序：出厂那几条按出厂次序，其余按显示名（第 59 期第 5 条）。"""
+    """模型池的展示顺序：出厂那几条按出厂次序，其余按显示名。"""
     builtin = [model_id for model_id, _value in BUILTIN]
     rank = {model_id: index for index, model_id in enumerate(builtin)}
     rest = sorted((model_id for model_id in items if model_id not in rank),
                   key=lambda model_id: (str(items[model_id].get('label') or '').lower(), model_id))
-    return {model_id: items[model_id]
-            for model_id in [item for item in builtin if item in items] + rest}
+    return {model_id: items[model_id] for model_id in [item for item in builtin if item in items] + rest}
 
 
 def agent_models(config=None, program=None):
-    """三虎四个任务各用哪个模型：缺项补出厂默认，「自动」原样留着交给路由器。"""
+    """三虎四个任务各用哪个模型：缺项补出厂默认，「自动」交给路由器。"""
     data = raw(program, config)
     section = data.get('agent')
     stored = section.get('models') if isinstance(section, dict) else None
@@ -319,34 +337,27 @@ def agent_models(config=None, program=None):
     if isinstance(stored, dict):
         for key in TASK_KEYS:
             value = str(stored.get(key) or '').strip()
-            if value:
-                out[key] = value
+            if value: out[key] = value
     return out
 
 
 def group_candidates(group, current_model, records=None, program=None):
     """同一模型组内按当前模型优先返回候选 id；无组或组为空就只返回当前模型。"""
-    group = str(group or '').strip()
-    current = str(current_model or '').strip()
-    if not group:
-        return [current] if current else []
+    group, current = str(group or '').strip(), str(current_model or '').strip()
+    if not group: return [current] if current else []
     table = records if isinstance(records, dict) else pool(program=program)
-    members = [model_id for model_id, item in table.items()
-               if str(item.get('group') or '').strip() == group]
-    def rank(model_id):
-        try:
-            weight = int(table[model_id].get('weight') or 1)
-        except (TypeError, ValueError):
-            weight = 1
-        return (-weight, model_id != current, model_id)
+    members = [mid for mid, item in table.items() if str(item.get('group') or '').strip() == group]
+    def rank(mid):
+        try: weight = int(table[mid].get('weight') or 1)
+        except (TypeError, ValueError): weight = 1
+        return (-weight, mid != current, mid)
     return sorted(members, key=rank)
 
 
 def label_of(model, records=None, config=None, program=None, labeler=None):
-    """模型 id → 界面文案（池里没有就原样返回，认不出也不至于念不出名字）。"""
+    """模型 id → 界面文案。"""
     text = str(model or '').strip()
-    if text == AUTO:
-        return AUTO_LABEL
+    if text == AUTO: return AUTO_LABEL
     items = records if isinstance(records, dict) else pool(config, program)
     item = items.get(text)
     return labeler(text, item['label']) if item and callable(labeler) else (item['label'] if item else text)
@@ -356,43 +367,29 @@ def options(records=None, config=None, program=None, with_auto=True, labeler=Non
     """下拉／子菜单的选项：(id, 文案)；「自动」只给默认模型那一栏用。"""
     items = records if isinstance(records, dict) else pool(config, program)
     out = [(AUTO, AUTO_LABEL)] if with_auto else []
-    out.extend((model_id, labeler(model_id, item['label']) if callable(labeler) else item['label'])
-               for model_id, item in items.items())
+    out.extend((mid, labeler(mid, item['label']) if callable(labeler) else item['label']) for mid, item in items.items())
     return tuple(out)
 
 
 def id_of_label(text, choices):
-    """界面文案 → id（认不出来原样退回，菜单／下拉都不用额外记一份）。"""
+    """界面文案 → id（认不出来原样退回）。"""
     wanted = str(text or '').strip()
     for model_id, label in choices:
-        if wanted in (model_id, label):
-            return model_id
+        if wanted in (model_id, label): return model_id
     return wanted
 
 
 def wire_for_provider(provider):
-    """第 65 期任务 8：Provider → 该配哪一档协议（认不出来的一律回默认那档）。
-
-    界面按这个把「协议」栏自动摆好：换了 Provider，协议跟着动，用户不必自己配对。
-    """
-    wanted = str(provider or '').strip()
-    return PROVIDER_WIRES.get(wanted) or DEFAULT_WIRE
+    """Provider → 默认协议。"""
+    return PROVIDER_WIRES.get(str(provider or '').strip()) or DEFAULT_WIRE
 
 
 def key_of(value, program=None):
-    """这条记录能用的密钥：由模型池统一解析 .env／环境变量／本机加密存储。
-
-    「可用」的判据只能有一处：界面说这个模型能用，三虎真发的时候就必须找得到同一把 Key，
-    所以这里不另写一遍读取逻辑，读不到一律当空串。
-    """
-    item = record(value)
-    name = item['key_env']
-    if not name:
-        return ''
-    try:
-        return credential(name, program)
-    except Exception:
-        return ''
+    """这条记录能用的密钥：统一解析 .env／环境变量／本机加密存储。"""
+    name = record(value)['key_env']
+    if not name: return ''
+    try: return credential(name, program)
+    except Exception: return ''
 
 
 def credential(name, program=None):
@@ -433,10 +430,7 @@ def local_key_of(value, program=None, model_id=''):
 
 
 def save_local_key(value, key, program=None, model_id=''):
-    """把直接输入的密钥加密存本机，并把它的名字写回记录（三虎那条链也据此找得到）。
-
-    返回补好名字的记录：调用方拿它去写池子，两处（.env 名／本机密钥名）就指的是同一把钥匙。
-    """
+    """把直接输入的密钥加密存本机，并把它的名字写回记录。"""
     item = record(value, model_id)
     name = model_secrets.name_for(item['model'], item['key_env'])
     model_secrets.save(name, key, program)
@@ -499,6 +493,19 @@ def status(value, program=None):
     item = record(value)
     if item['provider'] == 'desktop':
         return True, '桌面 Agent'
+    if isinstance(item.get('routes'), list) and item['routes']:
+        first_why = '无可用路线'
+        for idx, r in enumerate(item['routes']):
+            if not r.get('enabled', True):
+                if idx == 0: first_why = '已停用'
+                continue
+            rm = r.get('model') or item['model']
+            env = r.get('key_env') or model_secrets.name_for(item['model'] if idx == 0 and r['id'] == 'r1' else f"{item['model']}__{r['id']}", '')
+            if rm and r.get('base_url') and bool(env and key_of({'key_env': env, 'model': rm}, program)):
+                return True, '可用'
+            if idx == 0 or first_why == '无可用路线':
+                first_why = '缺模型 ID' if not rm else ('缺 API 地址' if not r.get('base_url') else '待填 Key')
+        return False, first_why
     if not item['model']:
         return False, '缺模型 ID'
     if not item['base_url']:
@@ -844,12 +851,7 @@ def certify(value, transport=None, program=None, timeout=15, prompt=None):
 
 
 def probe(value, transport=None, program=None, timeout=8, ledger=None):
-    """测试连接：拿这一条发最小一次请求（16 个 token），不写盘、不记账。
-
-    第 O37：结果分五层报——连通性／协议兼容／模型标识／能力声明／完整任务。
-    「连接成功」只代表这次最小请求通了；完整工作流（长文本、流式、中断、工具、
-    阶段文档）永远标「未验证」，不会被这条绿灯冒充。规格里那句延迟仍在，带 'ms'。
-    """
+    """测试连接：发最小一次请求（16 tokens），分五层回报，不写盘、不记账。"""
     item = record(value)
 
     def finish(result):
@@ -890,12 +892,7 @@ def probe(value, transport=None, program=None, timeout=8, ledger=None):
 
 
 def verify_sample(value, transport=None, program=None, timeout=15, prompt=None, max_tokens=VERIFY_TOKENS):
-    """小样本验证：用户点名时才发一次真实短请求，把「完整任务」这一层跑出来。
-
-    与「测试连接」分工：测试连接只证明连通与鉴权；这里看正文有没有真的回来（不是
-    只有推理）、有没有被长度上限截断、服务端报的模型与请求是否一致。默认不自动跑，
-    也不批量跑——只在用户对某一条点「小样本验证」时发这一次，避免产生大量费用。
-    """
+    """小样本验证：发一次真实短请求检验正文与截断，用户点名才跑。"""
     item = record(value)
     outcome = {'at': time.strftime('%Y-%m-%dT%H:%M:%S'), 'ok': False, 'model': item['model'],
                'config_version': config_version(item), 'content_length': 0,

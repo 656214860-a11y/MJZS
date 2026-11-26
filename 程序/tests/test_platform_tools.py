@@ -264,6 +264,10 @@ class MicrophoneRecorderTests(unittest.TestCase):
 
 
 class RequestsJsonTlsTests(unittest.TestCase):
+    def setUp(self):
+        platform_tools._TLS_CACHE.clear()
+        self.addCleanup(platform_tools._TLS_CACHE.clear)
+
     def capture_transport(self, environment=None, proxy=None):
         import requests
         from types import SimpleNamespace

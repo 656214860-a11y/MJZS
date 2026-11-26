@@ -217,15 +217,15 @@ class ActionAreaTests(Batch7Case):
         self.assertEqual(getattr(self.pet, 'resolved_with_records', []), [records],
                          '「自动」状态解析必须复用同一份快照')
 
-    def test_model_manager_save_is_rightmost_primary_with_cancel_beside_it(self):
-        # UX-MODEL-PAGE 契约变更：底行右对齐 [取消][保存]，保存＝写入并关闭；不再有独立「关闭」。
+    def test_model_manager_save_is_rightmost_primary_with_delete_beside_it(self):
+        # REQ-UI-MODEL-PAGE-2：取消窗口底栏，右栏顶行右对齐 [删除][保存]；不再有独立「关闭」或「取消」。
         win = self._manager_window()
-        cancel, save = _button(win, '取消'), _button(win, '保存')
-        self.assertGreater(save.winfo_rootx(), cancel.winfo_rootx(),
-                           '保存必须在取消右边')
+        delete, save = _button(win, '删除'), _button(win, '保存')
+        self.assertGreater(save.winfo_rootx(), delete.winfo_rootx(),
+                           '保存必须在删除右边')
         self.assertEqual(str(save.cget('style')), 'Tokens.Primary.TButton')
-        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '关闭'],
-                         '不再有独立「关闭」按钮与保存并列')
+        self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) in ('关闭', '取消')],
+                         '不再有独立「关闭」「取消」按钮')
 
     def test_settings_hub_action_bar_stays_visible_at_minimum_size(self):
         win = self._hub()
@@ -246,29 +246,42 @@ class ActionAreaTests(Batch7Case):
         win = self._manager_window()
         win.geometry('%dx%d' % pet_models_ui.MANAGER_MIN)
         win.update()
-        cancel, save = _button(win, '取消'), _button(win, '保存')
+        delete, save, test_btn = _button(win, '删除'), _button(win, '保存'), _button(win, '测试')
         bottom = win.winfo_rooty() + win.winfo_height()
-        for button in (cancel, save):
+        edge = win.winfo_rootx() + win.winfo_width()
+        for button in (delete, save, test_btn):
             self.assertTrue(button.winfo_ismapped(), button.cget('text'))
+            self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), edge)
             self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), bottom,
                                  '动作区不得掉出窗口底边')
 
 
 class ManagerHintTests(Batch7Case):
     def test_delete_and_probe_need_a_row_and_a_model_id(self):
-        """没选行就删、没填模型 ID 就测，只写非模态提示；填了 ID 才去测并把结论写进提示。"""
+        """没选模型就删、没填模型 ID 就测，只写非模态提示；填了 ID 点路线右侧「测试」触发后台探测。"""
         win = self._manager_window()
         hint = win._pet_hint
-        _button(win, '删除这条').invoke()
-        self.assertEqual(hint.get(), '先选一条。')
+        _button(win, '删除').invoke()
+        self.assertIn('选择', hint.get())
         win._pet_entries['model'].delete(0, 'end')
-        _button(win, '测试连接').invoke()
-        self.assertEqual(hint.get(), '先填模型 ID。')
-        win._pet_entries['model'].insert(0, 'gpt-test')
-        with mock.patch('pet_models_ui.probe_line', return_value='连通（测试）') as probe:
-            _button(win, '测试连接').invoke()
-        self.assertEqual(probe.call_args[0][0]['model'], 'gpt-test')
-        self.assertEqual(hint.get(), '连通（测试）')
+        card = win._pet_route_cards()[0]
+        card.model_entry.delete(0, 'end')
+        card.test_button.invoke()
+        self.assertIn('模型 ID', hint.get())
+        card.model_entry.insert(0, 'gpt-test')
+        card.base_url_entry.insert(0, 'https://api.example.test/v1')
+        card.key_entry.insert(0, 'sk-hint-test')
+        self.pet.probe_transport = lambda *_a: {
+            'ok': True, 'status': 200,
+            'data': {'model': 'gpt-test', 'choices': [{'message': {'content': 'ok'}}]},
+        }
+        card.test_button.invoke()
+        for _ in range(40):
+            win.update()
+            if '连接成功' in hint.get():
+                break
+            win.after(20)
+        self.assertIn('连接成功', hint.get())
 
 
 class SaveButtonStateTests(Batch7Case):
@@ -317,46 +330,37 @@ class FormAlignmentTests(Batch7Case):
 
     def test_manager_inputs_share_one_left_edge(self):
         win = self._manager_window()
-        entries = win._pet_entries
-        # 调用方式已移到左上角页签；Provider｜功能、模型 ID｜显示名各并一行后，
-        # 左半边输入列（Provider、模型 ID、根地址、密钥名）同一竖线，右半边（功能、显示名）另有一条。
-        edges = {entries[key].winfo_rootx() for key in ('model', 'base_url', 'key_env')}
-        edges.add(win._pet_provider_box.winfo_rootx())
-        self.assertEqual(len(edges), 1, '模型管理左输入列必须落在同一竖线：%r' % edges)
-        right = {entries['label'].winfo_rootx(), win._pet_modality_box.winfo_rootx()}
-        self.assertEqual(len(right), 1, '右半边的功能、显示名必须落在同一竖线：%r' % right)
-
-    def test_manager_fields_use_content_widths_and_keep_pair_alignment(self):
-        """紧凑表单契约：普通字段不再拉满半行；长地址才横跨弹性列，左右输入竖线仍对齐。"""
-        win = self._manager_window()
         win.update()
         entries = win._pet_entries
-        edges = {entries[key].winfo_rootx() for key in ('model', 'base_url', 'key_env')}
-        edges.add(win._pet_provider_box.winfo_rootx())
+        card = win._pet_route_cards()[0]
+        # REQ-UI-MODEL-PAGE-2：右栏基本信息卡与路线卡自上而下共用同一条输入左竖线。
+        edges = {entries['label'].winfo_rootx(), entries['model'].winfo_rootx(),
+                 win._pet_modality_box.winfo_rootx(), card.base_url_entry.winfo_rootx(),
+                 card.model_entry.winfo_rootx(), card.provider_box.winfo_rootx()}
+        self.assertEqual(len(edges), 1, '模型管理左输入列必须落在同一竖线：%r' % edges)
+
+    def test_manager_fields_use_content_widths_and_keep_pair_alignment(self):
+        """REQ-UI-MODEL-PAGE-2：展开高级参数后数值框保持紧凑，核心地址随弹性列拉宽。"""
+        win = self._manager_window()
+        win._pet_advanced_section.set_open(True)
+        card = win._pet_route_cards()[0]
+        card.route_adv.set_open(True)
+        win.update()
+        entries = win._pet_entries
+        edges = {entries['label'].winfo_rootx(), entries['model'].winfo_rootx(),
+                 card.base_url_entry.winfo_rootx(), card.provider_box.winfo_rootx()}
         self.assertEqual(len(edges), 1, '左输入列必须落在同一竖线：%r' % edges)
-        right = {entries['label'].winfo_rootx(), win._pet_modality_box.winfo_rootx()}
-        self.assertEqual(len(right), 1, '右输入列必须落在同一竖线：%r' % right)
-        quarter = max(1, win.winfo_width() // 4)
-        for key in ('model', 'label', 'key_env', 'note'):
-            self.assertLess(entries[key].winfo_width(), quarter,
-                            '%s 是普通内容宽字段，不得拉满半行' % key)
         self.assertLess(entries['timeout'].winfo_width(), entries['note'].winfo_width(),
                         '短数值字段要比文本备注更窄')
-        self.assertGreater(entries['base_url'].winfo_width(), entries['model'].winfo_width(),
-                           'API 根地址是长值字段，应使用弹性跨列宽度')
-        wire = next(child for child in win._pet_provider_box.master.winfo_children()
-                    if child.winfo_class() == 'TCombobox'
-                    and int(child.grid_info().get('row', -1)) == int(entries['key_env'].grid_info()['row'])
-                    and int(child.grid_info().get('column', -1)) == 3)
-        self.assertEqual(wire.winfo_rootx(), win._pet_modality_box.winfo_rootx(), '协议与右半边同一竖线')
-        self.assertLess(wire.winfo_width(), win.winfo_width() // 2,
-                        '协议下拉按内容取宽，不得独占半行')
+        self.assertGreater(card.base_url_entry.winfo_width(), win._pet_modality_box.winfo_width(),
+                           'API 地址是长值字段，应使用弹性宽度')
+        wire = card.wire_box
         style = ttk.Style(win)
         style.configure('Flat.Tokens.Combobox.TCombobox', padding=(0, 0))
         flat = ttk.Combobox(wire.master, style='Flat.Tokens.Combobox.TCombobox', width=14)
         flat.grid(row=99, column=0)
         win.update()
-        grow = wire.winfo_height() - flat.winfo_height()   # 目标约三分之一，像素取整后允许 25%～45%
+        grow = wire.winfo_height() - flat.winfo_height()
         self.assertGreaterEqual(grow * 4, flat.winfo_height(), '下拉框比零内边距时高出约三分之一')
         self.assertLessEqual(grow * 20, flat.winfo_height() * 9, '但不过分增高')
 
@@ -406,7 +410,7 @@ class RecoverableErrorTests(Batch7Case):
         win.update()
         win._pet_entries['program'].insert(0, 'C:/definitely/missing.exe')
         with mock.patch.object(pet_models_ui, 'NotificationDispatcher') as dispatcher:
-            _button(win, '保存这条').invoke()
+            _button(win, '保存').invoke()
         self.assertTrue(dispatcher.return_value.error.called,
                         '保存失败必须走统一错误入口')
         kwargs = dispatcher.return_value.error.call_args.kwargs
@@ -474,7 +478,7 @@ class HubDefaultTabTests(Batch7Case):
 
 
 class ModelListAutoHeightTests(Batch7Case):
-    """模型列表自适应高度：少几条就少几行，不再在列表下方留大片空白。"""
+    """左侧模型卡片列表随数据精确渲染卡片，不多留空行、不越界。"""
 
     def _records(self, count):
         return {('model-%d' % i): model_pool.record(
@@ -488,44 +492,32 @@ class ModelListAutoHeightTests(Batch7Case):
             win._pet_reload()
         win.update_idletasks()
         win.update()
-        return win._pet_tree
+        return win._pet_cards
 
-    def test_model_list_shrinks_to_actual_row_count(self):
-        """加载 3 条模型后，列表高度收缩到 3 行，而非停留在初始高度留下空白。"""
+    def test_model_list_renders_exact_card_count_for_small_pool(self):
         win = self._manager_window()
-        win.update()
-        initial = int(win._pet_tree.cget('height'))
-        self.assertGreater(initial, 3, '初始高度应大于 3 行（否则无从验证收缩）')
-        tree = self._reload(win, 3)
-        self.assertEqual(int(tree.cget('height')), 3,
-                         '3 条模型应显示 3 行，下方不留空白')
+        cards = self._reload(win, 3)
+        self.assertEqual(len(cards.item_ids()), 3, '3 条模型渲染 3 张卡片')
 
-    def test_model_list_grows_with_more_rows_but_not_beyond_content(self):
-        """行数多时随窗口高度伸展，但绝不超过实际条目数（无空行）。"""
+    def test_model_list_grows_with_more_cards_cleanly(self):
         win = self._manager_window()
-        win.update()
-        tree = self._reload(win, 5)
-        self.assertLessEqual(int(tree.cget('height')), 5,
-                             '高度不得超过实际条目数，避免底部空行')
-        self.assertGreaterEqual(int(tree.cget('height')), 2,
-                                '至少保留 2 行可见')
+        cards = self._reload(win, 5)
+        self.assertEqual(len(cards.item_ids()), 5, '5 条模型渲染 5 张卡片')
+        for card in cards.card_widgets().values():
+            self.assertTrue(card.winfo_ismapped())
 
 
 class ModelManagerUxTests(Batch7Case):
-    """UX-MODEL-PAGE（DES《05》§15 模型管理页按键清单）：默认值预填、底行 [取消][保存]、
-    未保存改动在切换行／新建／离开时先确认。"""
+    """REQ-UI-MODEL-PAGE-2（DES《05》§15）：DSH 主从分栏、按钮上移、默认值预填、脏改动确认。"""
 
     def _type(self, win, key, text):
-        """模拟真实改动：键入文本再把表单弄脏。隐藏桌面合成按键事件不可靠
-        （test_desktop_compact_layout「搜索框过滤」同此结论），改用「功能」下拉
-        <<ComboboxSelected>>——虚拟事件由 Tk 内部派发，与真实用户挑选等效。"""
         win._pet_entries[key].insert('end', text)
         self.assertTrue(win._pet_entries[key].bind('<KeyRelease>'),
                         '%s 输入框缺少 <KeyRelease> 未保存改动绑定' % key)
         win._pet_modality_box.event_generate('<<ComboboxSelected>>')
 
     def test_mode_segments_are_compact_and_keyboard_accessible(self):
-        """API／Desktop／CLI 不再是 Notebook 大页签：小型分段按钮可聚焦、可用方向键与回车切换。"""
+        """API／Desktop／CLI 小型分段按钮可聚焦、可用方向键与回车切换。"""
         win = self._manager_window()
         win.update()
         control = win._pet_mode_control
@@ -559,7 +551,6 @@ class ModelManagerUxTests(Batch7Case):
         self.assertEqual(win._pet_mode.get(), 'API', '回车应切回聚焦的分段')
 
     def test_mode_switch_filters_cached_rows_without_rereading_the_pool(self):
-        """API／Desktop／CLI 切页只换过滤条件；不重复读模型池，显式刷新仍会重读。"""
         records = {'api-1': model_pool.record({'model': 'api-1', 'call_mode': 'API'}, 'api-1'),
                    'desk-1': model_pool.record({'model': 'desk-1', 'call_mode': 'Desktop'}, 'desk-1')}
         self.pet.agent_model_records = lambda: dict(records)
@@ -579,7 +570,6 @@ class ModelManagerUxTests(Batch7Case):
         self.assertEqual(len(calls), 1, '显式刷新仍要重读模型池')
 
     def test_mode_switch_table_stays_frozen_until_rows_and_height_settle(self):
-        """真窗口切分段时列表区域先保持旧像素，行插入与自适应高度落定后一次性重画。"""
         if sys.platform != 'win32':
             self.skipTest(PLATFORM_WINDOWS_ONLY)
         win = self._manager_window()
@@ -588,16 +578,15 @@ class ModelManagerUxTests(Batch7Case):
         self.assertIsNotNone(freezer)
         self.assertFalse(freezer.frozen)
         win._pet_mode.set('Desktop')
-        self.assertTrue(freezer.frozen, '清空并重建列表期间必须冻结绘制')
+        self.assertTrue(freezer.frozen, '清空并重建卡片列表期间必须冻结绘制')
         import ctypes
-        handle = int(manager.table_shell.winfo_id())
+        handle = int(manager.card_list.winfo_id())
         self.assertFalse(ctypes.windll.user32.IsWindowVisible(handle), '半成品列表不得上屏')
         win.update_idletasks()
-        self.assertFalse(freezer.frozen, '行高与布局落定后立即解冻，不等超时')
+        self.assertFalse(freezer.frozen, '布局落定后立即解冻，不等超时')
         self.assertTrue(ctypes.windll.user32.IsWindowVisible(handle))
 
     def test_mode_segment_click_preserves_unsaved_changes_guard(self):
-        """分段切换仍走未保存改动确认；拒绝时回到原段，表单内容不被覆盖。"""
         win = self._manager_window()
         buttons = win._pet_mode_buttons
         self._type(win, 'note', '未保存改动')
@@ -620,9 +609,9 @@ class ModelManagerUxTests(Batch7Case):
         for key, value in (('context_length', '262144'), ('max_output', '8192'),
                            ('temperature', '0.7'), ('timeout', '120'), ('retries', '2')):
             self.assertEqual(win._pet_entries[key].get(), value, key)
-        _button(win, '新建一条').invoke()
+        _button(win, '+ 新建模型').invoke()
         self.assertEqual(win._pet_entries['context_length'].get(), '262144',
-                         '新建一条同样预填 256K')
+                         '新建模型同样预填 256K')
 
     def test_saved_record_values_are_not_overwritten_by_defaults(self):
         record = model_pool.record({'model': 'mine', 'base_url': 'https://x.test/v1',
@@ -630,21 +619,21 @@ class ModelManagerUxTests(Batch7Case):
                                     'temperature': '0.9'}, 'mine')
         self.pet.agent_model_records = lambda: {'mine': record}
         win = self._manager_window()
-        win._pet_tree.selection_set('mine')
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('mine')
         win.update()
         self.assertEqual(win._pet_entries['context_length'].get(), '64000', '已存值不被默认覆盖')
         self.assertEqual(win._pet_entries['temperature'].get(), '0.9')
         self.assertEqual(win._pet_entries['max_output'].get(), '', '没存过的字段不冒默认')
 
-    def test_save_writes_then_closes_and_failure_stays_with_reason(self):
+    def test_save_writes_and_stays_in_page_and_failure_stays_with_reason(self):
+        # REQ-UI-MODEL-PAGE-2：右顶「保存」写入模型池并留在页内方便继续配置/测试下一条；失败写非模态原因。
         win = self._manager_window()
         win._pet_entries['model'].insert(0, 'm-1')
         with mock.patch.object(self.pet, 'save_pool') as save_pool:
             _button(win, '保存').invoke()
         self.assertTrue(save_pool.called, '保存必须先写池')
-        self.assertFalse(win.winfo_exists(), '保存成功后关窗')
-        win = self._manager_window()
+        self.assertTrue(win.winfo_exists(), '保存后留在页内，便于继续测试或配置下一条')
+        win._pet_entries['model'].delete(0, 'end')
         win._pet_entries['model'].insert(0, 'm-2')
         with mock.patch.object(self.pet, 'save_pool', side_effect=ValueError('写入失败')), \
                 mock.patch.object(pet_models_ui, 'NotificationDispatcher') as dispatcher:
@@ -652,20 +641,23 @@ class ModelManagerUxTests(Batch7Case):
         self.assertTrue(dispatcher.return_value.error.called, '失败要给原因')
         self.assertTrue(win.winfo_exists(), '保存失败留在页内')
 
-    def test_cancel_confirms_only_when_there_are_unsaved_changes(self):
+    def test_escape_close_confirms_only_when_there_are_unsaved_changes(self):
         win = self._manager_window()
         with mock.patch.object(self.pet, 'confirm_start') as confirm:
-            _button(win, '取消').invoke()
+            win.event_generate('<Escape>')
+            win.update()
         confirm.assert_not_called()
         self.assertFalse(win.winfo_exists())
         win = self._manager_window()
         self._type(win, 'note', '手改的备注')
         with mock.patch.object(self.pet, 'confirm_start', return_value=False) as confirm:
-            _button(win, '取消').invoke()
+            win.event_generate('<Escape>')
+            win.update()
         confirm.assert_called_once()
         self.assertTrue(win.winfo_exists(), '拒绝确认后留在页内')
         with mock.patch.object(self.pet, 'confirm_start', return_value=True):
-            _button(win, '取消').invoke()
+            win.event_generate('<Escape>')
+            win.update()
         self.assertFalse(win.winfo_exists())
 
     def test_row_switch_confirms_unsaved_changes(self):
@@ -674,46 +666,36 @@ class ModelManagerUxTests(Batch7Case):
                    for key in ('a-1', 'b-2')}
         self.pet.agent_model_records = lambda: dict(records)
         win = self._manager_window()
-        win._pet_tree.selection_set('a-1')
-        win._pet_tree.event_generate('<<TreeviewSelect>>')
+        win._pet_select_model('a-1')
         win.update()
         self.assertEqual(win._pet_entries['model'].get(), 'a-1')
         self._type(win, 'note', '未保存改动')
         with mock.patch.object(self.pet, 'confirm_start', return_value=False) as confirm:
-            win._pet_tree.selection_set('b-2')
-            win._pet_tree.event_generate('<<TreeviewSelect>>')
+            win._pet_select_model('b-2')
             win.update()
         self.assertTrue(confirm.called)
-        self.assertEqual(tuple(win._pet_tree.selection()), ('a-1',), '拒绝后选区留在原条目')
+        self.assertEqual(win._pet_cards.selected_id(), 'a-1', '拒绝后选区留在原条目')
         self.assertEqual(win._pet_entries['model'].get(), 'a-1', '拒绝后表单不被覆盖')
         with mock.patch.object(self.pet, 'confirm_start', return_value=True):
-            win._pet_tree.selection_set('b-2')
-            win._pet_tree.event_generate('<<TreeviewSelect>>')
+            win._pet_select_model('b-2')
             win.update()
         self.assertEqual(win._pet_entries['model'].get(), 'b-2')
 
-    def test_secondary_actions_stay_off_the_save_row_at_three_widths(self):
+    def test_secondary_actions_stay_inside_window_at_three_widths(self):
         win = self._manager_window()
         for width in (pet_models_ui.MANAGER_MIN[0], 990, 1180):
             win.geometry('%dx%d' % (width, pet_models_ui.MANAGER_MIN[1]))
             win.update()
             save = _button(win, '保存')
-            self.assertEqual(_button(win, '取消').winfo_rooty(), save.winfo_rooty(),
-                             '取消与保存同排')
-            self.assertFalse([b for b in _buttons(win) if str(b.cget('text')) == '语音识别…'])
-            for label in ('新建一条', '测试连接', '删除这条', '保存这条'):
-                button = _button(win, label)
-                self.assertNotEqual(button.winfo_rooty(), save.winfo_rooty(),
-                                    '%s 不与保存同排' % label)
+            self.assertEqual(_button(win, '删除').winfo_rooty(), save.winfo_rooty(),
+                             '删除与保存同在右栏顶行')
             edge = win.winfo_rootx() + win.winfo_width()
             bottom = win.winfo_rooty() + win.winfo_height()
-            for label in ('取消', '保存', '新建一条', '测试连接', '删除这条', '保存这条'):
+            for label in ('+ 新建模型', '检测全部', '删除', '保存', '测试'):
                 button = _button(win, label)
                 self.assertTrue(button.winfo_ismapped(), (width, label))
-                self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), edge,
-                                     (width, label))
-                self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), bottom,
-                                     (width, label))
+                self.assertLessEqual(button.winfo_rootx() + button.winfo_width(), edge, (width, label))
+                self.assertLessEqual(button.winfo_rooty() + button.winfo_height(), bottom, (width, label))
 
 
 if __name__ == '__main__':

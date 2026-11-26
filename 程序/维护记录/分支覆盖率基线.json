@@ -147,11 +147,12 @@
   "tests.test_asset_resume",
   "tests.test_account_client",
   "tests.test_tts",
-  "tests.test_tool_result_contract"
+  "tests.test_tool_result_contract",
+  "tests.test_model_routes.MultiRouteInfraTests"
  ],
  "tests_ok": true,
- "points_total": 3133,
- "points_covered": 1854,
+ "points_total": 3250,
+ "points_covered": 1879,
  "modules": [
   {
    "module": "budget.py",
@@ -214,6 +215,12 @@
    "percent": 23.5
   },
   {
+   "module": "model_routes.py",
+   "points": 112,
+   "covered": 28,
+   "percent": 25.0
+  },
+  {
    "module": "native_apps.py",
    "points": 21,
    "covered": 6,
@@ -262,6 +269,12 @@
    "percent": 33.3
   },
   {
+   "module": "app_logging.py",
+   "points": 55,
+   "covered": 19,
+   "percent": 34.5
+  },
+  {
    "module": "script_contract.py",
    "points": 132,
    "covered": 46,
@@ -274,9 +287,9 @@
    "percent": 35.0
   },
   {
-   "module": "app_logging.py",
-   "points": 55,
-   "covered": 20,
+   "module": "process_wait.py",
+   "points": 11,
+   "covered": 4,
    "percent": 36.4
   },
   {
@@ -293,9 +306,9 @@
   },
   {
    "module": "model_pool.py",
-   "points": 135,
-   "covered": 56,
-   "percent": 41.5
+   "points": 136,
+   "covered": 55,
+   "percent": 40.4
   },
   {
    "module": "continuity_ledger.py",
@@ -304,16 +317,10 @@
    "percent": 45.3
   },
   {
-   "module": "process_wait.py",
-   "points": 11,
-   "covered": 5,
-   "percent": 45.5
-  },
-  {
    "module": "model_router.py",
-   "points": 108,
+   "points": 112,
    "covered": 51,
-   "percent": 47.2
+   "percent": 45.5
   },
   {
    "module": "platform_tools.py",
@@ -772,5 +779,5 @@
    "percent": 100.0
   }
  ],
- "modules_total": 103
+ "modules_total": 104
 }

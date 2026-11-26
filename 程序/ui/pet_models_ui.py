@@ -4,17 +4,21 @@ import tkinter as tk
 from tkinter import font as tkfont
 from tkinter import ttk
 import infra.model_pool as model_pool
-from ui.pet_models_tabs import (FORM_DEFAULT_PROVIDER, FORM_FIELDS, MODES, SPEECH_MODE,
-                                MODE_SEGMENT_STYLE, MODE_SEGMENT_SELECTED_STYLE, ModeSegmentedControl,
-                                CompactLineInput, COMPACT_COMBOBOX_STYLE, COMPACT_COMBOBOX_PAD_Y,
-                                attach_manager_seams, build_embedded_seam, field_presets,
-                                form_column_width, install_compact_form_styles, merge_provider_choices,
-                                prepend_dropdown_value, provider_choices,
-                                ModelManagerFormGuardMixin, ModelManagerModeTabsMixin)
+import infra.model_routes as model_routes
+from ui.pet_models_tabs import (FORM_DEFAULT_PROVIDER, FORM_FIELDS, MODES, MODALITY_FILTERS,
+                                NEW_MODEL_DEFAULTS, SPEECH_MODE, MODE_SEGMENT_STYLE,
+                                MODE_SEGMENT_SELECTED_STYLE, ModeSegmentedControl,
+                                CompactLineInput, EditablePresetBox, COMPACT_COMBOBOX_STYLE,
+                                COMPACT_COMBOBOX_PAD_Y, attach_manager_seams, build_embedded_seam,
+                                field_presets, form_column_width, install_compact_form_styles,
+                                merge_provider_choices, prepend_dropdown_value, provider_choices,
+                                ModelManagerActionsMixin, ModelManagerFormGuardMixin,
+                                ModelManagerModeTabsMixin, ModelManagerRoutesMixin)
+from ui.pet_models_cards import CollapsibleSection, ModelCardList, set_input_value
 from responsive_ui import ScrollForm, auto_height
 from ui.desktop_layout_resize import PaintFreeze
-from ui_tokens import (BUTTON_GAP, CHAR_WIDTH, COMBOBOX_PADDING, TEXT_ROWS, FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X,
-                       SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
+from ui_tokens import (BUTTON_GAP, BUTTON_GAP_TIGHT, CHAR_WIDTH, COLORS, COMBOBOX_PADDING, TEXT_ROWS,
+                       FONTS, FORM_LABEL_WIDTH, INPUT_PADDING_X, SPACING, TEXT_DESC, TEXT_HINT, OVERLAY_RATIO)
 from ui.ui_dialogs import FileDialog
 from account_inputs import PasswordInput
 from ui_widgets import (BusyState, NotificationDispatcher, SelectBox, BaseDialog, Card, DataTable,
@@ -38,27 +42,23 @@ def model_options(records, with_auto=True):
     import orchestrator.workflow_settings as workflow_settings
     return model_pool.options(records, with_auto=with_auto,
                               labeler=workflow_settings.desktop_model_label)
-# 第 51 期第 2 条：窗口长高 90px，多出来的高度全归上面的模型池（下面那张表单同时收紧，见 open_manager）。
-# UX-MODEL-PAGE：表单多了「最大输出／温度」与「超时／重试」两行、底行多了独立的 [取消][保存]，
-# 约 100px；窗口默认与最小高度同步加高，模型列表保住可见行数不被挤没。
-MANAGER_GEOMETRY = '1180x960'
-MANAGER_MIN = (820, 720)
+# REQ-UI-MODEL-PAGE-2：左右主从分栏＋右栏独立滚动，独立弹窗 1180×820，内嵌模式自适应设置窗右栏。
+MANAGER_GEOMETRY = '1180x820'
+MANAGER_MIN = (820, 620)
+LEFT_PANE_WIDTH = 320
+LEFT_PANE_EMBED_WIDTH = 240
 NOTE_ABOUT = '三虎用于决策、对话、路由；子模块执行模型在阶段配置里选。'
-# 「模型 ID」一栏在本地调用（Desktop／CLI）时填的是程序名，API 时才是接口模型名。
 MODEL_FIELD_LOCAL, MODEL_FIELD_API = '程序名', '模型 ID'
-NOTE_MANAGER = '选择调用方式后配置模型。'
-# 列表按「功能 → Provider」两级分组；只有 Provider 列头可点（翻转分组顺序）。
+NOTE_MANAGER = '左侧查看可用状态，右侧自上而下配置模型与多条 API 路线。'
 COLUMNS = (('modality', '功能', 60), ('provider', 'Provider', 90), ('call_mode', '调用方式', 70),
            ('model', '模型 ID', 150), ('label', '显示名', 160), ('capabilities', '能力标签', 270),
            ('state', '状态', 200))
 TASK_FIELD_LABELS = tuple(label for _key, label, _note in model_pool.TASK_FIELDS)
-# 模型管理表单的全部标签；列宽按最宽的一条量，避免中文标签被定宽裁掉。
 MANAGER_FORM_LABELS = ('Provider', '模型 ID', '显示名', '功能', 'API 根地址',
                        '密钥环境变量', '直接输入密钥', '协议', '能力标签',
                        '上下文长度（可选）', '每分钟请求上限（可选）', '模型组（可选）',
                        '权重（可选）', '备注（可选）', '最大输出', '温度', '超时（秒）', '重试次数',
                        '应用安装路径', '命令行程序路径')
-# 密钥框只给紧凑占位宽度，长密钥在输入框内横向滚动编辑；不把整把密钥回显到界面。
 SECRET_FIELD_WIDTH = CHAR_WIDTH['3xl']
 FORM_RIGHT_LABEL_PAD = (SPACING['lg'], SPACING['xs'])
 
@@ -84,13 +84,7 @@ def main_box(parent):
 
 
 def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO, floor=MANAGER_MIN, cap=None):
-    """把这扇窗摆成「主界面的固定比例、落在主界面正中、永不超出主界面」。
-
-    - 目标尺寸＝主界面 × ratio（默认 OVERLAY_RATIO）；
-    - 内容兜底 floor 先被主界面尺寸封顶；cap 是可选绝对上限（None＝只封顶到主界面，
-      不另设绝对上限，弹窗在超大屏上也严格＝主界面 × ratio）；
-    - 主界面量不出来就退回给的那个尺寸（自检里就是这样）。
-    """
+    """把这扇窗摆成「主界面的固定比例、落在主界面正中、永不超出主界面」。"""
     try:
         back_w, back_h = (int(value) for value in str(geometry).split('x'))
     except (TypeError, ValueError):
@@ -102,7 +96,6 @@ def fit_to_main(win, parent, geometry, ratio=OVERLAY_RATIO, floor=MANAGER_MIN, c
     left, top, parent_width, parent_height = box
     cap_width = parent_width if cap is None else min(parent_width, cap[0])
     cap_height = parent_height if cap is None else min(parent_height, cap[1])
-    # 兜底值先被主界面封顶，再与覆盖比例取大；上限是主界面与（可选）写死尺寸的较小者。
     width = min(cap_width, max(int(parent_width * ratio), min(floor[0], parent_width)))
     height = min(cap_height, max(int(parent_height * ratio), min(floor[1], parent_height)))
     x = max(0, left + (parent_width - width) // 2)
@@ -168,7 +161,7 @@ def probe_breakdown(result, record, program=None):
         lines.append('最近完整任务：%s · %s · %s'
                      % (stamp, '通过' if latest.get('ok') else '失败', tail))
     else:
-        lines.append('最近完整任务：还没跑过（点「小样本验证」会发一次真实短请求）')
+        lines.append('最近完整任务：还没跑过（点「小样本完整验证」会发一次真实短请求）')
     return '\n'.join(lines)
 
 
@@ -200,10 +193,7 @@ def verify_line(record, pet):
 
 
 def open_settings(pet):
-    """「设置 → 模型配置」单独开一扇窗时走的这条路（规格里的「三虎设置 → 模型」页）。
-
-    第 44 期：整页抽成 settings_page——「设置」窗口把它当一格嵌进去，右键那条路照旧单独开窗。
-    """
+    """「设置 → 模型配置」单独开一扇窗时走的这条路（规格里的「三虎设置 → 模型」页）。"""
     win, body = window(pet, SETTINGS_TITLE, SETTINGS_GEOMETRY, minsize=SETTINGS_MIN)
     page = settings_page(body, pet, close=win.destroy)
     win._pet_hint, win._pet_refresh = page['hint'], page['refresh']
@@ -216,7 +206,6 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     records = pet.agent_model_records()
     choices = {'default': model_options(records, with_auto=True),
                'plain': model_options(records, with_auto=False)}
-    # 底部动作区先占住窗口底边，窗口被压矮时只压缩上面的表单，保存／关闭不会掉出可视区。
     actions = ttk.Frame(parent)
     actions.pack(side='bottom', fill='x', pady=(SPACING['md'], SPACING['none']))
     body = ttk.Frame(parent)
@@ -288,8 +277,6 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
             states[key].config(text=status_text(item, program) if item else '池里没有这一条')
         return states
 
-    first = True
-
     def probe_all():
         seen = []
         for key, _label, _note in model_pool.TASK_FIELDS:
@@ -348,7 +335,6 @@ def settings_page(parent, pet, close=None, with_manager=True, label_width=None, 
     SecondaryButton(bar, text='测试连接', command=probe_all).pack(side='left')
     SecondaryButton(bar, text='小样本验证',
                     command=probe_sample).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
-    # 主操作贴最右，取消（关闭）紧挨其左，重置再往左：关窗键不再压在主按钮右侧。
     if show_save:
         PrimaryButton(bar, text='保存', command=save).pack(side='right')
     if close is not None:
@@ -375,7 +361,7 @@ def _derive_client_profile(path, display, mode, entries, *, probe):
             mode.set(wanted)
             switched = wanted
         if not entries['model'].get().strip():
-            entries['model'].insert(0, profile.get('id', ''))
+            set_input_value(entries['model'], profile.get('id', ''))
     return adapted, switched
 
 
@@ -391,12 +377,11 @@ def _probe_local_model(pet, value, mode, entries, program_entry, hint):
                 find_model_program(value['model'], mode.get()))
         if not Path(path).is_file():
             raise ValueError('应用路径不存在')
-        program_entry.delete(0, 'end')
-        program_entry.insert(0, path)
+        set_input_value(program_entry, path)
         prepend_dropdown_value(program_entry, path)
         adapted, _switched = _derive_client_profile(
             path, value.get('label') or value.get('model'), mode, entries, probe=True)
-        hint.set('已找到程序：%s；%s。请保存这条。' %
+        hint.set('已找到程序：%s；%s。请点「保存」。' %
                  (path, adapted.get('reason') or '已记录程序路径'))
     except (ValueError, KeyError) as exc:
         report_error(hint, '检查程序失败：' + str(exc))
@@ -411,503 +396,590 @@ def _apply_program_search(path, error, original_path, program_entry, hint):
     if not path:
         report_error(hint, '未自动找到安装路径：%s' % error)
         return
-    program_entry.delete(0, 'end')
-    program_entry.insert(0, path)
+    set_input_value(program_entry, path)
     prepend_dropdown_value(program_entry, path)
-    hint.set('已自动找到安装路径：%s；确认后点「保存这条」。' % path)
+    hint.set('已自动找到安装路径：%s；确认后点「保存」。' % path)
 
 
 def open_manager(pet):
-    """模型管理…：模型池＋API 配置的独立窗口入口（增／删／改／测连接）。"""
+    """模型管理…：模型池＋多路线 API 配置的独立窗口入口（DSH 主从重构版）。"""
     return _ModelManager(pet, embedded=False).build()
 
 
 def manager_page(parent, pet, *, win=None, on_dirty=None):
-    """设置窗内嵌「模型配置」页：复用 _ModelManager，不弹出独立窗口。"""
+    """设置窗内嵌「模型配置」页：复用 DSH 主从多路线视图，不弹出独立窗口。"""
     return _ModelManager(pet, host=parent, win=win, on_dirty=on_dirty, embedded=True).build_embedded()
 
 
-class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin):
-    """模型管理视图（独立弹窗与设置窗内嵌共用，R1812 / UX-SETTINGS-MODELS）。"""
+class _ModelManager(ModelManagerFormGuardMixin, ModelManagerModeTabsMixin,
+                    ModelManagerRoutesMixin, ModelManagerActionsMixin):
+    """模型管理视图（独立弹窗与设置窗内嵌共用，REQ-UI-MODEL-PAGE-2 + UX-SETTINGS-MODELS）。"""
+
     def __init__(self, pet, *, host=None, win=None, on_dirty=None, embedded=False):
         self.pet = pet
         self._host = host
         self._external_win = win
         self._on_dirty = on_dirty
         self._embedded = bool(embedded)
-        self._dirty = False            # 表单有未保存改动（真实键入/下拉/勾选才算）
-        self._selecting = False        # 选区回退期间再入 <<TreeviewSelect>> 不再处理
-        self._records_cache = None     # 调用方式分段只改过滤条件；保存/删除/外部刷新才重读池
+        self._dirty = False
+        self._records_cache = None
+        self._probe_cache = None
         self._rows_paint_freeze = None
+        self._extra_providers = []
+        self._bg_polls = {}
+        self._auto_model_sync = ''
         self._speech_panel = None
-        self._speech_visible = False
-        self._embed_scroll = None
+        self._embedded_seam = None
+        self._root_frame = None
+        self.speech_save_button = None
+        self.route_cards = []
 
     def build(self):
-        footer, body = self._build_window_and_table()
-        self._build_form_fields()
-        self._build_program_row(body, footer)
-        attach_manager_seams(self, self.win)
+        self.program = program_of(self.pet)
+        self.win, container = window(self.pet, MANAGER_TITLE, MANAGER_GEOMETRY, minsize=MANAGER_MIN)
+        fit_to_main(self.win, parent_of(self.pet), MANAGER_GEOMETRY)
+        self._build_workspace(container)
+        self._expose_hooks()
         return self.win
 
     def build_embedded(self):
-        footer, body = self._build_window_and_table()
-        self._build_form_fields()
-        self._build_program_row(body, footer)
-        if self._embed_scroll is not None:
-            self._embed_scroll.bind_wheel()
-        return build_embedded_seam(self)
-
-    def _build_window_and_table(self):
-        """窗口或内嵌容器、分段条与模型列表。"""
         self.program = program_of(self.pet)
-        if self._embedded:
-            self.win = self._external_win or self._host.winfo_toplevel()
-            container = self._host
-        else:
-            self.win, container = window(self.pet, MANAGER_TITLE, MANAGER_GEOMETRY, minsize=MANAGER_MIN)
-            fit_to_main(self.win, parent_of(self.pet), MANAGER_GEOMETRY)
+        self.win = self._external_win or self._host.winfo_toplevel()
+        self._build_workspace(self._host)
+        self._embedded_seam = build_embedded_seam(self)
+        self._sync_primary_hooks()
+        return self._embedded_seam
+
+    def _build_workspace(self, container):
         self._root_frame = container
-        footer = ttk.Frame(container)
-        footer.pack(side='bottom', fill='x',
-                    pady=(SPACING['xs'], SPACING['none']) if self._embedded else SPACING['none'])
-        top = ttk.Frame(container)
-        top.pack(side='top', fill='x')
-        top.columnconfigure(0, weight=1)
-        tab_row = 0 if self._embedded else heading(top, MANAGER_TITLE, NOTE_MANAGER, columns=1)
-        self.mode_tabs = ModeSegmentedControl(top, MODES, command=self._on_tab_changed)
-        self.mode_tabs.grid(row=tab_row, column=0, sticky='w', pady=(SPACING['none'], SPACING['xs']))
+        install_compact_form_styles(container)
+        self._init_runtime_helpers()
+        self._build_top_bar(container)
         content = ttk.Frame(container)
         content.pack(fill='both', expand=True)
-        self.models_container = ttk.Frame(content)
-        self.models_container.pack(fill='both', expand=True)
+        self.split_container = ttk.Frame(content)
+        self.split_container.pack(fill='both', expand=True)
         self.speech_container = ttk.Frame(content)
-        if self._embedded:
-            self._embed_scroll = ScrollForm(self.models_container)
-            body = self._embed_scroll.form
-            table_rows = TEXT_ROWS['sm']
-        else:
-            body = self.models_container
-            body.rowconfigure(0, weight=1)
-            table_rows = TEXT_ROWS['4xl']
-        body.columnconfigure(0, weight=1)
-        self.table_shell = DataTable(body, columns=COLUMNS, show='headings', height=table_rows,
-                                     empty_text='暂无模型配置')
-        self.tree = self.table_shell.tree
-        self.provider_descending = False
-        for key, title, width in COLUMNS:
-            self.tree.heading(key, text=title, command=self.flip_provider_order if key == 'provider' else '')
-            self.tree.column(key, width=width, anchor='w', stretch=True)
-        self.table_shell.grid(row=0, column=0, sticky='ew' if self._embedded else 'nsew')
-        self._fit_model_list = auto_height(self.tree, self.table_shell) if not self._embedded else (lambda: None)
-        install_compact_form_styles(body)
-        self.form = ttk.Frame(body, padding=(SPACING['none'], SPACING['xs']))
-        self.form.grid(row=1, column=0, sticky='ew')
-        self.form.columnconfigure(0, minsize=form_column_width(MANAGER_FORM_LABELS))
-        self.form.columnconfigure(2, minsize=form_column_width(('功能', '显示名', '协议', '备注（可选）',
-                                                                '模型组（可选）', '温度', '重试次数')))
-        self.form.columnconfigure(4, weight=1)
-        self.entries, self.labels, self.caps = {}, {}, {}
-        self.provider = tk.StringVar(value=FORM_DEFAULT_PROVIDER)
-        self.wire = tk.StringVar(value=model_pool.WIRE_LABELS[model_pool.DEFAULT_WIRE])
-        self.mode = tk.StringVar(value='API')
-        return footer, body
+        self._build_left_pane(self.split_container)
+        ttk.Separator(self.split_container, orient='vertical').pack(side='left', fill='y', padx=SPACING['sm'])
+        self._build_right_pane(self.split_container)
+        self._wire_events()
+        self.load_rows()
+        self._load_new_draft()
 
-    def _build_form_fields(self):
-        """表单：Provider、功能、模型 ID／显示名／地址／密钥、协议、能力标签（调用方式由左上角分段决定）。"""
-        ttk.Label(self.form, text='Provider').grid(row=0, column=0, sticky='w')
-        # 第 65 期任务 5：可编辑下拉——挑现成的，或直接敲一个服务商名；存的就是填进去的那个名字。
-        self.provider_box = SelectBox(self.form, textvariable=self.provider, state='normal',
-                                    values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, fit=True)
-        self.provider_box.grid(row=0, column=1, sticky='w')
-        self.provider_box.bind('<<ComboboxSelected>>', self.match_wire)
-        self.provider_box.bind('<<ComboboxSelected>>', lambda event: self.detect_program(), add='+')
-        ttk.Label(self.form, text='功能').grid(row=0, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
-        self.modality = tk.StringVar(value=model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
-        self.modality_box = SelectBox(self.form, textvariable=self.modality, style=COMPACT_COMBOBOX_STYLE,
-                                      values=[label for _value, label in model_pool.MODALITIES],
-                                      width=CHAR_WIDTH['md'])
-        self.modality_box.grid(row=0, column=3, sticky='w')
-        self.text_row(1, 'model', '模型 ID', width=CHAR_WIDTH['3xl'])
-        self.text_row(1, 'label', '显示名', column=2, width=CHAR_WIDTH['3xl'])
-        index = self.text_row(2, 'base_url', 'API 根地址', span=4)
-        self.text_row(index, 'key_env', '密钥环境变量', width=CHAR_WIDTH['3xl'])
-        ttk.Label(self.form, text='协议').grid(row=index, column=2, sticky='e', padx=FORM_RIGHT_LABEL_PAD)
-        self.wire_box = SelectBox(self.form, textvariable=self.wire, style=COMPACT_COMBOBOX_STYLE,
-                                  values=[label for _value, label in model_pool.WIRE_APIS], fit=True)
-        self.wire_box.grid(row=index, column=3, sticky='w')
-        index += 1
-        # 规格里的第二种放法：密钥直接输进来，用系统加密存本机（明文不落盘、配置 JSON 里不写）。
-        ttk.Label(self.form, text='直接输入密钥').grid(row=index, column=0, sticky='w')
-        key_row = ttk.Frame(self.form)
-        key_row.grid(row=index, column=1, columnspan=4, sticky='w')
-        self.key_entry = PasswordInput(key_row, width=SECRET_FIELD_WIDTH, mask='*', show='*')
-        self.key_entry.pack(side='left')
-        SecondaryButton(key_row, text='保存到本机', width=0, command=lambda: self.local_save()).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
-        SecondaryButton(key_row, text='清除本机密钥', width=0, command=lambda: self.local_clear()).pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        # 密钥状态紧跟在按钮后面，不再单独占一行。
-        self.key_state = tk.StringVar(value='')
-        ttk.Label(key_row, textvariable=self.key_state, style='Muted.TLabel').pack(side='left', padx=(SPACING['sm'], SPACING['none']))
-        index += 1
-        ttk.Label(self.form, text='能力标签').grid(row=index, column=0, sticky='w')
-        cap_row = ttk.Frame(self.form)
-        cap_row.grid(row=index, column=1, columnspan=4, sticky='w')
-        for tag in model_pool.CAPABILITY_TAGS:
-            var = tk.BooleanVar(value=False)
-            self.caps[tag] = var
-            ttk.Checkbutton(cap_row, text=model_pool.CAPABILITY_LABELS[tag],
-                            variable=var, command=self._mark_dirty).pack(
-                            side='left', padx=(SPACING['none'], SPACING['sm']))
-        self.text_row(index + 1, 'context_length', '上下文长度（可选）', width=CHAR_WIDTH['xl'])
-        self.text_row(index + 1, 'note', '备注（可选）', column=2, width=CHAR_WIDTH['3xl'])
-        self.text_row(index + 2, 'rpm', '每分钟请求上限（可选）', width=CHAR_WIDTH['xl'])
-        self.text_row(index + 2, 'group', '模型组（可选）', column=2, width=CHAR_WIDTH['2xl'])
-        self.text_row(index + 3, 'weight', '权重（可选）', width=CHAR_WIDTH['md'])
-        # UX-MODEL-PAGE：DES《05》§15.3——请求参数随模型记录存，「新建一条」预填主流默认。
-        self.text_row(index + 4, 'max_output', '最大输出', width=CHAR_WIDTH['xl'])
-        self.text_row(index + 4, 'temperature', '温度', column=2, width=CHAR_WIDTH['md'])
-        self.text_row(index + 5, 'timeout', '超时（秒）', width=CHAR_WIDTH['md'])
-        self.text_row(index + 5, 'retries', '重试次数', column=2, width=CHAR_WIDTH['md'])
-        self.hint = tk.StringVar(value='选一条改，或者「新建一条」；「保存这条」立刻写进模型池。')
-        self.api_rows = {2, 3, 4, index + 2, index + 3, index + 4, index + 5}
-        self.api_controls = [widget for widget in self.form.winfo_children()
-                        if int(widget.grid_info().get('row', -1)) in self.api_rows]
-        self.program_label = ttk.Label(self.form, text='应用安装路径')
-        self.program_label.grid(row=2, column=0, sticky='w')
-        self.program_row = ttk.Frame(self.form)
-        self.program_row.grid(row=2, column=1, columnspan=4, sticky='ew')
-        self.program_row.columnconfigure(0, weight=1)
-        self.program_entry = SelectBox(self.program_row, values=field_presets('program', 'Desktop'),
-                                       state='normal', style=COMPACT_COMBOBOX_STYLE)
-        self.program_entry.grid(row=0, column=0, sticky='ew')
-
-    def _build_program_row(self, body, footer):
-        """应用安装路径行、自动搜寻与浏览按钮、连接字段显隐、身份变化监听与动作区。"""
-        self.entries['program'] = self.program_entry
+    def _init_runtime_helpers(self):
         from orchestrator.desktop_automation_service import BackgroundTaskLifecycle
-        from queue import Queue, Empty
-        self.Queue = Queue; self.Empty = Empty
+        from queue import Empty, Queue
         from threading import Thread
-        self.Thread = Thread
+        self.Queue, self.Empty, self.Thread = Queue, Empty, Thread
         self.search = BackgroundTaskLifecycle()
+        self.probe_life = BackgroundTaskLifecycle()
+        self.batch_life = BackgroundTaskLifecycle()
+        self.fetch_life = BackgroundTaskLifecycle()
         self.search_poll = {'after': None}
-        self.search_busy = BusyState(self.hint)
-
-        self.search_button = SecondaryButton(self.program_row, text='自动搜寻', command=lambda: self.detect_program(quiet=False))
-        self.search_button.grid(row=0, column=1, padx=(SPACING['xs'], SPACING['none']))
-        SecondaryButton(self.program_row, text='浏览…', command=self.browse_program).grid(
-            row=0, column=2, padx=(SPACING['xs'], SPACING['none']))
-
         self.pending = {'after': None, 'loading': False}
-        self._root_frame.bind('<Destroy>', self.cancel_detection, add='+')
-
-        self.model_text = tk.StringVar()
-        self.entries['model'].configure(textvariable=self.model_text)
+        self.state = {'id': ''}
         self.auto_label = {'text': ''}
+        self.mode = tk.StringVar(master=self.win, value='API')
+        self.local_provider = tk.StringVar(master=self.win, value=FORM_DEFAULT_PROVIDER)
+        self.modality = tk.StringVar(master=self.win, value=model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
+        self.hint = tk.StringVar(master=self.win, value='在左侧选择模型编辑，或直接新建模型并点击路线右侧「测试」。')
+        self.editor_title_var = tk.StringVar(master=self.win, value='新建 API 模型')
+        self.entries = {}
+        self.static_entries = {}
+        self.labels = {}
+        self.caps = {}
 
-        self.entries['model'].bind('<KeyRelease>', self.fill_label, add='+')
-        self.entries['model'].bind('<<ComboboxSelected>>', self.fill_label, add='+')
+    def _build_top_bar(self, card):
+        top = ttk.Frame(card)
+        top.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
+        if not self._embedded:
+            title_box = ttk.Frame(top)
+            title_box.pack(side='left')
+            heading(title_box, MANAGER_TITLE, NOTE_MANAGER, columns=1)
+        self.mode_tabs = ModeSegmentedControl(top, MODES, command=self._on_tab_changed)
+        self.mode_tabs.pack(side='left', padx=(SPACING['none'] if self._embedded else SPACING['md'], SPACING['none']))
+
+    def _build_left_pane(self, split):
+        left_w = LEFT_PANE_EMBED_WIDTH if self._embedded else LEFT_PANE_WIDTH
+        left = ttk.Frame(split, width=left_w)
+        left.pack(side='left', fill='y')
+        left.pack_propagate(False)
+        bar = ttk.Frame(left)
+        bar.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        SecondaryButton(bar, text='+ 新建模型', width=0, command=self.new_one).pack(side='left')
+        self.batch_button = SecondaryButton(
+            bar, text='检测全部', width=0, command=self.probe_all_visible)
+        self.batch_button.pack(side='right')
+        self.search_entry = CompactLineInput(left, placeholder='搜索模型名、ID 或服务商…')
+        self.search_entry.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        self.search_entry.bind('<KeyRelease>', lambda _e: self.load_rows(refresh=False), add='+')
+        self.modality_filter_bar = ttk.Frame(left)
+        self.modality_filter_bar.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        self.modality_filter = ModeSegmentedControl(
+            self.modality_filter_bar, MODALITY_FILTERS,
+            command=lambda: (self.load_rows(refresh=False), True)[1])
+        self.modality_filter.pack(side='left')
+        self.card_list = ModelCardList(left, on_select=self.select_model, empty_text='暂无匹配的模型配置')
+        self.card_list.pack(fill='both', expand=True)
+
+    def _build_right_pane(self, split):
+        right = ttk.Frame(split)
+        right.pack(side='left', fill='both', expand=True)
+        header = ttk.Frame(right)
+        header.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        ttk.Label(header, textvariable=self.editor_title_var,
+                  style='ModelSection.TLabel').pack(side='left')
+        if self._embedded:
+            self.save_button = SecondaryButton(header, text='保存当前', width=0, command=self.save_one)
+        else:
+            self.save_button = PrimaryButton(header, text='保存', command=self.save_one)
+        self.save_button.pack(side='right')
+        self.delete_button = SecondaryButton(header, text='删除', command=self.delete_one)
+        self.delete_button.pack(side='right', padx=(SPACING['none'], BUTTON_GAP))
+        self.manager_hint_label = ttk.Label(
+            right, textvariable=self.hint, style='PaleGreenHint.TLabel',
+            wraplength=TEXT_DESC['wraplength'])
+        self.manager_hint_label.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        self.search_busy = BusyState(self.hint)
+        scroll_wrap = ttk.Frame(right)
+        scroll_wrap.pack(fill='both', expand=True)
+        self.right_scroll = ScrollForm(scroll_wrap, bg=COLORS['background_primary'])
+        self.form_host = self.right_scroll.form
+        self._build_basic_card()
+        self._build_routes_section()
+        self._build_advanced_section()
+
+    def _build_basic_card(self):
+        box = ttk.Frame(self.form_host, style='ModelRouteCard.TFrame',
+                        padding=(SPACING['md'], SPACING['sm']))
+        box.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
+        box.columnconfigure(0, minsize=form_column_width(('服务商预设', '模型名称', '应用安装路径', '命令行程序路径')))
+        box.columnconfigure(1, weight=1)
+        self.basic_form = box
+        self.labels['label'] = ttk.Label(box, text='模型名称', style='ModelField.TLabel')
+        self.labels['label'].grid(row=0, column=0, sticky='w', pady=(SPACING['none'], SPACING['xs']))
+        label_entry = EditablePresetBox(box, values=field_presets('label', 'API', self.modality.get()))
+        label_entry.grid(row=0, column=1, sticky='ew', pady=(SPACING['none'], SPACING['xs']))
+        self._register_static_entry('label', label_entry)
+        self.labels['model'] = ttk.Label(box, text=MODEL_FIELD_API, style='ModelField.TLabel')
+        self.labels['model'].grid(row=1, column=0, sticky='w', pady=(SPACING['none'], SPACING['xs']))
+        model_entry = EditablePresetBox(
+            box, values=field_presets('model', 'API', self.modality.get()),
+            on_change=self._on_top_model_edited)
+        model_entry.grid(row=1, column=1, sticky='ew', pady=(SPACING['none'], SPACING['xs']))
+        self._register_static_entry('model', model_entry)
+        self.modality_label = ttk.Label(box, text='模型类型', style='ModelField.TLabel')
+        self.modality_label.grid(row=2, column=0, sticky='w')
+        self.modality_box = SelectBox(
+            box, textvariable=self.modality, style=COMPACT_COMBOBOX_STYLE,
+            values=[label for _v, label in model_pool.MODALITIES], width=CHAR_WIDTH['md'])
+        self.modality_box.grid(row=2, column=1, sticky='w')
+        self.local_provider_label = ttk.Label(box, text='服务商 / 品牌', style='ModelField.TLabel')
+        self.local_provider_label.grid(row=3, column=0, sticky='w', pady=(SPACING['none'], SPACING['xs']))
+        self.local_provider_box = SelectBox(
+            box, textvariable=self.local_provider, state='normal',
+            values=provider_choices(), style=COMPACT_COMBOBOX_STYLE, fit=True)
+        self.local_provider_box.grid(row=3, column=1, sticky='w', pady=(SPACING['none'], SPACING['xs']))
+        self.program_label = ttk.Label(box, text='应用安装路径', style='ModelField.TLabel')
+        self.program_label.grid(row=4, column=0, sticky='w')
+        self.program_row = ttk.Frame(box, style='Card.TFrame')
+        self.program_row.grid(row=4, column=1, sticky='ew')
+        self.program_row.columnconfigure(0, weight=1)
+        self.program_entry = EditablePresetBox(self.program_row, values=field_presets('program', 'Desktop'))
+        self.program_entry.grid(row=0, column=0, sticky='ew')
+        self._register_static_entry('program', self.program_entry)
+        self.search_button = SecondaryButton(
+            self.program_row, text='自动搜寻', width=0,
+            command=lambda: self.detect_program(quiet=False))
+        self.search_button.grid(row=0, column=1, padx=(BUTTON_GAP_TIGHT, SPACING['none']))
+        SecondaryButton(self.program_row, text='浏览…', width=0, command=self.browse_program).grid(
+            row=0, column=2, padx=(BUTTON_GAP_TIGHT, SPACING['none']))
+        self.local_probe_button = SecondaryButton(
+            self.program_row, text='检查程序', width=0, command=self.probe_local_one)
+        self.local_probe_button.grid(row=0, column=3, padx=(BUTTON_GAP_TIGHT, SPACING['none']))
+
+    def _build_routes_section(self):
+        self.routes_section = ttk.Frame(self.form_host)
+        self.routes_section.pack(fill='x', pady=(SPACING['none'], SPACING['sm']))
+        bar = ttk.Frame(self.routes_section)
+        bar.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
+        ttk.Label(bar, text='API 路线（按顺序自动故障转移）', style='ModelSection.TLabel').pack(side='left')
+        SecondaryButton(bar, text='+ 添加备用路线', width=0, command=self.add_route).pack(side='right')
+        self.routes_container = ttk.Frame(self.routes_section)
+        self.routes_container.pack(fill='x')
+
+    def _build_advanced_section(self):
+        self.advanced_section = CollapsibleSection(
+            self.form_host, '高级参数', open_by_default=False,
+            action_text='恢复默认', action_command=self.restore_defaults, card_bg=False)
+        self.advanced_section.pack(fill='x', pady=(SPACING['none'], SPACING['md']))
+        self.advanced_section.set_summary('默认：256K / 8192 / 温度 0.7')
+        panel = ttk.Frame(self.advanced_section.body, style='ModelRouteCard.TFrame',
+                          padding=(SPACING['md'], SPACING['sm']))
+        panel.pack(fill='x')
+        panel.columnconfigure(1, weight=1)
+        panel.columnconfigure(3, weight=1)
+        self.api_adv_widgets = []
+        pairs = (
+            (0, ('context_length', '上下文长度', CHAR_WIDTH['xl']), ('max_output', '最大输出', CHAR_WIDTH['xl'])),
+            (1, ('temperature', '温度', CHAR_WIDTH['md']), ('timeout', '超时（秒）', CHAR_WIDTH['md'])),
+            (2, ('retries', '重试次数', CHAR_WIDTH['md']), ('rpm', '每分钟上限（RPM）', CHAR_WIDTH['xl'])),
+        )
+        for row_idx, left_spec, right_spec in pairs:
+            for col_offset, (key, title, width) in ((0, left_spec), (2, right_spec)):
+                lbl = ttk.Label(panel, text=title, style='ModelField.TLabel')
+                lbl.grid(row=row_idx, column=col_offset, sticky='w' if col_offset == 0 else 'e',
+                         padx=(SPACING['none'] if col_offset == 0 else SPACING['md'], SPACING['xs']),
+                         pady=(SPACING['none'], SPACING['xs']))
+                entry = EditablePresetBox(panel, values=field_presets(key), width=width)
+                entry.grid(row=row_idx, column=col_offset + 1, sticky='w',
+                           pady=(SPACING['none'], SPACING['xs']))
+                self._register_static_entry(key, entry)
+                self.labels[key] = lbl
+                self.api_adv_widgets.extend((lbl, entry))
+        ttk.Label(panel, text='能力标签', style='ModelField.TLabel').grid(
+            row=3, column=0, sticky='nw', pady=(SPACING['xs'], SPACING['xs']))
+        cap_row = ttk.Frame(panel, style='Card.TFrame')
+        cap_row.grid(row=3, column=1, columnspan=3, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
+        for idx, tag in enumerate(model_pool.CAPABILITY_TAGS):
+            var = tk.BooleanVar(master=self.win, value=False)
+            self.caps[tag] = var
+            ttk.Checkbutton(
+                cap_row, text=model_pool.CAPABILITY_LABELS[tag], variable=var,
+                style='Card.TCheckbutton', command=self._mark_dirty,
+            ).grid(row=idx // 4, column=idx % 4, sticky='w', padx=(SPACING['none'], SPACING['sm']))
+        self.labels['note'] = ttk.Label(panel, text='备注（可选）', style='ModelField.TLabel')
+        self.labels['note'].grid(row=4, column=0, sticky='w', pady=(SPACING['xs'], SPACING['none']))
+        note_entry = EditablePresetBox(panel, values=field_presets('note'))
+        note_entry.grid(row=4, column=1, columnspan=3, sticky='ew', pady=(SPACING['xs'], SPACING['none']))
+        self._register_static_entry('note', note_entry)
+
+    def _register_static_entry(self, key, widget):
+        self.entries[key] = widget
+        self.static_entries[key] = widget
+
+    def _wire_events(self):
+        self._root_frame.bind('<Destroy>', self._on_destroy, add='+')
+        if not self._embedded:
+            self.win.bind('<Escape>', lambda _e: self.cancel())
+            self.win.protocol('WM_DELETE_WINDOW', self.cancel)
+        self.entries['model'].bind('<KeyRelease>', self._on_top_model_edited, add='+')
         self.entries['model'].bind('<FocusOut>', self.detect_program, add='+')
-        self.entries['model'].bind('<KeyRelease>', self.refresh_connection_fields, add='+')
-        self.entries['model'].bind('<<ComboboxSelected>>', self.refresh_connection_fields, add='+')
+        self.local_provider_box.bind('<<ComboboxSelected>>', lambda _e: self.detect_program(), add='+')
         self.modality_box.bind('<<ComboboxSelected>>', self._refresh_field_presets, add='+')
         self.modality.trace_add('write', self._refresh_field_presets)
-        self._manager_hint = ttk.Label(body, textvariable=self.hint, style='PaleGreenHint.TLabel',
-                                       wraplength=TEXT_DESC['wraplength'])
-        self._manager_hint.grid(row=2, column=0, sticky='w', pady=(SPACING['xs'], SPACING['xs']))
-        self.state = {'id': ''}
-
-        self.key_entry.bind('<Return>', self.save_typed_key)
-        self.key_entry.bind('<FocusOut>', self.save_typed_key)
-        self.tree.bind('<<TreeviewSelect>>', self.on_select)
-        self.load_rows()
-        self._bind_dirty_marks()
-        if not self._embedded:
-            # DES《05》§15.2：独立窗口底行右对齐 [取消] [保存]；内嵌模式由设置窗底栏统一提供。
-            bottom = ttk.Frame(footer)
-            bottom.pack(side='bottom', fill='x', pady=(SPACING['xs'], SPACING['none']))
-            PrimaryButton(bottom, text='保存', command=self.save_and_close).pack(side='right')
-            SecondaryButton(bottom, text='取消', command=self.cancel).pack(
-                side='right', padx=(SPACING['none'], BUTTON_GAP))
-            self.win.bind('<Escape>', lambda event: self.cancel())
-            self.win.protocol('WM_DELETE_WINDOW', self.cancel)
-        bar = ttk.Frame(footer)
-        bar.pack(side='top', fill='x')
-        self.model_actions_bar = bar
-        SecondaryButton(bar, text='新建一条', command=self.new_one).pack(side='left')
-        self.probe_button = SecondaryButton(bar, text='测试连接', command=self.probe_one)
-        self.probe_button.pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
-        SecondaryButton(bar, text='删除这条', command=self.delete_one).pack(
-            side='left', padx=(BUTTON_GAP, SPACING['none']))
-        SecondaryButton(bar, text='保存这条', command=self.save_one).pack(
-            side='left', padx=(BUTTON_GAP, SPACING['none']))
-        self.provider.trace_add('write', self.refresh_connection_fields)
-        self.mode.trace_add('write', self.changed_identity)
-        self.model_text.trace_add('write', self.changed_identity)
         self._last_mode = self.mode.get()
         self.mode.trace_add('write', self._on_mode_change)
-        self.refresh_connection_fields()
-        self.new_one()                # 打开即新建态：预填默认值并建立「未保存改动」基线
+        self.mode.trace_add('write', self.changed_identity)
+        self._bind_dirty_marks()
 
     def _ensure_speech_panel(self):
         if self._speech_panel is None:
             import ui.speech_settings_ui as speech_settings_ui
+            if not self._embedded:
+                bar = ttk.Frame(self.speech_container)
+                bar.pack(side='bottom', fill='x', pady=(SPACING['xs'], SPACING['none']))
+                PrimaryButton(bar, text='保存', command=self.save_and_close).pack(side='right')
+            host = ttk.Frame(self.speech_container)
+            host.pack(fill='both', expand=True)
             self._speech_panel = speech_settings_ui.speech_settings_panel(
-                self.speech_container, self.pet, host_win=self.win,
+                host, self.pet, host_win=self.win,
                 on_dirty=self._on_dirty, embedded=True, combobox_style=COMPACT_COMBOBOX_STYLE)
         return self._speech_panel
 
-    def _cleanup_resources(self):
-        self.search.cancel()
-        if self.search_poll['after'] is not None:
-            self.win.after_cancel(self.search_poll['after'])
-            self.search_poll['after'] = None
-        if self.pending['after'] is not None:
-            self.win.after_cancel(self.pending['after'])
-            self.pending['after'] = None
-        if self._speech_panel is not None:
-            self._speech_panel['destroy_cleanup']()
+    def _expose_hooks(self):
+        attach_manager_seams(self, self.win)
+        self._sync_primary_hooks()
 
-    def text_row(self, index, key, label, *, column=0, width=None, span=1):
-        """一格「标签 ＋ 可编辑下拉框」（column 0 左半边、2 右半边），返回下一行号。"""
-        self.labels[key] = ttk.Label(self.form, text=label)
-        self.labels[key].grid(row=index, column=column, sticky='w' if column == 0 else 'e',
-                              padx=SPACING['none'] if column == 0 else FORM_RIGHT_LABEL_PAD)
-        values = field_presets(key, self.mode.get(), self.modality.get())
-        options = {'values': values, 'state': 'normal', 'style': COMPACT_COMBOBOX_STYLE}
-        if width is not None:
-            options['width'] = width
-        entry = SelectBox(self.form, **options)
-        # 单列字段按内容宽度停在左/右输入竖线上；跨列长字段（根地址、程序路径）才随窗口伸缩。
-        entry.grid(row=index, column=column + 1, columnspan=span, sticky='ew' if span > 1 else 'w')
-        self.entries[key] = entry
-        return index + 1
+    def _sync_primary_hooks(self):
+        if self.desktop_mode() or not self.route_cards:
+            provider, box, key_entry = self.local_provider, self.local_provider_box, None
+        else:
+            first = self.route_cards[0]
+            self.entries['base_url'] = first.base_url_entry
+            self.entries['key_env'] = first.key_env_entry
+            provider, box, key_entry = first.provider_var, first.provider_box, first.key_entry
+        if not self._embedded:
+            self.win._pet_provider = provider
+            self.win._pet_provider_box = box
+            if key_entry is not None:
+                self.win._pet_key_entry = key_entry
+        if self._embedded_seam is not None:
+            self._embedded_seam['provider'] = provider
+            self._embedded_seam['provider_box'] = box
+            if key_entry is not None:
+                self._embedded_seam['key_entry'] = key_entry
 
-    def stop_search(self):
-        self.search.cancel()
-        if self.search_poll['after'] is not None:
-            self.win.after_cancel(self.search_poll['after'])
-            self.search_poll['after'] = None
-        self.search_busy.set_busy(False)
-        self.search_button.configure(text='自动搜寻')
+    def _primary_key_state(self):
+        return self.route_cards[0].key_state_var.get() if self.route_cards else ''
 
-    def browse_program(self):
-        self.stop_search()
-        path = FileDialog(self.win).open_file(title='选择应用可执行文件', filetypes=[('程序', '*.exe')])
-        if path:
-            self.program_entry.delete(0, 'end')
-            self.program_entry.insert(0, path)
-            prepend_dropdown_value(self.program_entry, path)
-            self._mark_dirty()
+    def _report_error(self, message):
+        return report_error(self.hint, message)
 
-    def detect_program(self, event=None, quiet=True):
-        """只用当前表单身份搜寻，绝不借用被编辑记录的旧 ID。"""
-        if not self.desktop_mode() or (quiet and self.program_entry.get().strip()):
-            return None
-        from orchestrator.workflow_settings import find_model_program
-        model = self.entries['model'].get().strip()
-        if not model:
-            report_error(self.hint, '请先填写模型 ID，再自动搜寻安装路径。')
-            return None
-        if self.pending['after'] is not None:
-            self.win.after_cancel(self.pending['after'])
-            self.pending['after'] = None
-        self.stop_search()
-        ticket = self.search.submit(object(), label='安装路径搜寻')
-        call_mode, original_path = self.mode.get(), self.program_entry.get()
-        results = self.Queue()
-        self.hint.set('正在搜寻「%s」：检查注册表、商店安装记录和常见安装目录…' % model)
-        self.search_button.configure(text='正在搜寻…')
-        self.search_busy.set_busy(True, controls=(self.search_button,))
+    def _transport(self):
+        return transport_of(self.pet)
 
-        def worker():
-            try:
-                results.put((find_model_program(model, call_mode), ''))
-            except Exception as exc:
-                results.put(('', str(exc)))
+    def _probe_breakdown(self, result, flat):
+        return probe_breakdown(result, flat, self.program)
 
-        def poll():
-            self.search_poll['after'] = None
-            if not self.search.accepts(ticket):
-                return
-            try:
-                path, error = results.get_nowait()
-            except self.Empty:
-                self.search_poll['after'] = self.win.after(50, poll)
-                return
-            self.search.finish(ticket, succeeded=bool(path), error=error)
-            self.search_busy.set_busy(False)
-            self.search_button.configure(text='自动搜寻')
-            _apply_program_search(path, error, original_path, self.program_entry, self.hint)
+    def _probe_local(self, value):
+        return _probe_local_model(self.pet, value, self.mode, self.entries, self.program_entry, self.hint)
 
-        self.Thread(target=worker, daemon=True).start()
-        self.search_poll['after'] = self.win.after(50, poll)
+    def _apply_search(self, path, error, original_path):
+        return _apply_program_search(path, error, original_path, self.program_entry, self.hint)
+
+    def desktop_mode(self):
+        return self.mode.get() in ('Desktop', 'CLI')
 
     def refresh_connection_fields(self, *_args):
         if self.mode.get() == SPEECH_MODE:
             return
         local = self.desktop_mode()
-        for widget in self.api_controls:
-            widget.grid_remove() if local else widget.grid()
-        for widget in (self.program_label, self.program_row):
-            widget.grid() if local else widget.grid_remove()
+        if local:
+            self.modality_filter_bar.pack_forget()
+            self.modality_label.grid_remove()
+            self.modality_box.grid_remove()
+            self.local_provider_label.grid()
+            self.local_provider_box.grid()
+            self.program_label.grid()
+            self.program_row.grid()
+            self.routes_section.pack_forget()
+            for w in self.api_adv_widgets:
+                w.grid_remove()
+        else:
+            self.modality_filter_bar.pack(fill='x', pady=(SPACING['none'], SPACING['xs']),
+                                          before=self.card_list)
+            self.modality_label.grid()
+            self.modality_box.grid()
+            self.local_provider_label.grid_remove()
+            self.local_provider_box.grid_remove()
+            self.program_label.grid_remove()
+            self.program_row.grid_remove()
+            self.routes_section.pack(fill='x', pady=(SPACING['none'], SPACING['sm']),
+                                     before=self.advanced_section)
+            for w in self.api_adv_widgets:
+                w.grid()
         self.program_label.configure(text='命令行程序路径' if self.mode.get() == 'CLI' else '应用安装路径')
         self.labels['model'].configure(text=MODEL_FIELD_LOCAL if local else MODEL_FIELD_API)
-        self.probe_button.configure(text='检查程序' if local else '测试连接')
+        self._sync_primary_hooks()
+        self._refresh_adv_summary()
+        self.right_scroll.fit()
 
-    def changed_identity(self, *_args):
-        if self.pending['loading']:
-            return
+    def _refresh_adv_summary(self):
+        ctx = self.entries['context_length'].get().strip() or '默认'
+        out = self.entries['max_output'].get().strip() or '默认'
+        temp = self.entries['temperature'].get().strip() or '默认'
+        if self.desktop_mode():
+            self.advanced_section.set_summary('能力标签与备注')
+        else:
+            self.advanced_section.set_summary(f'上下文 {ctx} / 输出 {out} / 温度 {temp}')
+
+    def restore_defaults(self):
+        for key, value in NEW_MODEL_DEFAULTS.items():
+            set_input_value(self.entries[key], str(value))
+        set_input_value(self.entries['rpm'], '')
+        self._refresh_adv_summary()
+        self._mark_dirty()
+        self.hint.set('已恢复主流默认参数（上下文 256K、最大输出 8192、温度 0.7、超时 120s、重试 2）。')
+
+    def _load_new_draft(self):
         self.stop_search()
-        if self.pending['after'] is not None:
-            self.win.after_cancel(self.pending['after'])
-            self.pending['after'] = None
-        if self.mode.get() == SPEECH_MODE:
-            return
-        self.program_entry.delete(0, 'end')
-        self.hint.set('正在编辑 %s 配置。' % self.mode.get())
+        self.pending['loading'] = True
+        self.state['id'] = ''
+        self._auto_model_sync = ''
+        self.auto_label['text'] = ''
+        self.card_list.set_selected('')
+        for key, entry in self.static_entries.items():
+            set_input_value(entry, '')
+        for key, value in NEW_MODEL_DEFAULTS.items():
+            set_input_value(self.entries[key], str(value))
+        for var in self.caps.values():
+            var.set(False)
+        self.local_provider.set(FORM_DEFAULT_PROVIDER)
+        self.modality.set(model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY])
+        self._render_routes([model_routes.normalize_route({'id': 'r1'}, index=0)], expand_indices={0})
+        self.pending['loading'] = False
+        self._refresh_field_presets()
+        self.editor_title_var.set('新建 %s 模型' % self.mode.get())
         self.refresh_connection_fields()
-        if self.desktop_mode() and self.model_text.get().strip():
-            self.pending['after'] = self.win.after(450, self.delayed_detect)
+        self._dirty = False
+        self.hint.set('新建 %s 模型：从上往下填写核心信息，配置完可直接点右侧「测试」。' % self.mode.get())
 
-    def delayed_detect(self):
-        self.pending['after'] = None
-        self.detect_program()
+    def fill(self, model_id, item):
+        self.stop_search()
+        self.pending['loading'] = True
+        self._cancel_pending_detect()
+        self.state['id'] = model_id
+        self.mode.set(model_pool.call_mode(item, model_id))
+        set_input_value(self.entries['label'], item.get('label') or '')
+        set_input_value(self.entries['model'], item.get('model') or model_id or '')
+        self._auto_model_sync = self.entries['model'].get().strip()
+        self.auto_label['text'] = self.entries['label'].get().strip()
+        for key in ('context_length', 'rpm', 'note', 'max_output', 'temperature', 'timeout', 'retries'):
+            set_input_value(self.entries[key], str(item[key]) if item.get(key) else '')
+        for tag, var in self.caps.items():
+            var.set(tag in (item.get('capabilities') or []))
+        self.modality.set(model_pool.MODALITY_LABELS.get(
+            item.get('modality'), model_pool.MODALITY_LABELS[model_pool.DEFAULT_MODALITY]))
+        vendor = model_pool.provider_name(model_id, item)
+        self.local_provider.set(model_pool.PROVIDER_LABELS.get(vendor.casefold(), vendor))
+        set_input_value(self.program_entry, item.get('program') or '')
+        routes = model_routes.routes_of(item, model_id=model_id)
+        self._render_routes(routes, expand_indices={0})
+        self.pending['loading'] = False
+        self._refresh_field_presets()
+        self.editor_title_var.set(item.get('label') or model_id)
+        self.refresh_connection_fields()
+        self._dirty = False
 
-    def cancel_detection(self, event):
-        if event.widget in (self._root_frame, self.win):
-            self._cleanup_resources()
+    def _partial_parent_record(self):
+        return {
+            'label': self.entries['label'].get().strip(),
+            'model': self.entries['model'].get().strip() or self.state['id'],
+            'capabilities': [tag for tag, var in self.caps.items() if var.get()],
+            'context_length': self.entries['context_length'].get().strip(),
+            'max_output': self.entries['max_output'].get().strip(),
+            'temperature': self.entries['temperature'].get().strip(),
+            'timeout': self.entries['timeout'].get().strip(),
+            'retries': self.entries['retries'].get().strip(),
+            'rpm': self.entries['rpm'].get().strip(),
+            'note': self.entries['note'].get().strip(),
+            'modality': model_pool.id_of_label(self.modality.get(), model_pool.MODALITIES),
+        }
 
-    def fill_label(self, event=None):
-        """填模型 ID 时自动推断显示名；用户手改过的显示名不覆盖。"""
-        current = self.entries['label'].get().strip()
-        if current and current != self.auto_label['text']:
-            return None
-        records = self._records_cache if self._records_cache is not None else self.pet.agent_model_records()
-        guess = model_pool.suggest_label(self.entries['model'].get(), records)
-        self.entries['label'].delete(0, 'end')
-        self.entries['label'].insert(0, guess)
-        self.auto_label['text'] = guess
-        return guess
+    def read_form(self):
+        value = self._partial_parent_record()
+        value['call_mode'] = self.mode.get()
+        value['program'] = self.program_entry.get().strip()
+        if self.desktop_mode():
+            value['provider'] = 'desktop'
+            value['provider_label'] = self.local_provider.get().strip()
+            value['base_url'] = ''
+            value['key_env'] = ''
+            value['wire_api'] = model_pool.DEFAULT_WIRE
+            return value
+        routes = self._snapshot_route_dicts()
+        top_model = value['model']
+        if not top_model and routes:
+            top_model = routes[0].get('model', '')
+            value['model'] = top_model
+        for r in routes:
+            if not r['model']:
+                r['model'] = top_model
+        value['routes'] = routes
+        primary = model_routes.primary_route(routes) or {}
+        raw_provider = primary.get('provider') or FORM_DEFAULT_PROVIDER
+        value['provider'] = model_pool.id_of_label(raw_provider, model_pool.PROVIDERS)
+        value['provider_label'] = ''
+        value['base_url'] = primary.get('base_url', '')
+        value['path'] = primary.get('path') or model_routes.DEFAULT_PATH
+        value['wire_api'] = primary.get('wire_api') or model_pool.DEFAULT_WIRE
+        value['key_env'] = primary.get('key_env', '')
+        return value
 
     def load_rows(self, refresh=True):
+        if self.mode.get() == SPEECH_MODE:
+            return self.card_list
+        builtins = provider_choices()
         if refresh or self._records_cache is None:
             self._records_cache = self.pet.agent_model_records()
+            self._probe_cache = model_routes.all_probe_status(program=self.program)
         records = self._records_cache
-        freezer = self._rows_paint_freeze
-        if freezer is None:
-            freezer = self._rows_paint_freeze = PaintFreeze(self.table_shell)
+        merged_local, extra = merge_provider_choices(builtins, records)
+        self._extra_providers = extra
+        freezer = self._rows_paint_freeze or PaintFreeze(self.card_list)
+        self._rows_paint_freeze = freezer
         frozen = freezer.freeze()
         try:
-            self.provider_box.set_values(merge_provider_choices(provider_choices(), records), refit=True)
+            self.local_provider_box.set_values(merged_local, refit=True)
+            for card in self.route_cards:
+                card.callbacks['extra_providers'] = extra
+                card.provider_box.set_values(card._provider_values(), refit=True)
             self._render_mode_rows(records)
-            self._fit_model_list()
         except Exception:
             if frozen:
                 freezer.thaw()
             raise
         if frozen:
-            def thaw_rows():
+            prev_thaw = self._bg_polls.pop('thaw_rows', None)
+            if prev_thaw is not None:
                 try:
-                    self.table_shell.update_idletasks()
+                    self.win.after_cancel(prev_thaw)
+                except tk.TclError:
+                    pass
+            def thaw_rows():
+                self._bg_polls.pop('thaw_rows', None)
+                try:
+                    if self.win.winfo_exists() and self.card_list.winfo_exists():
+                        self.card_list.update_idletasks()
+                except tk.TclError:
+                    pass
                 finally:
                     freezer.thaw()
-            self.table_shell.after_idle(thaw_rows)
-        return self.tree
-
-    def local_save(self):
-        """保存直接输入的密钥到本机 DPAPI；回车和失焦均走此唯一入口。"""
-        text = self.key_entry.get().strip()
-        try:
-            item = model_pool.record(self.read_form(), self.state['id'])
-            model_pool.save_key_env(item, text, self.program, self.state['id'])
-            item['key_env'] = model_pool.secret_name(item, self.state['id'])
-        except (ValueError, OSError) as exc:
-            report_error(self.hint, exc)
-            return None
-        self.key_entry.delete(0, 'end')
-        self_id = self.state['id']
-        self.state['id'] = model_pool.model_id_of(item, self_id)
-        self.pet.save_pool(item, self_id)
-        self._dirty = False
-        self.load_rows()
-        self.show_key_state(item)
-        self.hint.set('密钥已加密保存到当前 Windows 用户的本机存储；界面只露前 4 位。')
-        return item
-
-    def save_typed_key(self, event=None):
-        """第 65 期任务 5：密钥框里一敲进去就自动存，回车或点到别处都算一次提交。"""
-        if self.desktop_mode() or not self.key_entry.get().strip():
-            return None
-        try:
-            return self.local_save()
-        except Exception:
-            return None
+            self._bg_polls['thaw_rows'] = self.win.after_idle(thaw_rows)
+        return self.card_list
 
     def save_one(self):
         try:
             if self.desktop_mode() and self.program_entry.get().strip():
-                from pathlib import Path
-                path = Path(self.program_entry.get().strip()).expanduser()
-                if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
-                    raise ValueError('请选择存在的应用 .exe 安装路径')
-                from orchestrator.workflow_settings import gui_claude_program, GUI_CLAUDE_CLI_HINT
-                if self.mode.get() == 'CLI' and gui_claude_program(str(path)):
-                    raise ValueError(GUI_CLAUDE_CLI_HINT)
-                _adapted, switched = _derive_client_profile(
-                    str(path), self.entries['label'].get().strip(), self.mode, self.entries, probe=False)
-                if switched:
-                    self.hint.set('PE 头显示这是%s程序，已切换调用方式；请确认后保存。' %
-                             ('命令行' if switched == 'CLI' else '桌面'))
-            if not self.desktop_mode() and self.key_entry.get().strip():     # 第 65 期任务 5：密钥框里还有字，连它一起存
-                self.local_save()
-            self.pet.save_pool(self.read_form(), self.state['id'])
+                self._validate_local_exe()
+            if not self.desktop_mode():
+                for card in self.route_cards:
+                    if card.typed_key():
+                        if self.save_route_card_key(card, persist_pool=False) is None:
+                            return None
+            form_data = self.read_form()
+            old_id = self.state['id']
+            self.pet.save_pool(form_data, old_id)
+            self.state['id'] = model_pool.model_id_of(form_data, old_id)
         except (ValueError, OSError) as exc:
             report_error(self.hint, exc)
             return None
         self._dirty = False
-        self.load_rows()
-        self.hint.set('已保存「%s」；「切换模型」里立刻点得到。' % (self.read_form().get('label') or ''))
-        return self.read_form()
+        self.editor_title_var.set(form_data.get('label') or self.state['id'])
+        self.load_rows(refresh=True)
+        self.card_list.set_selected(self.state['id'])
+        self._refresh_adv_summary()
+        self.hint.set('已保存「%s」；所有路线与切换菜单立即生效。' % (form_data.get('label') or self.state['id']))
+        return form_data
+
+    def _validate_local_exe(self):
+        from pathlib import Path
+        from orchestrator.workflow_settings import GUI_CLAUDE_CLI_HINT, gui_claude_program
+        path = Path(self.program_entry.get().strip()).expanduser()
+        if not path.is_absolute() or path.suffix.lower() != '.exe' or not path.is_file():
+            raise ValueError('请选择存在的应用 .exe 安装路径')
+        if self.mode.get() == 'CLI' and gui_claude_program(str(path)):
+            raise ValueError(GUI_CLAUDE_CLI_HINT)
+        _adapted, switched = _derive_client_profile(
+            str(path), self.entries['label'].get().strip(), self.mode, self.entries, probe=False)
+        if switched:
+            self.hint.set('PE 头显示这是%s程序，已切换调用方式。' % ('命令行' if switched == 'CLI' else '桌面'))
 
     def delete_one(self):
-        # 不能依赖上一次 <<TreeviewSelect>> 留下的缓存：刷新列表／点过「新建一条」后，
-        # 那个缓存可能已经不是用户眼前选中的行。删除目标只认此刻高亮的这一条。
-        selected = self.tree.selection()
-        model_id = selected[0] if selected else ''
+        model_id = self.state['id'] or self.card_list.selected_id()
         if not model_id:
-            report_error(self.hint, '先选一条。')
+            report_error(self.hint, '请先在左侧选择一条模型。')
             return None
         item = self.pet.agent_model_records().get(model_id) or {}
         name = item.get('label') or model_id
         presets = '、'.join('%s「%s」' % pair for pair in self.pet.pool_model_presets(model_id))
-        notice = '\n\n这些 SKILL 预设用的是它，删除后模型改为「自动」：' + presets if presets else ''
+        notice = '\n\n这些 SKILL 预设用的是它，删除后改为「自动」：' + presets if presets else ''
         stages = '、'.join(self.pet.pool_model_stages(model_id))
         notice += ('\n\n当前项目这些阶段选的是它，删除后改为「自动」：' + stages) if stages else ''
         if not self.pet.confirm_start('删除模型', '把「%s」从模型池里删掉？（.env 里的密钥不动）' % name + notice):
             return None
         self.pet.delete_pool_model(model_id)
-        # 保存后必须回读确认；否则表格刷新看似消失、重开又出现时用户会误以为已经删除。
         if model_id in self.pet.agent_model_records():
             report_error(self.hint, '未能删除「%s」，请重试。' % name)
             return None
         self.state['id'] = ''
-        self.load_rows()
-        # 表单清成「新建」：还停在被删那条的话，紧接着点「保存这条」会把它原样存回去。
-        self.new_one(_confirmed=True)
+        self._dirty = False
+        self.load_rows(refresh=True)
+        self._load_new_draft()
         self.hint.set('已删除「%s」。' % name)
         return model_id
-
-    def probe_one(self):
-        value = self.read_form()
-        if value['provider'] == 'desktop':
-            return _probe_local_model(self.pet, value, self.mode, self.entries, self.program_entry, self.hint)
-        if not value.get('model'):
-            report_error(self.hint, '先填模型 ID。')
-            return None
-        self.hint.set(probe_line(model_pool.record(value), self.pet))
-        return value
-
 
 
 def open_speech_settings(pet, parent=None):
