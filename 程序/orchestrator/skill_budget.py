@@ -292,10 +292,10 @@ def paid_stage_guard(host, stage, var=None):
     quota = budget.check(kind)
     if not quota['ok']:
         agent.spend(kind, stage=stage)                 # spend 会 pause＋budget.exceeded＋stage.failed
-        return '「%s」的%s配额不够（%d/%d）：这一步转人工' % (name, label, quota['used'], quota['limit'])
+        return '「%s」的%s配额不够（%d/%d）：请您接手这一步' % (name, label, quota['used'], quota['limit'])
     tokens = budget.check('tokens', PAID_STEP_TOKENS)
     if not tokens['ok']:
-        reason = '「%s」预计消耗 Token %d，今天的 Token 见底（剩 %d/%d）：这一步转人工' % (
+        reason = '「%s」预计消耗 Token %d，今天的 Token 见底（剩 %d/%d）：请您接手这一步' % (
             name, PAID_STEP_TOKENS, tokens['remaining'], tokens['limit'])
         agent.pause(reason, stage=stage)
         return reason
@@ -312,11 +312,11 @@ def paid_stage_guard(host, stage, var=None):
             errors.append(('paid.ask', str(exc)))
         granted = False
     if not granted:
-        reason = '「%s」是付费步骤，您没有授权：这一步转人工' % name
+        reason = '「%s」是付费步骤，您没有授权：请您接手这一步' % name
         agent.pause(reason, stage=stage)
         return reason
     if not agent.spend(kind, stage=stage)['ok']:         # 越线时 spend 已 pause＋stage.failed
-        return '「%s」的%s配额刚用完：这一步转人工' % (name, label)
+        return '「%s」的%s配额刚用完：请您接手这一步' % (name, label)
     try:
         flag = host.auto_variable(var) if var else None
         if flag is not None:

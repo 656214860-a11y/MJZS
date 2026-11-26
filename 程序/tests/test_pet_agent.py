@@ -919,7 +919,7 @@ class AutoPaidAuthorizationTests(unittest.TestCase):
         self.assertEqual(agent.budget.used['image'], 0, '没授权就不记账、不产生付费请求')
         self.assertTrue(agent.paused)
         self.assertIn('stage.failed', self.event_kinds())
-        self.assertIn('转人工', reply)
+        self.assertIn('请您接手这一步', reply)
 
     def test_a_broken_dialog_counts_as_unauthorized(self):
         def boom(title, text):
