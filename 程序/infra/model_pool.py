@@ -19,7 +19,7 @@ import time
 from pathlib import Path
 
 import infra.config_snapshot as config_snapshot, infra.model_secrets as model_secrets, infra.token_saver as token_saver
-import infra.client_profiles as client_profiles
+from infra import client_accounts, client_profiles
 from infra.model_metering import REPLAYABLE_RETRY_STATUS
 from agent.core import read, save
 from infra.api_endpoints import configured_key, normalize_url, _http_error_kind, _request_headers, _retry_after_seconds, _decode_response_body, wait_for_rpm, elapsed_ms, _RateBucket, _http_opener, HTTP_USER_AGENT
@@ -268,14 +268,7 @@ def record(value, model_id=''):
     item['capabilities'] = capabilities_of(source.get('capabilities'))
     item['context_length'] = context_length_of(source.get('context_length'))
     item['modality'] = item['modality'] if item['modality'] in MODALITY_LABELS else DEFAULT_MODALITY
-    if source.get('flow_project') and item['model'].startswith('gflow-'):
-        item['flow_project'] = str(source['flow_project']).strip()
-    if isinstance(source.get('client_accounts'), list):
-        item['client_accounts'] = [
-            {key: str(row[key]).strip() for key in ('option', 'value')}
-            for row in source['client_accounts'] if isinstance(row, dict) and row.get('option') and row.get('value')]
-    if isinstance(source.get('profiles'), list) and item['model'].startswith('gflow-'):
-        item['profiles'] = list(dict.fromkeys(p for p in source['profiles'] if isinstance(p, str) and p.strip()))
+    client_accounts.normalize_accounts(source, item)
     if isinstance(source.get('history_locations'), list):
         item['history_locations'] = [dict(label=str(e['label']), provider=str(e['provider']))
                                      for e in source['history_locations'] if isinstance(e, dict)
@@ -625,14 +618,8 @@ def patch_for(model_id, records=None, config=None, program=None):
         return {}
     patch = {'base_url': item['base_url'], 'path': item['path'], 'wire_api': item['wire_api'],
              'key_env': item['key_env']}
-    if item.get('routes'):
-        from infra.model_routes import route_as_record
-        enabled = [(index, row) for index, row in enumerate(item['routes']) if row.get('enabled', True)]
-        if len(enabled) > 1:
-            patch['connections'] = [
-                {k: flat[k] for k in ('key_env', 'base_url', 'path', 'wire_api')}
-                for index, row in enabled[1:]
-                for flat in [route_as_record(item, row, text, index)] if flat['model'] == item['model']]
+    from infra.model_routes import patch_connections
+    patch_connections(item, text, patch)
     if item['model']:
         patch['flash_model'] = item['model']
         patch['pro_model'] = item['model']
