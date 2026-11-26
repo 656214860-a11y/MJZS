@@ -74,11 +74,17 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
     if any(not math.isfinite(float(value)) or not 0 < float(value) <= 600 for value in durations):
         raise ValueError('每镜时长必须在 0 到 600 秒之间')
     destination = Path(destination)
+    motions = spec.get('shot_motions') if isinstance(spec, dict) else None
     segments = []
     for index, (source, seconds) in enumerate(zip(images, durations)):
         segment = destination.parent / f'segment_{index:04d}.mp4'
+        if motions is not None:
+            motion = motions[index] if index < len(motions) else 'static'
+            vf = segment_filter(spec, seconds=seconds, motion=motion)
+        else:
+            vf = preview_filter(spec)
         execute([str(ffmpeg), '-nostdin', '-y', '-v', 'error', '-loop', '1', '-i', str(source),
-                 '-t', str(seconds), '-vf', preview_filter(spec),
+                 '-t', str(seconds), '-vf', vf,
                  '-r', str(preview_fps(spec)),
                  '-c:v', 'libx264', '-pix_fmt', 'yuv420p', str(segment)],
                 check=True, capture_output=True, timeout=600)
@@ -102,16 +108,52 @@ def assemble_image_timeline(images, durations, audio, destination, *, ffmpeg, ff
     return destination
 
 
+def _resolved_spec(spec=None):
+    from contract.script_contract import preview_spec
+    base = preview_spec()
+    if isinstance(spec, dict):
+        return {**base, **spec}
+    return base
+
+
 def preview_filter(spec=None):
     """预演只降分辨率与帧率，画幅仍跟项目；不给规格就回到历史的 1280x720。"""
-    from contract.script_contract import output_filter, preview_spec
-    return output_filter(preview_spec() if spec is None else spec)
+    from contract.script_contract import output_filter
+    return output_filter(_resolved_spec(spec))
 
 
 def preview_fps(spec=None):
     """预演帧率：不给规格时是 24。"""
-    from contract.script_contract import preview_spec
-    return (preview_spec() if spec is None else spec)['fps']
+    return _resolved_spec(spec)['fps']
+
+
+def segment_filter(spec=None, *, seconds=0, motion='static'):
+    """REQ-S04-104：按运镜类型生成单镜 FFmpeg 滤镜串；静态或无效时长回退 preview_filter。"""
+    import math
+    resolved = _resolved_spec(spec)
+    base = preview_filter(resolved)
+    try:
+        duration = float(seconds)
+    except (TypeError, ValueError):
+        return base
+    if not math.isfinite(duration) or duration <= 0 or motion == 'static':
+        return base
+    fps = resolved['fps']
+    width = int(resolved['width'])
+    height = int(resolved['height'])
+    frames = max(1, int(round(duration * float(fps))))
+    span = max(1, frames - 1)
+    expressions = {
+        'zoom_in': "z='min(1.15,1+0.15*on/%d)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'" % span,
+        'zoom_out': "z='max(1.0,1.15-0.15*on/%d)':x='iw/2-(iw/zoom/2)':y='ih/2-(ih/zoom/2)'" % span,
+        'pan_left': "z='1.12':x='(iw-iw/zoom)*(1-on/%d)':y='ih/2-(ih/zoom/2)'" % span,
+        'pan_right': "z='1.12':x='(iw-iw/zoom)*(on/%d)':y='ih/2-(ih/zoom/2)'" % span,
+    }
+    expr = expressions.get(motion)
+    if expr is None:
+        return base
+    return '%s,zoompan=%s:d=%d:s=%dx%d:fps=%s,setsar=1,format=yuv420p' % (
+        base, expr, frames, width, height, fps)
 
 
 def render_mixed_audio(output_path, total_seconds, *, ffmpeg, run=None,

@@ -1,8 +1,14 @@
-"""REQ-S04-78/79：可插拔草图生成器——comfy_local 默认分流、付费后端显式开启门禁、导入替换图校验。"""
+"""REQ-S04-78/79/100/101/102/103/104：可插拔草图生成器（comfy_local/text_card/gflow_cli）、暂存烧录与运镜识别。"""
+import hashlib
+import sys
 import tempfile
+import threading
+import types
 import unittest
 from pathlib import Path
 from unittest.mock import patch
+
+from PIL import Image, ImageFont
 
 from domain import animatic_sketch_backends as backends
 from infra.comfy_service import ComfyGenerationFailed, ComfySubmissionUncertain
@@ -246,6 +252,169 @@ class ImportedSketchValidationTests(unittest.TestCase):
                 with self.subTest(name=name):
                     with self.assertRaises(ValueError):
                         backends.validate_imported_sketch(root / name)
+
+
+class TextCardBackendTests(unittest.TestCase):
+    def test_req_s04_100_text_card_empty_dialogue_and_long_chinese_description(self):
+        """REQ-S04-100：text_card 免费注册，空对白＋超长中文描述产出匹配 spec 尺寸的有效 PNG。"""
+        meta = {row['name']: row for row in backends.list_backends()}
+        self.assertIn('text_card', meta)
+        self.assertFalse(meta['text_card']['paid'])
+        self.assertIn('文字分镜卡', meta['text_card']['label'])
+        render = backends.create({'animatic_sketch_backend': 'text_card'})
+        long_desc = '夜雨倾盆的青石长街上，主角提灯疾行穿过拱桥，两侧灯笼在风中剧烈摇晃。' * 12
+        shot = {'id': 'SH001', 'prompt': long_desc, 'description': long_desc,
+                'seconds': 5, 'shot_size': '中景', 'location': '青石长街', 'dialogue': ''}
+        with tempfile.TemporaryDirectory() as folder:
+            ws = Path(folder)
+            out_default = render(ws, shot, [], {})
+            self.assertEqual(out_default, ws / 'SH001_card.png')
+            self.assertTrue(out_default.is_file() and out_default.stat().st_size > 0)
+            with Image.open(out_default) as img:
+                self.assertEqual(img.format, 'PNG')
+                self.assertEqual(img.size, (1280, 720))
+
+            portrait_shot = dict(shot, id='SH002', dialogue='「快走，别回头！」')
+            out_portrait = render(ws, portrait_shot, [], {'spec': {'width': 720, 'height': 1280}})
+            self.assertEqual(out_portrait, ws / 'SH002_card.png')
+            with Image.open(out_portrait) as img:
+                self.assertEqual(img.format, 'PNG')
+                self.assertEqual(img.size, (720, 1280))
+
+    def test_req_s04_100_text_card_falls_back_cleanly_when_fonts_missing(self):
+        """REQ-S04-100：系统缺少中文字体时平滑退回默认字体，不抛字体异常。"""
+        render = backends.create({'animatic_sketch_backend': 'text_card'})
+        shot = {'id': 'SH003', 'prompt': '雨夜追逐镜头描述' * 20, 'seconds': 4, 'dialogue': '台词测试'}
+        real_truetype = ImageFont.truetype
+
+        def missing_system_fonts(font, *args, **kwargs):
+            if isinstance(font, (str, Path)):
+                raise OSError('no font')
+            return real_truetype(font, *args, **kwargs)
+
+        with tempfile.TemporaryDirectory() as folder, \
+                patch.object(ImageFont, 'truetype', side_effect=missing_system_fonts):
+            out = render(Path(folder), shot, [], {'spec': {'width': 640, 'height': 360}})
+            self.assertTrue(out.is_file() and out.stat().st_size > 0)
+            with Image.open(out) as img:
+                self.assertEqual(img.size, (640, 360))
+
+
+class GflowCliBackendTests(unittest.TestCase):
+    def test_req_s04_101_102_gflow_cli_free_dispatch_and_argument_contract(self):
+        """REQ-S04-101/102：gflow_cli 为免费后端，注入假 generate 时按契约透传 5 参数并落盘。"""
+        meta = {row['name']: row for row in backends.list_backends()}
+        self.assertIn('gflow_cli', meta)
+        self.assertFalse(meta['gflow_cli']['paid'])
+        calls = []
+
+        def fake_generate(config, prompt, references, destination, stop):
+            calls.append((config, prompt, list(references), Path(destination), stop))
+            Image.new('RGB', (64, 36), (30, 60, 90)).save(destination, format='PNG')
+
+        cfg = {'program': 'gflow.exe', 'profiles': ['p1'], 'model': 'imagen4'}
+        render = backends.create({'animatic_sketch_backend': 'gflow_cli'})
+        with tempfile.TemporaryDirectory() as folder:
+            ws = Path(folder)
+            ref = ws / 'ref.png'
+            Image.new('RGB', (16, 16), (255, 0, 0)).save(ref, format='PNG')
+            out = render(ws, SHOT, [ref], {'gflow_generate': fake_generate, 'gflow_config': cfg})
+            self.assertEqual(out, ws / 'SH001_gflow.png')
+            self.assertTrue(out.is_file() and out.stat().st_size > 0)
+            self.assertEqual(len(calls), 1)
+            got_cfg, got_prompt, got_refs, got_dest, got_stop = calls[0]
+            self.assertEqual(got_cfg, cfg)
+            self.assertIn(SHOT['prompt'], got_prompt)
+            self.assertEqual(got_refs, [ref])
+            self.assertEqual(got_dest, ws / 'SH001_gflow.png')
+            self.assertIsInstance(got_stop, threading.Event)
+
+            out_t2i = render(ws, dict(SHOT, id='SH002'), [],
+                             {'gflow_generate': fake_generate, 'gflow_config': cfg})
+            self.assertEqual(out_t2i, ws / 'SH002_gflow.png')
+            self.assertEqual(calls[1][2], [])
+
+    def test_req_s04_101_gflow_cli_missing_injection_raises_chinese_error(self):
+        """REQ-S04-101：缺少注入器或模型配置时报清晰中文错。"""
+        render = backends.create({'animatic_sketch_backend': 'gflow_cli'})
+        with tempfile.TemporaryDirectory() as folder:
+            with self.assertRaisesRegex(ValueError, 'Google Flow'):
+                render(Path(folder), SHOT, [], {})
+
+    def test_req_s04_101_gateway_resolves_gflow_model_pool_and_errors_when_missing(self):
+        """REQ-S04-101：L3 网关解析模型池 gflow-* 图片条目；缺模块或无条目报友好中文错。"""
+        from orchestrator import stage_animatic_gateways as gateways
+        with patch.dict(sys.modules, {'infra.gflow_images': None}):
+            with self.assertRaisesRegex(ValueError, '请先在模型管理配置 Google Flow 账号与 gflow.exe'):
+                gateways._timeline_render({'animatic_sketch_backend': 'gflow_cli'})
+
+        calls = []
+
+        def fake_generate(config, prompt, references, destination, stop):
+            calls.append((config, prompt, list(references), Path(destination), stop))
+            Image.new('RGB', (32, 32), (10, 20, 30)).save(destination, format='PNG')
+
+        fake_mod = types.ModuleType('infra.gflow_images')
+        fake_mod.generate = fake_generate
+        with patch.dict(sys.modules, {'infra.gflow_images': fake_mod}):
+            with patch('infra.model_pool.pool', return_value={
+                'gflow-veo': {'modality': 'video', 'program': 'gflow.exe', 'profiles': ['p1']},
+                'other-img': {'modality': 'image', 'program': 'x'},
+            }):
+                with self.assertRaisesRegex(ValueError, '请先在模型管理配置 Google Flow 账号与 gflow.exe'):
+                    gateways._timeline_render({'animatic_sketch_backend': 'gflow_cli'})
+
+            fake_pool = {
+                'gflow-imagen4': {'modality': 'image', 'program': 'gflow.exe', 'profiles': ['p1']},
+                'gflow-nano': {'modality': 'image', 'program': 'gflow.exe', 'profiles': ['p2']},
+            }
+            with patch('infra.model_pool.pool', return_value=fake_pool):
+                render = gateways._timeline_render({
+                    'animatic_sketch_backend': 'gflow_cli',
+                    'animatic_gflow_model': 'gflow-nano',
+                })
+                with tempfile.TemporaryDirectory() as folder:
+                    out = render(Path(folder), SHOT, [], {'animatic_sketch_backend': 'gflow_cli'})
+                    self.assertTrue(out.is_file())
+            self.assertEqual(calls[0][0]['model'], 'nano')
+            self.assertEqual(calls[0][0]['profiles'], ['p2'])
+
+
+class OverlayAndMotionTests(unittest.TestCase):
+    def test_req_s04_103_render_overlay_frame_preserves_original_sha256(self):
+        """REQ-S04-103：烧录顶栏与对白字幕只写暂存目标，原图 SHA-256 前后完全不变。"""
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            orig = root / 'v1.png'
+            Image.new('RGB', (640, 360), (40, 80, 120)).save(orig, format='PNG')
+            before_sha = hashlib.sha256(orig.read_bytes()).hexdigest()
+            dest = root / 'scratch' / 'SH001_overlay.png'
+            out = backends.render_overlay_frame(
+                orig, dest, shot_id='SH001', seconds=5, start_seconds=5,
+                dialogue='你好，这是预演临时对白字幕。')
+            self.assertEqual(out, dest)
+            self.assertEqual(hashlib.sha256(orig.read_bytes()).hexdigest(), before_sha)
+            self.assertTrue(dest.is_file() and dest.stat().st_size > 0)
+            with Image.open(orig) as img_orig, Image.open(dest) as img_out:
+                self.assertEqual(img_out.size, img_orig.size)
+                self.assertNotEqual(img_out.tobytes(), img_orig.tobytes())
+
+    def test_req_s04_104_infer_motion_maps_five_motions_and_priority(self):
+        """REQ-S04-104：按字段顺序识别推/拉/左摇/右摇与静态，拉近优先归 zoom_in。"""
+        self.assertEqual(backends.infer_motion({'camera_movement': '缓慢推进'}), 'zoom_in')
+        self.assertEqual(backends.infer_motion({'camera': 'zoom in to face'}), 'zoom_in')
+        self.assertEqual(backends.infer_motion({'description': '镜头逐渐拉近人物'}), 'zoom_in')
+        self.assertEqual(backends.infer_motion({'camera_movement': '拉远全景'}), 'zoom_out')
+        self.assertEqual(backends.infer_motion({'video_prompt': 'slow zoom out'}), 'zoom_out')
+        self.assertEqual(backends.infer_motion({'movement': '左摇扫过街道'}), 'pan_left')
+        self.assertEqual(backends.infer_motion({'camera_movement': 'pan left'}), 'pan_left')
+        self.assertEqual(backends.infer_motion({'description': '镜头右移跟拍'}), 'pan_right')
+        self.assertEqual(backends.infer_motion({'camera_movement': 'pan right'}), 'pan_right')
+        self.assertEqual(backends.infer_motion({'description': '人物静止站立'}), 'static')
+        self.assertEqual(backends.infer_motion({}), 'static')
+        self.assertEqual(
+            backends.infer_motion({'camera_movement': '左摇', 'description': '他推开门'}),
+            'pan_left')
 
 
 if __name__ == '__main__':

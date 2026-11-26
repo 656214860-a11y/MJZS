@@ -17,8 +17,9 @@ _DEFAULT_SECONDS = 4
 _VERSION_PATTERN = re.compile(r'^v(\d+)\.[^.]+$', re.IGNORECASE)
 _VIDEO_PATTERN = re.compile(r'^animatic_v(\d+)\.mp4$', re.IGNORECASE)
 
-# REQ-S04-85 重建时同 ID 保留的时间线字段。
-_CARRIED = ('seconds', 'image_version', 'source', 'references', 'dialogue_audio', 'note')
+# REQ-S04-85/105 重建时同 ID 保留的时间线字段。
+_CARRIED = ('seconds', 'image_version', 'source', 'references',
+            'dialogue_audio', 'dialogue_seconds', 'note')
 
 
 def _shot_rows(storyboard):
@@ -42,7 +43,8 @@ def _default_seconds(shot):
 
 def _new_row(shot):
     return {'id': str(shot['id']), 'seconds': _default_seconds(shot), 'image_version': 0,
-            'source': 'generated', 'references': [], 'dialogue_audio': None, 'note': ''}
+            'source': 'generated', 'references': [], 'dialogue_audio': None,
+            'dialogue_seconds': None, 'note': ''}
 
 
 def build(storyboard, source_rel, source_sha, *, previous=None):

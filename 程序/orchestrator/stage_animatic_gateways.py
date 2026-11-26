@@ -336,11 +336,68 @@ def _timeline_row_update(timeline, shot_id, fields):
     raise ValueError('时间线没有此镜头：' + str(shot_id))
 
 
+def _load_gflow_generate():
+    """惰性探测并加载 infra.gflow_images.generate，模块未就绪时返回 None。"""
+    import importlib.util
+    import sys
+    if 'infra.gflow_images' in sys.modules:
+        return getattr(sys.modules['infra.gflow_images'], 'generate', None)
+    if importlib.util.find_spec('infra.gflow_images') is None:
+        return None
+    import infra.gflow_images as gflow_images
+    return getattr(gflow_images, 'generate', None)
+
+
+def _resolve_gflow_settings(settings):
+    """REQ-S04-101：惰性解析模型池 gflow-* 图片模型与 infra.gflow_images.generate。"""
+    resolved = dict(settings)
+    if not callable(resolved.get('gflow_generate')):
+        generate = _load_gflow_generate()
+        if not callable(generate):
+            raise ValueError('请先在模型管理配置 Google Flow 账号与 gflow.exe')
+        resolved['gflow_generate'] = generate
+    if not isinstance(resolved.get('gflow_config'), dict) or not resolved['gflow_config']:
+        import infra.model_pool as model_pool
+        pool = model_pool.pool() or {}
+        candidates = {
+            mid: item for mid, item in pool.items()
+            if isinstance(mid, str) and mid.startswith('gflow-')
+            and isinstance(item, dict)
+            and str(item.get('modality') or '').strip().lower() == 'image'
+        }
+        if not candidates:
+            raise ValueError('请先在模型管理配置 Google Flow 账号与 gflow.exe')
+        preferred = str(resolved.get('animatic_gflow_model') or '').strip()
+        if preferred in candidates:
+            selected = preferred
+        elif ('gflow-' + preferred) in candidates:
+            selected = 'gflow-' + preferred
+        else:
+            selected = next(iter(candidates))
+        config = dict(candidates[selected])
+        config['model'] = selected[6:]
+        resolved['gflow_config'] = config
+    return resolved
+
+
 def _timeline_render(settings):
-    """草图后端分流；默认 comfy_local 且未注入客户端时复用既有 local_sketch。"""
+    """草图后端分流：适配 text_card、gflow_cli 与默认 comfy_local。"""
     from domain import animatic_service, animatic_sketch_backends
-    render = animatic_sketch_backends.create(settings)
     name = settings.get('animatic_sketch_backend') or animatic_sketch_backends.DEFAULT_BACKEND
+    if name == 'gflow_cli':
+        resolved = _resolve_gflow_settings(settings)
+        base_render = animatic_sketch_backends.create(resolved)
+
+        def render_gflow(workspace, shot, references, run_settings=None):
+            merged = dict(run_settings or {})
+            if not callable(merged.get('gflow_generate')):
+                merged['gflow_generate'] = resolved['gflow_generate']
+            if not isinstance(merged.get('gflow_config'), dict) or not merged['gflow_config']:
+                merged['gflow_config'] = resolved['gflow_config']
+            return base_render(workspace, shot, references, merged)
+
+        return render_gflow
+    render = animatic_sketch_backends.create(settings)
     if name == animatic_sketch_backends.DEFAULT_BACKEND and settings.get('comfy_client') is None:
         return animatic_service.local_sketch
     return render
@@ -444,8 +501,13 @@ def regenerate_animatic_shot(project, shot_id, *, settings=None):
     board_row = next((row for row in storyboard.get('shots', [])
                       if isinstance(row, dict) and row.get('id') == shot_id), {})
     refs = refs_for_animatic_shot(root, board_row)
+    _ensure_comfy_ready(settings)
+    settings.setdefault('spec', animatic_preview_spec(root))
+    timeline_row = next(row for row in timeline['shots'] if row.get('id') == shot_id)
+    render_shot = dict(board_row, **story_row)
+    render_shot['seconds'] = timeline_row.get('seconds', story_row['seconds'])
     workspace = Path(tempfile.mkdtemp(prefix='shot-', dir=_work_root(folder)))
-    image = _render_single_shot(story_row, refs, settings, workspace)
+    image = _render_single_shot(render_shot, refs, settings, workspace)
     version = timeline_model.next_version(_existing_names(_shot_dir(folder, shot_id)))
     _publish_shot_file(folder, shot_id, version, Path(image).suffix.lower(),
                        Path(image).read_bytes())
@@ -521,11 +583,54 @@ def _timeline_audio(root, folder, timeline, board, settings, scratch):
     return mixed, clip_map
 
 
+def _measure_audio_seconds(clip, ffprobe, probe_fn=None):
+    """实测单段音频秒数；无法读取或无效时长返回 None，不阻断合成。"""
+    import math
+    if clip is None:
+        return None
+    try:
+        if callable(probe_fn):
+            value = float(probe_fn(clip))
+        else:
+            from agent.media import probe
+            data = probe(str(clip), {'ffprobe': ffprobe})
+            raw = (data.get('format') or {}).get('duration')
+            if raw is None:
+                return None
+            value = float(raw)
+    except (OSError, RuntimeError, ValueError, TypeError):
+        return None
+    return round(value, 3) if math.isfinite(value) and value > 0 else None
+
+
+def _probe_dialogue_seconds(clip_map, settings):
+    """REQ-S04-105：在合成后台实测各镜对白秒数，消除 Tk 主线程同步探测。"""
+    if not clip_map:
+        return {}
+    probe_fn = settings.get('probe_duration')
+    ffprobe = settings.get('ffprobe')
+    return {sid: _measure_audio_seconds(clip, ffprobe, probe_fn)
+            for sid, clip in clip_map.items()}
+
+
+def _overlay_frame(image_path, destination, *, shot_id, seconds, start_seconds, dialogue=''):
+    """REQ-S04-103：L3 注入的暂存烧录钩子；非图片桩字节优雅退回原路径。"""
+    from PIL import UnidentifiedImageError
+    from domain.animatic_sketch_backends import render_overlay_frame
+    try:
+        return render_overlay_frame(image_path, destination, shot_id=shot_id,
+                                    seconds=seconds, start_seconds=start_seconds,
+                                    dialogue=dialogue)
+    except UnidentifiedImageError:
+        return Path(image_path)
+
+
 def _compose_timeline_rows(root, timeline, shot_versions, existing_images,
-                           shot_references, clip_map):
-    """合成成功后把图版本、来源、参考图与对白音频写回时间线副本。"""
+                           shot_references, clip_map, *, dialogue_durations=None):
+    """合成成功后把图版本、来源、参考图、对白音频与实测对白秒数写回时间线副本。"""
     from copy import deepcopy
     out = deepcopy(timeline)
+    durations = dialogue_durations or {}
     for row in out.get('shots') or []:
         sid = row.get('id')
         if sid in shot_versions:
@@ -537,6 +642,7 @@ def _compose_timeline_rows(root, timeline, shot_versions, existing_images,
         row['dialogue_audio'] = (
             Path(clip).resolve().relative_to(root).as_posix()
             if clip is not None and Path(clip).resolve().is_relative_to(root) else None)
+        row['dialogue_seconds'] = durations.get(sid) if clip is not None else None
     return out
 
 
@@ -550,11 +656,11 @@ def _ensure_comfy_ready(settings):
 
 
 def run_animatic_timeline(project, source=None, *, settings=None):
-    """REQ-S04-80…84：参考库配图＋三轨混音＋缺图才生成＋版本化视频＋清单发布。"""
+    """REQ-S04-80…84/103…105：参考库配图＋三轨混音＋暂存烧录/2D运镜＋版本化视频＋清单发布。"""
     import tempfile
     from agent.core import save_bytes
     import orchestrator.stage_parallel as stage_parallel
-    from domain import animatic_timeline as timeline_model
+    from domain import animatic_sketch_backends, animatic_timeline as timeline_model
     from domain.animatic_service import build_bundle, validate_bundle
     from contract.platform_tools import tool_path
     root = Path(project).resolve()
@@ -589,6 +695,10 @@ def run_animatic_timeline(project, source=None, *, settings=None):
         _ensure_comfy_ready(settings)
     workspace = Path(tempfile.mkdtemp(prefix='run-', dir=_work_root(folder)))
     audio, clip_map = _timeline_audio(root, folder, timeline, board, settings, workspace)
+    dialogue_durations = _probe_dialogue_seconds(clip_map, settings)
+    preview_spec = animatic_preview_spec(root)
+    settings.setdefault('spec', preview_spec)
+    settings.setdefault('overlay_frame', _overlay_frame)
     settings['shot_references'] = shot_references
     settings['allow_empty_references'] = True
     settings['existing_images'] = existing_images
@@ -599,6 +709,12 @@ def run_animatic_timeline(project, source=None, *, settings=None):
     settings['version_tag'] = Path(settings['video_relpath']).stem
     settings['timeline_sha256'] = file_cache.file_digest(
         folder / timeline_model.TIMELINE_FILE)
+    assemble_spec = dict(preview_spec)
+    if settings.get('animatic_ken_burns', True):
+        assemble_spec['shot_motions'] = [
+            animatic_sketch_backends.infer_motion(board.get(row['id'], {}))
+            for row in timeline['shots']
+        ]
 
     def publish(artifacts):
         if not validate_bundle(artifacts):
@@ -616,9 +732,10 @@ def run_animatic_timeline(project, source=None, *, settings=None):
     build_bundle(project_context(root), path, (), audio, settings,
                  publish=publish, write_temporary=save_bytes, run_batches=batches,
                  render=_timeline_render(settings), workspace=workspace,
-                 spec=animatic_preview_spec(root))
+                 spec=assemble_spec)
     updated = _compose_timeline_rows(root, timeline, shot_versions, existing_images,
-                                   shot_references, clip_map)
+                                   shot_references, clip_map,
+                                   dialogue_durations=dialogue_durations)
     _publish_animatic_timeline(root, updated)
     return folder / settings['video_relpath']
 
