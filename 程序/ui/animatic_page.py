@@ -66,8 +66,21 @@ def _build_confirm_bar(page, state):
     """有可播放版本才出现的确认条；先占在页底，保证小窗口里看得见。"""
     if state['video'] is None:
         return
-    bar = ttk.Frame(state['frame'])
-    bar.pack(side='bottom', fill='x', pady=(SPACING['sm'], SPACING['none']))
+    frame = state['frame']
+    host = getattr(page, 'stage_area', None)
+    bar = ttk.Frame(host if host is not None else frame)
+    padding = (SPACING['sm'], SPACING['none'])
+    if host is None:
+        bar.pack(side='bottom', fill='x', pady=padding)
+    else:
+        # 桌面画布里的高页面可以滚动，确认栏固定在画布与共用输入框之间。
+        def show_bar(_event=None):
+            bar.pack(side='bottom', before=page.canvas, fill='x', pady=padding)
+        frame.bind('<Map>', show_bar, add='+')
+        frame.bind('<Unmap>', lambda _event: bar.pack_forget(), add='+')
+        frame.bind('<Destroy>', lambda _event: bar.destroy(), add='+')
+        if frame.winfo_ismapped():
+            show_bar()
     SecondaryButton(bar, text='锁定',
                     command=lambda: _lock(page, state)).pack(side='right')
     for key, label in _CHECK_LABELS:
