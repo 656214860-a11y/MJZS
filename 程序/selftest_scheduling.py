@@ -603,3 +603,22 @@ def prioritize_gui_units(units, seconds=None):
     seconds = seconds or {}
     return sorted(units, key=lambda u: (u[1].rsplit('.', 1)[-1] not in env.GUI_E2E_MODULES,
                                         -seconds.get(u[0], 0)))
+
+
+def recheck_perf_reds(got, perf_units, runner):
+    """性能用例并发下变红时串行单跑复核一次再判红（不改断言，其它单元原样保留）。"""
+    perf_by_name = {payload[0]: payload for payload in perf_units}
+    red_perf = []
+    seen = set()
+    for item in got:
+        if item[3] and item[0] in perf_by_name and item[0] not in seen:
+            red_perf.append(perf_by_name[item[0]])
+            seen.add(item[0])
+    if not red_perf:
+        return got
+    print('性能用例并发下有红：%s；串行单跑复核一次' %
+          ' '.join(payload[0] for payload in red_perf), flush=True)
+    rechecked = {item[0]: item for item in runner(red_perf)}
+    for name, item in rechecked.items():
+        print('  复核 %-26s %s' % (name, '仍红' if item[3] else '转绿（判为并发抖动）'), flush=True)
+    return [rechecked.get(item[0], item) if item[3] else item for item in got]
