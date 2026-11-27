@@ -100,7 +100,8 @@ class AccountStoreStrictReadTests(unittest.TestCase):
             _spawn_pair(script, [str(PROGRAM), str(path), 'x'])
             # 两个进程写同一组键：最后一次写入者的值胜出，但文件必须始终是合法 JSON、
             # 且 server_time／last_email 等合并字段不被清空。
-            data = json.loads(path.read_text(encoding='utf-8'))
+            # C06 起 session.json 整体 DPAPI 加密，经正式读取入口解密后再断言。
+            data = account_store.read_session_file(path)
         self.assertIn('refresh_token', data)
         self.assertIn('lease', data)
         self.assertIn('update_seen', data)
