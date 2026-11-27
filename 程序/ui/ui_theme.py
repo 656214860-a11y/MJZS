@@ -500,8 +500,10 @@ def color_map(old, new):
             continue
         if not before.startswith('#') or not after.startswith('#'):
             continue
+        if before.lower() == after.lower():
+            continue
         mapping.setdefault(before.lower(), after)
-    return {k: v for k, v in mapping.items() if k != v.lower()}
+    return mapping
 
 
 def _recolor_options(widget, options, mapping):
@@ -583,6 +585,42 @@ def _recolor_treeview_tags(tree, mapping):
                 continue
 
 
+def _recolor_combobox_popdown(combobox, old, new):
+    """已展开过的 ttk.Combobox 下拉 Listbox 由 Tcl 创建，不在 winfo_children() 里。"""
+    listbox = '%s.popdown.f.l' % combobox._w
+    try:
+        if not int(combobox.tk.call('winfo', 'exists', listbox)):
+            return
+    except (tk.TclError, AttributeError, ValueError):
+        return
+    for option, token in (('-background', 'background_card'),
+                          ('-foreground', 'text_primary'),
+                          ('-selectbackground', 'selection_bg'),
+                          ('-selectforeground', 'selection_text')):
+        before, after = old.get(token), new.get(token)
+        if not before or not after:
+            continue
+        try:
+            if str(combobox.tk.call(listbox, 'cget', option)).lower() == before.lower():
+                combobox.tk.call(listbox, 'configure', option, after)
+        except tk.TclError:
+            continue
+
+
+def _recolor_transparentcolor(window, mapping):
+    """带 -transparentcolor 的顶层窗（如三虎云朵）须同步更新透明色键。"""
+    try:
+        current = str(window.attributes('-transparentcolor') or '')
+    except tk.TclError:
+        return
+    target = mapping.get(current.lower())
+    if target is not None:
+        try:
+            window.attributes('-transparentcolor', target)
+        except tk.TclError:
+            pass
+
+
 def recolor_tree(root, old, new):
     """递归换色；返回处理过的控件数以便测试。"""
     mapping = color_map(old, new)
@@ -598,6 +636,8 @@ def recolor_tree(root, old, new):
             continue
         if isinstance(widget, ttk.Treeview):
             _recolor_treeview_tags(widget, mapping)
+        elif isinstance(widget, ttk.Combobox):
+            _recolor_combobox_popdown(widget, old, new)
         if isinstance(widget, ttk.Widget):
             # 显式赋给控件的颜色会覆盖主题样式，例如状态栏文本与进度说明。
             options = set(widget.keys()).intersection(('foreground', 'background'))
@@ -611,6 +651,8 @@ def recolor_tree(root, old, new):
                                   ('insertbackground', 'text_primary')):
                 _recolor_options(widget, (option,), {old[token].lower(): new[token]})
         _recolor_options(widget, _WIDGET_OPTIONS, mapping)
+        if isinstance(widget, (tk.Tk, tk.Toplevel)):
+            _recolor_transparentcolor(widget, mapping)
         if isinstance(widget, tk.Canvas):
             _recolor_canvas(widget, mapping)
         if isinstance(widget, tk.Text):

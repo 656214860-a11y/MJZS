@@ -800,6 +800,65 @@ class ThemeRefreshTests(unittest.TestCase):
         self.assertEqual(str(restored_gear.canvas.cget('bg')).lower(),
                          COLORS['background_primary'].lower())
 
+    def test_opened_combobox_popdown_listbox_round_trip(self):
+        """已展开过的 Combobox 下拉 Listbox 由 Tcl 创建，切主题后必须同步换色。"""
+        ui_theme.apply(self.win)
+        box = ttk.Combobox(self.win, values=('日间', '夜间', '跟随系统'), state='readonly')
+        box.pack()
+        self.win.update_idletasks()
+        popdown = self.win.tk.call('ttk::combobox::PopdownWindow', box._w)
+        listbox = popdown + '.f.l'
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(str(self.win.tk.call(listbox, 'cget', '-background')).lower(),
+                                 COLORS['background_card'].lower())
+                self.assertEqual(str(self.win.tk.call(listbox, 'cget', '-foreground')).lower(),
+                                 COLORS['text_primary'].lower())
+                self.assertEqual(str(self.win.tk.call(listbox, 'cget', '-selectbackground')).lower(),
+                                 COLORS['selection_bg'].lower())
+                self.assertEqual(str(self.win.tk.call(listbox, 'cget', '-selectforeground')).lower(),
+                                 COLORS['selection_text'].lower())
+
+    def test_toplevel_transparentcolor_follows_live_theme_switch(self):
+        """已打开的透明色键浮窗（如三虎云朵）切主题后必须同步更新 -transparentcolor。"""
+        ui_theme.apply(self.win)
+        top = tk.Toplevel(self.win)
+        top.withdraw()
+        self.addCleanup(top.destroy)
+        top.configure(bg=COLORS['background_primary'])
+        try:
+            top.attributes('-transparentcolor', COLORS['background_primary'])
+        except tk.TclError:
+            self.skipTest('当前平台 Tk 不支持 -transparentcolor')
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                want = COLORS['background_primary'].lower()
+                self.assertEqual(str(top.cget('bg')).lower(), want)
+                self.assertEqual(str(top.attributes('-transparentcolor')).lower(), want)
+
+    def test_success_text_on_subtle_surface_round_trip(self):
+        """日间 success 与 success_text 同色，切夜间时不得遮蔽 success_text 的换色映射。"""
+        ui_theme.apply(self.win)
+        badge = ttk.Label(self.win, text='已完成',
+                          background=COLORS['success_subtle'],
+                          foreground=COLORS['success_text'])
+        badge.pack()
+        for name in ('night', 'day'):
+            ui_tokens.set_theme(name)
+            ui_theme.apply(self.win)
+            ui_theme.refresh_native_widgets(self.win)
+            with self.subTest(theme=name):
+                self.assertEqual(str(badge.cget('background')).lower(),
+                                 COLORS['success_subtle'].lower())
+                self.assertEqual(str(badge.cget('foreground')).lower(),
+                                 COLORS['success_text'].lower())
+
 
 if __name__ == "__main__":
     unittest.main(verbosity=2)
