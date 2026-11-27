@@ -187,6 +187,7 @@ from selftest_scheduling import (
     run_serial,
     run_safe_serial,
     prioritize_gui_units,
+    previous_full_unit_seconds,
 )
 from selftest_reporting import (
     slowest_units,
@@ -251,7 +252,8 @@ def run_gui_under_token(gui, perf_gui, *, safe, serial, jobs, gui_jobs, gui_wait
                         yield_between, got):
     """持有 GUI 令牌跑 Tk 单元。全量每波结束就归还，其它会话不用等完整段。"""
     deferred = []
-    ordered = prioritize_gui_units(gui) if safe else list(gui)
+    seconds = previous_full_unit_seconds() if safe and yield_between and gui_jobs > 1 else None
+    ordered = prioritize_gui_units(gui, seconds) if safe else list(gui)
     width = gui_jobs if safe else jobs
     batches = gui_hold_batches(ordered, perf_gui, width, yield_between)
     for index, (gui_batch, perf_batch) in enumerate(batches):

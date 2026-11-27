@@ -6,6 +6,7 @@ import importlib
 import io
 import json
 import os
+import re
 import sys
 import tempfile
 import time
@@ -570,6 +571,35 @@ def run_safe_serial(todo):
     return out
 
 
-def prioritize_gui_units(units):
-    """Submit known long GUI suites first; retain every unit and stable group order."""
-    return sorted(units, key=lambda unit: unit[1].rsplit('.', 1)[-1] not in env.GUI_E2E_MODULES)
+_UNIT_TIMING = re.compile(r'^  (\S+)\s+\d+ 条\s+([0-9]+(?:\.[0-9]+)?) 秒(?:\s|$)')
+
+
+def previous_full_unit_seconds():
+    """读取上一轮完整安全全量的逐单元秒数，只作为分波的提示。"""
+    path = os.environ.get('AUTO_FULL_SAFE_PREVIOUS_LOG')
+    if not path:
+        common = env.git_common_dir()
+        if not common:
+            return {}
+        path = os.path.join(os.path.dirname(common), '程序', 'logs', 'auto_full_safe.run.log')
+    seconds = {}
+    try:
+        with open(path, encoding='utf-8-sig', errors='replace') as handle:
+            full = False
+            for line in handle:
+                if line.startswith('--safe（全量受控分池）'):
+                    full = True
+                elif full and line.startswith('共 '):
+                    return seconds
+                elif full and (match := _UNIT_TIMING.match(line)):
+                    seconds[match[1]] = float(match[2])
+    except (OSError, ValueError):
+        pass
+    return {}
+
+
+def prioritize_gui_units(units, seconds=None):
+    """端到端组优先；全量组内将耗时相近的单元排入同一波，等时和无记录者保留原序。"""
+    seconds = seconds or {}
+    return sorted(units, key=lambda u: (u[1].rsplit('.', 1)[-1] not in env.GUI_E2E_MODULES,
+                                        -seconds.get(u[0], 0)))
