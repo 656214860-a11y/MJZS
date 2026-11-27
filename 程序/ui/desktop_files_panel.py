@@ -22,7 +22,7 @@ from ui.desktop_files_panel_filters import (
     PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH, SCRIPT_NAME_CELL_PAD,
 )
 
-from ui.desktop_file_card import TreeRowCard, script_row_card
+from ui.desktop_file_card import TreeRowCard, pack_entry_buttons as _pack_entry_buttons, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui.desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, row_toggle_target
@@ -31,7 +31,6 @@ from ui.ui_popup import measure_text_width
 from ui_tokens import SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, SecondaryButton,
                         Tooltip, ask_string)
-from ui.desktop_files_entry import pack_entry_buttons as _pack_entry_buttons
 from ui.writing_page_controller import ScriptListLoadController
 
 # R3150：入口钮左右 padding 收 0——右 padding 再收半档图标再右移半步贴边，
