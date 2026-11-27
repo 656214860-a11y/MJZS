@@ -194,7 +194,7 @@
 | Token | 值 | 规则 |
 | --- | --- | --- |
 | `DESKTOP_LAYOUT['default_width']`／`['default_height']` | 1280×800 | 主窗口首次尺寸 |
-| `DESKTOP_LAYOUT['min_width']`／`['min_height']` | 800×600 | 主窗口最小尺寸 |
+| `DESKTOP_LAYOUT['min_width']`／`['min_height']` | 1024×600 | 主窗口最小尺寸（2026-11-27：按 1366×768 与 1080p@150% 工作区折中，不用 1280×720） |
 | `DESKTOP_LAYOUT['window_margin_x']`／`['window_margin_y']` | 24px／48px | 屏幕可用区小于默认值时保留的边缘留白 |
 | `DIALOG_MIN_WIDTH`／`DIALOG_MIN_HEIGHT` | 240×160 | 弹窗最小尺寸；由两个 96px 按钮并排（约 236px）和标题＋两行说明＋动作区（约 160px）得出 |
 

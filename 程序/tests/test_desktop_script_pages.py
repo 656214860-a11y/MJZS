@@ -35,7 +35,7 @@ from ui_widgets import ContextMenu    # noqa: E402
 import desktop_shared_input          # noqa: E402,F401  被对齐的一方（共享输入框），--affected 消费者锚点
 import ui.desktop_script_pages       # noqa: E402,F401  本用例的对象模块（剧本结构页），同上
 
-WINDOW_SIZES = ('1280x800', '1024x680', '880x600')
+WINDOW_SIZES = ('1280x800', '1024x680', '1024x600')
 LAYOUT_TIMEOUT = 30.0
 REMOVED_BUTTON_TEXTS = ('采用选中剧本', '手动制作结构剧本', '大纲', '编辑', '退出', '删除')
 REMOVED_PAGE_ATTRS = (

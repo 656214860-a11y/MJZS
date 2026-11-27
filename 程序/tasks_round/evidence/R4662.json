@@ -1,0 +1,15 @@
+{
+  "round": 4662,
+  "commit_base": "18798d976",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_ui_style_engine test_files_panel_stages test_desktop_compact_layout test_ui_batch3_shell test_ui_batch6_pages test_desktop_page_nav test_desktop_script_pages test_desktop_writing_page test_animatic_page test_board_assets_buttons test_media_page_buttons test_script_page_layout",
+    "exit": 0,
+    "passed": 384,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T17:19:04"
+}

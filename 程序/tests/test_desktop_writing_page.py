@@ -29,7 +29,7 @@ import desktop_shared_send         # 本卡对象模块（共享输入框链路�
 import desktop_writing_page        # 本卡对象模块（剧本准备页，同上）
 from desktop import PAGE
 
-WINDOW_SIZES = ('1280x800', '1024x680', '880x600')
+WINDOW_SIZES = ('1280x800', '1024x680', '1024x600')
 
 
 class PageInputAlignmentTests(unittest.TestCase):

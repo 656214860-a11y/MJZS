@@ -234,14 +234,14 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
                              and w.winfo_ismapped() for w in _walk(self.desktop.stage_area)))
         self._write_animatic_bundle()
         self._open('animatic')
-        self.win.geometry('880x600+0+0')
+        self.win.geometry('1024x600+0+0')
         tk_test_support.pump(self.win, .8)
         locks = [w for w in _walk(self.desktop.stage_area) if isinstance(w, ttk.Button)
                  and w.cget('text') == '锁定' and w.winfo_ismapped()]
         self.assertEqual(1, len(locks), '04 页应有且只有一颗「锁定」')
         checks = [w for w in locks[0].master.winfo_children() if isinstance(w, ttk.Checkbutton)]
         self.assertCountEqual([w.cget('text') for w in checks], confirmations)
-        self._assert_visible(locks + checks, '04 分镜预演 880×600')
+        self._assert_visible(locks + checks, '04 分镜预演 1024×600')
         self.desktop.canvas.yview_moveto(1.0)
         self.win.update_idletasks()
         self._assert_visible(locks + checks, '04 分镜预演滚动后')

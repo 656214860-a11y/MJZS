@@ -68,7 +68,7 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         self.assertEqual(str(d.nav[-1].cget('compound')),'image')
         self.assertTrue(d.nav[-1].cget('image'))
         self.assertEqual(d.nav[-1]._nav_icon_name,'sites')
-        for width,height in ((800,600),(1080,740),(1280,800),(1360,900)):
+        for width,height in ((1024,600),(1080,740),(1280,800),(1360,900)):
             with self.subTest(size=(width,height)):
                 self.resize(width,height)
                 d.sidebar_canvas.yview_moveto(0);self.pump(.1)
@@ -77,12 +77,12 @@ class ShellScrollAndStatusTests(unittest.TestCase):
                 bottom=d.sidebar_canvas.yview()
                 self.assertTrue(self.sidebar_visible(),'最后一项滚到底后必须在侧栏视口内')
                 if height==600:
-                    self.assertLess(top[1],1.0,'800x600 侧栏应出现可滚动溢出')
+                    self.assertLess(top[1],1.0,'1024x600 侧栏应出现可滚动溢出')
                     self.assertGreater(bottom[0],0.0)
                     self.assertAlmostEqual(bottom[1],1.0,places=3)
 
     def test_sidebar_mouse_wheel_and_page_keys_scroll(self):
-        self.resize(800,600);d=self.desktop
+        self.resize(1024,600);d=self.desktop
         for key in ('<Prior>','<Next>','<Home>','<End>'):self.assertTrue(self.win.bind(key))
         d.sidebar_canvas.yview_moveto(0);self.pump(.1)
         top=d.sidebar_canvas.yview()[0]
@@ -104,7 +104,7 @@ class ShellScrollAndStatusTests(unittest.TestCase):
         self.assertAlmostEqual(d.sidebar_canvas.yview()[0],0.0,places=3)
 
     def test_main_content_page_keys_change_scroll_and_text_keeps_its_keys(self):
-        self.resize(800,600);d=self.desktop
+        self.resize(1024,600);d=self.desktop
         d.show(0);self.pump()
         # R3016：顶部标题行删除后首页内容不再天然溢出；显式加高文本框保证可滚动契约。
         text=tk.Text(d.content,height=40);text.pack();text.insert('1.0','\n'.join(str(i) for i in range(400)))

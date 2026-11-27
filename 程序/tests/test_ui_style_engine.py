@@ -10,7 +10,7 @@
 4. 导航／侧栏／主区按钮样式常态无可见边框（solid 边框用自身底色），焦点时边框为
    ``COLORS['focus']``，且仍保持 32±2px 行高；
 5. ``NotificationDispatcher.error()`` 默认非模态；主窗口默认 1280×900（R3060 加高）、
-   最小 800×600，弹窗最小尺寸不再降到 1×1。
+   最小 1024×600，弹窗最小尺寸不再降到 1×1。
 """
 from __future__ import annotations
 
@@ -227,16 +227,16 @@ class NotificationDefaultTests(unittest.TestCase):
 
 class WindowPolicyTests(unittest.TestCase):
     def test_main_window_default_and_minimum_tokens(self):
-        # R3060：默认高度 800→900（侧栏图标轨在 800 高下放不下）；最小仍 800×600。
+        # R3060：默认高度 800→900。C19（2026-11-27）：最小宽 800→1024，高仍 600。
         self.assertEqual((DESKTOP_LAYOUT["default_width"], DESKTOP_LAYOUT["default_height"]),
                          (1280, 900))
         self.assertEqual((DESKTOP_LAYOUT["min_width"], DESKTOP_LAYOUT["min_height"]),
-                         (800, 600))
+                         (1024, 600))
         self.assertEqual(ui_theme.main_window_size(1920, 1080), (1280, 900))
         # 可用区不足时按 token 边距收缩，不把默认值硬塞进屏幕。
         self.assertEqual(ui_theme.main_window_size(1366, 728), (1280, 680))
 
-    def test_real_main_window_uses_the_policy_and_keeps_800x600_minimum(self):
+    def test_real_main_window_uses_the_policy_and_keeps_1024x600_minimum(self):
         root = tk.Tk()
         self.addCleanup(root.destroy)
         root.minsize(DESKTOP_LAYOUT["min_width"], DESKTOP_LAYOUT["min_height"])
@@ -244,10 +244,12 @@ class WindowPolicyTests(unittest.TestCase):
         for _ in range(6):
             root.update()
         left, top, right, bottom = ui_theme._work_area(root, root)
-        expected = ui_theme.main_window_size(right - left, bottom - top)
-        self.assertEqual((root.winfo_width(), root.winfo_height()), expected,
+        placed = ui_theme.main_window_size(right - left, bottom - top)
+        self.assertEqual((root.winfo_width(), root.winfo_height()), placed,
                          "主窗口首次尺寸应为 1280×900（屏幕放不下时收缩）")
-        self.assertEqual(root.minsize(), (800, 600))
+        # 方案 A：token 最小 1024×600；工作区放不下首次尺寸时，最小尺寸随首次尺寸收缩，不改这条规则。
+        self.assertEqual(root.minsize(), (min(DESKTOP_LAYOUT["min_width"], placed[0]),
+                                           min(DESKTOP_LAYOUT["min_height"], placed[1])))
 
     def test_popup_minimum_is_not_lowered_to_one_by_one(self):
         root = tk.Tk()

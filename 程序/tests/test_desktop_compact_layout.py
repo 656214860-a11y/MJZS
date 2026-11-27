@@ -59,7 +59,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
 
     def test_header_sidebar_and_file_area_remain_visible_after_shrink_and_grow(self):
         d = self.desktop
-        for width, height in ((942, 1032), (800, 600), (990, 632), (942, 1032)):
+        for width, height in ((1024, 1032), (1024, 600), (1024, 632), (1024, 1032)):
             with self.subTest(size=(width, height)):
                 self.resize(width, height)
                 # 上一档可能把侧栏留在底部；每档从顶部量起，后续断言才不受滚动位置影响。
@@ -132,7 +132,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
             self.assertTrue(ar <= bx or br <= ax or ab <= by or bb <= ay,
                             f'{a}: {rect(a)} overlaps {b}: {rect(b)}')
         try:
-            for width, height in ((800, 600), (990, 632), (942, 1032)):
+            for width, height in ((1024, 600), (1024, 632), (1024, 1032)):
                 self.resize(width, height)
                 for stage in ('script', 'storyboard', 'assets'):
                     with self.subTest(size=(width,height), stage=stage):
@@ -168,7 +168,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
 
     def test_project_icon_buttons_are_compact_rail_controls(self):
         """REQ-UI-SIDEBAR-1：左上角重复「项目」主图标与二级图标列已删，原分组与动作收口进悬停宽项目卡片。"""
-        self.resize(942, 1032)
+        self.resize(1024, 1032)
         d = self.desktop
         self.assertFalse(hasattr(d, 'project_button'))
         self.assertFalse(hasattr(d, '_project_expand_column'))
@@ -189,7 +189,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
             d.project_name_list.close_card(); self.pump()
 
     def test_actions_hint_and_full_file_details(self):
-        self.resize(800, 600)
+        self.resize(1024, 600)
         d = self.desktop
         # R2923：动作栏与静态占位提示删除；发送/附件/语音/模型/技能图标收进共享输入框。
         self.assertFalse(hasattr(d, 'idea_row'), '动作栏容器已随 R2923 删除')
@@ -262,7 +262,7 @@ class CompactDesktopGeometryTests(unittest.TestCase):
 
     def test_sidebar_popup_clamps_to_anchor_monitor(self):
         """R2950：主窗在副屏时选择层钳位取锚点所在显示器，不被主屏宽度拽回主屏。"""
-        self.resize(942, 1032)
+        self.resize(1024, 1032)
         d = self.desktop
         # 把窗口挪到副屏坐标系（隐藏测试桌面坐标是虚拟的，直接给几何即可）。
         self.win.geometry('+2500+80'); self.pump()
@@ -332,7 +332,7 @@ class SidebarExpandColumnTests(unittest.TestCase):
         self.assertFalse(hasattr(d, 'sidebar_expand'))
         self.assertEqual(d.project_block.pack_slaves(), [d.project_name_list],
                          'project_block 顶格只保留项目胶囊')
-        for width, height in ((1280, 900), (942, 1032), (800, 600), (990, 632)):
+        for width, height in ((1280, 900), (1024, 1032), (1024, 600), (1024, 632)):
             with self.subTest(size=(width, height)):
                 self.win.geometry('%dx%d+100+100' % (width, height))
                 d.sidebar_canvas.yview_moveto(0)
@@ -371,7 +371,7 @@ class SidebarExpandColumnTests(unittest.TestCase):
         left_center = script_nav.winfo_rooty() + d.sidebar_canvas.canvasy(0) + script_nav.winfo_height() // 2
         entry_center = d.files_button.winfo_rooty() + d.files_button.winfo_height() // 2
         self.assertLessEqual(abs(entry_center - left_center), 1)
-        self.win.geometry('942x1032+100+100')
+        self.win.geometry('1024x1032+100+100')
         self.pump()
 
     def test_hover_card_drives_group_filter_and_original_actions(self):
@@ -483,7 +483,7 @@ class SidebarExpandColumnTests(unittest.TestCase):
         d = self.desktop
         lst = getattr(d, 'project_name_list', None)
         self.assertIsNotNone(lst)
-        for width, height in ((942, 1032), (800, 600), (990, 632)):
+        for width, height in ((1024, 1032), (1024, 600), (1024, 632)):
             self.win.geometry('%dx%d+100+100' % (width, height))
             self.pump()
             self.assertLessEqual(d.project_block.winfo_width(),
@@ -495,7 +495,7 @@ class SidebarExpandColumnTests(unittest.TestCase):
         self.assertGreaterEqual(d.nav[0].winfo_rootx() - sb_left, 16,
                                 '一级主导航图标应相对侧栏左缘居中')
         self.assertLessEqual(abs(lst.winfo_rooty() - d.project_block.winfo_rooty()), 1)
-        self.win.geometry('942x1032+100+100')
+        self.win.geometry('1024x1032+100+100')
         self.pump()
 
     def test_assets_nav_opens_secondary_icon_column(self):

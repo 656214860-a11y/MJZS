@@ -106,16 +106,16 @@ class StageRailTests(unittest.TestCase):
     def test_scroll_rail_requests_minimum_width_without_geometry_feedback(self):
         """R3971（任务书 L4-U1）：阶段图标列整列可见，且文件表高度不随刷新振荡。
 
-        T1：1280×800 与 880×600 两档窗口下，13 个阶段钮＋资料库钮的
+        T1：1280×800 与 1024×600 两档窗口下，13 个阶段钮＋资料库钮的
         实际宽度不小于各自请求宽度（R3214 把画布钉成 1px 的回归，按钮实际宽 1）。
-        T2：880×600 下连续刷新 10 次，文件表高度始终不变（守住 R3214 的几何振荡修复）。
+        T2：1024×600 下连续刷新 10 次，文件表高度始终不变（守住 R3214 的几何振荡修复）。
         """
         panel = self.desktop.files_panel
         win = self.win
         buttons = list(panel.stage_buttons.values()) + [panel.library_button]
         old_geo = win.geometry()
         try:
-            for size in ('1280x800', '880x600'):
+            for size in ('1280x800', '1024x600'):
                 win.geometry(size)
                 self.pump(.5)
                 for button in buttons:
@@ -125,7 +125,7 @@ class StageRailTests(unittest.TestCase):
                         '%s: %s 实际宽 %d < 请求宽 %d' % (size, button,
                                                         button.winfo_width(),
                                                         button.winfo_reqwidth()))
-            win.geometry('880x600')
+            win.geometry('1024x600')
             heights = []
             for _ in range(10):
                 self.pump(.1)
@@ -473,7 +473,7 @@ class FilterDedupTests(StageRailTests):
         panel.open_panel()
         self._widen_panel()
         win = self.win
-        for size in ('1280x800', '880x600'):
+        for size in ('1280x800', '1024x600'):
             win.geometry(size)
             self.pump(.5)
             self.assertGreaterEqual(panel.group_button.winfo_width(), 40)
@@ -481,12 +481,15 @@ class FilterDedupTests(StageRailTests):
                                  panel.filter_bar.winfo_width() * 0.62)
 
     def test_group_sort_pair_wraps_aligned_with_kind_box(self):
-        """窄窗口下分组按钮仍与搜索框同行不换行，且无已删除的排序/类型下拉框。"""
+        """窄窗口下分组按钮仍与搜索框同行不换行，且无已删除的排序/类型下拉框。
+
+        主窗口最小宽改为 1024 后，这一档仍须同行、不裁切。
+        """
         panel = self.desktop.files_panel
         panel.open_panel()
         self._widen_panel()
         win = self.win
-        win.geometry('880x600')
+        win.geometry('1024x600')
         self.pump(.5)
         self.assertFalse(hasattr(panel, 'kind_box'))
         self.assertFalse(hasattr(panel, 'sort_box'))
@@ -1570,14 +1573,14 @@ class FilenameDisplayTests(StageRailTests):
             self.pump(.3)
 
     def test_long_filename_middle_elided_at_narrow_window(self):
-        """T2：880×600 下显示文字以全名前 8 字符开头、以扩展名结尾、含「…」，
+        """T2：1024×600 下显示文字以全名前 8 字符开头、以扩展名结尾、含「…」，
         且显示文字像素宽 ≤ 文件名列可见宽。"""
         panel = self.desktop.files_panel
         panel.open_panel()
         target = self._seed_long_file()
         win, old = self.win, self.win.geometry()
         try:
-            win.geometry('880x600')
+            win.geometry('1024x600')
             self.pump(.5)
             tree = panel.script_tree
             shown = str(tree.item(self.LONG_ROW, 'values')[0])
@@ -1602,7 +1605,7 @@ class FilenameDisplayTests(StageRailTests):
         target = self._seed_long_file()
         win, old = self.win, self.win.geometry()
         try:
-            for size in ('1280x800', '880x600'):
+            for size in ('1280x800', '1024x600'):
                 win.geometry(size)
                 self.pump(.5)
                 first, last = panel.script_tree.xview()
@@ -1621,7 +1624,7 @@ class FilenameDisplayTests(StageRailTests):
         win, old = self.win, self.win.geometry()
         try:
             tree = panel.script_tree
-            for size in ('1280x800', '880x600'):
+            for size in ('1280x800', '1024x600'):
                 win.geometry(size)
                 self.pump(.5)
                 shown = [column for column in tree['displaycolumns']
@@ -1671,7 +1674,7 @@ class FilenameDisplayTests(StageRailTests):
         target = self._seed_long_file()
         win, old = self.win, self.win.geometry()
         try:
-            win.geometry('880x600')
+            win.geometry('1024x600')
             self.pump(.5)
             tree = panel.script_tree
             self.assertIn('…', str(tree.item(self.LONG_ROW, 'values')[0]),

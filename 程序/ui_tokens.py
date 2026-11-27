@@ -282,11 +282,13 @@ TABLE_EMPTY_PADDING = SPACING["lg"]
 TABLE_COMPACT_HEADER_PADDING = (SPACING["sm"], SPACING["xs"] // 4)
 SCRIPT_ACTION_WIDTH = 0  # 依文字请求宽度，长中文按钮不得裁字。
 DESKTOP_LAYOUT = {
-    # 产品裁决：主窗口默认 1280×900（R3060：侧栏图标轨在 800 高下放不下，默认加高一档）、
-    # 最小 800×600；屏幕可用区更小时按下面的边距收缩（ui_theme.main_window_size），不改变最小值。
+    # 产品裁决（2026-11-27，C19 方案 A）：主窗口默认 1280×900。
+    # 最小 1024×600，能放进 1366×768 与 1080p@150% 扣边距后的工作区；
+    # 不采用 1280×720（该高度放不进上述工作区）。
+    # 屏幕可用区更小时按下面的边距收缩（ui_theme.main_window_size），不改变最小值。
     'default_width': 1280, 'default_height': 900,
     'window_margin_x': SPACING['xl'], 'window_margin_y': SPACING['xl'] * 2,
-    'min_width': 800, 'min_height': 600,
+    'min_width': 1024, 'min_height': 600,
     # 第 R2946 期：侧栏顶行要完整放下「0X  连贯性清单」这类最长页名（10pt 实测 89px），
     # 轨宽收到 96 后 EllipsisLabel 可用宽度＝92px，最长页名不再省略号截断。
     'sidebar_width': 96, 'sidebar_title_chars': 5, 'login_gate_width': 460, 'sidebar_padding': SPACING['sm'], 'row_gap': 1,

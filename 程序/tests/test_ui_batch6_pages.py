@@ -1,6 +1,6 @@
-"""UI 批次 6：资产／连贯性／分镜页的表格、卡片、空态与 800×600 窄窗。
+"""UI 批次 6：资产／连贯性／分镜页的表格、卡片、空态与 1024×600 窄窗。
 
-真 Tk 根窗口量几何：资产页与首帧页主容器 800×600 下 requested width 不超过窗口宽，
+真 Tk 根窗口量几何：资产页与首帧页主容器 1024×600 下 requested width 不超过窗口宽，
 表格实际宽度跟随内容区；卡片内边距与表头字体取自 ui_tokens。
 """
 import json
@@ -100,15 +100,15 @@ class PageLayoutTests(unittest.TestCase):
         if getattr(cls, 'tmp', None) is not None:
             cls.tmp.cleanup()
 
-    def _show_at_800(self, page):
+    def _show_at_1024(self, page):
         self.win.deiconify()
         self.desktop.show(page)
         self.win.update()
-        self.win.geometry('800x600+30+30')
+        self.win.geometry('1024x600+30+30')
         for _ in range(6):
             self.win.update_idletasks()
             self.win.update()
-        self.assertEqual((self.win.winfo_width(), self.win.winfo_height()), (800, 600))
+        self.assertEqual((self.win.winfo_width(), self.win.winfo_height()), (1024, 600))
 
     def _assert_table_fonts(self, tree):
         style = tree.cget('style') or 'Treeview'
@@ -118,8 +118,8 @@ class PageLayoutTests(unittest.TestCase):
         self.assertEqual(_font_shape(tree, current.lookup(style, 'font')),
                          _expected_font(TABLE_ROW_FONT))
 
-    def test_asset_page_fits_window_at_800(self):
-        self._show_at_800(pet_state.PAGE_OF['assets'])
+    def test_asset_page_fits_window_at_1024(self):
+        self._show_at_1024(pet_state.PAGE_OF['assets'])
         content = self.desktop.content
         self.assertLessEqual(content.winfo_reqwidth(), self.win.winfo_width())
         table = self.desktop.asset_table
@@ -127,8 +127,8 @@ class PageLayoutTests(unittest.TestCase):
         self.assertLessEqual(table.winfo_reqwidth(), self.win.winfo_width())
         self._assert_table_fonts(table)
 
-    def test_storyboard_page_fits_window_at_800(self):
-        self._show_at_800(pet_state.PAGE_OF['keyframe'])
+    def test_storyboard_page_fits_window_at_1024(self):
+        self._show_at_1024(pet_state.PAGE_OF['keyframe'])
         content = self.desktop.content
         self.assertLessEqual(content.winfo_reqwidth(), self.win.winfo_width())
         trees = [widget for widget in _descendants(content)
@@ -173,7 +173,7 @@ class PageLayoutTests(unittest.TestCase):
                                ensure_ascii=False)
             for path in episode_paths:
                 path.write_text(empty, encoding='utf-8')
-            self._show_at_800(pet_state.PAGE_OF['assets'])
+            self._show_at_1024(pet_state.PAGE_OF['assets'])
             shell = self.desktop.asset_table._data_table
             self.assertEqual(shell.empty_label.cget('text'), '暂无资产')
             self.assertEqual(shell.empty_label.cget('style'), 'Muted.TLabel')
