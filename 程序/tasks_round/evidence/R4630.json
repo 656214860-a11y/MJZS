@@ -1,0 +1,15 @@
+{
+  "round": 4630,
+  "commit_base": "4c24a49ac",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k theme style_engine",
+    "exit": 0,
+    "passed": 65,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T12:53:41"
+}
