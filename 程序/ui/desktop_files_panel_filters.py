@@ -11,9 +11,35 @@ from pathlib import Path, PureWindowsPath
 from tkinter import ttk
 
 from ui_tokens import COLORS, SPACING
-from ui_widgets import LineInput, SecondaryButton, SelectBox, Tooltip
+from ui_widgets import LineInput, SecondaryButton, Tooltip
 import ui.desktop_files_panel_index as files_panel_index
-from ui.desktop_files_panel_index import FilesPanelIndexMixin, SCRIPT_NAME_CELL_PAD
+from ui.desktop_files_panel_index import (
+    COLUMN_TITLES, DEFAULT_GROUP_MODE, FilesPanelIndexMixin,
+    SCRIPT_NAME_CELL_PAD, SORTABLE_COLUMNS,
+    append_kind_menu, cancel_auto_refresh, install_auto_refresh,
+    schedule_auto_refresh, teardown_auto_refresh,
+)
+
+
+class _KeywordVarProxy:
+    """兼容 ``keyword_var.get()/set()``，同时保持 ``LineInput`` 占位文字不被污染。"""
+
+    def __init__(self, entry):
+        self._entry = entry
+
+    def get(self):
+        return self._entry.get()
+
+    def set(self, value):
+        text = str(value or '')
+        try:
+            self._entry.delete(0, 'end')
+            if text:
+                self._entry.insert(0, text)
+            elif hasattr(self._entry, '_restore_placeholder'):
+                self._entry._restore_placeholder()
+        except tk.TclError:
+            pass
 
 _FOLLOWED_STAGE_SENTINEL = object()
 
@@ -41,126 +67,180 @@ PANEL_META_WIDTH = SPACING['xl'] * 5                            # 120：时长�
 class FilesPanelFilterMixin(FilesPanelIndexMixin):
     """阶段图标列＋筛选条＋按索引填表。"""
 
-    # ── 筛选条（R3106，任务书 P1，Q25）────────────────────────────────────
+    # ── 筛选条：半宽搜索框（占位“搜索文件”）＋ 同行分组下拉（带二级目录卡） ──
     def _build_filter_bar(self):
-        """类型／状态／分组／排序下拉＋文件名关键字；空值一律表示「不限」。
-
-        R3983（任务书 L4-U2，Q1/Q2）：阶段选择由右缘图标列承担，去掉重复的阶段
-        下拉框；第一行关键字＋刷新，第二行四个下拉框——面板内宽放不下时
-        「分组」「排序」连同名称经 FlowBar 整体换到第三行。下拉框不写死字符宽：
-        只读 SelectBox 按全部取值实测像素宽自适应，完整显示当前取值。
-        """
-        from contract.file_index_contract import STATUSES
-        from contract.file_naming import KINDS
-        from responsive_ui import FlowBar
+        """单行紧凑筛选条：左半「搜索文件」输入框，右半「分组」下拉（集成状态/阶段/类型/日期二级目录卡）。"""
         bar = ttk.Frame(self.script_box)
         bar.pack(side='top', fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.filter_bar = bar
-        self.kind_labels = {'全部类型': None}
-        for kind in KINDS:
-            self.kind_labels[kind] = kind
-        self.status_labels = {'全部状态': None}
-        for status in STATUSES:
-            self.status_labels[status] = status
         row_one = ttk.Frame(bar)
         row_one.pack(side='top', fill='x')
-        self.keyword_var = tk.StringVar(value='')
-        # 业务 UI 不得直接建 ttk.Entry（test_input_boundary）：统一走 LineInput。
-        self.keyword_entry = LineInput(row_one, textvariable=self.keyword_var, width=FILTER_KEYWORD_WIDTH)
-        self.keyword_entry.pack(side='left', fill='x', expand=True)
+        row_one.columnconfigure(0, weight=1, uniform='files_filter_half')
+        row_one.columnconfigure(1, weight=1, uniform='files_filter_half')
+        self.keyword_entry = LineInput(row_one, placeholder='搜索文件', width=FILTER_KEYWORD_WIDTH)
+        self.keyword_entry.grid(row=0, column=0, sticky='ew')
         self.keyword_entry.bind('<KeyRelease>', self._keyword_changed)
         Tooltip(self.keyword_entry, '按文件名关键字筛选（回车立即生效）')
-        self.index_refresh_button = SecondaryButton(row_one, text='刷新', command=self.refresh_file_index)
-        self.index_refresh_button.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        Tooltip(self.index_refresh_button, '后台重建索引，发现外部新增或修改的文件')
-        row_two = FlowBar(bar)
-        row_two.pack(side='top', fill='x')
-        self._build_import_button()
-        self.kind_box = SelectBox(row_two, values=tuple(self.kind_labels))
-        self.kind_box.pack(side='left')
-        self.kind_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.kind_box, '按文件类型筛选')
-        self.status_box = SelectBox(row_two, values=tuple(self.status_labels))
-        self.status_box.pack(side='left')
-        self.status_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.status_box, '按状态筛选：草稿／已发布／已归档')
-        # 「分组」「排序」连同名称装进同一个子框：内宽不够时 FlowBar 把它整体
-        # 换到下一行（R2），名称跟着框走不拆散；fill='y' 让名称与下拉框顶边齐平。
-        tail = ttk.Frame(row_two)
-        tail.pack(side='left')
+        self.keyword_var = _KeywordVarProxy(self.keyword_entry)
+        tail = ttk.Frame(row_one)
+        tail.grid(row=0, column=1, sticky='ew', padx=(SPACING['xs'], SPACING['none']))
         self.group_label = ttk.Label(tail, text='分组', style='Muted.TLabel')
-        self.group_label.pack(side='left', fill='y')
-        self.group_box = SelectBox(tail, values=('阶段', '类型', '日期'))
-        self.group_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.group_box.set('阶段')
-        self.group_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.group_box, '分组方式：阶段／类型／日期（跨阶段归组）')
-        self.sort_label = ttk.Label(tail, text='排序', style='Muted.TLabel')
-        self.sort_label.pack(side='left', fill='y', padx=(SPACING['md'], SPACING['none']))
-        self.sort_box = SelectBox(tail, values=('类型', '修改时间'))
-        self.sort_box.pack(side='left', padx=(SPACING['xs'], SPACING['none']))
-        self.sort_box.set('类型')
-        self.sort_box.bind('<<ComboboxSelected>>', lambda _event: self._apply_filters())
-        Tooltip(self.sort_box, '组内按类型或修改时间排序（最新在前）')
+        self.group_label.pack(side='left')
+        self.group_button = SecondaryButton(tail, text=DEFAULT_GROUP_MODE + ' ▾',
+                                            command=self._toggle_group_menu)
+        self.group_button.pack(side='left', fill='x', expand=True, padx=(SPACING['xs'], SPACING['none']))
+        Tooltip(self.group_button, '分组与筛选：类型／阶段／状态（草稿·定稿·归档）／日期（悬停右侧展开二级目录卡）')
+        self.group_menu = files_panel_index.GroupMenuPopup(self)
         self._reset_filter_boxes()
 
-    def _build_import_button(self):
-        """REQ-S01-103：标题行导入钮，收起钮左侧；PNG 优先，缺图退回 📁 文本。"""
-        from ui_icons import IconLoader
-        image = IconLoader.nav_icon(self.page.win, 'project_new')
-        if image is not None:
-            button = SecondaryButton(self.script_header, text=STAGE_RAIL_ALL, image=image,
-                                     compound='image', width=0, style='Tokens.Composer.Icon.TButton',
-                                     command=lambda: self.page.safe(self.import_files))
+    def _toggle_group_menu(self):
+        menu = getattr(self, 'group_menu', None)
+        if menu is not None:
+            menu.toggle()
+
+    def _close_group_menu(self):
+        menu = getattr(self, 'group_menu', None)
+        if menu is not None and menu.is_open():
+            menu.close()
+            return True
+        return False
+
+    def _sync_group_button_text(self):
+        button = getattr(self, 'group_button', None)
+        if button is None:
+            return
+        mode = getattr(self, 'group_mode', DEFAULT_GROUP_MODE)
+        sub = None
+        if mode == '类型':
+            sub = getattr(self, 'kind_filter', None)
+        elif mode == '阶段':
+            stage = getattr(self, 'stage_filter', None)
+            if stage:
+                from contract.pet_bus import stage_name
+                sub = stage_name(stage)
+        elif mode == '状态':
+            sub = getattr(self, 'status_filter', None)
+        elif mode == '日期':
+            sub = getattr(self, 'date_filter', None)
+        text = ('%s · %s ▾' % (mode, sub)) if sub else ('%s ▾' % mode)
+        try:
+            button.configure(text=text)
+        except tk.TclError:
+            pass
+
+    def _sync_sort_headings(self):
+        """在可排序列的表头上显示当前排序方向；文件名与时长／分辨率无排序箭头。"""
+        tree = getattr(self, 'script_tree', None)
+        if tree is None:
+            return
+        active = getattr(self, 'sort_column', 'kind')
+        desc = getattr(self, 'sort_desc', False)
+        for key, base in COLUMN_TITLES.items():
+            if key in SORTABLE_COLUMNS and key == active:
+                label = base + (' ▼' if desc else ' ▲')
+            else:
+                label = base
+            try:
+                tree.heading(key, text=label)
+            except tk.TclError:
+                pass
+
+    def sort_by_column(self, column):
+        """点击可排序列表头切换排序；文件名与时长／分辨率不排序。"""
+        if column not in SORTABLE_COLUMNS:
+            return
+        self._ensure_filter_state()
+        if self.sort_column == column:
+            self.sort_desc = not self.sort_desc
         else:
-            button = SecondaryButton(self.script_header, text=STAGE_RAIL_ALL, width=0,
-                                     style='Tokens.Composer.Icon.TButton',
-                                     command=lambda: self.page.safe(self.import_files))
-        button.pack(side='right', padx=(SPACING['none'], SPACING['xs']))
-        Tooltip(button, '导入文件到当前阶段目录')
-        self.import_button = button
+            self.sort_column = column
+            self.sort_desc = column in ('mtime', 'size')
+        self.sort_mode = '修改时间' if column == 'mtime' else COLUMN_TITLES.get(column, '类型')
+        self._sync_sort_headings()
+        self._reload_current_view()
+
+    def select_group_option(self, mode, value=None):
+        """选择分组主项或右侧二级目录卡条目：同步分组维度与筛选条件。"""
+        self._ensure_filter_state()
+        if mode not in files_panel_index.GROUP_MODES:
+            mode = DEFAULT_GROUP_MODE
+        self.group_mode = mode
+        self.kind_filter = None
+        self.status_filter = None
+        self.date_filter = None
+        if mode == '类型':
+            self.kind_filter = value
+        elif mode == '状态':
+            if not self.library_view:
+                self.status_filter = value
+        elif mode == '日期':
+            self.date_filter = value
+        elif mode == '阶段':
+            self.library_view = False
+            self.stage_filter = value
+            self._stage_filter_pinned = value is not None
+            self._followed_page_stage = self._page_stage()
+            self._sync_stage_title()
+        self._sync_group_button_text()
+        self._sync_stage_buttons()
+        self._reload_current_view()
+
+    def change_file_kind(self, row, kind):
+        """右键手动更改文件类型（空串／None 恢复自动识别）并持久化。"""
+        from infra import file_index
+        path = self.index_file_path(row)
+        file_index.record_kind(self.page.root, [path], kind)
+        self._reload_current_view()
+        if kind:
+            self.page.status.set('已将 %s 类型设为「%s」' % (path.name, kind))
+        else:
+            self.page.status.set('已恢复 %s 的自动类型识别' % path.name)
 
     def _reset_filter_boxes(self):
-        """下拉框显示回「全部」，不触发回调。"""
-        for box in (getattr(self, 'kind_box', None), getattr(self, 'status_box', None)):
-            if box is not None:
-                box.set(tuple(box.cget('values'))[0])
+        """搜索框回空并恢复占位提示，同步分组按钮文案。"""
         if getattr(self, 'keyword_var', None) is not None:
             self.keyword_var.set('')
+        self._sync_group_button_text()
 
     def _reset_filters(self):
-        """四个筛选条件与控件一起复位（换项目时用）。"""
+        """全部筛选与分组条件复位（换项目时用）：默认当前页＋按类型分组。"""
+        self._close_group_menu()
         self.stage_filter = None
         self.kind_filter = None
         self.status_filter = None
+        self.date_filter = None
         self.keyword_filter = ''
         self.library_view = False
-        self.group_mode = '阶段'
-        self.group_box.set('阶段')
+        self.group_mode = DEFAULT_GROUP_MODE
+        self.sort_column = 'kind'
+        self.sort_desc = False
+        self.sort_mode = '类型'
         self._stage_filter_pinned = False
         self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
         self._reset_filter_boxes()
+        self._sync_sort_headings()
         self._sync_stage_buttons()
         title = getattr(self, 'script_title', None)
         if title is not None:
             title.configure(text='项目文件')
 
     def _sync_view_filters(self):
-        """全局库只支持类型/名称，避免展示无效的发布状态条件。"""
-        self.status_box.configure(state='disabled' if self.library_view else 'readonly')
+        """默认只显示当前页面阶段文件；手动跨阶段钉住或选「全部阶段」时保留，切页后跟随新页。"""
         if getattr(self, 'library_view', False):
+            self._sync_group_button_text()
             return
         current = self._page_stage()
         if getattr(self, '_stage_filter_pinned', False) and self.stage_filter is not None:
-            # 手动点选的阶段是跨阶段排查视图：换页不抢回筛选；标题仍按当前状态重同步。
             self._sync_stage_title()
             self._sync_stage_buttons()
+            self._sync_group_button_text()
             return
         if current != getattr(self, '_followed_page_stage', _FOLLOWED_STAGE_SENTINEL):
             self.stage_filter = current
             self._followed_page_stage = current
             self._sync_stage_title()
             self._sync_stage_buttons()
+        self._sync_group_button_text()
 
     def _keyword_changed(self, event=None):
         """关键字输入去抖 250ms：避免每个按键都全表筛一遍。"""
@@ -184,17 +264,13 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self._filter_job = win.after(250, self._apply_filters)
 
     def _apply_filters(self):
-        """把类型／状态／分组／排序与关键字收成筛选条件，再按条件重填列表。"""
+        """应用关键字与当前分组/状态条件并重填列表。"""
         self._filter_job = None
-        self.kind_filter = self.kind_labels.get(str(self.kind_box.get()))
-        self.status_filter = self.status_labels.get(str(self.status_box.get()))
         if self.library_view:
             self.stage_filter = None
             self.status_filter = None
-            self.status_box.set('全部状态')
         self.keyword_filter = str(self.keyword_var.get()).strip()
-        self.sort_mode = self.sort_box.get()
-        self.group_mode = self.group_box.get()
+        self._sync_group_button_text()
         self._sync_stage_buttons()
         self._reload_current_view()
 
@@ -248,19 +324,21 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         self.page.status.set('已添加到全局素材库：' + target.name)
 
     def _filters_active(self):
-        return any((self.stage_filter, self.kind_filter, self.status_filter, self.keyword_filter))
+        return any((self.stage_filter, self.kind_filter, self.status_filter,
+                    getattr(self, 'date_filter', None), self.keyword_filter))
 
     def show_library(self):
         """切到全局素材库视图：只读库索引，不扫盘；未设置目录时提示用户先设置。"""
         from infra import file_index
         self._ensure_filter_state()
+        self._close_group_menu()
         self.library_view = True
         self._sync_view_filters()
         self.stage_filter = None
         self.status_filter = None
+        self.date_filter = None
         self.keyword_filter = ''
         self._reset_filter_boxes()
-        self.kind_box.set(next(text for text, value in self.kind_labels.items() if value == self.kind_filter))
         self._sync_stage_buttons()
         title = getattr(self, 'script_title', None)
         if title is not None:
@@ -354,7 +432,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
         changed = False
         for item in self.all_script_items():
             values = tree.item(item, 'values')
-            if len(values) > 4 and values[4]:
+            if len(values) > 5 and values[5]:
                 continue
             path = self._row_abs_path(item)
             if path is None or asset_thumbs.media_kind(path) is None:
@@ -362,7 +440,7 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             text = self._row_meta_text(path)
             if not text:
                 continue
-            tree.item(item, values=tuple(values[:4]) + (text,))
+            tree.item(item, values=tuple(values[:5]) + (text,))
             details = self.script_row_details.get(item, '')
             if text not in details:
                 self.script_row_details[item] = details + ('\n' if details else '') + '时长／分辨率：' + text
@@ -447,11 +525,14 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self.stage_filter = None
             self.kind_filter = None
             self.status_filter = None
+            self.date_filter = None
             self.keyword_filter = ''
             self._filter_job = None
             self.library_view = False
+            self.sort_column = 'kind'
+            self.sort_desc = False
             self.sort_mode = '类型'
-            self.group_mode = '阶段'
+            self.group_mode = DEFAULT_GROUP_MODE
             self._meta_refresh_job = None
             self._library_root = None
             self.script_row_stage = {}      # iid → 阶段显示名（另存为预填名用）
@@ -459,91 +540,6 @@ class FilesPanelFilterMixin(FilesPanelIndexMixin):
             self._followed_page_stage = _FOLLOWED_STAGE_SENTINEL
         if not hasattr(self, '_stage_filter_pinned'):
             self._stage_filter_pinned = False
-
-    def _build_stage_rail(self):
-        """建右缘阶段图标列：13 个阶段（顺序＝``pet_bus.STAGES``）＋回收站／素材库动作。
-
-        UX-C1：面板内不再放与入口重复的「全部文件」图标；全项目视图由入口打开／
-        ``show_stage(None)`` 复位。R3191：阶段图标用 ``assets/nav/<stage>_files.png``，
-        PNG 缺失时退回 ``STAGE_RAIL_ICONS`` 的 emoji；高度不够时整列可滚轮滚动。
-        """
-        from contract.pet_bus import STAGES, stage_name
-        from responsive_ui import ScrollForm
-        from ui_icons import IconLoader
-        from ui_tokens import COLORS
-        self._ensure_filter_state()
-        # 图标列自身仍是 script_box 右缘的固定竖条；内部换成可滚动画布，矮窗口不再裁掉底部图标。
-        self.stage_rail_scroller = ScrollForm(self.stage_rail, bg=COLORS['background_primary'])
-        self.stage_rail_form = self.stage_rail_scroller.form
-        self.stage_buttons = {}
-        for stage in STAGES:
-            icon_name = stage + '_files'
-            glyph = STAGE_RAIL_ICONS.get(stage, '•')
-            button = self._make_rail_icon_button(
-                self.stage_rail_form, icon_name, glyph, stage_name(stage),
-                lambda value=stage: self.show_stage(value))
-            button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-            self.stage_buttons[stage] = button
-        self._sync_stage_buttons()
-        # R3117（任务书 P2，Q5）：回收站入口放在图标列末尾——浏览／恢复走既有恢复窗，
-        # 清空只删超过保留期的批次，物理删除仍只经 storage_maintenance。
-        self.recycle_button = self._add_rail_action(
-            '♻', '回收站：浏览与恢复已删除的文件', 'open_recycle_recovery',
-            icon_name='recycle')
-        # R3143（任务书 P3，Q11）：全局素材库视图——跨项目的共享素材，按库相对路径列出。
-        library = self._make_rail_icon_button(
-            self.stage_rail_form, 'library', '🗂',
-            '全局素材库：跨项目的共享素材（可在设置里指定目录）', self.show_library)
-        library.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        self.library_button = library
-        settings = self._make_rail_icon_button(
-            self.stage_rail_form, 'library_settings', '📂', '设置全局素材库目录',
-            self.configure_library)
-        settings.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        self.library_settings_button = settings
-        # 滚轮绑定要等全部子件建完再递归挂一次（见 ScrollForm.bind_wheel 说明）。
-        self.stage_rail_scroller.bind_wheel()
-        # tk.Canvas 默认请求宽约 378px，会把整条图标列撑成宽面板；钉成内容实际宽度。
-        # 不许在这里 update_idletasks——构建期泵事件会让已挂的 after_idle 作业提前执行，
-        # 与正在构建中的窗口状态形成再入（实测 Desktop.__init__ 在 _register 挂死）。
-        content_w = max((child.winfo_reqwidth() for child in self.stage_rail_form.winfo_children()),
-                        default=0)
-        if content_w:
-            # R3971（任务书 L4-U1）：外框钉固定宽＝内容宽＋竖滚动条宽，画布在其中填满；
-            # 关掉 pack 传播后画布的请求宽不再参与外层几何协商——
-            # 与 R3214「画布钉 1px」等价地切断振荡回路，但图标列恢复可见。
-            scroll_w = self.stage_rail_scroller.scroll.winfo_reqwidth()
-            self.stage_rail.configure(width=max(content_w, settings.winfo_reqwidth()) + scroll_w)
-            self.stage_rail.pack_propagate(False)
-            self.stage_rail_scroller.canvas.configure(width=content_w)
-
-    def _make_rail_icon_button(self, parent, icon_name, glyph, tip, command):
-        """建一枚右缘图标钮：优先 ``assets/nav/<icon_name>.png``，缺图退回 glyph 文本。"""
-        from ui_icons import IconLoader
-        image = IconLoader.nav_icon(self.page.win, icon_name)
-        if image is not None:
-            button = SecondaryButton(parent, text=glyph, image=image, compound='image',
-                                     width=0, style='RailIcon.TButton', command=command)
-        else:
-            button = SecondaryButton(parent, text=glyph, width=0, style='RailIcon.TButton',
-                                     command=command)
-        button._rail_icon_name = icon_name
-        Tooltip(button, tip)
-        return button
-
-    def _add_rail_action(self, glyph, tip, method_name, icon_name=None):
-        """在图标列末尾追加一个动作钮；宿主没有该动作时只留按钮不绑回调。"""
-        action = getattr(self.page, method_name, None)
-        command = (lambda: self.page.safe(action)) if callable(action) else None
-        if icon_name:
-            button = self._make_rail_icon_button(self.stage_rail_form, icon_name, glyph, tip,
-                                                 command)
-        else:
-            button = SecondaryButton(self.stage_rail_form, text=glyph, width=0,
-                                     style='RailIcon.TButton', command=command)
-            Tooltip(button, tip)
-        button.pack(side='top', pady=(SPACING['none'], SPACING['xs']))
-        return button
 
     def _sync_stage_buttons(self):
         """当前阶段／全局素材库高亮：选中的图标换成按下风格，其余回到普通风格。"""
@@ -638,12 +634,16 @@ class FilesPanelStageViewMixin:
             scoped, (None, kind, status, keyword, sort), library)
 
     def _index_groups(self, rows, library):
-        """S04 按 4 语义分组；其余视图沿用 grouped_rows。"""
-        mode = getattr(self, 'group_mode', '阶段')
-        if not library and mode == '阶段' and getattr(self, 'stage_filter', None) == 'animatic':
+        """S04 按阶段语义分组；其余视图按 group_mode 与表头排序方向归组。"""
+        mode = getattr(self, 'group_mode', DEFAULT_GROUP_MODE)
+        sort_col = getattr(self, 'sort_column', 'kind')
+        sort_desc = getattr(self, 'sort_desc', False)
+        if (not library and mode in ('阶段', '类型') and not getattr(self, 'kind_filter', None)
+                and getattr(self, 'stage_filter', None) == 'animatic'):
             return files_panel_index.animatic_grouped_rows(rows)
         if library or mode != '阶段' or not self._stage_filter_is_followed():
-            return files_panel_index.grouped_rows(rows, mode, library)
+            return files_panel_index.grouped_rows(rows, mode, library,
+                                                  sort_col=sort_col, sort_desc=sort_desc)
         sources = [row for row in rows if row.stage in self._followed_source_stages]
         own = [row for row in rows if row.stage == self.stage_filter]
         groups = []
@@ -777,7 +777,8 @@ def _stage_view_request_index(panel, root, library=False):
     if context != getattr(panel, '_displayed_index_context', None):
         panel._clear_index_tree()
     filters = (panel.stage_filter, panel.kind_filter, panel.status_filter,
-               panel.keyword_filter, getattr(panel, 'sort_mode', '类型'))
+               getattr(panel, 'date_filter', None), panel.keyword_filter,
+               getattr(panel, 'sort_column', 'kind'), getattr(panel, 'sort_desc', False))
     refresh = getattr(panel, '_index_refresh', False)
     panel._index_refresh = False
     discover_stage = None if panel._stage_filter_is_followed() else filters[0]
@@ -787,13 +788,15 @@ def _stage_view_request_index(panel, root, library=False):
             return None
         rows, categories, labels = files_panel_index.load_index(
             root, library, refresh, stage=discover_stage)
-        return panel._filter_index_rows(rows, filters, library), categories, labels
+        return panel._filter_index_rows(rows, filters, library), categories, labels, tuple(rows)
 
     def done(result):
         if result is None or not panel._index_current(generation, context):
             return
+        from infra import file_index
         panel._index_loading = False
-        found, categories, panel._index_file_labels = result
+        found, categories, panel._index_file_labels, panel._all_index_rows = result
+        panel._last_rendered_rev = file_index.change_revision(root)
         groups = panel._start_index_render(found, categories, root, library, generation, context)
         if hasattr(panel, '_prefetch_media_thumbs'):
             target = groups if groups is not None else panel._index_groups(found, library)
@@ -817,7 +820,7 @@ def _stage_view_index_render(panel, rows, categories, root, library, generation,
     if show_groups:
         for group, label, _members in groups:
             opened = files_panel_index.group_default_open(group)
-            panel.script_tree.insert('', 'end', iid=group, open=opened, values=(label, '', '', '', ''))
+            panel.script_tree.insert('', 'end', iid=group, open=opened, values=(label, '', '', '', '', ''))
             panel.script_row_category[group] = '__file_group__'
         files_panel_index.bind_lazy_group_previews(panel, root)
     pending = (iter((group, row) for group, _label, members in groups for row in members)

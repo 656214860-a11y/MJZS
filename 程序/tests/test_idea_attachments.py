@@ -252,6 +252,40 @@ class IdeaAttachmentsTests(unittest.TestCase):
             with self.assertRaisesRegex(ValueError, '仅支持文本附档'):
                 idea_attachments.prepare((binary,))
 
+    def test_report_mentions_list_filter_budget_and_do_not_auto_attach(self):
+        """自然剧本 @ 可选项目设定／大纲／角色卡报告作为参考；不提及时不自动附加，提及时 API 支持 12 万字预算。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td)
+            ctx = project_context(root)
+            s01 = root / '01剧本准备'
+            outline = s01 / '项目大纲' / '测试_项目大纲_DeepSeek_20261127.md'
+            setting = s01 / '项目设定' / '测试_项目设定_DeepSeek_20261127.md'
+            role = s01 / '角色卡' / '测试_角色卡_DeepSeek_20261127.md'
+            for path, content in ((outline, '# 大纲\n' + '大纲正文' * 8000),
+                                  (setting, '# 设定\n世界观核心。'),
+                                  (role, '# 角色卡\n林默：摄影师。')):
+                path.parent.mkdir(parents=True, exist_ok=True)
+                path.write_text(content, encoding='utf-8')
+            candidates = idea_attachments.mention_candidates(ctx)
+            kinds = {item['kind']: item for item in candidates}
+            self.assertEqual(set(kinds), {'report_outline', 'report_setting', 'report_character'})
+            self.assertEqual(kinds['report_outline']['badge'], '项目大纲')
+            self.assertEqual(kinds['report_setting']['badge'], '项目设定')
+            self.assertEqual(kinds['report_character']['badge'], '角色卡')
+            # 未 @ 且未显式选中时，报告不自动塞入参考上下文
+            untouched = idea_attachments.referenced(ctx, '请直接写第1集', ())
+            self.assertEqual(untouched['paths'], ())
+            # @ 引用超过普通 24,000 字上限（32,000+ 字）的大纲报告，API 120,000 字预算应放行
+            api_ref = idea_attachments.referenced(ctx, '参考 @' + outline.name + ' 生成自然剧本', ())
+            self.assertEqual(api_ref['paths'], (outline,))
+            self.assertIn('【参考报告：' + outline.name + '】', api_ref['context'])
+            self.assertIn('大纲正文', api_ref['context'])
+            # 本地模式投递项目相对路径与参考报告声明，并允许位于 01剧本准备/ 下
+            local_ref = idea_attachments.referenced(ctx, '', (setting, role), local_mode=True, markdown_only=True)
+            self.assertEqual(local_ref['paths'], (setting, role))
+            self.assertIn('【参考报告：01剧本准备/项目设定/' + setting.name, local_ref['context'])
+            self.assertIn('【参考报告：01剧本准备/角色卡/' + role.name, local_ref['context'])
+
     @patch('stage_execution_service.idea_attachment_local_mode', new=lambda _project: False)
     def test_upload_is_archived_as_markdown_and_recent_files_are_referenced(self):
         with tempfile.TemporaryDirectory() as td:

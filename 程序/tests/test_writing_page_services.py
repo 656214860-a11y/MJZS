@@ -108,7 +108,7 @@ class WritingPageServicesTests(unittest.TestCase):
             tree.selection_set.assert_called_once_with(str(files[1]))
             # R3200 M5：剧本行右键新增「在文件夹中显示」「另存为…」，其余动作与顺序不变。
             self.assertEqual([call.args[0] for call in menu.command.call_args_list],
-                             ['查看', '添加到全局素材库', '重命名', '采用此剧本', '在文件夹中显示', '另存为…', '删除'])
+                             ['查看', '定稿', '改名', '定位', '另存', '入库', '删除'])
 
 
 if __name__ == '__main__':

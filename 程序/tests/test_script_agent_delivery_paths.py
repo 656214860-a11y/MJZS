@@ -33,7 +33,10 @@ class AgentDeliveryPathsTests(unittest.TestCase):
                 relative = saved.relative_to(root).as_posix()
                 self.assertIn(relative, prompt)
                 self.assertIn(relative, followup)
-                self.assertEqual(saved.parts[-5:-2], ('Provider', 'Model', '创意_20261007'))
+                # 契约变更：01剧本准备已扁平化，直接落在 01剧本准备/<分类>/ 下，不再嵌套供应商/模型/创意_日期。
+                self.assertEqual(saved.parents[1].name, '01剧本准备')
+                self.assertNotIn('创意_', relative)
+                self.assertNotIn('/Model/', relative)
             self.assertIn('项目大纲/', prompt)
 
     def test_api_default_does_not_emit_delivery_paths_or_compute_them(self):

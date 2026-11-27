@@ -23,16 +23,19 @@ class WritingStageInstructionsTests(unittest.TestCase):
                     ))
             for text in texts:
                 with self.subTest(text=text[:50]):
-                    for phrase in ('①项目设定', '②剧本大纲', '③角色卡', '④自然剧本',
-                                   '故事大体环境', '小说/漫剧类型', '用户确认', '待确认',
+                    for phrase in ('故事大体环境', '小说/漫剧类型', '待确认',
                                    '不进入 02', '唯一来源', '内部工作稿',
-                                   '项目设定和角色卡', '项目大纲', '项目剧本', '角色卡标明“人物设定”'):
+                                   '项目大纲', '项目剧本', '角色卡标明“人物设定”'):
                         self.assertIn(phrase, text)
+                    self.assertNotIn('①项目设定', text)
+                    self.assertNotIn('每个关键阶段都必须用户确认', text)
                     self.assertNotIn('docs/', text)
                     self.assertNotIn('请直接完成一份', text)
-            self.assertIn('本次只输出阶段①项目设定', texts[1])
-            self.assertIn('根据对话历史', texts[2])
-            self.assertIn('修改当前阶段', texts[2])
+            self.assertIn('不必等前一项确认', texts[1])
+            self.assertIn('已定稿的文件是下一阶段的唯一来源', texts[1])
+            self.assertNotIn('本次只输出阶段①项目设定', texts[1])
+            self.assertIn('继续完成本对话中的剧本准备任务', texts[2])
+            self.assertIn('不必逐级确认', texts[2])
             self.assertIn('规范路径清单', texts[3])
             self.assertIn('规范路径清单', texts[4])
             self.assertNotIn('规范路径清单', texts[1])
@@ -145,6 +148,25 @@ class WritingStageInstructionsTests(unittest.TestCase):
             links = re.findall(r'\[[^\]]*\]\(([^)]+)\)', body)
             self.assertEqual(links, [reference.resolve().as_posix() + '#rules'])
             self.assertTrue(Path(links[0].split('#')[0]).is_file())
+
+
+def _finalized_source_without_stage_gate(self):
+    program = Path(__file__).resolve().parents[1]
+    self.assertFalse((program / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md').exists())
+    text = stage_output_contract('writing')
+    self.assertNotIn('jingju-skills', text)
+    for heading in ('①项目设定', '②剧本大纲', '③角色卡', '④自然剧本'):
+        self.assertNotIn(heading, text)
+    self.assertIn('先问清楚，再创作', text)
+    self.assertIn('不必等前一项确认', text)
+    self.assertNotIn('每个关键阶段都必须用户确认', text)
+    self.assertNotIn('内置阶段输出模板', text)
+    self.assertIn('不进入 02', text)
+    self.assertIn('character_manifest', text)
+    self.assertNotIn('docs/', text)
+
+
+WritingStageInstructionsTests.test_skill_scopes_template_to_first_four_stages = _finalized_source_without_stage_gate
 
 
 if __name__ == '__main__':

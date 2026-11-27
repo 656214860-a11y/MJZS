@@ -93,12 +93,13 @@ def generate_existing(role, **fields):
               for key in set(_PLACEHOLDER.findall(template))}
     return validate(template.format(**values), allow_leading=True)
 
-# DES §3.1 的文件类型集合。索引里原样存这些中文标签，侧栏筛选直接用。
-KINDS = ('剧本', '设定', '分镜', '资产', '音频', '视频', '清单', '报告', '日志', '其他')
+# DES §3.1 的文件类型集合（按工作流顺序）。索引里原样存这些中文标签，侧栏分组与排序直接用。
+KINDS = ('参考', '剧本', '设定', '分镜', '资产', '音频', '视频', '清单', '报告', '日志', '其他')
 DEFAULT_KIND = '其他'
 
 # 每类文件的命名模板。占位符：project／file_type／content／date／prefix／index／slug／stem／suffix。
 TEMPLATES = {
+    '参考': '{stem}{suffix}',
     '剧本': '{project}_{file_type}_{content}_{date}.md',
     '设定': '{project}_{file_type}_{content}_{date}.md',
     '分镜': '{prefix}_{index:03d}_{slug}{suffix}',

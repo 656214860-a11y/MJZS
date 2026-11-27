@@ -480,6 +480,14 @@ def stage_idea_attachment_paths(project, limit=None):
     return uploaded(project_context(project), limit, local_mode=idea_attachment_local_mode(project))
 
 
+def stage_idea_mention_candidates(project):
+    """自然剧本输入框 ``@`` 候选：项目大纲／设定／角色卡报告 + 已入库附档。"""
+    from domain.idea_attachments import mention_candidates
+    return mention_candidates(project_context(project),
+                              local_mode=idea_attachment_local_mode(project),
+                              attachments=stage_idea_attachment_paths(project))
+
+
 def stage_idea_attachment_reference(project, message='', selected_paths=()):
     """为剧本准备对话解析已入库附档，不向 L2 暴露裸项目路径。"""
     from domain.idea_attachments import referenced, brief_sources

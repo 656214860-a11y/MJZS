@@ -152,8 +152,8 @@
   "tests.test_model_connections"
  ],
  "tests_ok": true,
- "points_total": 3259,
- "points_covered": 1889,
+ "points_total": 3315,
+ "points_covered": 1957,
  "modules": [
   {
    "module": "budget.py",
@@ -553,9 +553,9 @@
   },
   {
    "module": "file_index.py",
-   "points": 110,
-   "covered": 91,
-   "percent": 82.7
+   "points": 166,
+   "covered": 159,
+   "percent": 95.8
   },
   {
    "module": "lease_verifier.py",

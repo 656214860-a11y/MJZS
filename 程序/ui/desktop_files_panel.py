@@ -15,18 +15,20 @@ from pathlib import Path
 from tkinter import ttk
 
 from ui.desktop_files_panel_filters import (
-    FilesPanelFilterMixin, FilesPanelStageViewMixin, STAGE_FILTER_ROW_CATEGORY,
-    import_into_stage, import_suffixes,
+    COLUMN_TITLES, FilesPanelFilterMixin, FilesPanelStageViewMixin,
+    SORTABLE_COLUMNS, STAGE_FILTER_ROW_CATEGORY, STAGE_RAIL_ALL,
+    append_kind_menu, cancel_auto_refresh, import_into_stage, import_suffixes,
+    install_auto_refresh, schedule_auto_refresh, teardown_auto_refresh,
     PANEL_META_WIDTH, PANEL_PREVIEW_COL_WIDTH, SCRIPT_NAME_CELL_PAD,
 )
 
-from ui.desktop_file_card import TreeRowCard, script_row_card
+from ui.desktop_file_card import TreeRowCard, pack_entry_buttons as _pack_entry_buttons, script_row_card
 from ui.desktop_page_registry import PAGE_ACCOUNT, PAGE_SITES
 from ui.desktop_writing_snapshots import WritingSnapshotsMixin
 from responsive_ui import fit_row_height, row_toggle_target
 from ui.ui_icons import IconLoader
 from ui.ui_popup import measure_text_width
-from ui_tokens import ICON_CHEVRON_RIGHT, SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
+from ui_tokens import SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, SecondaryButton,
                         Tooltip, ask_string)
 from ui.writing_page_controller import ScriptListLoadController
@@ -49,7 +51,74 @@ SCRIPT_NAME_MIN_WIDTH = SPACING['sm'] * 12       # 96：与 name 列 minwidth �
 SCRIPT_PANEL_EDGE = SPACING['xs']                # 4：表格边框与取整余量
 SCRIPT_VSCROLL_WIDTH = SPACING['lg']             # 16：竖滚动条预留宽
 SCRIPT_AUX_HIDE_ORDER = (('meta', PANEL_META_WIDTH), ('size', SPACING['sm'] * 10),
-                         ('kind', SPACING['sm'] * 9), ('mtime', SPACING['sm'] * 21))
+                         ('mtime', SPACING['sm'] * 14), ('kind', SPACING['sm'] * 9),
+                         ('status', SPACING['sm'] * 8))
+
+
+def _configure_panel_columns(panel):
+    """列序：文件名 | 状态 | 类型 | 时间 | 大小 | 时长／分辨率；除文件名与时长／分辨率外其余列支持表头排序。"""
+    tree = panel.script_tree
+    tree.configure(columns=('name', 'status', 'kind', 'mtime', 'size', 'meta'))
+    columns = (('name', COLUMN_TITLES['name'], SCRIPT_LIST_MIN_WIDTH),
+               ('status', COLUMN_TITLES['status'], SPACING['sm'] * 8),
+               ('kind', COLUMN_TITLES['kind'], SPACING['sm'] * 9),
+               ('mtime', COLUMN_TITLES['mtime'], SPACING['sm'] * 14),
+               ('size', COLUMN_TITLES['size'], SPACING['sm'] * 10),
+               ('meta', COLUMN_TITLES['meta'], PANEL_META_WIDTH))
+    for key, title, width in columns:
+        cmd = (lambda c=key: panel.sort_by_column(c)) if key in SORTABLE_COLUMNS else ''
+        tree.heading(key, text=title, anchor='center', command=cmd)
+        tree.column(key, width=width, minwidth=SCRIPT_NAME_MIN_WIDTH if key == 'name' else width,
+                    anchor='w', stretch=(key == 'name'))
+
+
+def _popup_script_menu(panel, tree, event):
+    """文件行右键：按使用频率排列，字数接近；删除放最后。状态只有定稿，没有「按段落采用」。"""
+    row = tree.identify_row(event.y)
+    if not row or panel.is_file_group(row):
+        return None
+    if row not in tree.selection():
+        tree.selection_set(row)
+    panel.keep_one_selection(tree)
+    menu = panel.page.writing_page_services.context_menu(panel.page.win)
+    if len(tree.selection()) > 1 and panel.script_row_category.get(row) != STAGE_FILTER_ROW_CATEGORY:
+        menu.command('删除', lambda: panel.page.safe(panel.delete_script))
+        return menu.popup(event)
+    menu.command('查看', lambda: panel.page.safe(panel.open_script_file))
+    if panel.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
+        if str(row).startswith('library:'):
+            menu.command('引用', lambda: panel.page.safe(lambda: panel.reference_from_library(row)))
+        elif len(tree.selection()) == 1:
+            menu.command('改名', lambda: panel.page.safe(lambda: panel.rename_index_file(row)))
+            append_kind_menu(panel, menu, row)
+            menu.command('入库', lambda: panel.page.safe(lambda: panel.add_to_library(row)))
+        else:
+            menu.command('入库', lambda: panel.page.safe(lambda: panel.add_to_library(row)))
+        menu.command('定位', lambda: panel.page.safe(panel.show_in_folder))
+        menu.command('另存', lambda: panel.page.safe(panel.save_as_file))
+        if len(tree.selection()) == 1:
+            panel._offer_menu_hooks(menu, panel._row_abs_path(row))
+        if not str(row).startswith('library:'):
+            menu.command('删除', lambda: panel.page.safe(panel.delete_index_files))
+        return menu.popup(event)
+    category = panel.script_row_category.get(row, 'script')
+    if category == 'script':
+        menu.command('定稿', lambda: panel.page.safe(panel.adopt_script))
+    else:
+        stages = {'setting': '项目设定', 'outline': '剧本大纲', 'character': '角色卡'}
+        stage = stages[category]
+        from orchestrator.writing_unconfirm import preparation_confirmed_stages
+        if stage in preparation_confirmed_stages(panel.page.root):
+            menu.command('撤定稿', lambda: panel.page.safe(lambda: panel.unconfirm_preparation(stage)))
+        menu.command('定稿', lambda: panel.page.safe(lambda: panel.confirm_document(stage)))
+        menu.command('快照', lambda: panel.page.safe(lambda: panel.show_preparation_snapshots(stage)))
+    menu.command('改名', lambda: panel.page.safe(panel.rename_script))
+    append_kind_menu(panel, menu, row)
+    menu.command('定位', lambda: panel.page.safe(panel.show_in_folder))
+    menu.command('另存', lambda: panel.page.safe(panel.save_as_file))
+    menu.command('入库', lambda: panel.page.safe(lambda: panel.add_to_library(row)))
+    menu.command('删除', lambda: panel.page.safe(panel.delete_script))
+    return menu.popup(event)
 # R3196 后续（任务书 M5，REQ-S01-95/96）：预览列图元长边与列宽、时长／分辨率列宽都从 token 派生；
 # 定义在 desktop_files_panel_filters（本模块自它导入），视频封面 16:9（40×22）与音频波形
 # （40×13）落在字高行内，行高仍由字体 token 量。
@@ -349,6 +418,16 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.button = SecondaryButton(self.rail, text='', image=image,
                                       compound='image' if image is not None else 'text',
                                       command=self.toggle, style='RailIcon.TButton')
+        import_image = IconLoader.nav_icon(page.win, 'project_new')
+        if import_image is not None:
+            self.import_button = SecondaryButton(
+                self.rail, text='', image=import_image, compound='image', width=0,
+                command=lambda: page.safe(self.import_files), style='RailIcon.TButton')
+        else:
+            self.import_button = SecondaryButton(
+                self.rail, text=STAGE_RAIL_ALL, width=0,
+                command=lambda: page.safe(self.import_files), style='RailIcon.TButton')
+        Tooltip(self.import_button, '导入文件到当前阶段目录')
         self._pack_button()
         if getattr(page, 'nav', None):
             source = page.nav[0]
@@ -391,12 +470,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_header.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.script_title = ttk.Label(self.script_header, text='项目文件', style='Muted.TLabel')
         self.script_title.pack(side='left')
-        self.script_toggle = SecondaryButton(self.script_header, text=ICON_CHEVRON_RIGHT, width=0,
-                                             style='Tokens.Composer.Icon.TButton', command=self.collapse)
-        self.script_toggle.pack(side='right')
-        Tooltip(self.script_toggle, '收起项目文件面板')
-        # R3137（任务书 P1，Q25）：筛选条（阶段／类型／状态／关键字）与阶段快捷图标列
-        # 由 FilesPanelFilterMixin 提供；空条件即全项目索引分组视图。
+        # 筛选条（半宽搜索框＋分组下拉与二级目录卡）与阶段快捷图标列由 FilesPanelFilterMixin 提供。
         self._build_filter_bar()
         self.script_row_details = {}
         self.script_row_category = {}
@@ -404,9 +478,10 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         table = DataTable(
             self.script_box,
             columns=[('name', '文件名', SCRIPT_LIST_MIN_WIDTH),
+                     ('status', '状态', SPACING['sm'] * 8),
                      ('kind', '类型', SPACING['sm'] * 9),
-                     ('size', '大小', SPACING['sm'] * 10),
-                     ('mtime', '修改时间', SPACING['sm'] * 21)],
+                     ('mtime', '时间', SPACING['sm'] * 14),
+                     ('size', '大小', SPACING['sm'] * 10)],
             show='headings', height=1, selectmode='extended', style='Script.Treeview',
             auto_hide_scrollbars=True, empty_text='', horizontal=True)
         self.script_list = table
@@ -414,9 +489,10 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_tree.heading('name', text='文件名', anchor='center')
         self.script_tree.column('name', width=SCRIPT_LIST_MIN_WIDTH,
                                 minwidth=SPACING['sm'] * 12, anchor='w', stretch=True)
-        for column in ('kind', 'size', 'mtime'):
+        for column in ('status', 'kind', 'mtime', 'size'):
             self.script_tree.column(column, stretch=False)
         self._apply_columns(True)
+        self._sync_sort_headings()
         self.script_tree.heading('#0', text='分组／预览')
         self.script_tree.column('#0', width=PANEL_PREVIEW_COL_WIDTH, minwidth=SPACING['none'], stretch=False)
         self.page.script_file_tips = TreeRowCard(self.script_tree, tips)
@@ -426,10 +502,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_width_sizer.pack()
         ttk.Style(self.script_tree).configure('Script.Treeview', font=SCRIPT_FILE_FONT, indent=SPACING['sm'])
         fit_row_height(self.script_tree, style='Script.Treeview')
-        # 窗口缩放改变内容区宽度上限时重算面板宽（去抖到 idle，且只在面板开着时跑）。
         area.bind('<Configure>', self._on_files_area_resize, add='+')
-        # R4005：停靠列被挤到请求宽以下时 stretch 的 name 列随 Treeview 实宽
-        # 收缩；树自身的 <Configure> 在实宽落地后再跑一次，省略量按新实宽收敛。
         self.script_tree.bind('<Configure>', self._on_files_area_resize, add='+')
         self.script_loader = ScriptListLoadController(('setting', 'outline', 'character', 'script'))
         self.script_load_job = None
@@ -439,11 +512,10 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_tree.bind('<<TreeviewSelect>>', self.keep_one_selection, add='+')
         self.script_tree.bind('<<TreeviewSelect>>', self._notify_file_select, add='+')
         self.script_tree.bind('<Button-3>', lambda event, tree=self.script_tree: self.script_menu(tree, event))
-        # 与原 script_box 同名挂到 Desktop：外部 getattr 消费方与既有测试定位不变。
+        install_auto_refresh(self)
         page.script_box = self.script_box
         page.script_tree = self.script_tree
         page.script_title = self.script_title
-        page.script_toggle = self.script_toggle
         page.script_row_category = self.script_row_category
         page.refresh_script_list = self.fill_script_list
         page.open_script_file = self.open_script_file
@@ -457,47 +529,26 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
 
     # ── 入口显隐与开合（REQ-S01-90）────────────────────────────────────────
     def _apply_columns(self, media):
-        """统一保留文件属性与主线媒体元数据列，分组/预览共用#0列。"""
-        tree = self.script_tree
-        tree.configure(columns=('name', 'kind', 'size', 'mtime', 'meta'))
-        columns = (('name', '文件名', SCRIPT_LIST_MIN_WIDTH),
-                   ('kind', '类型', SPACING['sm'] * 9),
-                   ('size', '大小', SPACING['sm'] * 10),
-                   ('mtime', '修改时间', SPACING['sm'] * 21),
-                   ('meta', '时长／分辨率', PANEL_META_WIDTH))
-        for key, title, width in columns:
-            tree.heading(key, text=title, anchor='center')
-            # R4005：name 列 minwidth 收到 SCRIPT_NAME_MIN_WIDTH——面板取最小宽
-            # 时列随 Treeview 实宽收缩、文件名改中间省略；minwidth 留全宽会把
-            # 预览列＋name 顶过控件实宽，表格被迫横向滚动。
-            tree.column(key, width=width,
-                        minwidth=SCRIPT_NAME_MIN_WIDTH if key == 'name' else width,
-                        anchor='w' if key == 'name' else 'w',
-                        stretch=(key == 'name'))
+        _configure_panel_columns(self)
 
     def _entry_allowed(self):
         """有项目且当前页不是会员账户／参考网站时才显示入口。"""
-        # build() 早于 Desktop.__init__ 给 self.root 赋值，缺属性时按无项目处理。
         if getattr(self.page, 'root', None) is None:
             return False
         return getattr(self.page, 'page_index', None) not in (PAGE_SITES, PAGE_ACCOUNT)
 
     def _pack_button(self):
-        """图标钮挂进右侧图标列顶；已在管时不重复 pack。"""
-        if self.button.winfo_manager():
-            return
-        self.button.pack(side='top', fill='x', padx=SPACING['none'],
-                         pady=(SPACING['sm'], SPACING['xs']))
+        _pack_entry_buttons(self)
 
     def sync_entry(self):
-        """按当前项目与页码显隐图标列里的入口钮；不满足时收起面板（列随钮塌缩）。"""
+        """按当前项目与页码显隐外轨入口钮；不满足时收起面板（列随钮塌缩）。"""
         if not self._entry_allowed():
             self.collapse()
-            if self.button.winfo_manager():
-                self.button.pack_forget()
+            for btn in (self.button, getattr(self, 'import_button', None)):
+                if btn is not None and btn.winfo_manager():
+                    btn.pack_forget()
             return
-        if not self.button.winfo_manager():
-            self._pack_button()
+        self._pack_button()
 
     def project_changed(self):
         """``_show_reset_page`` 每次换页调用：项目根变化时收起并允许下次打开重扫。"""
@@ -550,6 +601,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
             self.sep.pack(side='right', fill='y')
         self._bind_outside()
         self._reload_current_view()
+        schedule_auto_refresh(self)
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
@@ -559,6 +611,8 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         if not self._open:
             return
         self._open = False
+        self._close_group_menu()
+        cancel_auto_refresh(self)
         self._displayed_index_context = None
         self.cancel_script_load()
         self._clear_index_tree()
@@ -566,18 +620,24 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self.script_box.pack_forget()
         self.sep.pack_forget()
         self.resize_grip.pack_forget()
-        # 连停靠列一起撤：只 forget 子件会让空列需求宽度卡住、画布无法收回。
         if self._dock is not None and self._dock.winfo_manager():
             self._dock.pack_forget()
         fit = getattr(self.page, 'fit_content', None)
         if callable(fit):
             fit()
 
+    def _on_escape(self, _event=None):
+        """Esc 优先收起分组下拉卡片，再次 Esc 收起停靠面板。"""
+        if self._close_group_menu():
+            return 'break'
+        self.collapse()
+        return None
+
     def _bind_outside(self):
         """打开期间挂面板外按下／Esc 监听（仿 ``_open_sidebar_popup`` 的 funcid 模式）。"""
         win = self.page.win
         self._button_bind = win.bind('<Button-1>', self._outside_press, add='+')
-        self._escape_bind = win.bind('<Escape>', lambda event: self.collapse(), add='+')
+        self._escape_bind = win.bind('<Escape>', self._on_escape, add='+')
 
     def _unbind_outside(self):
         win = self.page.win
@@ -590,15 +650,20 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         self._button_bind = self._escape_bind = None
 
     def _outside_press(self, event):
-        """面板外按下左键即收起；面板内部与入口钮的点击放行。"""
+        """面板外按下左键即收起；分组卡片与面板内部及外轨图标的点击放行。"""
         if not self._open:
             return
         node = getattr(event, 'widget', None)
+        menu = getattr(self, 'group_menu', None)
+        if menu is not None and menu.contains_widget(node):
+            return
+        if menu is not None and menu.is_open():
+            menu.close()
         try:
             for _ in range(32):
                 if node is None or node is self.page.win:
                     break
-                if node is self.script_box or node is self.sep or node is self.button or node is self.rail or node is self.resize_grip:
+                if node in (self.script_box, self.sep, self.button, self.rail, self.resize_grip):
                     return
                 node = getattr(node, 'master', None)
         except tk.TclError:
@@ -607,9 +672,11 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
 
     # ── 文件列表（自 _WritingPage 原样迁入，方法体未改）────────────────────
     def cancel_script_load(self, event=None):
-        """面板销毁时撤销尚未提交的目录批次。"""
+        """面板销毁时撤销尚未提交的目录批次与自动刷新监听。"""
         if event is not None and getattr(event, 'widget', None) is not self.script_box:
             return None
+        if event is not None:
+            teardown_auto_refresh(self)
         self.script_loader.invalidate()
         self._invalidate_index_load()
         if self.script_load_job is not None:
@@ -673,7 +740,7 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
             if name_need <= inner - extra:
                 break
             hidden.append(column)
-        shown = [column for column in ('kind', 'size', 'mtime', 'meta')
+        shown = [column for column in ('status', 'kind', 'mtime', 'size', 'meta')
                  if column not in hidden]
         display = ('name',) + tuple(shown)
         if tuple(tree['displaycolumns']) != display:
@@ -920,3 +987,5 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
         _append_delete_command(menu, self.page.safe, self.delete_script)
         return menu.popup(event)
+
+ProjectFilesPanel.script_menu = lambda self, tree, event: _popup_script_menu(self, tree, event)

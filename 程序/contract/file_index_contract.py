@@ -18,11 +18,18 @@ INDEX_VERSION = 1
 # DES §3.1 的字段集合与顺序；序列化按此顺序输出，便于人工 diff。
 FIELDS = ('path', 'stage', 'kind', 'status', 'size', 'mtime', 'order', 'title', 'origin', 'missing')
 
-# status 三档（Q17）：只用于索引筛选，不改阶段完成核验语义。
+# status 三档：草稿／定稿／归档；旧索引「已发布／已归档」读取时自动归一。
 STATUS_DRAFT = '草稿'
-STATUS_PUBLISHED = '已发布'
-STATUS_ARCHIVED = '已归档'
-STATUSES = (STATUS_DRAFT, STATUS_PUBLISHED, STATUS_ARCHIVED)
+STATUS_FINAL = '定稿'
+STATUS_PUBLISHED = STATUS_FINAL
+STATUS_ARCHIVED = '归档'
+STATUSES = (STATUS_DRAFT, STATUS_FINAL, STATUS_ARCHIVED)
+LEGACY_STATUS_MAP = {'已发布': STATUS_FINAL, '已归档': STATUS_ARCHIVED}
+
+
+def normalize_status(value):
+    """兼容旧索引的「已发布／已归档」写法，统一收口到「定稿／归档」。"""
+    return LEGACY_STATUS_MAP.get(value, value) if isinstance(value, str) else value
 
 # origin 三档。
 ORIGIN_SYSTEM = '系统生成'
@@ -55,7 +62,9 @@ class FileRow:
         """宽容读取：缺字段取默认值，多字段忽略（旧索引可直接读）。"""
         row = data if isinstance(data, dict) else {}
         known = {field.name for field in fields(cls)}
-        return cls(**{key: value for key, value in row.items() if key in known})
+        cleaned = {key: normalize_status(value) if key == 'status' else value
+                   for key, value in row.items() if key in known}
+        return cls(**cleaned)
 
     def sort_key(self):
         """侧栏的稳定排序键：阶段 id（字典序）、类型、文件内序号、路径。

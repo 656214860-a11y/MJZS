@@ -16,8 +16,9 @@ from pathlib import Path
 
 import infra.file_index as file_index
 from contract import file_naming, stage_layout
-from contract.file_index_contract import (INDEX_VERSION, STATUS_ARCHIVED, STATUS_DRAFT, STATUS_PUBLISHED,
-                                          FileRow)
+from contract.file_index_contract import (INDEX_VERSION, ORIGIN_SYSTEM, ORIGIN_USER, STATUS_ARCHIVED,
+                                          STATUS_DRAFT, STATUS_PUBLISHED, FileRow)
+from contract.infra_errors import ConfigError
 
 
 def _write(path, content='x'):
@@ -56,10 +57,21 @@ class FileIndexTests(unittest.TestCase):
         found = {row.path: row for row in file_index.rows(self.root)}
         script = found['01剧本准备/docs/测试项目_剧本_初稿_20261117.md']
         self.assertEqual((script.stage, script.kind), ('script', '剧本'))
-        self.assertEqual(found['01剧本准备/docs/角色设定.md'].kind, '设定')
+        # 契约变更：01剧本准备下的设定/大纲/角色卡与输入附件统一归为「参考」类型，自然剧本仍为「剧本」。
+        self.assertEqual(found['01剧本准备/docs/角色设定.md'].kind, '参考')
         self.assertEqual(found['05资产管理/assets/CHAR_001.png'].kind, '资产')
         self.assertEqual(found['11配音与字幕/音频/S01.wav'].kind, '音频')
         self.assertEqual(found['10视频生成/assets/EP001_SH001.mp4'].kind, '视频')
+
+    def test_task_attachment_is_reference_once(self) -> None:
+        """原文与转换稿不能按扩展名拆进「其他」和「报告」。"""
+        paths = (
+            '01剧本准备/输入/项目_原始附件_人物_20261127.xlsx',
+            '01剧本准备/输入/项目_附件文本_人物_20261127.md',
+            '02剧本结构/任务附件/说明.md',
+        )
+        self.assertEqual([file_index.kind_of(path) for path in paths], ['参考', '参考', '参考'])
+        self.assertEqual(file_index.kind_of('02剧本结构/结构剧本/正稿.md'), '报告')
 
     def test_size_and_mtime_come_from_disk(self) -> None:
         file_index.rebuild(self.root)
@@ -126,7 +138,8 @@ class FileIndexTests(unittest.TestCase):
 
     def test_kinds_lists_present_kinds_in_contract_order(self) -> None:
         file_index.rebuild(self.root)
-        self.assertEqual(file_index.kinds(self.root), ['剧本', '设定', '资产', '音频', '视频'])
+        # 契约变更：「参考」排在工作流类型首位。
+        self.assertEqual(file_index.kinds(self.root), ['参考', '剧本', '资产', '音频', '视频'])
 
     def test_update_adds_and_removes(self) -> None:
         file_index.rebuild(self.root)
@@ -573,6 +586,244 @@ class FileIndexDiscoverTests(unittest.TestCase):
         paths = [row.path for row in file_index.rows(self.root)]
         self.assertIn('01剧本准备/docs/先出现.md', paths)
         self.assertIn('05资产管理/assets/新资产.png', paths)
+
+
+class FileIndexBranchTests(unittest.TestCase):
+    """来源、手动类型、定稿台账与全局库：两条结果都要走到。"""
+
+    def setUp(self) -> None:
+        self.temp = tempfile.TemporaryDirectory(prefix='file-index-branch-')
+        self.root = Path(self.temp.name) / '测试项目'
+        self.root.mkdir()
+        _write(self.root / '01剧本准备' / 'docs' / '测试项目_剧本_初稿_20261117.md')
+        _write(self.root / '01剧本准备' / 'docs' / '角色设定.md')
+        _write(self.root / '05资产管理' / 'assets' / 'CHAR_001.png', b'\x89PNG')
+        _write(self.root / '11配音与字幕' / '音频' / 'S01.wav', b'RIFF')
+        _write(self.root / '10视频生成' / 'assets' / 'EP001_SH001.mp4', b'\x00\x00')
+        self.script = '01剧本准备/docs/测试项目_剧本_初稿_20261117.md'
+        self.setting = '01剧本准备/docs/角色设定.md'
+        self.image = '05资产管理/assets/CHAR_001.png'
+
+    def tearDown(self) -> None:
+        self.temp.cleanup()
+
+    def test_listeners_survive_bad_callbacks_and_resolve_failure(self) -> None:
+        calls = []
+
+        def ok(project):
+            calls.append(project)
+
+        def bad(project):
+            raise RuntimeError('监听失败')
+
+        self.assertIsNone(file_index.subscribe_changes(None))
+        self.assertIs(file_index.subscribe_changes(ok), ok)
+        file_index.subscribe_changes(ok)
+        file_index.subscribe_changes(bad)
+        try:
+            self.assertEqual(file_index._project_key(self.root),
+                             os.path.normcase(str(self.root.resolve())))
+            with mock.patch.object(Path, 'resolve', side_effect=OSError('模拟路径失败')):
+                self.assertEqual(file_index._project_key('D:/不存在'), os.path.normcase('D:/不存在'))
+            file_index.rebuild(self.root)
+            self.assertTrue(calls)
+        finally:
+            file_index.unsubscribe_changes(ok)
+            file_index.unsubscribe_changes(bad)
+            file_index.unsubscribe_changes(ok)
+            file_index.unsubscribe_changes(lambda project: None)
+
+    def test_origin_and_kind_keep_user_fact_and_manual_override(self) -> None:
+        with self.assertRaises(ValueError):
+            file_index.record_origin(self.root, [], '不明来源')
+        for bad in ('../越界.md', 'a\x00b.md', 'foo:bar.md', str(self.root) + '\\bad:name\\a.md'):
+            with self.assertRaises(ValueError):
+                file_index.record_origin(self.root, [bad], ORIGIN_USER)
+        batch = ['01剧本准备/docs/缺失.md', '01剧本准备/docs', self.setting,
+                 str((self.root / self.script).resolve())]
+        file_index.record_origin(self.root, batch, ORIGIN_USER)
+        file_index.record_origin(self.root, [self.setting], ORIGIN_USER)
+        file_index.record_origin(self.root, [self.setting], ORIGIN_SYSTEM)
+        file_index.record_origin(self.root, [self.image], ORIGIN_SYSTEM)
+        origins = file_index._read_origins(self.root)
+        self.assertEqual(origins[self.setting], ORIGIN_USER)
+        self.assertEqual(origins[self.script], ORIGIN_USER)
+        self.assertEqual(origins[self.image], ORIGIN_SYSTEM)
+        with self.assertRaises(ConfigError):
+            file_index.record_kind(self.root, [self.setting], '不是类型')
+        file_index.record_kind(self.root, [self.setting, self.image], '报告')
+        file_index.rebuild(self.root)
+        file_index.record_kind(self.root, [self.setting, self.image], '分镜')
+        file_index.record_kind(self.root, [self.setting], '分镜')
+        found = {row.path: row for row in file_index.rows(self.root)}
+        self.assertEqual(found[self.setting].kind, '分镜')
+        self.assertEqual(found[self.setting].origin, ORIGIN_USER)
+        file_index.record_kind(self.root, [self.setting, self.image], '')
+        file_index.record_kind(self.root, [self.setting], None)
+        found = {row.path: row for row in file_index.rows(self.root)}
+        self.assertEqual(found[self.setting].kind, '参考')
+        self.assertIsNone(file_index._row_for(self.root, '01剧本准备/docs', set()))
+        target = file_index.origin_path(self.root)
+        target.write_text('{', encoding='utf-8')
+        self.assertEqual(file_index._read_meta(self.root), ({}, {}))
+        target.write_text('[]', encoding='utf-8')
+        self.assertEqual(file_index._read_meta(self.root), ({}, {}))
+        target.write_text(json.dumps({'schema_version': 9}), encoding='utf-8')
+        self.assertEqual(file_index._read_meta(self.root), ({}, {}))
+        target.write_text(json.dumps({'schema_version': 1, 'origins': ['不是字典'], 'kinds': '不是字典'}),
+                          encoding='utf-8')
+        self.assertEqual(file_index._read_meta(self.root), ({}, {}))
+        target.write_text(json.dumps({
+            'schema_version': 1,
+            'origins': {
+                self.setting: ORIGIN_USER,
+                '01剧本准备/docs/坏来源.md': '不是来源',
+                '01剧本准备/docs/不是字符串.md': 1,
+                '../越界.md': ORIGIN_SYSTEM,
+            },
+            'kinds': {
+                self.image: '报告',
+                '05资产管理/assets/坏类型.png': '不是类型',
+                '../越界.md': '剧本',
+            },
+        }, ensure_ascii=False), encoding='utf-8')
+        origins, kinds = file_index._read_meta(self.root)
+        self.assertEqual(origins, {self.setting: ORIGIN_USER})
+        self.assertEqual(kinds, {self.image: '报告'})
+        data = file_index.read(self.root)
+        for item in data['files']:
+            if item['path'] == self.image:
+                item['kind'] = '资产'
+        applied = file_index._apply_origins(self.root, data, origins={self.setting: ORIGIN_USER},
+                                            kinds={self.setting: '报告'})
+        by_path = {item['path']: item for item in applied['files']}
+        self.assertEqual(by_path[self.setting]['kind'], '报告')
+        self.assertEqual(by_path[self.setting]['origin'], ORIGIN_USER)
+        self.assertEqual(by_path[self.image]['kind'], '资产')
+        loaded = file_index._apply_origins(self.root, data)
+        self.assertTrue(loaded['files'])
+
+    def test_kind_of_uses_stage_duty_before_suffix(self) -> None:
+        samples = {
+            '01剧本准备/skills/说明.md': '其他',
+            '01剧本准备/logs/run.txt': '日志',
+            '01剧本准备/项目设定/世界观.md': '参考',
+            '01剧本准备/项目剧本/正稿.md': '剧本',
+            '01剧本准备/docs/海报.png': '资产',
+            '05资产管理/参考图/a.png': '参考',
+            '_shared/reference_images/a.png': '参考',
+            '03初步分镜/docs/镜头.md': '分镜',
+            '03初步分镜/assets/说明.txt': '报告',
+            '05资产管理/docs/人物.md': '设定',
+            '05资产管理/assets/说明.md': '报告',
+        }
+        self.assertEqual({path: file_index.kind_of(path) for path in samples}, samples)
+
+    def test_confirmed_and_manifest_paths_skip_unsafe_entries(self) -> None:
+        folder = self.root / '01剧本准备'
+        _write(folder / 'preparation_state.json', json.dumps({
+            'documents': [
+                {'confirmed': True, 'path': 'docs/已确认.md'},
+                {'confirmed': False, 'path': 'docs/未确认.md'},
+                {'confirmed': True, 'path': 5},
+                {'confirmed': True, 'path': '../../越界.md'},
+                '坏文档',
+                {'confirmed': True},
+            ],
+            'revision': {'documents': [{'confirmed': True, 'path': 'docs/修订.md'}]},
+        }, ensure_ascii=False))
+        _write(folder / 'natural_script_selection.json', json.dumps(
+            {'path': '01剧本准备/docs/已确认.md'}, ensure_ascii=False))
+        found = file_index._confirmed_docs_in(self.root, folder)
+        self.assertEqual(found, {'01剧本准备/docs/已确认.md', '01剧本准备/docs/修订.md'})
+        self.assertEqual(file_index._confirmed_docs_in(self.root, self.root / '05资产管理'), set())
+        odd = self.root / '02剧本结构'
+        _write(odd / 'preparation_state.json', '[]')
+        _write(odd / 'natural_script_selection.json', json.dumps({'path': '   '}))
+        self.assertEqual(file_index._confirmed_docs_in(self.root, odd), set())
+        broken = self.root / '03初步分镜'
+        _write(broken / 'preparation_state.json', '{')
+        _write(broken / 'natural_script_selection.json', '{')
+        self.assertEqual(file_index._confirmed_docs_in(self.root, broken), set())
+        _write(self.root / '10视频生成' / 'preparation_state.json', json.dumps({
+            'documents': [{'confirmed': True, 'path': 'docs/无修订.md'}],
+            'revision': ['不是字典'],
+        }, ensure_ascii=False))
+        self.assertEqual(file_index._confirmed_docs_in(self.root, self.root / '10视频生成'),
+                         {'10视频生成/docs/无修订.md'})
+        _write(self.root / '05资产管理' / '成果确认' / '坏.json', '{')
+        _write(self.root / '05资产管理' / '成果确认' / '备注.json', json.dumps(
+            {'status': 'draft', 'reviewed': False, 'outputs': []}, ensure_ascii=False))
+        _write(folder / '成果确认' / 'delivery_manifest.json', json.dumps({
+            'status': 'complete', 'reviewed': True,
+            'files': [{'path': '10视频生成/assets/EP001_SH001.mp4'}, {'path': '../越界.mp4'}, '坏'],
+        }, ensure_ascii=False))
+        published = file_index.published_paths(self.root)
+        self.assertIn('10视频生成/assets/EP001_SH001.mp4', published)
+        self.assertIn('01剧本准备/docs/已确认.md', published)
+
+    def test_discover_drops_stale_rows_and_ignores_unknown_paths(self) -> None:
+        published = {self.script}
+        items = [
+            '不是字典',
+            {'path': 3},
+            {'path': self.script},
+            {'missing': True, 'path': self.setting},
+            {'path': '01剧本准备/docs/不存在.md'},
+            {'path': '01剧本准备/docs/炸.md'},
+            {'path': self.image},
+        ]
+        original = Path.is_file
+
+        def flaky(path):
+            if Path(path).name == '炸.md':
+                raise OSError('模拟文件状态失败')
+            return original(path)
+
+        with mock.patch.object(Path, 'is_file', flaky):
+            stale = file_index._collect_removed_paths(
+                self.root, items, ['script', 'assets'], published)
+        self.assertCountEqual(stale, ['01剧本准备/docs/不存在.md', '01剧本准备/docs/炸.md'])
+        file_index.rebuild(self.root)
+        (self.root / self.setting).unlink()
+        self.assertGreaterEqual(file_index.discover(self.root), 1)
+        self.assertNotIn(self.setting, [row.path for row in file_index.rows(self.root)])
+        with mock.patch.object(file_index, '_collect_removed_paths', return_value=['不在索引里.md']):
+            self.assertEqual(file_index.discover(self.root), 0)
+
+    def test_global_library_round_trip_rejects_blank_and_broken_index(self) -> None:
+        library = Path(self.temp.name) / '素材库'
+        program = Path(self.temp.name) / '假程序'
+        missing = self.root / '没有这个库'
+        self.assertIsNone(file_index.read_global_dir(program))
+        self.assertEqual(file_index.build_global(missing)['files'], [])
+        self.assertEqual(file_index.rebuild_global(missing)['files'], [])
+        self.assertEqual(file_index.global_rows(missing), [])
+        self.assertIsNone(file_index.read_global(library))
+        _write(program / '配置' / '素材库.json', '[]')
+        self.assertIsNone(file_index.read_global_dir(program))
+        _write(program / '配置' / '素材库.json', json.dumps({'library_dir': '  '}))
+        self.assertIsNone(file_index.read_global_dir(program))
+        with self.assertRaises(ValueError):
+            file_index.save_global_dir('   ', program)
+        _write(library / '封面.png', b'png')
+        _write(library / '备注.txt', '文字')
+        self.assertTrue(file_index.build_global(library)['files'])
+        written = file_index.save_global_dir(library, program)
+        self.assertTrue(written.is_file())
+        self.assertEqual(file_index.read_global_dir(program), Path(library))
+        self.assertTrue(file_index.rebuild_global(library)['files'])
+        again = [item['path'] for item in file_index.build_global(library)['files']]
+        self.assertIn('封面.png', again)
+        self.assertNotIn('index.json', again)
+        self.assertIsNotNone(file_index.read_global(library))
+        file_index.global_index_path(library).write_text('{', encoding='utf-8')
+        self.assertIsNone(file_index.read_global(library))
+        file_index.rebuild_global(library)
+        self.assertTrue(file_index.search_global(library, kind='资产', name='封面'))
+        self.assertEqual(file_index.search_global(library, kind='音频'), [])
+        self.assertEqual(file_index.search_global(library, name='不存在的关键字'), [])
+        self.assertGreaterEqual(len(file_index.search_global(library)), 2)
 
 
 if __name__ == '__main__':

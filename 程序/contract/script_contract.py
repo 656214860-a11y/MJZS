@@ -301,25 +301,28 @@ def episode_reference_block(text, ledger=None):
 
 
 def script_baseline_path(project):
-    """当前自然剧本基准文件：优先采用版本，其次最新自然剧本，最后内部工作稿。
+    """当前自然剧本基准文件。
 
-    用户手改自然剧本会让采用台账的哈希失效，因此这里不把采用台账当唯一依据，
-    只取「最新一份可见自然剧本」；都读不到时返回 None。
+    已有采用／定稿记录时，只认那一份：内容被手改导致哈希失效时返回 None，
+    不得改用另一份更新的草稿。没有采用记录时，才回退到唯一自然剧本或内部工作稿。
     """
     try:
         source = resolve_script_source(project)
     except (OSError, ValueError):
         source = None
+    locked = bool(getattr(resolve_script_source, 'selection_present', False))
     candidates = [source] if source is not None else []
     try:
-        candidates.extend(natural_script_paths(project))
+        found = list(natural_script_paths(project))
     except (OSError, ValueError):
-        pass
+        found = []
+    candidates.extend([] if locked else found)
     from contract.stage_path_service import write_dir
-    candidates.append(write_dir(project, 'script') / RAW_SCRIPT_NAME)
+    raw = write_dir(project, 'script') / RAW_SCRIPT_NAME
+    candidates.extend([] if locked else [raw])
     for path in candidates:
         try:
-            if path.is_file() and path.stat().st_size:
+            if path.is_file() and (locked or path.stat().st_size):
                 return path
         except OSError:
             continue
@@ -365,9 +368,12 @@ def record_episode_ledger(project, text, previous_text=''):
 
 def resolve_script_source(project):
     """优先采用用户确认的内容版本；多份候选不得按修改时间自动替换。"""
+    resolve_script_source.selection_present = False
     paths = natural_script_paths(project)
     selection_path = natural_script_selection_path(project)
-    if selection_path.exists():
+    present = selection_path.exists()
+    resolve_script_source.selection_present = present
+    if present:
         selection = read(selection_path)
         if not isinstance(selection, dict):
             return None

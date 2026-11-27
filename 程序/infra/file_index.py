@@ -24,7 +24,7 @@ import contract.stage_layout as stage_layout
 from contract import file_naming
 from contract.file_index_contract import (FileRow, INDEX_VERSION, ORIGINS, ORIGIN_SYSTEM, ORIGIN_USER,
                                           STATUSES, STATUS_ARCHIVED,
-                                          STATUS_DRAFT, STATUS_PUBLISHED)
+                                          STATUS_DRAFT, STATUS_PUBLISHED, normalize_status)
 from contract.stage_path_service import read_dirs, write_dir
 from contract.pet_bus import STAGES as STAGE_ORDER
 
@@ -55,6 +55,52 @@ def is_functional(relative_path):
 
 _LOCKS = {}
 _LOCKS_GUARD = threading.Lock()
+_CHANGE_GUARD = threading.Lock()
+_CHANGE_LISTENERS = []
+_CHANGE_REVISIONS = {}
+
+
+def _project_key(project):
+    try:
+        return os.path.normcase(str(Path(project).resolve()))
+    except OSError:
+        return os.path.normcase(str(project))
+
+
+def subscribe_changes(callback):
+    """登记索引变更监听 ``callback(project_root)``；幂等去重，供面板自动刷新。"""
+    if not callable(callback):
+        return callback
+    with _CHANGE_GUARD:
+        if callback not in _CHANGE_LISTENERS:
+            _CHANGE_LISTENERS.append(callback)
+    return callback
+
+
+def unsubscribe_changes(callback):
+    """注销索引变更监听。"""
+    with _CHANGE_GUARD:
+        if callback in _CHANGE_LISTENERS:
+            _CHANGE_LISTENERS.remove(callback)
+
+
+def change_revision(project):
+    """返回该项目的单调变更计数，供候选缓存廉价判失效。"""
+    with _CHANGE_GUARD:
+        return _CHANGE_REVISIONS.get(_project_key(project), 0)
+
+
+def _notify_changes(project):
+    key = _project_key(project)
+    with _CHANGE_GUARD:
+        _CHANGE_REVISIONS[key] = _CHANGE_REVISIONS.get(key, 0) + 1
+        listeners = tuple(_CHANGE_LISTENERS)
+    resolved = Path(project)
+    for callback in listeners:
+        try:
+            callback(resolved)
+        except (OSError, RuntimeError, ValueError, TypeError):
+            continue
 
 
 def _excluded(relative):
@@ -157,39 +203,48 @@ def origin_path(root):
     return stage_layout.workflow_dir(root, INDEX_DIR_NAME, ORIGIN_NAME)
 
 
-def _read_origins(root):
+def _read_meta(root):
     from infra.file_cache import read_json
     target = origin_path(root)
     try:
         _relative(root, target.absolute())
         data = read_json(target)
     except (OSError, ValueError):
-        return {}
+        return {}, {}
     if not isinstance(data, dict) or data.get('schema_version') != ORIGIN_VERSION:
-        return {}
+        return {}, {}
+    origins = {}
     entries = data.get('origins')
-    if not isinstance(entries, dict):
-        return {}
-    result = {}
-    for path, origin in entries.items():
-        try:
-            _safe_relative(root, path)
-        except (OSError, ValueError):
-            continue
-        if isinstance(origin, str) and origin in ORIGINS:
-            result[path] = origin
-    return result
+    if isinstance(entries, dict):
+        for path, origin in entries.items():
+            try:
+                _safe_relative(root, path)
+            except (OSError, ValueError):
+                continue
+            if isinstance(origin, str) and origin in ORIGINS:
+                origins[path] = origin
+    kinds = {}
+    raw_kinds = data.get('kinds')
+    if isinstance(raw_kinds, dict):
+        for path, kind in raw_kinds.items():
+            try:
+                _safe_relative(root, path)
+            except (OSError, ValueError):
+                continue
+            if isinstance(kind, str) and kind in file_naming.KINDS:
+                kinds[path] = kind
+    return origins, kinds
 
 
-def record_origin(root, paths, origin):
-    """由成功写入入口登记来源；不读缓存、不扫描、不为不存在的文件留事实。
+def _read_origins(root):
+    return _read_meta(root)[0]
 
-    一批先做严格路径校验，越界或非规范路径整批拒绝。系统／模型发布保留用户上传
-    事实，避免包发布／清单刷新把导入产物重标；无历史事实仍按系统生成读取。
-    """
-    from agent.core import save
-    if not isinstance(origin, str) or origin not in ORIGINS:
-        raise ValueError('未知文件来源：' + str(origin))
+
+def _read_kinds(root):
+    return _read_meta(root)[1]
+
+
+def _validated_meta_paths(root, paths):
     root = Path(root).resolve()
     relatives = []
     for raw in paths:
@@ -205,9 +260,30 @@ def record_origin(root, paths, origin):
         relative = _relative(root, path)
         _safe_relative(root, relative)
         relatives.append(relative)
+    return root, relatives
+
+
+def _save_meta(root, origins, kinds):
+    from agent.core import save
     target = origin_path(root)
+    _relative(root, target.absolute())
+    payload = {'schema_version': ORIGIN_VERSION, 'origins': origins}
+    if kinds:
+        payload['kinds'] = kinds
+    save(target, payload)
+
+
+def record_origin(root, paths, origin):
+    """由成功写入入口登记来源；不读缓存、不扫描、不为不存在的文件留事实。
+
+    一批先做严格路径校验，越界或非规范路径整批拒绝。系统／模型发布保留用户上传
+    事实，避免包发布／清单刷新把导入产物重标；无历史事实仍按系统生成读取。
+    """
+    if not isinstance(origin, str) or origin not in ORIGINS:
+        raise ValueError('未知文件来源：' + str(origin))
+    root, relatives = _validated_meta_paths(root, paths)
     with _index_lock(index_path(root), root):
-        origins = _read_origins(root)
+        origins, kinds = _read_meta(root)
         changed = False
         for relative in relatives:
             try:
@@ -222,15 +298,53 @@ def record_origin(root, paths, origin):
                 origins[relative] = origin
                 changed = True
         if changed:
-            _relative(root, target.absolute())
-            save(target, {'schema_version': ORIGIN_VERSION, 'origins': origins})
+            _save_meta(root, origins, kinds)
+    if changed:
+        _notify_changes(root)
     return origins
 
 
-def _apply_origins(root, data, origins=None):
-    origins = _read_origins(root) if origins is None else origins
-    return dict(data, files=[dict(item, origin=origins.get(item['path'], ORIGIN_SYSTEM))
-                             for item in data['files']])
+def record_kind(root, paths, kind):
+    """用户手动覆盖文件类型（空串／None 恢复自动判定）；持久化在来源记录并增量刷索引。"""
+    from contract.infra_errors import ConfigError
+    if kind not in (None, '') and (not isinstance(kind, str) or kind not in file_naming.KINDS):
+        raise ConfigError('未知文件类型：' + str(kind))
+    root, relatives = _validated_meta_paths(root, paths)
+    with _index_lock(index_path(root), root):
+        origins, kinds = _read_meta(root)
+        changed = False
+        for relative in relatives:
+            if not kind:
+                if relative in kinds:
+                    kinds.pop(relative, None)
+                    changed = True
+            elif kinds.get(relative) != kind:
+                kinds[relative] = kind
+                changed = True
+        if changed:
+            _save_meta(root, origins, kinds)
+    if changed:
+        if read(root) is not None:
+            update(root, relatives)
+        else:
+            _notify_changes(root)
+    return kinds
+
+
+def _apply_origins(root, data, origins=None, kinds=None):
+    if origins is None or kinds is None:
+        loaded_origins, loaded_kinds = _read_meta(root)
+        origins = loaded_origins if origins is None else origins
+        kinds = loaded_kinds if kinds is None else kinds
+    files = []
+    for item in data['files']:
+        path = item['path']
+        updated = dict(item, origin=origins.get(path, ORIGIN_SYSTEM),
+                       status=normalize_status(item.get('status', STATUS_DRAFT)))
+        if path in kinds:
+            updated['kind'] = kinds[path]
+        files.append(updated)
+    return dict(data, files=files)
 
 
 def _stage_match(relative_path):
@@ -255,30 +369,113 @@ def stage_of(relative_path):
     return _stage_match(relative_path)[0]
 
 
+_SCRIPT_REF_DIRS = frozenset(('输入', '参考', '项目设定', '项目大纲', '角色卡'))
+_SCRIPT_REF_WORDS = ('项目设定', '项目大纲', '剧本大纲', '故事大纲', '分集大纲',
+                     '角色卡', '人物设定', '世界观', '原始附件', '附件文本', '角色', '设定', '大纲', '创意')
+
+
+_ATTACHMENT_MARKS = ('原始附件', '附件文本', '任务附件')
+
+
+def _is_task_attachment(relative_path):
+    """用户上传或转换出的任务附件：只认一种类型，避免按扩展名拆进「报告」和「其他」。"""
+    parts = PurePosixPath(str(relative_path or '').replace('\\', '/')).parts
+    if any(part == '输入' for part in parts[:-1]):
+        return True
+    text = '/'.join(parts)
+    return any(mark in text for mark in _ATTACHMENT_MARKS)
+
+
 def kind_of(relative_path):
-    """项目相对路径 → DES §3.1 的类型标签。"""
-    stage, within = _stage_match(relative_path)
+    """项目相对路径 → 按阶段职责与扩展名推导类型标签（含「参考」类型）。"""
+    posix = str(relative_path or '').replace('\\', '/')
+    if _is_task_attachment(posix):
+        return '参考'
+    stage, within = _stage_match(posix)
     parts = within.parts
+    parents = parts[:-1]
     part = parts[0] if len(parts) > 1 else 'docs'
-    suffix = file_naming.kind_from_suffix(parts[-1] if parts else '')
+    name = parts[-1] if parts else ''
+    suffix = file_naming.kind_from_suffix(name)
     if part == 'skills':
         return '其他'
     if part == 'logs' or suffix == '日志':
         return '日志'
+    if stage == 'script':
+        if _SCRIPT_REF_DIRS.intersection(parents):
+            return '参考'
+        if '项目剧本' in parents:
+            return '剧本'
+        if suffix in ('资产', '音频', '视频'):
+            return suffix
+        if part == 'docs':
+            if any(word in name for word in _SCRIPT_REF_WORDS):
+                return '参考'
+            return '剧本'
+        return suffix
+    if (posix.startswith('_shared/reference_images/')
+            or any(folder in ('参考图', '参考', '输入') for folder in parents)):
+        return '参考'
     if suffix in ('资产', '音频', '视频'):
         return suffix
     if stage == 'storyboard' and part == 'docs':
         return '分镜'
-    if stage in ('script', 'script_structure') and part == 'docs':
-        name = parts[-1]
-        return '设定' if any(word in name for word in ('角色', '设定', '世界观', '创意')) else '剧本'
+    if stage == 'script_structure' and part == 'docs':
+        return '剧本'
     if stage == 'assets' and part == 'docs':
         return '设定'
     return suffix
 
 
+def _confirmed_docs_in(root, folder):
+    """读取单个 01剧本准备 目录的已确认文档与已采用自然剧本相对路径。"""
+    from infra.file_cache import read_json
+    found = set()
+    state_file = folder / 'preparation_state.json'
+    if state_file.is_file():
+        try:
+            _relative(root, state_file)
+            data = read_json(state_file)
+        except (OSError, ValueError):
+            data = None
+        if isinstance(data, dict):
+            docs = list(data.get('documents') or ())
+            rev = data.get('revision')
+            if isinstance(rev, dict):
+                docs.extend(rev.get('documents') or ())
+            for doc in docs:
+                if not isinstance(doc, dict) or doc.get('confirmed') is not True:
+                    continue
+                raw = doc.get('path')
+                if not isinstance(raw, str):
+                    continue
+                try:
+                    found.add(_safe_relative(root, _relative(root, folder / raw)))
+                except (OSError, ValueError):
+                    continue
+    selection_file = folder / 'natural_script_selection.json'
+    if selection_file.is_file():
+        try:
+            _relative(root, selection_file)
+            sel = read_json(selection_file)
+            raw = sel.get('path') if isinstance(sel, dict) else None
+            if isinstance(raw, str) and raw.strip():
+                found.add(_safe_relative(root, raw.replace('\\', '/')))
+        except (OSError, ValueError):
+            pass
+    return found
+
+
+def _preparation_confirmed_paths(root):
+    """读取 01剧本准备 已确认阶段稿与已采用自然剧本，纳入「定稿」状态集合。"""
+    found = set()
+    for folder in read_dirs(root, 'script'):
+        found.update(_confirmed_docs_in(root, folder))
+    return found
+
+
 def published_paths(project):
-    """被「成果确认清单」或交付清单引用过的项目相对路径集合（决定 ``status``）。"""
+    """被「成果确认清单」、交付清单或剧本定稿/采用台账引用过的项目相对路径集合（决定 ``status``=定稿）。"""
     root = Path(project).resolve()
     found = set()
     for row in stage_layout.STAGES:
@@ -296,6 +493,7 @@ def published_paths(project):
         manifest = folder / '导出成片' / DELIVERY_MANIFEST
         if manifest.is_file():
             found.update(_paths_in(manifest, ('files',), root=root))
+    found.update(_preparation_confirmed_paths(root))
     return {path for path in found if path}
 
 
@@ -322,7 +520,7 @@ def _paths_in(manifest, keys, root=None):
     return out
 
 
-def _row_for(project, relative_path, published, now=None, origins=None):
+def _row_for(project, relative_path, published, now=None, origins=None, kinds=None):
     """按磁盘现状造一行；文件已不存在则返回 ``None``。"""
     root = Path(project).resolve()
     try:
@@ -339,8 +537,12 @@ def _row_for(project, relative_path, published, now=None, origins=None):
         status = STATUS_ARCHIVED
     elif relative_path in published:
         status = STATUS_PUBLISHED
-    origins = _read_origins(root) if origins is None else origins
-    return FileRow(path=relative_path, stage=stage_of(relative_path), kind=kind_of(relative_path),
+    if origins is None or kinds is None:
+        loaded_origins, loaded_kinds = _read_meta(root)
+        origins = loaded_origins if origins is None else origins
+        kinds = loaded_kinds if kinds is None else kinds
+    kind = kinds.get(relative_path) or kind_of(relative_path)
+    return FileRow(path=relative_path, stage=stage_of(relative_path), kind=kind,
                    origin=origins.get(relative_path, ORIGIN_SYSTEM),
                    status=status, size=info.st_size, mtime=info.st_mtime, order=parsed['order'],
                    title=parsed['title'], missing=False)
@@ -371,16 +573,17 @@ def build(project, now=None):
     """全量扫描并返回索引负载（不写盘）。"""
     root = Path(project).resolve()
     published = published_paths(root)
-    origins = _read_origins(root)
+    origins, kinds = _read_meta(root)
     rows = {}
     for path in _walk(root):
         relative = path.relative_to(root).as_posix()
-        item = _row_for(root, relative, published, now=now, origins=origins)
+        item = _row_for(root, relative, published, now=now, origins=origins, kinds=kinds)
         if item is not None:
             rows[relative] = item
     files = [item.to_dict() for item in rows.values()]
     for missing in sorted(published - set(rows)):
-        files.append(FileRow(path=missing, stage=stage_of(missing), kind=kind_of(missing),
+        files.append(FileRow(path=missing, stage=stage_of(missing),
+                             kind=kinds.get(missing) or kind_of(missing),
                              origin=origins.get(missing, ORIGIN_SYSTEM),
                              status=STATUS_PUBLISHED, missing=True).to_dict())
     return {'schema_version': INDEX_VERSION, 'project': root.name,
@@ -394,7 +597,8 @@ def rebuild(project, now=None):
     with _index_lock(index_path(project), project):
         payload = build(project, now=now)
         save(index_path(project), payload)
-        return payload
+    _notify_changes(project)
+    return payload
 
 
 # ── 全局素材库（R3123，任务书 P3，Q11）────────────────────────────────────
@@ -507,7 +711,8 @@ def _valid_payload(data, root):
 def _refresh(root, data, global_library=False):
     """只 stat 已有行，不发现新增文件、不递归、不哈希，也不写缓存。"""
     files = []
-    origins = _read_origins(root)
+    origins, kinds = _read_meta(root)
+    published = set() if global_library else published_paths(root)
     for raw in data['files']:
         row = FileRow.from_dict(raw)
         row.origin = origins.get(row.path, ORIGIN_SYSTEM)
@@ -521,7 +726,16 @@ def _refresh(root, data, global_library=False):
         if exists:
             row.size, row.mtime = info.st_size, info.st_mtime
         row.stage = '' if global_library else stage_of(row.path)
-        row.kind = file_naming.kind_from_suffix(row.path) if global_library else kind_of(row.path)
+        if global_library:
+            row.kind = kinds.get(row.path) or file_naming.kind_from_suffix(row.path)
+        else:
+            row.kind = kinds.get(row.path) or kind_of(row.path)
+            if str(row.path).split('/', 1)[0] == stage_layout.ARCHIVE:
+                row.status = STATUS_ARCHIVED
+            elif row.path in published:
+                row.status = STATUS_PUBLISHED
+            else:
+                row.status = STATUS_DRAFT
         files.append(row.to_dict())
     return dict(data, files=files)
 
@@ -561,9 +775,10 @@ def search_global(library, kind=None, name=None, now=None):
     return out
 
 
-def _collect_from_folder(root, folder, published, origins, now, seen, candidates):
+def _collect_from_folder(root, folder, ctx, seen, candidates):
     if not folder.is_dir():
         return
+    published, origins, now = ctx
     try:
         for path in _walk(folder):
             try:
@@ -586,13 +801,14 @@ def _collect_from_folder(root, folder, published, origins, now, seen, candidates
 def _collect_discover_candidates(root, stages, published, origins, now, existing):
     candidates = []
     seen = set(existing)
+    ctx = (published, origins, now)
     for current_stage in stages:
         try:
             dirs = read_dirs(root, current_stage)
         except (OSError, ValueError):
             continue
         for folder in dirs:
-            _collect_from_folder(root, Path(folder), published, origins, now, seen, candidates)
+            _collect_from_folder(root, Path(folder), ctx, seen, candidates)
     return candidates
 
 
@@ -612,7 +828,8 @@ def discover(project, stage=None, now=None):
         published = published_paths(root)
         origins = _read_origins(root)
         candidates = _collect_discover_candidates(root, stages, published, origins, now, existing)
-        if not candidates:
+        stale = _collect_removed_paths(root, data.get('files', ()), stages, published)
+        if not candidates and not stale:
             return 0
         with _index_lock(index_path(root), root):
             data = read(root)
@@ -621,6 +838,10 @@ def discover(project, stage=None, now=None):
             table = {item['path']: item for item in data['files']
                      if isinstance(item, dict) and isinstance(item.get('path'), str)}
             added = 0
+            for path_key in stale:
+                if path_key in table:
+                    table.pop(path_key, None)
+                    added += 1
             for item in candidates:
                 if item.path not in table:
                     table[item.path] = item.to_dict()
@@ -631,9 +852,30 @@ def discover(project, stage=None, now=None):
             data['schema_version'] = INDEX_VERSION
             from agent.core import save
             save(index_path(root), data)
-            return added
+        _notify_changes(root)
+        return added
     except (OSError, ValueError):
         return 0
+
+
+def _collect_removed_paths(root, items, stages, published):
+    """找出阶段内已不在磁盘、且未在定稿清单登记的失效缓存行，供自动刷新清理。"""
+    scope = set(stages)
+    stale = []
+    for item in items:
+        if not isinstance(item, dict):
+            continue
+        rel = item.get('path')
+        if not isinstance(rel, str) or rel in published or item.get('missing'):
+            continue
+        if stage_of(rel) not in scope:
+            continue
+        try:
+            if not (root / rel).is_file():
+                stale.append(rel)
+        except OSError:
+            stale.append(rel)
+    return stale
 
 
 def read(project):
@@ -681,12 +923,12 @@ def update(project, paths=(), removed=False, now=None):
             data = build(project, now=now)
         table = {item['path']: item for item in data['files']}
         published = published_paths(project)
-        origins = _read_origins(project)
+        origins, kinds = _read_meta(project)
         for relative in relatives:
             if removed:
                 table.pop(relative, None)
                 continue
-            item = _row_for(project, relative, published, now=now, origins=origins)
+            item = _row_for(project, relative, published, now=now, origins=origins, kinds=kinds)
             if item is None:
                 table.pop(relative, None)
             else:
@@ -694,19 +936,21 @@ def update(project, paths=(), removed=False, now=None):
         data['files'] = list(table.values())
         data['schema_version'] = INDEX_VERSION
         save(index_path(project), data)
-        return data
+    _notify_changes(project)
+    return data
 
 
 def search(project, stage=None, kind=None, status=None, name=None, now=None):
     """按阶段／类型／状态／文件名关键字筛选；条件为空表示不限。"""
     keyword = str(name or '').strip().lower()
+    wanted_status = normalize_status(status) if status else None
     out = []
     for row in rows(project, now=now):
         if stage and row.stage != stage:
             continue
         if kind and row.kind != kind:
             continue
-        if status and row.status != status:
+        if wanted_status and row.status != wanted_status:
             continue
         if keyword and keyword not in row.path.lower() and keyword not in row.title.lower():
             continue

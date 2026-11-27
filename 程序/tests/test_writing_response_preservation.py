@@ -165,7 +165,6 @@ class WritingResponsePreservationTests(unittest.TestCase):
             ('# 剧本大纲\n错阶段。\n待确认', {}),
             ('# 项目设定\n设定。\n# 剧本大纲\n大纲。\n待确认', {}),
             ('说明。\n# 项目设定\n设定。\n## 待确认\n请确认。', {'finish_reason': 'max_tokens'}),
-            ('# 项目设定\n正文没有结束标记。', {}),
         ):
             with self.subTest(body=body):
                 restart_writing_preparation(self.project, '项目设定')
@@ -173,6 +172,14 @@ class WritingResponsePreservationTests(unittest.TestCase):
                 self.assertFalse(result['ok'])
                 self.assertNotIn('preparation_path', result)
                 self.assertTrue(Path(result['response_path']).is_file())
+
+    def test_single_document_without_pending_suffix_is_saved(self):
+        restart_writing_preparation(self.project, '项目设定')
+        result = self.call('# 项目设定\n正文没有结束标记。')
+        self.assertTrue(result['ok'])
+        published = Path(result['preparation_path']).read_text(encoding='utf-8')
+        self.assertIn('正文没有结束标记。', published)
+        self.assertFalse(published.rstrip().endswith('待确认'))
 
     def test_rejected_next_stage_does_not_confirm_current_document(self):
         restart_writing_preparation(self.project, '项目设定')
@@ -215,8 +222,8 @@ class PreparationReplyStateTests(unittest.TestCase):
         self.assertEqual(info['state'], '阶段稿待确认')
         self.assertEqual(info['file'], result['preparation_path'])
         message = writing_api.preparation_reply_message(result)
-        self.assertIn('待确认', message)
-        self.assertIn('确认', message)
+        self.assertIn('草稿', message)
+        self.assertIn('定稿', message)
 
     def test_late_reply_after_cancel_reports_archive_in_error(self):
         from writing_api import WritingCancelledError

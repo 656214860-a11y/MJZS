@@ -164,8 +164,12 @@ class WritingApiTests(unittest.TestCase):
                         'ok': True, 'text': '# 项目设定\n都市雨夜，少年追查底片。\n待确认'}) as chat:
                     result = writing_api.reply(project, '开始', publish=publish_stage_text, request_model=request)
             self.assertEqual(chat.call_args.kwargs['model'], 'gpt-4o')
-            self.assertIn(original_label, Path(result['preparation_path']).parts)
-            self.assertNotIn('请求发出后改名', Path(result['preparation_path']).parts)
+            # 契约变更：01剧本准备已扁平化至 01剧本准备/<分类>/，文件名仍保留冻结的供应商身份（GPT），不受后续切模型影响。
+            prep_path = Path(result['preparation_path'])
+            self.assertEqual(prep_path.parents[1].name, '01剧本准备')
+            self.assertIn('GPT', prep_path.name)
+            self.assertNotIn('DeepSeek', prep_path.name)
+            self.assertNotIn('请求发出后改名', str(prep_path))
 
     @staticmethod
     def confirmed_preparation(project):
@@ -207,7 +211,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
     def test_preparation_requires_each_confirmation_and_hands_all_documents_to_script_request(self):
-        """REQ-S01-10/13：四步固定（①项目设定→②剧本大纲→③角色卡→④自然剧本），④只在①②③全确认后启动。"""
+        """REQ-S01-10/13：阶段名册仍是设定、大纲、角色卡、自然剧本，但先后确认链已取消。未点名时「确认」沿最早未确认草稿推进；点名某一份不要求更早阶段已确认。"""
         import json
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:

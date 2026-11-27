@@ -1,0 +1,15 @@
+{
+  "round": 4649,
+  "commit_base": "5c027168b",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k file_index files_panel idea_attachments idea_chat workflow_writing writing_response writing_unconfirm writing_page idea_download script_agent ui_edges writing_api",
+    "exit": 0,
+    "passed": 804,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T15:50:52"
+}

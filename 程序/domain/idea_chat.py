@@ -127,9 +127,10 @@ def save_reply(root, text, at=None, provider='', model='', *, publish=None, reus
     parts = path.relative_to(write_dir(context.root, 'script')).parts
     folder = '/'.join(parts[:-2])
     name = '/'.join(parts)
+    directories = (tuple(folder + '/' + directory for directory in PROJECT_DOCUMENT_DIRS.values())
+                   if folder else (parts[0],))
     return publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
-                           'directories': tuple(folder + '/' + directory
-                                                for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
+                           'directories': directories},))[name]
 
 
 _DOWNLOAD_COPY_SUFFIX = re.compile(r'\s*\(\d+\)(?=\.md$)', re.I)
@@ -263,18 +264,21 @@ def import_downloaded_documents(root, folder, provider='', model='', *, publish=
             newest[file_type] = (mtime, path, body)
     if not newest:
         return []
-    model_dir = write_dir(context.root, 'script') / _storage_name(provider, '未知Provider') / _storage_name(model, '未知模型')
+    script_root = write_dir(context.root, 'script')
+    model_dir = script_root / _storage_name(provider, '未知Provider') / _storage_name(model, '未知模型')
     imported = []
     for file_type, (mtime, path, body) in sorted(newest.items()):
         latest = 0
         category = project_document_directory(file_type)
+        folders = [script_root / category]
         try:
             batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
         except OSError:
             batches = ()
-        for batch in batches:
+        folders.extend(batch / category for batch in batches)
+        for folder in folders:
             try:
-                for existing in (batch / category).glob('*.md'):
+                for existing in folder.glob('*.md'):
                     latest = max(latest, existing.stat().st_mtime)
             except OSError:
                 continue
@@ -322,13 +326,11 @@ def save_manual_creative(root, text, at=None, *, publish=None):
         raise ValueError('请先填写自己的创意。')
     if not callable(publish):
         raise TypeError('手动创意文件需要由 L3 注入发布器。')
-    day = _file_day(at)
-    name = '/'.join(('创意_' + day, project_document_directory('自然剧本'),
-                     project_script_filename(context, at=at, file_type='自然剧本',
-                                          content='手动创意')))
+    directory = project_document_directory('自然剧本')
+    name = '/'.join((directory, project_script_filename(context, at=at, file_type='自然剧本',
+                                                        content='手动创意')))
     return publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
-                           'directories': tuple('创意_' + day + '/' + directory
-                                                for directory in PROJECT_DOCUMENT_DIRS.values())},))[name]
+                           'directories': (directory,)},))[name]
 
 
 # 自动存档的类型短名：保存类型 → 状态栏里的叫法。
@@ -410,8 +412,8 @@ def import_local_document(root, text, filename, at=None, *, publish=None):
     if label.startswith(title) and label[len(title):].startswith((' ', '-', '_')):
         label = label[len(title):].lstrip(' -_') or label
     label = _file_part(label, '添加文件')
-    batch, directory = '创意_' + _file_day(at), project_document_directory(file_type)
-    folder = write_dir(context.root, 'script') / batch / directory
+    directory = project_document_directory(file_type)
+    folder = write_dir(context.root, 'script') / directory
     if folder.is_dir():
         for existing in sorted(folder.glob('*.md')):
             if existing.is_file() and existing.read_text(encoding='utf-8', errors='ignore').strip() == value:
@@ -421,10 +423,9 @@ def import_local_document(root, text, filename, at=None, *, publish=None):
         number += 1
         suffix = '(' + str(number) + ')'
         content = label[:80 - len(suffix)] + suffix
-    name = '/'.join((batch, directory, project_script_filename(context, at=at, file_type=file_type, content=content)))
+    name = '/'.join((directory, project_script_filename(context, at=at, file_type=file_type, content=content)))
     return file_type, publish(context.root, ({'name': name, 'data': value.encode('utf-8'),
-                                              'directories': tuple(batch + '/' + folder_name for folder_name
-                                                                   in PROJECT_DOCUMENT_DIRS.values())},))[name]
+                                              'directories': (directory,)},))[name]
 
 
 def _brief_value(text, labels):
@@ -689,6 +690,15 @@ def creative_documents(root):
                            if path.is_dir() and path.name.startswith('创意_'))
 
     files = []
+    # 新扁平布局：01剧本准备/<项目设定|项目大纲|角色卡|项目剧本>/*.md；兼容保留历史 创意_* 批次。
+    for directory in PROJECT_DOCUMENT_DIRS.values():
+        folder = writing / directory
+        try:
+            if folder.is_dir():
+                files.extend(item for item in folder.iterdir()
+                             if item.is_file() and item.suffix.lower() == '.md')
+        except OSError:
+            continue
     for batch in batches:
         try:
             entries = tuple(batch.iterdir())

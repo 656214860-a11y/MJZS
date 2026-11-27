@@ -791,7 +791,7 @@ def _preparation_step(request, *, publish, cancelled, user_message=None, identit
               + '\n阶段修订规则：若用户要求修改当前草稿，本轮答复用于修订；编号答复对应草稿中的同号问题。'
               + '用户明确的新决定优先于草稿中的旧表述，必须落实到完整正文。'
               + '不得把已经回答的问题再次列为待确认事项；用户要求补充时应实际补充，不能再次询问是否补充。'
-              + '只保留尚未回答或确有冲突的问题；所有问题已解决时仅在末尾保留“待确认”，等用户审阅整份文件。', '')
+              + '只保留尚未回答或确有冲突的问题；问题已解决时直接给出完整正文，不要在文末追加“待确认”，也不要要求用户回复确认才能继续其他文档。', '')
     titles, pending, next_index, task = _preparation_task(request, user_message, state, documents, texts, index)
     messages = [{'role': 'user', 'content': task}]
     rejected = _context_budget_error(chosen, system, messages)
