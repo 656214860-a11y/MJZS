@@ -19,13 +19,18 @@ from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_space_toggle, c
 from contract.storyboard_paths import media_root
 from tkinter import ttk
 from ui_tokens import CHAR_WIDTH, COLORS, CONTROL_HEIGHT, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_ROWS
-from ui_widgets import ContextMenu, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, SelectBox
+from ui_widgets import ContextMenu, DataTable, DescriptionBlock, LineInput, PrimaryButton, SecondaryButton, SelectBox
 from ui.desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
 import ui.stage_page_simplify as stage_page_simplify
 
 PAGE = pet_state.PAGE_OF
 _MULTI_SELECT_MASK = 0x0001 | 0x0004
-_PAGER_HEIGHT_RESERVE = SPACING['2xl'] + SPACING['lg'] + CONTROL_HEIGHT + SPACING['xs']
+_FILTER_BAR_HEIGHT = CONTROL_HEIGHT + SPACING['xs']
+_PAGER_HEIGHT_RESERVE = SPACING['2xl'] + SPACING['lg'] + CONTROL_HEIGHT + SPACING['xs'] + _FILTER_BAR_HEIGHT
+_FILTER_ALL_SCENE = '全部场次'
+_FILTER_ALL_CHARACTER = '全部角色'
+_FILTER_ALL_STATUS = '全部状态'
+_STATUS_CHOICES = (_FILTER_ALL_STATUS, '已导入', '待重新生成', '待生成 / 待导入')
 
 
 def _bind_storyboard_row_toggle(tree, toggle, link_columns=()):
@@ -80,7 +85,89 @@ class StoryboardPageMixin:
         return _FirstFramePage(self).build()
 
 
-class _FirstFramePage:
+class _KeyframeFilterBar:
+    """首帧表筛选条。从 _FirstFramePage 拆出，避免页面类越过 600 行。"""
+
+    def _build_filters(self, table_box):
+        """场次 / 角色 / 首帧状态 / 时长闭区间。选项来自全部镜头，不随当前页缩小。"""
+        bar = ttk.Frame(table_box)
+        bar.grid(row=0, column=0, sticky='ew', pady=(SPACING['none'], SPACING['xs']))
+        self.filter_bar = bar
+        ttk.Label(bar, text='场次').pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.scene_filter = SelectBox(bar, values=(_FILTER_ALL_SCENE,), width=CHAR_WIDTH['2xl'])
+        self.scene_filter.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        self.scene_filter.current(0)
+        self.scene_filter.bind('<<ComboboxSelected>>', self.apply_filters)
+        ttk.Label(bar, text='角色').pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.character_filter = SelectBox(bar, values=(_FILTER_ALL_CHARACTER,), width=CHAR_WIDTH['xl'])
+        self.character_filter.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        self.character_filter.current(0)
+        self.character_filter.bind('<<ComboboxSelected>>', self.apply_filters)
+        ttk.Label(bar, text='状态').pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.status_filter = SelectBox(bar, values=_STATUS_CHOICES, width=CHAR_WIDTH['3xl'])
+        self.status_filter.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        self.status_filter.current(0)
+        self.status_filter.bind('<<ComboboxSelected>>', self.apply_filters)
+        ttk.Label(bar, text='时长').pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.duration_min_var = tk.StringVar()
+        self.duration_max_var = tk.StringVar()
+        min_entry = LineInput(bar, textvariable=self.duration_min_var, width=CHAR_WIDTH['xs'])
+        min_entry.pack(side='left')
+        ttk.Label(bar, text='–').pack(side='left', padx=SPACING['xs'])
+        max_entry = LineInput(bar, textvariable=self.duration_max_var, width=CHAR_WIDTH['xs'])
+        max_entry.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        for entry in (min_entry, max_entry):
+            entry.bind('<FocusOut>', self.apply_filters)
+            entry.bind('<Return>', self.apply_filters)
+
+    def _keep_filter_choice(self, box, sentinel, values):
+        current = str(box.get() or '')
+        options = (sentinel,) + tuple(values)
+        box.set_values(options)
+        box.set(current if current in options else sentinel)
+
+    def _rebuild_filter_choices(self):
+        from orchestrator.keyframe_page_controller import shot_characters, shot_scene
+        scenes, characters = [], []
+        for _iid, shot, *_rest in self.rows:
+            scene = shot_scene(shot)
+            if scene and scene not in scenes:
+                scenes.append(scene)
+            for name in shot_characters(shot):
+                if name not in characters:
+                    characters.append(name)
+        self._keep_filter_choice(self.scene_filter, _FILTER_ALL_SCENE, scenes)
+        self._keep_filter_choice(self.character_filter, _FILTER_ALL_CHARACTER, characters)
+        self._keep_filter_choice(self.status_filter, _FILTER_ALL_STATUS, _STATUS_CHOICES[1:])
+
+    def _filter_choice(self, box, sentinel):
+        value = str(box.get() or '').strip()
+        return '' if not value or value == sentinel else value
+
+    def _duration_bound(self, variable):
+        text = str(variable.get() or '').strip()
+        if not text:
+            return None
+        try:
+            return int(text)
+        except ValueError:
+            return None
+
+    def _push_filters(self):
+        self.page_controller.set_filters(
+            scene=self._filter_choice(self.scene_filter, _FILTER_ALL_SCENE),
+            character=self._filter_choice(self.character_filter, _FILTER_ALL_CHARACTER),
+            status=self._filter_choice(self.status_filter, _FILTER_ALL_STATUS),
+            duration_min=self._duration_bound(self.duration_min_var),
+            duration_max=self._duration_bound(self.duration_max_var),
+        )
+
+    def apply_filters(self, event=None):
+        self._push_filters()
+        self._render_page(reset_scroll=True)
+
+
+class _FirstFramePage(_KeyframeFilterBar):
     """首帧管理页（从 StoryboardPageMixin.storyboard 的闭包原样改写成类，R1814）：共享的局部变量成了实例属性，嵌套函数成了方法；原来的 self（桌面主窗）改叫 page。"""
     def __init__(self, page):
         self.page = page
@@ -249,9 +336,10 @@ class _FirstFramePage:
         self.table_shell=table_shell
         self.table=table_shell.tree
         _configure_table_style(self.table,'Frame.Treeview',THUMB_SIZE);refresh_request_width(self.table)
-        table_shell.grid(row=0,column=0,sticky='nsew')
+        self._build_filters(table_box)
+        table_shell.grid(row=1,column=0,sticky='nsew')
         self._build_pager(table_box)
-        table_box.columnconfigure(0,weight=1);table_box.rowconfigure(0,weight=1)
+        table_box.columnconfigure(0,weight=1);table_box.rowconfigure(1,weight=1)
         configure_check_column(self.table)
         for key,title,width in frame_columns:
             self.table.heading(key,text=title);self.table.column(key,width=MIN_COL,minwidth=MIN_COL)
@@ -266,7 +354,7 @@ class _FirstFramePage:
     def _build_pager(self, table_box):
         """底部翻页条：首页 / 上页 / 页码 / 下页 / 末页与跨页选中汇总。"""
         self.pager_bar = ttk.Frame(table_box)
-        self.pager_bar.grid(row=1, column=0, sticky='ew', pady=(SPACING['xs'], SPACING['none']))
+        self.pager_bar.grid(row=2, column=0, sticky='ew', pady=(SPACING['xs'], SPACING['none']))
         self.first_page_btn = SecondaryButton(self.pager_bar, text='首页', width=0, command=self.first_page)
         self.first_page_btn.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
         self.prev_page_btn = SecondaryButton(self.pager_bar, text='上页', width=0, command=self.prev_page)
@@ -464,6 +552,8 @@ class _FirstFramePage:
         self.checked.sync([(iid,*states[iid]) for iid in states])
         self.available_shots.clear();self.available_shots.update({row[0]:row[1] for row in self.rows})
         self.target.set_values(list(self.available_shots))
+        self._rebuild_filter_choices()
+        self._push_filters()
         self._render_page(focused=focused,top=top,offset=offset)
         # 这句话按「当下有几镜已就位」说，不按「这一次对齐新取消了几镜」——
         # 原来拿的是 sync 的增量，三虎心跳重拍本页时第二次对齐就没增量了，
