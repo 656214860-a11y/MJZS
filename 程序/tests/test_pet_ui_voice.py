@@ -1128,6 +1128,48 @@ class StallWatchTests(unittest.TestCase):
         self.assertIn('12 分钟', text)
         self.assertIn('3/40', text)
 
+    def test_stall_watch_sample_all_collects_multiple_stalled_stages(self):
+        ticks = [0.0]
+        watch = pet_context_facts.StallWatch(clock=lambda: ticks[0])
+        stages = {
+            'storyboard': {'state': 'running', 'detail': {'done': 3, 'total': 40}},
+            'keyframe': {'state': 'retrying', 'detail': {'done': 2, 'total': 10}},
+        }
+        self.assertEqual(watch.sample_all(stages), [])
+        ticks[0] += 660
+        self.assertEqual(
+            watch.sample_all(stages),
+            [('storyboard', 11, 3, 40), ('keyframe', 11, 2, 10)],
+            '多个阶段同时满时限时应一次全部检出，不漏报后者',
+        )
+        ticks[0] += 120
+        self.assertEqual(watch.sample_all(stages), [], '同一波停滞不重报')
+        stages['keyframe']['detail'] = {'done': 3, 'total': 10}
+        self.assertEqual(watch.sample_all(stages), [], '仅 keyframe 有新进度，计时清零')
+        ticks[0] += 600
+        self.assertEqual(
+            watch.sample_all(stages),
+            [('keyframe', 10, 3, 10)],
+            '再次停滞时只报新停滞的阶段，已报过的 storyboard 不重报',
+        )
+
+    def test_stall_watch_format_stall_notes_merges_multiple_stages(self):
+        self.assertEqual(pet_context_facts.format_stall_notes([]), '')
+        single = ('storyboard', 12, 3, 40)
+        self.assertEqual(
+            pet_context_facts.format_stall_notes([single]),
+            pet_context_facts.format_stall_note(*single),
+            '单阶段文案保持原有格式完全不变',
+        )
+        merged = pet_context_facts.format_stall_notes([
+            ('storyboard', 12, 3, 40),
+            ('keyframe', 15, 2, 10),
+        ])
+        self.assertTrue(merged.startswith('【阶段停滞】'))
+        self.assertNotIn('\n', merged)
+        for token in ('2 个阶段', '03 初步分镜', '12 分钟', '3/40', '08 首帧管理', '15 分钟', '2/10', '要我看看吗？'):
+            self.assertIn(token, merged)
+
 
 class StallVoiceTests(PetTestCase):
     """停滞提醒的三虎侧接线：文案、免打扰只记账、心跳每 200 拍问一次。"""
@@ -1200,6 +1242,42 @@ class StallVoiceTests(PetTestCase):
         for _ in range(200):
             self.pet.pump(at=self.now)
         self.assertEqual(self.pet.cloud().transcript().count('停滞'), said, '同一波不重播')
+
+    def test_stall_watch_merges_multiple_stalled_stages_into_one_note(self):
+        """多个阶段同时卡住：合并为一条停滞提醒列出全部阶段，且经 broadcaster 播报不报错。"""
+        self.pet.machine.start('storyboard')
+        self.pet.machine.detail('storyboard', 3, 40)
+        self.pet.machine.start('keyframe')
+        self.pet.machine.detail('keyframe', 2, 10)
+        self.assertEqual(self.pet.stall_note(at=self.now), '')
+        self.now += 660
+        note = self.pet.stall_note(at=self.now)
+        self.assertTrue(note.startswith('【阶段停滞】'))
+        for token in ('2 个阶段', '03 初步分镜', '3/40', '08 首帧管理', '2/10', '11 分钟'):
+            self.assertIn(token, note)
+        self.assertEqual(self.pet.stall_note(at=self.now + 120), '', '同一波不重复播报')
+        announced = self.pet.announce(note)
+        self.assertTrue(announced)
+        self.assertEqual(self.pet.errors, [])
+        transcript = self.pet.cloud().transcript()
+        self.assertIn('03 初步分镜', transcript)
+        self.assertIn('08 首帧管理', transcript)
+
+    def test_stall_watch_snooze_merges_multiple_stalled_stages_after_expiry(self):
+        """免打扰结束后，多个同时卡住的阶段合并补报为一条。"""
+        self.pet.machine.start('storyboard')
+        self.pet.machine.detail('storyboard', 3, 40)
+        self.pet.machine.start('keyframe')
+        self.pet.machine.detail('keyframe', 2, 10)
+        self.pet.stall_note(at=self.now)
+        self.now += 660
+        self.pet.snooze(600)
+        self.assertEqual(self.pet.stall_note(at=self.now), '', '免打扰里不播')
+        self.now += 601
+        note = self.pet.stall_note(at=self.now)
+        self.assertIn('03 初步分镜', note)
+        self.assertIn('08 首帧管理', note)
+        self.assertEqual(self.pet.stall_note(at=self.now + 60), '', '补报后同一波不重报')
 
 
 if __name__ == '__main__':

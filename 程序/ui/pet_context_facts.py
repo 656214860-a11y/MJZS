@@ -28,10 +28,10 @@ class StallWatch:
         self.seconds = float(seconds)
         self.seen = {}                   # stage → [最近 done, 上次变化钟点, 已命中]
 
-    def sample(self, stages, at=None):
-        """喂一遍阶段表；有满时限的停滞返回 (stage, 分钟数, done, total)，否则 None。"""
+    def sample_all(self, stages, at=None):
+        """喂一遍阶段表；返回所有满时限停滞的 (stage, 分钟数, done, total) 列表。"""
         now = float(self.clock() if at is None else at)
-        hit = None
+        hits = []
         for stage, entry in (stages or {}).items():
             state = str((entry or {}).get('state') or '')
             detail = (entry or {}).get('detail')
@@ -50,18 +50,37 @@ class StallWatch:
             if record[2] or now - record[1] < self.seconds:
                 continue
             record[2] = True
-            if hit is None:
-                hit = (stage, int((now - record[1]) // 60), done, total)
+            hits.append((stage, int((now - record[1]) // 60), done, total))
         for stage in list(self.seen):
             if stage not in (stages or {}):
                 self.seen.pop(stage, None)
-        return hit
+        return hits
+
+    def sample(self, stages, at=None):
+        """喂一遍阶段表；有满时限的停滞返回首个 (stage, 分钟数, done, total)，否则 None。"""
+        hits = self.sample_all(stages, at=at)
+        return hits[0] if hits else None
 
 
 def format_stall_note(stage, minutes, done, total):
     """停滞提醒的人话：哪一步、卡了多久、完成到哪儿（只问一句，不动手）。"""
     return '【阶段停滞】「%s」已经在跑 %d 分钟没有新进度（完成 %d/%d），要我看看吗？' % (
         pet_bus.stage_label(stage), int(minutes), int(done), int(total))
+
+
+def format_stall_notes(hits):
+    """一条或多条停滞合并成一句提醒：单阶段沿用原句式，多阶段列出全部阶段。"""
+    items = list(hits or ())
+    if not items:
+        return ''
+    if len(items) == 1:
+        return format_stall_note(*items[0])
+    parts = [
+        '「%s」已跑 %d 分钟（完成 %d/%d）' % (
+            pet_bus.stage_label(stage), int(minutes), int(done), int(total))
+        for stage, minutes, done, total in items
+    ]
+    return '【阶段停滞】有 %d 个阶段没有新进度：%s，要我看看吗？' % (len(parts), '；'.join(parts))
 
 
 def stall_note(voice, at=None):
@@ -75,8 +94,8 @@ def stall_note(voice, at=None):
         if watch is None or getattr(voice, '_stall_machine', None) is not machine:
             watch = voice._stall_watch = StallWatch()
             voice._stall_machine = machine
-        hit = watch.sample(stages, at=at)
-        return format_stall_note(*hit) if hit else ''
+        hits = watch.sample_all(stages, at=at)
+        return format_stall_notes(hits)
     except Exception as exc:
         errors = getattr(voice, 'errors', None)
         if errors is not None:
