@@ -61,7 +61,18 @@ k32.CloseHandle.argtypes = [wintypes.HANDLE]
 k32.SetHandleInformation.argtypes = [wintypes.HANDLE, wintypes.DWORD, wintypes.DWORD]
 
 
+def _configure_stdio_utf8():
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError, TypeError):
+            pass
+
+
 def main(argv):
+    _configure_stdio_utf8()
     if argv[1:2] == ['--probe']:
         name = "manju_probe_" + uuid.uuid4().hex[:8]
         desktop = u32.CreateDesktopW(name, None, None, 0, GENERIC_ALL, None)
@@ -95,8 +106,22 @@ def main(argv):
     si.hStdInput, si.hStdOutput, si.hStdError = nul_handle, handle, handle
     pi = PROCESS_INFORMATION()
     cmdline = ctypes.create_unicode_buffer(subprocess.list2cmdline(cmd))
-    ok = k32.CreateProcessW(None, cmdline, None, None, True, CREATE_UNICODE_ENVIRONMENT, None, cwd,
-                            ctypes.byref(si), ctypes.byref(pi))
+    prev_io = os.environ.get("PYTHONIOENCODING")
+    prev_utf8 = os.environ.get("PYTHONUTF8")
+    os.environ["PYTHONIOENCODING"] = "utf-8"
+    os.environ["PYTHONUTF8"] = "1"
+    try:
+        ok = k32.CreateProcessW(None, cmdline, None, None, True, CREATE_UNICODE_ENVIRONMENT, None, cwd,
+                                ctypes.byref(si), ctypes.byref(pi))
+    finally:
+        if prev_io is None:
+            os.environ.pop("PYTHONIOENCODING", None)
+        else:
+            os.environ["PYTHONIOENCODING"] = prev_io
+        if prev_utf8 is None:
+            os.environ.pop("PYTHONUTF8", None)
+        else:
+            os.environ["PYTHONUTF8"] = prev_utf8
     if not ok:
         print("CreateProcess 失败", ctypes.get_last_error())
         u32.CloseDesktop(desktop)

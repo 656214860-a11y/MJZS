@@ -35,11 +35,32 @@ from pathlib import Path
 def _configure_console_utf8():
     """让 Windows 的 GBK 终端也能显示冒烟测试使用的状态符号。"""
     for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
         try:
             # 门禁会运行数分钟；即使调用端把 stdout 重定向到日志或 IDE 管道，也必须逐行可见。
             stream.reconfigure(encoding='utf-8', errors='replace', line_buffering=True)
-        except (AttributeError, OSError):
+        except (AttributeError, OSError, ValueError, TypeError):
             pass
+
+
+def _safe_write(text, stream=None, flush=False):
+    """安全写入输出流：流不支持 UTF-8 且无法 reconfigure 时按 replace 降级。"""
+    target = sys.stdout if stream is None else stream
+    if target is None:
+        return
+    content = str(text)
+    try:
+        target.write(content)
+    except UnicodeEncodeError:
+        encoding = getattr(target, 'encoding', None) or 'utf-8'
+        target.write(content.encode(encoding, errors='replace').decode(encoding, errors='replace'))
+    if flush:
+        target.flush()
+
+
+def _safe_print(text='', stream=None, flush=False):
+    _safe_write(str(text) + '\n', stream=stream, flush=flush)
 
 
 _configure_console_utf8()
@@ -59,10 +80,10 @@ def check(condition, msg):
     """记一条结果。"""
     global PASS, FAIL
     if condition:
-        print('✅ ' + msg)
+        _safe_print('✅ ' + msg)
         PASS += 1
     else:
-        print('❌ ' + msg)
+        _safe_print('❌ ' + msg)
         FAIL += 1
         FAILED_ITEMS.append(msg)
 
@@ -563,10 +584,11 @@ def check_the_gate(full, safe=False, affected=(), visible=False):
     started = time.perf_counter()
     code, note = -1, ''
     offset = 0
+    gate_env = dict(os.environ, PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
     try:
         with open(log, 'w', encoding='utf-8', errors='replace') as sink:
             process = subprocess.Popen(cmd, cwd=str(HERE), stdout=sink,
-                                       stderr=subprocess.STDOUT)
+                                       stderr=subprocess.STDOUT, env=gate_env)
         while process.poll() is None:
             if time.perf_counter() - started > GATE_TIMEOUT:
                 process.terminate()
@@ -582,7 +604,7 @@ def check_the_gate(full, safe=False, affected=(), visible=False):
                     fresh = source.read()
                     offset = source.tell()
                 for line in fresh.splitlines():
-                    print('    ' + line.rstrip())
+                    _safe_print('    ' + line.rstrip())
             except OSError:
                 pass
             time.sleep(0.25)
@@ -596,7 +618,7 @@ def check_the_gate(full, safe=False, affected=(), visible=False):
     except OSError:
         tail = []
     for line in tail:
-        print('    ' + line.rstrip())
+        _safe_print('    ' + line.rstrip())
     try:
         log.unlink()
     except OSError:
@@ -640,6 +662,7 @@ def _probe_hidden_desktop():
 
 def _smoke_hidden(args):
     """把冒烟自身重新拉起在隐藏桌面上运行；隐藏桌面不可用即中止（退出码 3），绝不直跑。"""
+    _configure_console_utf8()
     helper = HERE / 'scripts' / 'gui_hidden.py'
     if not helper.is_file():
         print('[隐藏桌面] scripts/gui_hidden.py 缺失：拒绝在可见桌面运行含 Tk 的冒烟检查。')
@@ -649,19 +672,20 @@ def _smoke_hidden(args):
         log.parent.mkdir(parents=True, exist_ok=True)
     except OSError:
         pass
-    env = dict(os.environ, DRAMA_HIDDEN_DESKTOP='1')
+    env = dict(os.environ, DRAMA_HIDDEN_DESKTOP='1', PYTHONIOENCODING='utf-8', PYTHONUTF8='1')
     print('[隐藏桌面] 本轮冒烟含 Tk 检查，整轮迁到隐藏桌面运行（日志 %s）' % log, flush=True)
     result = subprocess.run([sys.executable, '-B', str(helper), str(log), str(HERE), '--',
                              sys.executable, '-B', 'smoke_test.py'] + args, env=env)
     if log.is_file():
         try:
-            sys.stdout.write(log.read_text(encoding='utf-8', errors='replace'))
+            _safe_write(log.read_text(encoding='utf-8', errors='replace'))
         except OSError:
             pass
     return result.returncode
 
 
 def main(argv=None):
+    _configure_console_utf8()
     # 自检子进程继承：通知分发器不弹系统模态框，避免无人值守时卡住（见 ui_widgets.SUPPRESS_MODAL_ENV）。
     os.environ.setdefault("DRAMA_SUPPRESS_MODAL", "1")
     os.environ.setdefault("DRAMA_SUPPRESS_TRAY", "1")
@@ -773,12 +797,12 @@ def main(argv=None):
     print('失败：%d 项' % FAIL)
     print('=' * 50)
     if FAIL:
-        print('\n❌ 未通过的检查项：')
+        _safe_print('\n❌ 未通过的检查项：')
         for item in FAILED_ITEMS:
-            print('  - ' + item)
-        print('\n冒烟测试未通过，请修复后再进入下一轮')
+            _safe_print('  - ' + item)
+        _safe_print('\n冒烟测试未通过，请修复后再进入下一轮')
         return 1
-    print('\n✅ 冒烟测试通过，可以进入下一轮')
+    _safe_print('\n✅ 冒烟测试通过，可以进入下一轮')
     return 0
 
 

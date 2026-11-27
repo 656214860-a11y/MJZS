@@ -54,6 +54,8 @@ import selftest_receipts as receipts
 import selftest_scheduling as scheduling
 import selftest_reporting as reporting
 
+env.configure_utf8_stdio()
+
 # 兼容面：既有消费者与测试仍从 run_selftests 读取全部公开名。
 from selftest_env import (
     SKIP,
@@ -217,6 +219,7 @@ def _scope_has_tk(names):
 
 def _run_hidden(argv):
     """把本进程同参数重新拉起在隐藏桌面上运行；隐藏桌面不可用即中止（退出码 3），绝不直跑。"""
+    env.configure_utf8_stdio()
     helper = os.path.join(HERE, 'scripts', 'gui_hidden.py')
     if not os.path.isfile(helper):
         print('[隐藏桌面] scripts/gui_hidden.py 缺失：拒绝在可见桌面运行含 Tk 的测试。')
@@ -226,14 +229,14 @@ def _run_hidden(argv):
         os.makedirs(os.path.dirname(log), exist_ok=True)
     except OSError:
         pass
-    env = dict(os.environ, DRAMA_HIDDEN_DESKTOP='1')
+    child_env = env.utf8_subprocess_env(DRAMA_HIDDEN_DESKTOP='1')
     print('[隐藏桌面] 本轮含 Tk 测试，整轮迁到隐藏桌面运行（日志 %s）' % log, flush=True)
     result = subprocess.run([sys.executable, '-B', helper, log, HERE, '--',
-                             sys.executable, '-B', 'run_selftests.py'] + argv, env=env)
+                             sys.executable, '-B', 'run_selftests.py'] + argv, env=child_env)
     if os.path.isfile(log):
         try:
             with open(log, 'r', encoding='utf-8', errors='replace') as fh:
-                sys.stdout.write(fh.read())
+                env.safe_write(fh.read())
         except OSError:
             pass
     return result.returncode
@@ -290,6 +293,7 @@ def run_gui_under_token(gui, perf_gui, *, safe, serial, jobs, gui_jobs, gui_wait
 
 
 def main(argv=None):
+    env.configure_utf8_stdio()
     argv = list(sys.argv[1:] if argv is None else argv)
     raw_argv = list(argv)
     keys, jobs, serial, listing, whole = [], 0, False, False, False
@@ -469,8 +473,8 @@ def main(argv=None):
         else:
             print('实际跳过 0 条用例：本机没有任何登记位被跳过')
         for name, bad, detail in reds:
-            print('\n### %s（%d 条红）' % (name, len(bad)))
-            print(detail)
+            env.safe_print('\n### %s（%d 条红）' % (name, len(bad)))
+            env.safe_print(detail)
         if any('[SUSPECT_CONCURRENCY]' in item[6] for item in got if item[3]):
             print('[SUSPECT_CONCURRENCY] 红项发生时有其他 PID 持有 GUI 令牌；建议串行复跑。')
         if deferred:
