@@ -53,6 +53,7 @@ import selftest_discovery as discovery
 import selftest_receipts as receipts
 import selftest_scheduling as scheduling
 import selftest_reporting as reporting
+from selftest_perf_recheck import recheck_perf_reds
 
 # 兼容面：既有消费者与测试仍从 run_selftests 读取全部公开名。
 from selftest_env import (
@@ -441,6 +442,7 @@ def main(argv=None):
                 gui_wait=gui_wait, yield_between=full_safe, got=got)
         if perf_non_gui:
             got += run_safe_serial(perf_non_gui) if safe else run_serial(perf_non_gui)
+        got = recheck_perf_reds(got, perf, run_serial)
         elapsed = time.time() - started
         total = sum(item[2] for item in got)
         reds = [(item[1], item[3], item[4]) for item in got if item[3]]
