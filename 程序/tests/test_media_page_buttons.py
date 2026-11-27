@@ -36,9 +36,6 @@ from ui.desktop_page_registry import PAGE  # noqa: E402
 from ui.desktop_page_support import STAGE_ACTION_WIDTH  # noqa: E402
 from ui_widgets import DescriptionBlock  # noqa: E402
 
-# 04 页改版（REQ-S04-95…99）：页面常驻按钮收口到底栏发送键与右键菜单，
-# 生成可播放版本后只在页底出现三项确认与一颗「锁定」。
-
 # R4315（FIX-S11-E4）在「配音制作」行合法新增「停止逐句配音」；该行未列入
 # AUDIO_GROUPS 受检分组，故只同步按钮清单。
 AUDIO_BUTTONS = ('手动制作配音', '生成配音（TTS）', '逐句配音（分句）', '停止逐句配音',
@@ -177,7 +174,7 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
     def _assert_visible(self, widgets, label):
         canvas = self.desktop.canvas
         top = canvas.winfo_rooty()
-        bottom = top + canvas.winfo_height()
+        bottom = self.desktop.input_dock.winfo_rooty()
         for widget in widgets:
             name = str(widget.cget('text'))
             self.assertTrue(widget.winfo_ismapped(), '%s：「%s」应已映射' % (label, name))
@@ -221,20 +218,35 @@ class MediaPageButtonTests(media_fixtures._DesktopCase):
         (folder / MANIFEST).write_text(json.dumps(manifest, ensure_ascii=False), encoding='utf-8')
 
     def test_04_animatic_grouped_buttons_and_confirm_visible(self):
-        """04：少按钮布局——常驻按钮 ≤1、未生成时确认条隐藏；版本后三勾选＋「锁定」可见。"""
+        """S04 页顶五个入口常驻；有可播放版本时显示页底确认条。"""
         self._open('animatic')
-        self.assertLessEqual(len(self._buttons()), 1, '04 页常驻按钮应不超过一颗')
-        self.assertEqual([], [w for w in _walk(self.desktop.content) if isinstance(w, ttk.Checkbutton)],
-                         '04 页未生成版本时不应出现确认勾选')
+        generate, = [b for b in self._buttons() if b.cget('text') == '生成分镜预演']
+        controls = generate.master.pack_slaves()
+        self.assertEqual(len(controls), 5)
+        self.assertIsInstance(controls[1], ttk.Combobox)
+        self.assertEqual([w.cget('text') for w in controls if isinstance(w, ttk.Button)],
+                         ['生成分镜预演', '声音 ▾', '在剪映中打开', '预演设置'])
+        self.assertTrue(all(w.winfo_ismapped() for w in controls))
+        confirmations = {'已确认节奏', '已确认时长', '已确认对白同步'}
+        self.assertFalse(any(w.cget('text') in confirmations for w in _walk(self.desktop.content)
+                             if isinstance(w, ttk.Checkbutton)))
+        self.assertFalse(any(isinstance(w, ttk.Button) and w.cget('text') == '锁定'
+                             and w.winfo_ismapped() for w in _walk(self.desktop.stage_area)))
         self._write_animatic_bundle()
         self._open('animatic')
         self.win.geometry('880x600+0+0')
         tk_test_support.pump(self.win, .8)
-        locks = [b for b in self._buttons() if str(b.cget('text')) == '锁定']
+        locks = [w for w in _walk(self.desktop.stage_area) if isinstance(w, ttk.Button)
+                 and w.cget('text') == '锁定' and w.winfo_ismapped()]
         self.assertEqual(1, len(locks), '04 页应有且只有一颗「锁定」')
-        checks = [w for w in _walk(self.desktop.content) if isinstance(w, ttk.Checkbutton)]
-        self.assertEqual(3, len(checks), '04 页应有三个确认勾选')
+        checks = [w for w in locks[0].master.winfo_children() if isinstance(w, ttk.Checkbutton)]
+        self.assertCountEqual([w.cget('text') for w in checks], confirmations)
         self._assert_visible(locks + checks, '04 分镜预演 880×600')
+        self.desktop.canvas.yview_moveto(1.0)
+        self.win.update_idletasks()
+        self._assert_visible(locks + checks, '04 分镜预演滚动后')
+        self._open('audio')
+        self.assertFalse(locks[0].winfo_exists() and locks[0].winfo_ismapped())
 
     def test_11_audio_buttons_standard_and_grouped(self):
         """11：7 个整行宽按钮改标准宽度，按三组分行，行首有组名。"""
