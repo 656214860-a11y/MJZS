@@ -238,6 +238,47 @@ class SharedInputLayoutTests(unittest.TestCase):
             self.win.update()
             self.assertFalse(box.candidates.open, '其他阶段页 @ 不弹菜单')
 
+    def test_mention_shows_generated_script_reports_and_invalidates_cache(self):
+        """自然剧本页生成大纲／设定／角色卡报告后，输入 @ 显示对应报告候选，按类型或文件名过滤并可采纳为附件参考。"""
+        from infra import file_index
+        recorded = []
+        s01 = self.root / '01剧本准备'
+        setting = s01 / '项目设定' / '样例_项目设定_DeepSeek_20261127.md'
+        outline = s01 / '项目大纲' / '样例_项目大纲_DeepSeek_20261127.md'
+        for path, body in ((setting, '# 项目设定\n都市雨夜'), (outline, '# 项目大纲\n第一集')):
+            path.parent.mkdir(parents=True, exist_ok=True)
+            path.write_text(body, encoding='utf-8')
+        box = self._make(stage='script')
+        box.desktop.idea_chat_controller = SimpleNamespace(
+            add_attachment=lambda value: recorded.append(value))
+        box.set_text('@')
+        self._caret_end(box)
+        box._on_key_release(SimpleNamespace(keysym='@'))
+        self.win.update()
+        self.assertTrue(box.candidates.open)
+        badges = {entry['badge'] for entry in box.candidates.entries}
+        self.assertTrue({'项目设定', '项目大纲'} <= badges, badges)
+        # 按报告标签关键字过滤并采纳
+        box.set_text('@大纲')
+        self._caret_end(box)
+        box._on_key_release(SimpleNamespace(keysym='g'))
+        self.win.update()
+        self.assertEqual([e['name'] for e in box.candidates.entries], [outline.name])
+        box._apply_candidate(box.candidates.entries[0])
+        self.assertEqual(box.input.get('1.0', 'end-1c'), '@' + outline.name + ' ')
+        self.assertEqual(recorded, [str(outline)])
+        # 新生成角色卡报告并经索引更新后，@ 缓存自动失效并立刻可见新报告
+        role = s01 / '角色卡' / '样例_角色卡_DeepSeek_20261127.md'
+        role.parent.mkdir(parents=True, exist_ok=True)
+        role.write_text('# 角色卡\n林默', encoding='utf-8')
+        file_index.update(self.root, [role])
+        box.set_text('@角色卡')
+        self._caret_end(box)
+        box._on_key_release(SimpleNamespace(keysym='k'))
+        self.win.update()
+        self.assertTrue(box.candidates.open)
+        self.assertEqual([e['name'] for e in box.candidates.entries], [role.name])
+
     def test_send_blocked_when_upstream_blank(self):
         box = self._make(stage='continuity')
         box.set_text('帮我整理连贯性')

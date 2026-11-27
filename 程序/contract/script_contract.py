@@ -301,15 +301,21 @@ def episode_reference_block(text, ledger=None):
 
 
 def script_baseline_path(project):
-    """当前自然剧本基准文件：优先采用版本，其次最新自然剧本，最后内部工作稿。
+    """当前自然剧本基准文件。
 
-    用户手改自然剧本会让采用台账的哈希失效，因此这里不把采用台账当唯一依据，
-    只取「最新一份可见自然剧本」；都读不到时返回 None。
+    已有采用／定稿记录时，只认那一份：内容被手改导致哈希失效时返回 None，
+    不得改用另一份更新的草稿。没有采用记录时，才回退到唯一自然剧本或内部工作稿。
     """
+    try:
+        has_selection = natural_script_selection_path(project).is_file()
+    except OSError:
+        has_selection = False
     try:
         source = resolve_script_source(project)
     except (OSError, ValueError):
         source = None
+    if has_selection:
+        return source if source is not None and source.is_file() else None
     candidates = [source] if source is not None else []
     try:
         candidates.extend(natural_script_paths(project))

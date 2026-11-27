@@ -117,7 +117,8 @@ class DownloadImportTests(unittest.TestCase):
         imported = self._import()
         self.assertEqual([kind for kind, _path in imported], ['项目大纲'])
         self.assertEqual(imported[0][1].parent.name, '项目大纲')
-        self.assertEqual(imported[0][1].parents[2].name, 'Claude Desktop')
+        # 契约变更：01剧本准备已扁平化，不再按供应商/模型分目录。
+        self.assertEqual(imported[0][1].parents[1].name, '01剧本准备')
 
     def test_download_dated_after_existing_outline_is_saved_as_new_file(self):
         """REQ-S01-68：下载件日期比已有大纲新时另存为新文件，旧大纲保留。"""
@@ -129,7 +130,9 @@ class DownloadImportTests(unittest.TestCase):
         saved = imported[0][1]
         self.assertNotEqual(saved, old)
         self.assertEqual(saved.name, '摄影侠_项目大纲_Anthropic_' + later + '.md')
-        self.assertEqual(saved.parents[1].name, '创意_' + later)
+        # 契约变更：新日期版本直接落在 01剧本准备/项目大纲/ 下，靠文件名日期区分，不再建 创意_<日期> 子目录。
+        self.assertEqual(saved.parent.name, '项目大纲')
+        self.assertEqual(saved.parents[1].name, '01剧本准备')
         self.assertEqual(saved.read_text(encoding='utf-8').strip(), OUTLINE_NEW.strip())
         self.assertEqual(old.read_text(encoding='utf-8').strip(), OUTLINE_OLD.strip(), '旧日期版本保留')
         self.assertEqual(self._import(), [], '再次刷新不重复导入')
@@ -193,7 +196,8 @@ class BodyNamedDownloadImportTests(unittest.TestCase):
         self.assertEqual([kind for kind, _path in imported], ['项目设定'])
         saved = imported[0][1]
         self.assertEqual(saved.parent.name, '项目设定')
-        self.assertEqual(saved.parents[2].name, 'Gemini Desktop')
+        # 契约变更：扁平化后直接落在 01剧本准备/项目设定/。
+        self.assertEqual(saved.parents[1].name, '01剧本准备')
         self.assertEqual(saved.read_text(encoding='utf-8').strip(), SETTING.strip())
         self.assertTrue(source.is_file(), '下载原件保持不动')
 

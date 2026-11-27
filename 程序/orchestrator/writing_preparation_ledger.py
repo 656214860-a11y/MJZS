@@ -156,7 +156,7 @@ def _preparation_work_index(documents, message):
     默认优先处理阶段序里最早的未确认草稿（REQ-S01-89：继续手头稿件），
     没有草稿时取 PREPARATION_STAGES 顺序里第一个尚无已确认记录的阶段；
     三阶段全部确认才返回 len(PREPARATION_STAGES) 进入自然剧本。
-    点名别的阶段仍按点名走。"""
+    点名别的阶段仍按点名走，不要求更早的阶段已经确认。"""
     drafts = sorted((doc for doc in documents
                      if isinstance(doc, dict) and doc.get('confirmed') is not True
                      and _document_stage_index(doc) is not None),
@@ -172,8 +172,6 @@ def _preparation_work_index(documents, message):
     lead = first.casefold().startswith(_PREPARATION_ADVANCE_LEAD)
     stage = None if lead else _preparation_stage_alias(first)
     if lead or stage is None:
-        # 「确认，输出角色卡」一类：确认词领衔时点名是交给模型的推进请求，
-        # 不做草稿路由（REQ-S01-89；确认与推进由模型语义判定）。
         return default
     position = PREPARATION_STAGES.index(stage)
     _slot, document = _document_for_stage(documents, stage)
@@ -216,13 +214,12 @@ def _preparation_document(text, title):
     if len(headings) != 1 or headings[0].group(1).strip() != title:
         return ''
     document = text[headings[0].start():]
-    if document.endswith('待确认'):
+    if document.rstrip().endswith('待确认'):
         return document
-    # 保留尾节里的问题与确认说明，只补统一结束标记；不凭空推断缺失标记。
     sections = list(re.finditer(r'^#{2,6} (.+)$', document, re.MULTILINE))
     if sections and sections[-1].group(1).strip() == '待确认':
         return document + '\n\n待确认'
-    return ''
+    return document
 
 
 def _select_preparation_document(raw, titles, index, next_index):
@@ -401,7 +398,7 @@ def preparation_reply_state(result):
                 'next_step': '这是已发布的正式剧本文件；如需定为本集当前采用稿，请在剧本列表中确认采用。'}
     if state == '阶段稿待确认':
         return {'state': state, 'file': str(result.get('preparation_path') or ''), 'reason': reason,
-                'next_step': '这是待确认的阶段工作稿，尚未正式采用；审阅后回复“确认”推进下一阶段，需要修改请直接说明。'}
+                'next_step': '这是已保存的阶段草稿，尚未定稿；要作为下一阶段的唯一来源，请在项目文件中把该文件设为定稿。'}
     if state == '原始响应已保存':
         return {'state': state, 'file': str(result.get('response_path') or ''), 'reason': reason,
                 'next_step': '本次回复只作为未采用归档保存，不会自动采用；请修正后重新发送本阶段。'}
@@ -421,7 +418,7 @@ def preparation_reply_message(result):
         return '已采用为正式剧本：' + info['file'] + '；' + info['next_step']
     if state == '阶段稿待确认':
         stage = str(result.get('preparation_stage') or '阶段稿')
-        return stage + '已保存（待确认，尚未正式采用）：' + info['file'] + '；' + info['next_step']
+        return stage + '已保存为草稿：' + info['file'] + '；' + info['next_step']
     if state == '原始响应已保存':
         detail = '（' + info['reason'] + '）' if info['reason'] else ''
         return ('原始响应已保存为未采用归档' + detail + '：' + info['file']

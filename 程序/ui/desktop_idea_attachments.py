@@ -142,10 +142,10 @@ class IdeaAttachmentsMixin:
         except (tk.TclError,ValueError,TypeError,AttributeError):return None
         if not text.startswith('@') or not text[1:]:return None
         name=text[1:]
-        from stage_execution_service import stage_idea_attachment_paths
+        from stage_execution_service import stage_idea_mention_candidates
         from domain.idea_attachments import display_name
         seen=set()
-        candidates=list(stage_idea_attachment_paths(self.root))+[Path(p) for p in getattr(self,'idea_attachment_paths',())]
+        candidates=[Path(item['path']) for item in stage_idea_mention_candidates(self.root) if item.get('path')]+[Path(p) for p in getattr(self,'idea_attachment_paths',())]
         for path in candidates:
             key=str(path)
             if key in seen:continue

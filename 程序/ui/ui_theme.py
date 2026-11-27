@@ -92,6 +92,20 @@ def apply(win):
     s.configure('CardHeading.TLabel',background=COLORS['background_primary'],foreground=COLORS['text_primary'],font=FONTS['body_bold'])
     s.configure('SkillDesc.TLabel',background=COLORS['background_card'],foreground=COLORS['text_muted'],font=FONTS['pet_body'])
     s.configure('SkillDescHover.TLabel',background=COLORS['surface_hover'],foreground=COLORS['text_secondary'],font=FONTS['pet_body'])
+    s.configure('MenuCard.TFrame', background=COLORS['background_card'],
+                bordercolor=COLORS['border_input_hover'], relief='solid', borderwidth=1)
+    s.configure('MenuItem.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_primary'], font=FONTS['body'],
+                padding=(SPACING['md'], SPACING['xs']))
+    s.configure('MenuItemHover.TLabel', background=COLORS['surface_hover'],
+                foreground=COLORS['text_primary'], font=FONTS['body'],
+                padding=(SPACING['md'], SPACING['xs']))
+    s.configure('MenuItemActive.TLabel', background=COLORS['selection_bg'],
+                foreground=COLORS['selection_text'], font=FONTS['body_bold'],
+                padding=(SPACING['md'], SPACING['xs']))
+    s.configure('MenuItemMuted.TLabel', background=COLORS['background_card'],
+                foreground=COLORS['text_muted'], font=FONTS['hint'],
+                padding=(SPACING['md'], SPACING['xs']))
     s.configure('Warn.TLabel',foreground=COLORS['warning_text'])
     s.configure('Expired.TLabel',foreground=COLORS['danger_text'])
     # 各设置页会随操作变化的说明统一用这一档：柔和高级灰雾底区别于静态说明，

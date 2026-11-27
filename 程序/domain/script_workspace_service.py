@@ -184,12 +184,17 @@ def iter_script_documents(project):
     draft = _find_draft(writing_dir, writing_root)
     yield from _uploaded_idea_documents(writing_dir, writing_root)
     creative_batches = _creative_batches(writing_dir)
+    seen = set()
     for category, directory in SCRIPT_CATEGORIES.items():
-        for batch in creative_batches:
-            folder = batch / directory
-            if not folder.is_dir() or not folder.parent.name.startswith('创意_'):
+        # 新扁平布局：01剧本准备/<分类>/；兼容保留旧 创意_* / Provider/Model/创意_* 批次。
+        folders = [writing_dir / directory] + [batch / directory for batch in creative_batches]
+        for folder in folders:
+            if not folder.is_dir():
                 continue
-            yield from _batch_folder_documents(category, folder, writing_dir, writing_root, draft)
+            for doc in _batch_folder_documents(category, folder, writing_dir, writing_root, draft):
+                if doc.relative_path not in seen:
+                    seen.add(doc.relative_path)
+                    yield doc
     if draft['document'] is not None:
         yield draft['document']
 

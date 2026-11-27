@@ -138,16 +138,18 @@ class FilesPanelTests(unittest.TestCase):
         self.assertGreaterEqual(d.canvas.winfo_width(), width_before - 2, '收起后画布恢复')
 
     def test_collapse_button_outside_press_and_escape(self):
-        """收起钮、面板外左键、Esc 三条关闭路径；面板内按下不收起。"""
+        """右箭头收起钮已删除；再点项目文件图标、面板外左键、Esc 三条关闭路径有效，面板内按下不收起。"""
         d = self.desktop
+        self.assertFalse(hasattr(d, 'script_toggle'), '右侧右箭头按钮已删除')
+        self.assertFalse(hasattr(d.files_panel, 'script_toggle'), '面板内右箭头按钮已删除')
         d.show(PAGE['script']); self.pump(.2)
         d.files_panel.open_panel(); self.pump(.1)
         self.assertTrue(d.files_panel._open)
         d.script_tree.event_generate('<Button-1>', x=5, y=5)
         self.pump(.05)
         self.assertTrue(d.files_panel._open, '面板内按下不收起')
-        d.script_toggle.invoke(); self.pump(.05)
-        self.assertFalse(d.files_panel._open, '面板收起钮收起')
+        d.files_button.invoke(); self.pump(.05)
+        self.assertFalse(d.files_panel._open, '再点项目文件图标收起')
         d.files_panel.open_panel(); self.pump(.1)
         d.canvas.event_generate('<Button-1>', x=20, y=20); d.win.update()
         self.pump(.05)
@@ -159,6 +161,109 @@ class FilesPanelTests(unittest.TestCase):
         d.win.update()
         self.pump(.5)
         self.assertFalse(d.files_panel._open, 'Esc 收起')
+
+    def test_import_icon_sits_below_project_files_icon_in_rail(self):
+        """导入文件图标位于最右图标列「项目文件」图标正下方，且随项目与页面显隐同步。"""
+        d = self.desktop
+        panel = d.files_panel
+        d.show(PAGE['script']); self.pump(.15)
+        self.assertEqual(str(panel.import_button.winfo_parent()), str(panel.rail))
+        self.assertTrue(panel.import_button.winfo_ismapped(), '有项目时导入图标可见')
+        self.assertGreater(panel.import_button.winfo_rooty(), panel.button.winfo_rooty(),
+                           '导入图标应位于「项目文件」图标下方')
+        self.assertLessEqual(abs(panel.import_button.winfo_rootx() - panel.button.winfo_rootx()), 2,
+                             '两个图标在同一垂直图标列对齐')
+        d.show(PAGE_ACCOUNT); self.pump(.1)
+        self.assertNotEqual(str(panel.import_button.winfo_manager()), 'pack', '会员页隐藏导入图标')
+        d.show(PAGE['script']); self.pump(.1)
+        self.assertEqual(str(panel.import_button.winfo_manager()), 'pack', '切回生产页恢复导入图标')
+
+    def test_single_row_search_group_card_header_sort_and_kind_override(self):
+        """半宽搜索框与分组同行、六列顺序、可排序表头、阶段三角图标、二级目录卡、改类型与自动刷新。"""
+        from infra import file_index
+        d = self.desktop
+        panel = d.files_panel
+        d.show(PAGE['script']); self.pump(.2)
+        panel.open_panel()
+        deadline = time.monotonic() + 5
+        while time.monotonic() < deadline and len(self.file_items()) < 4:
+            self.pump(.05)
+        # 1. 已移除旧控件：无刷新按钮、全部类型框、全部状态框、排序框、右箭头按钮
+        for removed in ('index_refresh_button', 'kind_box', 'status_box', 'sort_box', 'script_toggle'):
+            self.assertFalse(hasattr(panel, removed), removed + ' 应已删除')
+        # 2. 搜索框与分组按钮同行，搜索框占筛选条约一半宽度，默认显示「搜索文件」占位提示
+        self.assertEqual(panel.keyword_entry._placeholder, '搜索文件')
+        self.assertEqual(panel.keyword_var.get(), '')
+        self.assertLessEqual(abs(panel.keyword_entry.winfo_rooty() - panel.group_button.winfo_rooty()), 8,
+                             '搜索框与分组下拉应在同一行')
+        bar_w = panel.filter_bar.winfo_width()
+        entry_w = panel.keyword_entry.winfo_width()
+        self.assertGreater(entry_w, 0)
+        self.assertLessEqual(entry_w, bar_w * 0.62, '搜索框默认约占停靠面板一半宽度')
+        # 3. 6 列顺序与时间列格式（YYYY-MM-DD，不含时分秒）
+        tree = panel.script_tree
+        self.assertEqual(tuple(tree['columns']), ('name', 'status', 'kind', 'mtime', 'size', 'meta'))
+        first_item = self.file_items()[0]
+        vals = tree.item(first_item, 'values')
+        self.assertEqual(len(vals), 6)
+        self.assertRegex(vals[3], r'^\d{4}-\d{2}-\d{2}$', '时间列应省略时分秒')
+        # 4. 表头排序：状态/类型/时间/大小可排序，文件名与时长／分辨率不可排序
+        for sortable in ('status', 'kind', 'mtime', 'size'):
+            self.assertTrue(str(tree.heading(sortable, 'command')), sortable + ' 应可点击排序')
+        for unsortable in ('name', 'meta'):
+            self.assertEqual(str(tree.heading(unsortable, 'command')), '', unsortable + ' 不应有排序命令')
+        panel.sort_by_column('size')
+        self.assertEqual(panel.sort_column, 'size')
+        self.assertTrue(panel.sort_desc)
+        panel.sort_by_column('size')
+        self.assertFalse(panel.sort_desc)
+        panel.sort_by_column('name')
+        self.assertEqual(panel.sort_column, 'size', '点击文件名不改变排序')
+        panel.sort_by_column('meta')
+        self.assertEqual(panel.sort_column, 'size', '点击时长／分辨率不改变排序')
+        # 5. 默认按类型分组，设定/大纲/角色卡归为「参考」，自然剧本归为「剧本」
+        top_groups = tuple(tree.get_children())
+        self.assertIn('kind-group:参考', top_groups)
+        self.assertIn('kind-group:剧本', top_groups)
+        # 6. 分组二级目录卡同步列出类型/阶段/状态/日期条目，选「阶段」时单阶段也显示三角图标
+        panel.group_menu.show()
+        self.pump(.1)
+        self.assertTrue(panel.group_menu.is_open())
+        stage_items = panel.group_menu.secondary_items('阶段')
+        self.assertTrue(any(label == '全部阶段' for label, _v, _c in stage_items))
+        status_items = panel.group_menu.secondary_items('状态')
+        self.assertEqual([label for label, _v, _c in status_items], ['全部状态', '定稿', '草稿', '归档'])
+        panel.group_menu.close()
+        panel.select_group_option('阶段', 'script')
+        self.pump(.3)
+        self.assertIn('tree', str(tree.cget('show')), '单阶段分组也应显示可折叠三角图标')
+        self.assertEqual(tree.get_children(), ('stage-group:script',))
+        # 7. 手动更改文件类型持久化并生效
+        panel.select_group_option('类型', None)
+        self.pump(.3)
+        target_item = next(i for i in self.file_items() if '角色卡_样例.md' in i)
+        panel.change_file_kind(target_item, '设定')
+        self.pump(.3)
+        self.assertEqual(panel.script_tree.set(target_item, 'kind'), '设定')
+        self.assertIn('kind-group:设定', panel.script_tree.get_children())
+        panel.change_file_kind(target_item, '')
+        self.pump(.3)
+        self.assertEqual(panel.script_tree.set(target_item, 'kind'), '参考')
+        # 8. 自动刷新：file_index.update 变更后无需手动刷新按钮即可自动同步面板
+        auto_file = project_stages.writing(self.project) / '项目大纲' / '自动刷新验证.md'
+        auto_file.parent.mkdir(parents=True, exist_ok=True)
+        auto_file.write_text('# 自动刷新', encoding='utf8')
+        try:
+            file_index.update(self.project, [auto_file])
+            deadline = time.monotonic() + 3
+            rel = auto_file.relative_to(self.project).as_posix()
+            while time.monotonic() < deadline and rel not in self.file_items():
+                self.pump(.05)
+            self.assertIn(rel, self.file_items(), '索引变更应自动刷新右侧面板')
+        finally:
+            auto_file.unlink(missing_ok=True)
+            file_index.update(self.project, [auto_file], removed=True)
+            panel.collapse(); self.pump(.1)
 
     def test_page_and_project_switch_reset_panel(self):
         """REQ-S01-94（R3191，D11）：切工作页保持打开；项目根变化收起并允许下次打开重扫。"""

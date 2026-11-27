@@ -87,6 +87,23 @@ class ScriptStructureTests(unittest.TestCase):
             first.unlink()
             self.assertIsNone(contract.resolve_script_source(root))
 
+    def test_adopted_natural_script_is_the_only_baseline(self):
+        """定稿之后，另一份更新的草稿不能成为结构阶段或续写基准。"""
+        from stage_execution_service import adopt_natural_script
+        with tempfile.TemporaryDirectory() as folder:
+            root = Path(folder)
+            adopted = root / '01剧本准备' / '甲' / '模型甲' / '创意_20261011' / '项目剧本' / '甲.md'
+            newer = root / '01剧本准备' / '乙' / '模型乙' / '创意_20261011' / '项目剧本' / '乙.md'
+            adopted.parent.mkdir(parents=True)
+            newer.parent.mkdir(parents=True)
+            adopted.write_text(RAW, encoding='utf-8')
+            newer.write_text(RAW + '\n另一版结尾。', encoding='utf-8')
+            adopt_natural_script(root, adopted)
+            newer.write_text(RAW + '\n再次更新的另一版。', encoding='utf-8')
+            self.assertEqual(contract.script_baseline_path(root), adopted)
+            adopted.write_text(RAW + '\n已修改采用版本。', encoding='utf-8')
+            self.assertIsNone(contract.script_baseline_path(root))
+
     def test_downloaded_script_from_preparation_is_used_when_script_raw_is_absent(self):
         with tempfile.TemporaryDirectory() as folder:
             root = Path(folder)

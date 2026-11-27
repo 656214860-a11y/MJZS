@@ -346,41 +346,30 @@ class _CandidateFlow(_MenuFlow):
             self.candidates.close()
 
     def _mention_entries(self, query):
-        """``@`` 候选（R2980）：仅剧本准备页，列已入库附件的显示名。
-
-        REQ-S01-107：入库清单按（项目, 阶段）缓存，连续按键不重复扫盘；
-        采纳登记新引用或切阶段时失效重取。"""
-        if self.stage != 'script':
+        """``@`` 候选：剧本准备页列已生成的项目大纲／设定／角色卡报告与已入库附档。"""
+        if self.stage != 'script' or self.project is None:
             return ()
-        project = self.project
-        if project is None:
-            return ()
-        key = (str(project), self.stage)
+        from infra import file_index
+        key = (str(self.project), self.stage, file_index.change_revision(self.project))
         cached = self._mention_cache
         if cached is None or cached[0] != key:
             try:
-                from stage_execution_service import stage_idea_attachment_paths
-                paths = tuple(stage_idea_attachment_paths(project))
+                from stage_execution_service import stage_idea_mention_candidates
+                items = tuple(stage_idea_mention_candidates(self.project))
             except Exception:
                 app_logging.swallowed()
                 return ()
-            self._mention_cache = (key, paths)
+            self._mention_cache = (key, items)
         needle = str(query or '').strip().lower()
         entries = []
-        try:
-            from domain.idea_attachments import display_name
-            for path in self._mention_cache[1]:
-                name = display_name(path)
-                if needle and needle not in name.lower():
-                    continue
-                entries.append({'kind': 'attachment', 'name': name,
-                                'label': '@' + name, 'path': Path(path),
-                                'hint': name})
-                if len(entries) >= 30:
-                    break
-        except Exception:
-            app_logging.swallowed()
-            return ()
+        for entry in self._mention_cache[1]:
+            name = str(entry.get('name') or '')
+            badge = str(entry.get('badge') or '')
+            if needle and needle not in name.lower() and needle not in badge.lower():
+                continue
+            entries.append(entry)
+            if len(entries) >= 30:
+                break
         return tuple(entries)
 
     def _token_index(self, offset):
@@ -418,7 +407,7 @@ class _CandidateFlow(_MenuFlow):
             self.close_completion()
             return
         kind = str(entry.get('kind') or '')
-        if kind == 'attachment' or token['kind'] == 'mention':
+        if kind == 'attachment' or kind.startswith('report') or token['kind'] == 'mention':
             self._apply_mention(entry, token)
             return
         insert = str(entry.get('insert') or '')

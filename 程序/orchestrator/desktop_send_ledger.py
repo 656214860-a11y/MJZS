@@ -89,15 +89,19 @@ def current_step(root, request_text=''):
 
 
 def _latest_document(root, name):
-    """本项目任一模型交付的该类最新文件（固定深度 Provider/模型/创意_日期/类型，不递归）；没有返回 None。"""
+    """本项目该类最新文件（优先扁平分类目录，兼容历史 创意_日期／Provider/模型/创意_日期）；没有返回 None。"""
     from domain.idea_document_paths import project_document_directory
     from contract.stage_path_service import write_dir
-    try:
-        found = [path for path in write_dir(root, 'script').glob(
-                 '*/*/创意_*/' + project_document_directory(name) + '/*.md') if path.is_file()]
-        return max(found, key=lambda path: path.stat().st_mtime) if found else None
-    except OSError:
-        return None
+    base = write_dir(root, 'script')
+    category = project_document_directory(name)
+    found = []
+    for pattern in (category + '/*.md', '创意_*/' + category + '/*.md',
+                    '*/*/创意_*/' + category + '/*.md'):
+        try:
+            found.extend(path for path in base.glob(pattern) if path.is_file())
+        except OSError:
+            continue
+    return max(found, key=lambda path: path.stat().st_mtime) if found else None
 
 
 def _material_path(root, name, confirmed, delivery):

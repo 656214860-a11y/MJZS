@@ -56,10 +56,21 @@ class FileIndexTests(unittest.TestCase):
         found = {row.path: row for row in file_index.rows(self.root)}
         script = found['01剧本准备/docs/测试项目_剧本_初稿_20261117.md']
         self.assertEqual((script.stage, script.kind), ('script', '剧本'))
-        self.assertEqual(found['01剧本准备/docs/角色设定.md'].kind, '设定')
+        # 契约变更：01剧本准备下的设定/大纲/角色卡与输入附件统一归为「参考」类型，自然剧本仍为「剧本」。
+        self.assertEqual(found['01剧本准备/docs/角色设定.md'].kind, '参考')
         self.assertEqual(found['05资产管理/assets/CHAR_001.png'].kind, '资产')
         self.assertEqual(found['11配音与字幕/音频/S01.wav'].kind, '音频')
         self.assertEqual(found['10视频生成/assets/EP001_SH001.mp4'].kind, '视频')
+
+    def test_task_attachment_is_reference_once(self) -> None:
+        """原文与转换稿不能按扩展名拆进「其他」和「报告」。"""
+        paths = (
+            '01剧本准备/输入/项目_原始附件_人物_20261127.xlsx',
+            '01剧本准备/输入/项目_附件文本_人物_20261127.md',
+            '02剧本结构/任务附件/说明.md',
+        )
+        self.assertEqual([file_index.kind_of(path) for path in paths], ['参考', '参考', '参考'])
+        self.assertEqual(file_index.kind_of('02剧本结构/结构剧本/正稿.md'), '报告')
 
     def test_size_and_mtime_come_from_disk(self) -> None:
         file_index.rebuild(self.root)
@@ -126,7 +137,8 @@ class FileIndexTests(unittest.TestCase):
 
     def test_kinds_lists_present_kinds_in_contract_order(self) -> None:
         file_index.rebuild(self.root)
-        self.assertEqual(file_index.kinds(self.root), ['剧本', '设定', '资产', '音频', '视频'])
+        # 契约变更：「参考」排在工作流类型首位。
+        self.assertEqual(file_index.kinds(self.root), ['参考', '剧本', '资产', '音频', '视频'])
 
     def test_update_adds_and_removes(self) -> None:
         file_index.rebuild(self.root)

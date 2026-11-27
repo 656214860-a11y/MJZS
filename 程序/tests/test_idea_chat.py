@@ -269,7 +269,8 @@ class SavingTests(unittest.TestCase):
                 ('自然剧本', '项目剧本'), ('自然剧本', '项目剧本')])
             for (_file_type, path), text in zip(added, texts.values()):
                 self.assertEqual(path.read_text(encoding='utf-8'), text.strip())
-                self.assertTrue(path.parent.parent.name.startswith('创意_'))
+                # 契约变更：01剧本准备已扁平化，文件直接落在 01剧本准备/<分类>/ 下。
+                self.assertEqual(path.parent.parent.name, '01剧本准备')
             self.assertEqual(status[-1], '已添加 设定 1 份、大纲 1 份、角色卡 1 份、剧本 2 份；'
                                          '未添加 分镜.json：只支持 txt、md、docx')
             page.refresh_script_list.assert_called_once()
@@ -449,13 +450,9 @@ class SavingTests(unittest.TestCase):
             writing_dir(td).mkdir(parents=True, exist_ok=True)
             reply = idea_chat.save_reply(td, '  模型写的纲要：第一集从旧底片开始。  ', publish=publish_idea_creative)
             self.assertEqual(reply.read_text(encoding='utf-8'), '模型写的纲要：第一集从旧底片开始。')
+            # 契约变更：01剧本准备扁平化，直接落在 01剧本准备/<分类>/，不再按 Provider/Model/创意_日期 嵌套。
             self.assertEqual(reply.parent.name, '项目大纲')
-            self.assertEqual(reply.parent.parent.name[:3], '创意_')
-            self.assertEqual(reply.parent.parent.parent.name, '未知模型')
-            self.assertEqual(reply.parent.parent.parent.parent.name, '未知Provider')
-            self.assertEqual(reply.parent.parent.parent.parent.parent, writing_dir(td))
-            self.assertEqual({path.name for path in reply.parent.parent.iterdir() if path.is_dir()},
-                             {'项目设定', '项目大纲', '角色卡', '项目剧本'})
+            self.assertEqual(reply.parent.parent, writing_dir(td))
             self.assertEqual(idea_chat.latest_reply(td), reply)
             with self.assertRaises(ValueError):
                 idea_chat.save_reply(td, '   ')
@@ -465,7 +462,7 @@ class SavingTests(unittest.TestCase):
             target = idea_chat.save_manual_creative(td, '阿远：我回来了', at=0, publish=publish_idea_creative)
             self.assertEqual(target.read_text(encoding='utf-8'), '阿远：我回来了')
             self.assertEqual(target.parent.name, '项目剧本')
-            self.assertEqual(target.parent.parent.name, '创意_19700101')
+            self.assertEqual(target.parent.parent.name, '01剧本准备')
             self.assertEqual(target.name,
                              script_contract.stage_file_name(td, '自然剧本', '手动创意', at=0))
 
@@ -479,7 +476,7 @@ class SavingTests(unittest.TestCase):
     def test_saved_creative_files_use_project_name_day_and_sequence_not_time(self):
         with tempfile.TemporaryDirectory() as td:
             reply = idea_chat.save_reply(td, '项目剧本：模型回复', at=0, publish=publish_idea_creative)
-            self.assertEqual(reply.parent.parent.name, '创意_19700101')
+            self.assertEqual(reply.parent.parent.name, '01剧本准备')
             self.assertEqual(reply.parent.name, '项目剧本')
             self.assertEqual(reply.name,
                              script_contract.stage_file_name(td, '自然剧本', '模型输出', at=0))
@@ -495,14 +492,14 @@ class SavingTests(unittest.TestCase):
 
     def test_saved_reply_uses_provider_and_model_subdirectories(self):
         import infra.model_pool as model_pool
-        # 隔离本机模型池：本用例断言的是内建 DeepSeek V4 Flash 的归属目录，不能被
-        # 用户自定义的「配置/宠物/配置.json」影响（与同文件其它用例同口径）。
+        # 契约变更：不再按供应商/模型建多层子目录，文件直接扁平落在 01剧本准备/<分类>/，供应商身份记在文件名中。
         self.enterContext(patch('model_pool.pool', return_value=model_pool.default_pool()))
         with tempfile.TemporaryDirectory() as td:
             reply = idea_chat.save_reply(td, '项目剧本：模型回复', at=0,
                                          provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
-            self.assertEqual(reply.parent.parent.parent.name, 'DeepSeek V4 Flash')
-            self.assertEqual(reply.parent.parent.parent.parent.name, 'DeepSeek')
+            self.assertEqual(reply.parent.name, '项目剧本')
+            self.assertEqual(reply.parent.parent.name, '01剧本准备')
+            self.assertIn('DeepSeek', reply.name)
             self.assertEqual(idea_chat.storage_identity('DeepSeek V4 Flash'),
                              ('DeepSeek', 'DeepSeek V4 Flash'))
 
@@ -535,11 +532,12 @@ class SavingTests(unittest.TestCase):
             options = dict(provider='DeepSeek', model='DeepSeek V4 Flash', publish=publish_idea_creative)
             first = idea_chat.save_reply(td, '# 项目设定\n第一版', at=0, **options)
             second = idea_chat.save_reply(td, '# 项目设定\n第二版', at=86400, **options)
-            # 跨天续改仍覆盖同一份，不落到新批次产生副本。
+            # 跨天续改仍覆盖同一份扁平目录文件，不产生第二份副本。
             self.assertEqual(second, first)
-            self.assertIn('创意_19700101', second.as_posix())
+            self.assertEqual(second.parent.name, '项目设定')
+            self.assertEqual(second.parent.parent.name, '01剧本准备')
             self.assertEqual(second.read_text(encoding='utf-8').strip(), '# 项目设定\n第二版')
-            self.assertFalse((second.parents[2] / '创意_19700102').exists())
+            self.assertEqual(len(list(second.parent.glob('*.md'))), 1)
 
     def test_download_reuses_auto_saved_setting_with_outline_reference_and_preserves_full_text(self):
         from stage_execution_service import publish_stage_text
@@ -909,12 +907,12 @@ class _Harness(unittest.TestCase):
         self.wait_file_index(d, win, seconds)
 
     def assert_script_file_row(self, tree, proj, path):
-        """剧本准备页的面板只列本阶段文件：文件行平铺在表格根下，不套阶段分组父行。"""
+        """剧本准备页默认按类型分组展示本阶段文件，文件行位于对应类型分组节点下。"""
         item = path.relative_to(proj).as_posix()
-        children = tree.get_children()
-        self.assertIn(item, children)
-        self.assertEqual([child for child in children if str(child).startswith('stage-group:')], [])
-        self.assertEqual(tree.parent(item), '')
+        self.assertTrue(tree.exists(item), f'{item} 应出现在文件树中')
+        parent = tree.parent(item)
+        self.assertTrue(str(parent).startswith('kind-group:'), f'默认按类型分组，父节点应为 kind-group:*，实得 {parent!r}')
+        self.assertEqual([child for child in tree.get_children() if str(child).startswith('stage-group:')], [])
         return item
 
     def log_text(self, d):
@@ -994,10 +992,10 @@ class SendMessageTests(_Harness):
             self.assertEqual(args[:2], ('writing', '剧本准备'))
             self.assertIn('一个夜班照相馆的故事', args[2])
             self.assertIn('必须先完整遵循本次工作流所选 SKILL', args[2])
-            self.assertIn('按①项目设定 → ②剧本大纲 → ③角色卡 → ④自然剧本逐阶段输出', args[2])
-            self.assertIn('前提齐全时本次只输出阶段①项目设定，末尾“待确认”', args[2])
-            self.assertIn('每个关键阶段都必须用户确认，不能自动跳到下一阶段', args[2])
-            self.assertIn('每次只输出当前阶段一个文件，不一次输出多阶段', args[2])
+            self.assertIn('不必等前一项确认', args[2])
+            self.assertIn('不要在文末追加“待确认”', args[2])
+            self.assertIn('已定稿的文件是下一阶段的唯一来源', args[2])
+            self.assertNotIn('每个关键阶段都必须用户确认，不能自动跳到下一阶段', args[2])
             self.assertFalse(list((writing_dir(proj) / '创意对话').glob('提交_*.md')),
                              '发送创意不能先创建提交文件')
             self.assertEqual(d.draft_text().strip(), '', '发出去之后下面那段草稿就空了')
@@ -1165,10 +1163,9 @@ class SendMessageTests(_Harness):
             self.assertFalse(tree._data_table.empty_label.winfo_ismapped(), '有文件行时同样不显示空态')
             rows = tree.get_children()
             self.assertTrue(rows, '根文件也应进入「全部阶段」列表')
-            # 这个项目在「全部阶段」下只有「其他文件」一个分组；只有一个分组时不套分组父行，文件行平铺。
-            self.assertEqual([row for row in rows if str(row).startswith('stage-group:')], [])
+            # 契约变更：默认按类型分组并始终保留可折叠分组父行（即使只有一个分组）。
+            self.assertTrue(all(str(row).startswith('kind-group:') for row in rows), rows)
             leaves = d.files_panel.all_script_items()
-            self.assertCountEqual(leaves, rows, '平铺时表格根下每一行都是文件行')
             self.assertIn('项目说明.md', leaves, '根用户文件也应索引')
             for item in leaves:
                 self.assertFalse(Path(item).is_absolute(), '文件叶子使用项目相对路径')
@@ -1176,26 +1173,24 @@ class SendMessageTests(_Harness):
             assert_chat_usable()
 
     def test_project_files_panel_toggle_and_page_switch(self):
-        """REQ-S01-90／REQ-S01-94：面板默认隐藏；点图标钮向左展开，收起钮／再点收起；
-        R3191 起切工作页保持打开（D11），仅切到入口隐藏页（会员账户）或换项目才收起。"""
-        from ui_tokens import ICON_CHEVRON_RIGHT
+        """REQ-S01-90／REQ-S01-94：面板默认隐藏；点图标钮向左展开与收起（右箭头按钮已删除）；
+        切工作页保持打开，仅切到入口隐藏页（会员账户）或换项目才收起。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0); win.deiconify()
             self.settle_script_page(win, .4)
             self.assertFalse(d.script_box.winfo_ismapped(), '默认隐藏「项目文件」列表')
+            self.assertFalse(hasattr(d, 'script_toggle'), '右侧右箭头收起钮已删除')
             d.files_button.invoke(); win.update()
             self.assertTrue(d.script_box.winfo_ismapped(), '点击后右侧停靠面板展开')
-            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT)
             self.settle_script_page(win, .4)
-            d.script_toggle.invoke(); win.update()
-            self.assertFalse(d.script_box.winfo_ismapped(), '收起钮收起整个面板')
+            d.files_button.invoke(); win.update()
+            self.assertFalse(d.script_box.winfo_ismapped(), '再点图标钮收起整个面板')
             self.assertTrue(d.idea_log.winfo_ismapped(), '收起后聊天区仍可用')
             d.files_button.invoke(); win.update()
             self.settle_script_page(win, .4)
             self.assertTrue(d.script_box.winfo_ismapped(), '再点图标钮恢复面板')
-            self.assertEqual(d.script_toggle.cget('text'), ICON_CHEVRON_RIGHT)
             # REQ-S01-94（R3191，D11）：切到工作页面板保持打开；会员账户页入口隐藏仍收起。
             d.show(PAGE['video']); win.update()
             self.assertTrue(d.script_box.winfo_ismapped(), '切工作页保持面板打开')

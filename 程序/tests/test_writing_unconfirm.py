@@ -256,23 +256,23 @@ class WritingUnconfirmTests(unittest.TestCase):
         tree.identify_row.return_value = 'row-setting'
         page.script_menu(tree, SimpleNamespace(y=0, x_root=0, y_root=0))
         setting_labels = labels_of(created[-1])
-        self.assertIn('取消已确认', setting_labels)
-        self.assertIn('设为项目设定定稿', setting_labels)
+        self.assertIn('撤定稿', setting_labels)
+        self.assertIn('定稿', setting_labels)
         self.assertNotIn('重写项目设定', setting_labels)
         self.assertNotIn('放弃重写，恢复原稿', setting_labels)
 
         tree.identify_row.return_value = 'row-outline'
         page.script_menu(tree, SimpleNamespace(y=0, x_root=0, y_root=0))
-        self.assertIn('取消已确认', labels_of(created[-1]))
-        self.assertIn('设为剧本大纲定稿', labels_of(created[-1]))
+        self.assertIn('撤定稿', labels_of(created[-1]))
+        self.assertIn('定稿', labels_of(created[-1]))
 
         # 取消全部确认后：菜单不再出现「取消已确认」，仍保留「设为定稿」。
         unconfirm_writing_preparation(self.project, '项目设定')
         tree.identify_row.return_value = 'row-setting'
         page.script_menu(tree, SimpleNamespace(y=0, x_root=0, y_root=0))
         unconfirmed_labels = labels_of(created[-1])
-        self.assertNotIn('取消已确认', unconfirmed_labels)
-        self.assertIn('设为项目设定定稿', unconfirmed_labels)
+        self.assertNotIn('撤定稿', unconfirmed_labels)
+        self.assertIn('定稿', unconfirmed_labels)
 
 
 if __name__ == '__main__':

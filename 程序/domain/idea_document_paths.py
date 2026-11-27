@@ -77,10 +77,13 @@ def project_document_directory(file_type):
 
 
 def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧本'):
-    """纯计算下载正式稿在剧本准备阶段内的逐段路径，不创建或发布文件。"""
-    return (_storage_name(provider, '未知Provider'), _storage_name(model, '未知模型'),
-            '创意_' + _file_day(at), project_document_directory(file_type),
-            project_script_filename(_context(root), at=at, file_type=file_type, content=provider or (storage_identity(model)[0] if model else '模型输出')))
+    """纯计算正式稿在剧本准备阶段内的扁平路径：``<分类目录>/<四段式文件名>.md``。
+
+    主界面已取消按模型分会话，不再嵌套 ``<Provider>/<Model>/创意_<日期>/`` 多层目录；
+    读取侧仍兼容历史多层目录，模型/来源信息保留在四段式文件名内容段。"""
+    source = provider or (storage_identity(model)[0] if model else '模型输出')
+    return (project_document_directory(file_type),
+            project_script_filename(_context(root), at=at, file_type=file_type, content=source))
 
 
 # 前三项（设定／大纲／角色卡）是审阅参考，不保留历史版本：同一阶段目录内始终
@@ -89,38 +92,34 @@ def reply_path_parts(root, at=None, provider='', model='', file_type='自然剧�
 _OVERWRITE_FILE_TYPES = frozenset(('项目设定', '项目大纲', '角色卡'))
 
 
+def _latest_category_document(folder):
+    """返回分类目录内按 mtime 最新的 ``*.md``；不存在或不可读返回 ``None``。"""
+    if not folder.is_dir():
+        return None
+    try:
+        candidates = [path for path in folder.glob('*.md') if path.is_file()]
+    except OSError:
+        return None
+    return max(candidates, key=lambda path: path.stat().st_mtime) if candidates else None
+
+
 def reply_document_path(context, text, at=None, provider='', model='', file_type=None, *, reuse_latest=True):
     """自动保存与下载共用：相同正文复用；审阅参考覆盖，正式剧本异稿递增编号。
 
-    ``reuse_latest=False`` 时审阅参考稿不回到跨批次的最新一份，按 ``at`` 的日期另存。"""
+    ``reuse_latest=False`` 时审阅参考稿不覆盖既有版本，按 ``at`` 的日期另存。"""
     from contract.stage_path_service import write_dir
     context = _context(context)
     file_type = file_type or _project_file_type(text)
     parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
     target = write_dir(context.root, 'script').joinpath(*parts)
     value = str(text).replace('\r\n', '\n').strip()
-    # 同目录的历史命名也可复用，避免旧自动保存稿再次下载产生副本。
     if target.parent.is_dir():
         for existing in sorted(target.parent.glob('*.md')):
             if existing.is_file() and existing.read_text(encoding='utf-8').strip() == value:
                 return existing
     if file_type in _OVERWRITE_FILE_TYPES and reuse_latest:
-        # 审阅参考稿放弃历史版本：始终覆盖该阶段最新一份，保持「一份＝最新」。
-        # 跨 创意_日期 批次也回到同一份，不因跨天续改落到新批次产生副本。
-        candidates = []
-        model_dir = target.parents[2]
-        try:
-            batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
-        except OSError:
-            batches = ()
-        for batch in batches:
-            folder = batch / target.parent.name
-            if not folder.is_dir():
-                continue
-            candidates.extend(path for path in folder.glob('*.md') if path.is_file())
-        if candidates:
-            return max(candidates, key=lambda path: path.stat().st_mtime)
-        return target
+        latest = _latest_category_document(target.parent)
+        return latest if latest is not None else target
     number = 0
     while target.exists():
         number += 1
@@ -132,31 +131,17 @@ def reply_document_path(context, text, at=None, provider='', model='', file_type
 
 
 def delivery_document_path(context, file_type, at=None, provider='', model=''):
-    """桌面 Agent 交付目标：本模型该类已有文件就沿用最新一份，没有才用当日新路径。
+    """桌面 Agent 交付目标：该分类目录已有文件就沿用最新一份，没有才用当日扁平路径。
 
     用户手改过的设定／大纲／角色卡／剧本就在这份文件里；模型重新生成时读它、覆盖它，
-    不因跨天或重试落到新的 创意_日期 批次。纯路径计算，不读写正文。
+    不因切模型或跨天落到多层模型目录。纯路径计算，不读写正文。
     """
     from contract.stage_path_service import write_dir
     context = _context(context)
     parts = reply_path_parts(context, at=at, provider=provider, model=model, file_type=file_type)
     target = write_dir(context.root, 'script').joinpath(*parts)
-    model_dir = target.parents[2]
-    candidates = []
-    try:
-        batches = tuple(model_dir.iterdir()) if model_dir.is_dir() else ()
-    except OSError:
-        batches = ()
-    for batch in batches:
-        folder = batch / target.parent.name
-        try:
-            if batch.name.startswith('创意_') and folder.is_dir():
-                candidates.extend(path for path in folder.glob('*.md') if path.is_file())
-        except OSError:
-            continue
-    if not candidates:
-        return target
-    return max(candidates, key=lambda path: path.stat().st_mtime)
+    latest = _latest_category_document(target.parent)
+    return latest if latest is not None else target
 
 
 def _project_file_type(text):

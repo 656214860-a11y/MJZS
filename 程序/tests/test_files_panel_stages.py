@@ -269,14 +269,15 @@ class StageRailTests(unittest.TestCase):
             self.pump(.3)
 
     def test_clicking_a_stage_fills_the_list_from_the_index(self):
-        """点「资产管理」→ 列表只出该阶段文件，行 id 是项目相对 posix 路径。"""
+        """点「资产管理」→ 列表只出该阶段文件（默认按类型分组），行 id 是项目相对 posix 路径。"""
         panel = self.desktop.files_panel
         file_index.rebuild(self.desktop.root)
         panel.show_stage('assets')
         self.wait_index()
         self.assertEqual(panel.stage_filter, 'assets')
         rows = self.rows()
-        self.assertEqual(panel.script_tree.get_children(), ('05资产管理/assets/CHAR_001.png',))
+        self.assertEqual(panel.script_tree.get_children(), ('kind-group:资产',))
+        self.assertEqual(panel.script_tree.get_children('kind-group:资产'), ('05资产管理/assets/CHAR_001.png',))
         self.assertTrue(rows, '资产管理阶段应当有行')
         self.assertTrue(all(row.startswith('05资产管理/') for row in rows), rows)
         self.assertTrue(all(panel.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY for row in rows))
@@ -310,13 +311,15 @@ class StageRailTests(unittest.TestCase):
         panel = self.desktop.files_panel
         panel.show_stage('assets')
         self.wait_index()
-        panel.show_stage(None)
+        panel.select_group_option('阶段', None)
         self.wait_index()
         self.assertIsNone(panel.stage_filter)
         self.assertIn('stage-group:script', panel.script_tree.get_children())
         self.assertIn('stage-group:assets', panel.script_tree.get_children())
         self.assertTrue(any(row.endswith('CHAR_001.png') for row in self.rows()))
         self.assertTrue(any(panel.script_row_category[row] == 'script' for row in self.rows()))
+        panel.select_group_option('类型', None)
+        self.wait_index()
 
     def test_rail_has_recycle_entries_after_the_stages(self):
         """R3117／UX-C1：图标列末尾依次是回收站与清空过期（PNG 图标，语义标签仍保留）。"""
@@ -343,13 +346,12 @@ class StageRailTests(unittest.TestCase):
 
 
 class FilterBarTests(StageRailTests):
-    """R3106（任务书 P1，Q25）：阶段／类型／状态／关键字四条件可组合。"""
+    """筛选条升级：半宽搜索框与分组下拉同行，状态与类型/阶段/日期二级目录卡集成进分组菜单。"""
 
     def setUp(self):
         d = self.desktop
         d.files_panel.collapse()
-        d.files_panel.group_box.set('阶段')
-        d.files_panel.group_mode = '阶段'
+        d.files_panel.select_group_option('类型', None)
         d.files_panel.show_stage(None)
         if getattr(d, 'page_index', None) != PAGE['script']:
             d.show(PAGE['script'])
@@ -365,19 +367,20 @@ class FilterBarTests(StageRailTests):
         return super().rows()
 
     def test_filter_bar_has_four_boxes_and_a_keyword_entry(self):
-        """R3983（L4-U2）：阶段选择并入图标列，stage_box 控件不存在。"""
+        """筛选条已精简为单行「半宽搜索框＋分组下拉与二级目录卡」，删除旧下拉框与刷新按钮。"""
         panel = self.desktop.files_panel
-        for name in ('kind_box', 'status_box', 'group_box', 'sort_box', 'keyword_entry'):
-            self.assertTrue(hasattr(panel, name), name)
-        self.assertFalse(hasattr(panel, 'stage_box'), '阶段下拉框已并入右侧图标列')
-        self.assertEqual(tuple(panel.kind_box.cget('values'))[0], '全部类型')
-        self.assertEqual(tuple(panel.status_box.cget('values'))[0], '全部状态')
+        self.assertTrue(hasattr(panel, 'keyword_entry'))
+        self.assertTrue(hasattr(panel, 'group_button'))
+        self.assertTrue(hasattr(panel, 'group_menu'))
+        for removed in ('stage_box', 'kind_box', 'status_box', 'group_box', 'sort_box', 'index_refresh_button'):
+            self.assertFalse(hasattr(panel, removed), removed + ' 应已删除')
+        self.assertEqual(panel.keyword_entry._placeholder, '搜索文件')
+        self.assertEqual(panel.group_mode, '类型')
 
     def test_kind_and_stage_combine(self):
         panel = self.desktop.files_panel
         panel.show_stage('assets')
-        panel.kind_box.set('资产')
-        panel._apply_filters()
+        panel.select_group_option('类型', '资产')
         self.wait_index()
         rows = self.rows()
         self.assertTrue(rows)
@@ -386,8 +389,7 @@ class FilterBarTests(StageRailTests):
     def test_keyword_filters_by_name(self):
         panel = self.desktop.files_panel
         panel.show_stage(None)
-        panel.kind_box.set('全部类型')
-        panel.status_box.set('全部状态')
+        panel.select_group_option('类型', None)
         panel.keyword_var.set('CHAR_001')
         panel._apply_filters()
         self.wait_index()
@@ -398,13 +400,10 @@ class FilterBarTests(StageRailTests):
     def test_status_filter_matches_published(self):
         panel = self.desktop.files_panel
         panel.show_stage(None)
-        panel.kind_box.set('全部类型')
-        panel.status_box.set('草稿')
-        panel._apply_filters()
+        panel.select_group_option('状态', '草稿')
         self.wait_index()
         draft = self.rows()
-        panel.status_box.set('已发布')
-        panel._apply_filters()
+        panel.select_group_option('状态', '定稿')
         self.wait_index()
         published = self.rows()
         self.assertEqual(len(draft) + len(published), len([r for r in file_index.rows(self.desktop.root) if not file_index.is_functional(r.path)]))
@@ -412,13 +411,10 @@ class FilterBarTests(StageRailTests):
     def test_clearing_conditions_restores_full_index(self):
         panel = self.desktop.files_panel
         panel.show_stage('assets')
-        panel.kind_box.set('资产')
-        panel._apply_filters()
+        panel.select_group_option('类型', '资产')
         self.wait_index()
         self.assertTrue(panel._filters_active())
-        panel.show_stage(None)
-        panel.kind_box.set('全部类型')
-        panel.status_box.set('全部状态')
+        panel.select_group_option('阶段', None)
         panel.keyword_var.set('')
         panel._apply_filters()
         self.wait_index()
@@ -429,13 +425,10 @@ class FilterBarTests(StageRailTests):
 
 
 class FilterDedupTests(StageRailTests):
-    """R3983（任务书 L4-U2）：筛选区去重——无阶段下拉框；四个下拉框按取值自适应宽。
-
-    面板内宽放不下第二行时，「分组」「排序」连同名称整体换到第三行。
-    """
+    """筛选条单行排布：搜索框占面板约一半宽，右侧同行为「分组」按钮与二级目录卡。"""
 
     def _leaf_controls(self):
-        """筛选条里所有已映射的非容器控件（下拉框、名称文字、关键字框、刷新钮）。"""
+        """筛选条里所有已映射的非容器控件（搜索框、分组标签与分组按钮）。"""
         panel = self.desktop.files_panel
         controls = []
         stack = [panel.filter_bar]
@@ -465,28 +458,17 @@ class FilterDedupTests(StageRailTests):
         self.pump(.2)
 
     def test_filter_controls_sit_on_two_rows_at_wide_window(self):
-        """T1：1280×800 下筛选区控件只占两行（按控件顶边坐标分组计数）。
-
-        先用拖动入口设置面板宽度，再量筛选条。
-        """
+        """单行筛选条：宽窗口下搜索框与分组下拉在同一行。"""
         panel = self.desktop.files_panel
         panel.open_panel()
         self._widen_panel()
         win = self.win
         win.geometry('1280x800')
         self.pump(.5)
-        tops = sorted({widget.winfo_rooty() for widget in self._leaf_controls()})
-        self.assertEqual(len(tops), 2, tops)
+        self.assertLessEqual(abs(panel.keyword_entry.winfo_rooty() - panel.group_button.winfo_rooty()), 8)
 
     def test_each_dropdown_fully_shows_current_value(self):
-        """T2：两档窗口下四个下拉框实际宽 ≥ 当前取值文字宽＋箭头区宽。
-
-        箭头区宽度＝控件请求宽 − 字符宽×字符单位，覆盖内边距与下拉箭头；
-        文字宽用该控件字体实测，不做全角×2 近似。长文件名撑宽面板避免
-        夹具窄面板把换行后的框挤小。
-        """
-        from tkinter import font as tkfont
-        from ui_tokens import COMBOBOX_FONT
+        """两档窗口下分组按钮完整显示当前分组模式，且搜索框占面板约一半宽。"""
         panel = self.desktop.files_panel
         panel.open_panel()
         self._widen_panel()
@@ -494,33 +476,21 @@ class FilterDedupTests(StageRailTests):
         for size in ('1280x800', '880x600'):
             win.geometry(size)
             self.pump(.5)
-            for name in ('kind_box', 'status_box', 'group_box', 'sort_box'):
-                box = getattr(panel, name)
-                font = tkfont.Font(root=box, font=COMBOBOX_FONT)
-                chrome = box.winfo_reqwidth() - font.measure('0') * int(box.cget('width'))
-                needed = font.measure(str(box.get())) + chrome
-                self.assertGreaterEqual(
-                    box.winfo_width(), needed,
-                    '%s %s：实际宽 %d < 取值「%s」宽 %d＋箭头区 %d'
-                    % (size, name, box.winfo_width(), box.get(),
-                       font.measure(str(box.get())), chrome))
+            self.assertGreaterEqual(panel.group_button.winfo_width(), 40)
+            self.assertLessEqual(panel.keyword_entry.winfo_width(),
+                                 panel.filter_bar.winfo_width() * 0.62)
 
     def test_group_sort_pair_wraps_aligned_with_kind_box(self):
-        """T3：880×600 下「分组」名称文字换行后左边缘与类型框左边缘一致。"""
+        """窄窗口下分组按钮仍与搜索框同行不换行，且无已删除的排序/类型下拉框。"""
         panel = self.desktop.files_panel
         panel.open_panel()
         self._widen_panel()
         win = self.win
         win.geometry('880x600')
         self.pump(.5)
-        labels = [widget for widget in self._leaf_controls()
-                  if isinstance(widget, ttk.Label)]
-        group_label = next(widget for widget in labels
-                           if str(widget.cget('text')) == '分组')
-        self.assertEqual(group_label.winfo_rootx(), panel.kind_box.winfo_rootx())
-        sort_label = next(widget for widget in labels
-                          if str(widget.cget('text')) == '排序')
-        self.assertGreater(sort_label.winfo_rooty(), panel.kind_box.winfo_rooty())
+        self.assertFalse(hasattr(panel, 'kind_box'))
+        self.assertFalse(hasattr(panel, 'sort_box'))
+        self.assertLessEqual(abs(panel.keyword_entry.winfo_rooty() - panel.group_button.winfo_rooty()), 8)
 
     def test_clicking_stage_icon_updates_panel_title(self):
         """T4：点阶段图标后面板标题随之变化；复位全部＝「项目文件 · 全部阶段」。"""
@@ -549,13 +519,17 @@ class IndexLifecycleTests(StageRailTests):
 
     def test_missing_media_uses_filename_space_until_a_preview_exists(self):
         from contract.file_index_contract import FileRow
+        from ui.desktop_files_panel_index import TREE_DISCLOSURE_WIDTH
         path = '05资产管理/assets/素材.png'
         self.render_rows([FileRow(path=path, stage='assets', kind='资产', missing=True)])
         tree = self.desktop.files_panel.script_tree
         self.assertTrue(tree.exists(path))
-        self.assertNotIn('tree', str(tree.cget('show')))
+        # 契约变更：始终展示分组折叠三角，无真实缩略图时 #0 仅占紧凑三角宽度，有缩略图后才拓宽。
+        self.assertIn('tree', str(tree.cget('show')))
+        self.assertEqual(int(tree.column('#0', 'width')), TREE_DISCLOSURE_WIDTH)
         self.render_rows([FileRow(path=path, stage='assets', kind='资产')])
         self.assertIn('tree', str(tree.cget('show')))
+        self.assertGreater(int(tree.column('#0', 'width')), TREE_DISCLOSURE_WIDTH)
 
     def test_metadata_columns_use_index_fields_and_keep_filename_id(self):
         from datetime import datetime
@@ -566,19 +540,17 @@ class IndexLifecycleTests(StageRailTests):
                       size=1536, mtime=stamp, title='用户标题')
         self.render_rows([row])
         tree = panel.script_tree
-        self.assertEqual(tuple(tree['columns']), ('name', 'kind', 'size', 'mtime', 'meta'))
-        self.assertEqual([tree.heading(column, 'text') for column in tree['columns']],
-                         ['文件名', '类型', '大小', '修改时间', '时长／分辨率'])
+        self.assertEqual(tuple(tree['columns']), ('name', 'status', 'kind', 'mtime', 'size', 'meta'))
+        self.assertEqual([tree.heading(column, 'text').split(' ')[0] for column in tree['columns']],
+                         ['文件名', '状态', '类型', '时间', '大小', '时长／分辨率'])
         self.assertEqual(tree.item(row.path, 'values'),
-                         ('原文件名.png', '资产', '1.5 KB', '2026-11-16 12:34:56', ''))
-        self.assertEqual(tree.parent(row.path), '')
+                         ('原文件名.png', '草稿', '资产', '2026-11-16', '1.5 KB', ''))
+        self.assertEqual(tree.parent(row.path), 'kind-group:资产')
         self.assertIn('原文件名.png', panel.script_row_details[row.path])
         self.assertIn('1536', panel.script_row_details[row.path])
         self.assertIn('2026-11-16 12:34:56', panel.script_row_details[row.path])
         self.assertLessEqual(panel.script_box.winfo_width(),
                              self.desktop.panel_area.winfo_width() * .5)
-        # R4005（任务书 L4-U3，R4）：属性列不再靠横向滚动访问——放不下的列整列
-        # 隐藏（displaycolumns），内容进悬停提示；表格横向滚动范围恒为 (0.0, 1.0)。
         first, last = tree.xview()
         self.assertEqual((first, last), (0.0, 1.0), '表格不再需要横向滚动')
         self.assertIn('资产', panel.script_row_details[row.path])
@@ -588,25 +560,27 @@ class IndexLifecycleTests(StageRailTests):
         from datetime import datetime
         from unittest.mock import patch
         from contract.file_index_contract import FileRow
+        from ui.desktop_files_panel_index import GROUP_MODES
         panel = self.desktop.files_panel
         day = datetime(2026, 11, 16, 12).timestamp()
-        rows = [FileRow(path='05资产管理/assets/跨阶段A.png', stage='assets', kind='资产', mtime=day),
-                FileRow(path='08首帧生成/跨阶段B.png', stage='keyframe', kind='资产', mtime=day),
-                FileRow(path='05资产管理/assets/跨阶段C.md', stage='assets', kind='设定',
+        rows = [FileRow(path='05资产管理/assets/跨阶段A.png', stage='assets', kind='资产', status='定稿', mtime=day),
+                FileRow(path='08首帧生成/跨阶段B.png', stage='keyframe', kind='资产', status='草稿', mtime=day),
+                FileRow(path='05资产管理/assets/跨阶段C.md', stage='assets', kind='设定', status='草稿',
                         mtime=day - 86400)]
-        self.assertEqual(tuple(panel.group_box.cget('values')), ('阶段', '类型', '日期'))
-        self.assertEqual(panel.group_box.get(), '阶段')
+        self.assertEqual(GROUP_MODES, ('类型', '阶段', '状态', '日期'))
+        self.assertEqual(panel.group_mode, '类型')
         for mode, groups, parents in (
                 ('阶段', ('stage-group:assets', 'stage-group:keyframe'),
                  ('stage-group:assets', 'stage-group:keyframe', 'stage-group:assets')),
                 ('类型', ('kind-group:设定', 'kind-group:资产'),
                  ('kind-group:资产', 'kind-group:资产', 'kind-group:设定')),
+                ('状态', ('status-group:定稿', 'status-group:草稿'),
+                 ('status-group:定稿', 'status-group:草稿', 'status-group:草稿')),
                 ('日期', ('date-group:2026-11-16', 'date-group:2026-11-15'),
                  ('date-group:2026-11-16', 'date-group:2026-11-16', 'date-group:2026-11-15'))):
             with self.subTest(mode=mode):
-                panel.group_box.set(mode)
                 with patch.object(panel, '_reload_current_view'):
-                    panel._apply_filters()
+                    panel.select_group_option(mode, None)
                 self.render_rows(rows)
                 self.assertEqual(panel.script_tree.get_children(), groups)
                 self.assertEqual(tuple(panel.script_tree.parent(row.path) for row in rows), parents)
@@ -625,6 +599,7 @@ class IndexLifecycleTests(StageRailTests):
                         panel.index_file_path(group)
                     with self.assertRaises(ValueError):
                         panel.delete_script()
+        panel.group_mode = '类型'
 
     def test_group_modes_keep_status_keyword_and_global_library_filters(self):
         from datetime import datetime
@@ -634,30 +609,33 @@ class IndexLifecycleTests(StageRailTests):
         panel = self.desktop.files_panel
         stamp = datetime(2026, 11, 16, 12).timestamp()
         rows = [FileRow(path='05资产管理/assets/保留.png', stage='assets', kind='资产',
-                        status='已发布', mtime=stamp),
+                        status='定稿', mtime=stamp),
                 FileRow(path='08首帧生成/保留.png', stage='keyframe', kind='资产',
                         status='草稿', mtime=stamp),
                 FileRow(path='08首帧生成/忽略.png', stage='keyframe', kind='资产',
-                        status='已发布', mtime=stamp)]
+                        status='定稿', mtime=stamp)]
         panel.stage_filter = None
         with patch('ui.desktop_files_panel_index.load_index', return_value=(rows, {}, {})):
             for mode in ('阶段', '类型', '日期'):
-                panel.group_box.set(mode)
-                panel.status_box.set('已发布')
-                panel.keyword_entry.delete(0, 'end')
-                panel.keyword_entry.insert(0, '保留')
+                panel.group_mode = mode
+                panel.status_filter = '定稿'
+                panel.keyword_var.set('保留')
                 panel._apply_filters()
                 self.wait_index()
                 self.assertEqual(self.rows(), [rows[0].path], mode)
                 self.assertEqual(panel.script_tree.set(rows[0].path, 'kind'), '资产')
+                self.assertEqual(panel.script_tree.set(rows[0].path, 'status'), '定稿')
         for mode, group in (('阶段', 'stage-group:library'), ('类型', 'kind-group:资产'),
                             ('日期', 'date-group:2026-11-16')):
             panel.group_mode = mode
             selected = filtered_rows(rows, ('assets', '资产', '已发布', '保留', '类型'), True)
             self.render_rows(selected, library=True)
-            self.assertEqual(set(panel.script_tree.get_children()), {'library:' + row.path for row in rows[:2]})
+            self.assertEqual(panel.script_tree.get_children(), (group,))
             self.assertEqual(set(self.rows()), {'library:' + row.path for row in rows[:2]})
-            self.assertTrue(all(panel.script_tree.parent(item) == '' for item in self.rows()))
+            self.assertTrue(all(panel.script_tree.parent(item) == group for item in self.rows()))
+        panel.group_mode = '类型'
+        panel.status_filter = None
+        panel.keyword_var.set('')
 
     def test_missing_cache_rebuild_runs_off_tk_thread(self):
         import threading
@@ -774,8 +752,8 @@ class IndexLifecycleTests(StageRailTests):
                                     kind='资产', missing=True, mtime=time.time() + 10).to_dict())
         from agent.core import save
         save(file_index.index_path(root), data)
-        panel.sort_box.set('修改时间')
-        panel._apply_filters()
+        panel.select_group_option('阶段', None)
+        panel.sort_by_column('mtime')
         self.wait_index()
         self.wait_index()
         groups = panel.script_tree.get_children()
@@ -788,6 +766,7 @@ class IndexLifecycleTests(StageRailTests):
         self.assertTrue(panel.script_tree.item('05资产管理/assets/真实缩略.png', 'image'))
         panel.script_tree.item('stage-group:assets', open=False)
         self.assertFalse(panel.script_tree.item('stage-group:assets', 'open'))
+        panel.select_group_option('类型', None)
 
     def test_selected_filtered_file_recycles_without_deleting_project(self):
         from unittest.mock import patch
@@ -830,10 +809,10 @@ class IndexLifecycleTests(StageRailTests):
         panel = self.desktop.files_panel
         panel.show_stage(None)
         root = Path(self.desktop.root)
-        folders = {'项目设定': ('setting', '设为项目设定定稿'),
-                   '项目大纲': ('outline', '设为剧本大纲定稿'),
-                   '角色卡': ('character', '设为角色卡定稿'),
-                   '项目剧本': ('script', '采用此剧本')}
+        folders = {'项目设定': ('setting', '定稿'),
+                   '项目大纲': ('outline', '定稿'),
+                   '角色卡': ('character', '定稿'),
+                   '项目剧本': ('script', '定稿')}
         paths = {}
         for folder in folders:
             target = root / '01剧本准备' / folder / (folder + '菜单测试.md')
@@ -858,8 +837,11 @@ class IndexLifecycleTests(StageRailTests):
                 labels = [call.args[0] for call in menu.command.call_args_list]
                 self.assertIn(action, labels)
                 self.assertIn('删除', labels)
+                self.assertNotIn('按段落采用…', labels)
                 if category != 'script':
-                    self.assertIn('历史快照／对比', labels)
+                    self.assertIn('快照', labels)
+        panel.select_group_option('阶段', None)
+        self.wait_index()
         group = 'stage-group:script'
         panel.script_tree.selection_set(group)
         open_path = Mock()
@@ -868,6 +850,7 @@ class IndexLifecycleTests(StageRailTests):
             panel.open_script_file()
         open_path.assert_not_called()
         self.assertEqual(panel.script_row_details.get(group, ''), '')
+        panel.select_group_option('类型', None)
 
     def test_index_path_rejects_group_parent_absolute_and_directory(self):
         from contract.file_index_contract import FileRow
@@ -878,12 +861,13 @@ class IndexLifecycleTests(StageRailTests):
             panel._index_rows[key] = FileRow(path=path)
             with self.assertRaises(ValueError, msg=key):
                 panel.index_file_path(key)
-        panel.show_stage(None)
+        panel.select_group_option('阶段', None)
         self.wait_index()
         self.assertIn('stage-group:script', panel.script_tree.get_children())
         panel.script_tree.selection_set('stage-group:script')
         with self.assertRaises(ValueError):
             panel.delete_index_files()
+        panel.select_group_option('类型', None)
 
     def test_refresh_discovers_external_file_and_retains_script_actions(self):
         panel = self.desktop.files_panel
@@ -1030,8 +1014,7 @@ class DockContentTests(StageRailTests):
         panel = self.desktop.files_panel
         panel.show_stage(None)
         self.wait_index()
-        panel.group_box.set('类型')
-        panel._apply_filters()
+        panel.select_group_option('类型', None)
         self.wait_index()
         groups = [item for item in panel.script_tree.get_children()
                   if panel.is_file_group(item)]
@@ -1040,10 +1023,10 @@ class DockContentTests(StageRailTests):
         panel.script_tree.selection_set(groups[0])
         with self.assertRaisesRegex(ValueError, '请先选择要删除的项目文件'):
             panel.delete_index_files()
-        panel.group_box.set('阶段')
-        panel._apply_filters()
+        panel.select_group_option('阶段', None)
         self.wait_index()
         self.assertTrue(panel.script_list.empty_label is not None)
+        panel.select_group_option('类型', None)
 
     def test_manual_stage_pick_keeps_single_stage_view(self):
         """手选阶段不套两组：结构页手选资产阶段只列资产文件、平铺。"""
@@ -1210,9 +1193,9 @@ class DockContentTests(StageRailTests):
         self.assertIn(target.relative_to(root).as_posix(), self.rows())
 
     def test_multiple_groups_keep_stage_group_rows(self):
-        """T11：「全部」多个分组时保留阶段分组父行，子行非空，预览列显示。"""
+        """T11：按阶段分组查看全部阶段时保留阶段分组父行，子行非空，显示折叠三角列。"""
         panel = self.desktop.files_panel
-        panel.show_stage(None)
+        panel.select_group_option('阶段', None)
         self.wait_index()
         children = panel.script_tree.get_children()
         self.assertIn('stage-group:script', children)
@@ -1220,6 +1203,7 @@ class DockContentTests(StageRailTests):
         self.assertTrue(panel.script_tree.get_children('stage-group:script'))
         self.assertTrue(panel.script_tree.get_children('stage-group:assets'))
         self.assertIn('tree', str(panel.script_tree['show']))
+        panel.select_group_option('类型', None)
 
 
 class GlobalLibraryViewTests(StageRailTests):
@@ -1269,11 +1253,10 @@ class GlobalLibraryViewTests(StageRailTests):
                 self.wait_index()
                 self.assertTrue(panel.library_view)
                 self.assertEqual(self.rows(), ['library:唯一库文件.md'])
-                self.assertEqual(str(panel.status_box.cget('state')), 'disabled')
+                self.assertIsNone(panel.status_filter)
                 panel.show_stage(None)
                 self.pump(.3)
                 self.assertFalse(panel.library_view)
-                self.assertEqual(str(panel.status_box.cget('state')), 'readonly')
 
     def test_configure_library_persists_selection_and_refreshes(self):
         from unittest.mock import patch
@@ -1342,7 +1325,7 @@ class GlobalLibraryViewTests(StageRailTests):
             try:
                 panel.show_library()
                 self.wait_index()
-                self.assertEqual(panel.script_tree.get_children(), ('library:角色/CHAR_001.png',))
+                self.assertEqual(panel.script_tree.get_children(), ('kind-group:资产',))
                 self.assertEqual(self.rows(), ['library:角色/CHAR_001.png'])
             finally:
                 file_index.read_global_dir = original
@@ -1431,7 +1414,7 @@ class FileActionsTests(StageRailTests):
         import ui_widgets
         with patch.object(ui_widgets.ContextMenu, 'popup', capture):
             panel.script_menu(tree, event)
-        for label in ('打开', '在文件夹中显示', '另存为…'):
+        for label in ('查看', '定位', '另存'):
             self.assertIn(label, labels)
 
     def test_cross_stage_index_menu_keeps_existing_controlled_actions(self):
@@ -1459,7 +1442,7 @@ class FileActionsTests(StageRailTests):
         import ui_widgets
         with patch.object(ui_widgets.ContextMenu, 'popup', capture):
             panel.script_menu(tree, event)
-        for label in ('打开', '重命名', '添加到全局素材库', '删除', '在文件夹中显示', '另存为…'):
+        for label in ('查看', '改名', '入库', '删除', '定位', '另存'):
             self.assertIn(label, labels)
         self.assertEqual(labels[-1], '删除', 'REQ-UI-UNIFY-1：危险操作删除应置底')
         self.assertNotIn('执行', labels)
@@ -1832,7 +1815,8 @@ class AnimaticMediaDbViewTests(StageRailTests):
             uncat_rel = '_shared/reference_images/未分类.png'
             matched = [r for r in rows_missing if r.path == ref_rel]
             self.assertEqual(len(matched), 1, '缺失于索引的参考图应补齐一条')
-            self.assertEqual((matched[0].stage, matched[0].kind), ('animatic', '资产'))
+            # 契约变更：参考图归类为「参考」类型。
+            self.assertEqual((matched[0].stage, matched[0].kind), ('animatic', '参考'))
             self.assertTrue(any(r.path == uncat_rel and r.stage == 'animatic'
                                 for r in rows_missing))
             # 场景 2：重建索引后 _shared 已有 stage='' 行，load_index(stage='animatic') 就地转正不重复
@@ -1842,7 +1826,7 @@ class AnimaticMediaDbViewTests(StageRailTests):
             rows_promoted, _, _ = load_index(root, stage='animatic')
             promoted = [r for r in rows_promoted if r.path == ref_rel]
             self.assertEqual(len(promoted), 1, '同 path 已有 stage="" 行时应就地转正不重复')
-            self.assertEqual((promoted[0].stage, promoted[0].kind), ('animatic', '资产'))
+            self.assertEqual((promoted[0].stage, promoted[0].kind), ('animatic', '参考'))
             # 不改写磁盘索引，其他阶段零变化
             rows_assets, _, _ = load_index(root, stage='assets')
             self.assertTrue(any(r.path == ref_rel and r.stage == '' for r in rows_assets),
