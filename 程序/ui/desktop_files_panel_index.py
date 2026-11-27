@@ -293,8 +293,8 @@ def configure_tree_leading_column(tree, groups, *, preview_width=None):
     """按是否存在缩略图与多分组收紧 #0 树列，使目录名与文件名紧贴左侧边界。"""
     from infra import file_index
     has_thumb = any(
-        (row.kind in ('资产', '音频', '视频'))
-        or (Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
+        not row.missing and (row.kind in ('资产', '音频', '视频')
+                             or Path(row.path).suffix.lower() in file_index.IMAGE_SUFFIXES)
         for _group, _label, members in groups for row in members)
     show_groups = should_show_groups(groups)
     if len(groups) == 1 and not show_groups and not has_thumb:
@@ -500,22 +500,15 @@ class FilesPanelIndexMixin:
             except tk.TclError:
                 pass
 
-    def _apply_name_labels(self, rows, name_px, measure):
+    def _apply_name_labels(self, name_px, widths, measure):
         """按文件名列可见宽写回显示文字：放得下写全名，放不下中间省略。"""
         tree = self.script_tree
         full_labels = getattr(self, '_full_labels', {})
         budget = max(0, name_px - SCRIPT_NAME_CELL_PAD)
-        font = self._script_list_font()
-        for item in rows:
-            full = full_labels.get(item)
-            if not full:
-                continue
-            display = (full if measure(font, [full]) <= budget
-                       else self._elide_label(full, budget, measure))
-            values = list(tree.item(item, 'values'))
-            if values and str(values[0]) != display:
-                values[0] = display
-                tree.item(item, values=values)
+        for item, full in full_labels.items():
+            display = full if widths[full] <= budget else self._elide_label(full, budget, measure)
+            if tree.set(item, 'name') != display:
+                tree.set(item, 'name', display)
 
     def _elide_label(self, label, budget, measure):
         """中间省略：保留开头至少 ``SCRIPT_NAME_HEAD`` 个字符与扩展名，中间用「…」。"""
