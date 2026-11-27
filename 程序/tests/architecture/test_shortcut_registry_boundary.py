@@ -5,10 +5,7 @@ import ast
 from pathlib import Path
 import unittest
 
-from tests.architecture._scan import desktop_text, entity_file
-
-ROOT = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT, desktop_text, entity_file
 
 
 def _raw_accelerator_bindings(path: Path) -> list[str]:
@@ -32,7 +29,7 @@ class ShortcutRegistryBoundaryTests(unittest.TestCase):
         """业务页面不得绕过登记表直接绑定跨平台命令快捷键。"""
         violations = []
         for path in ROOT.rglob("*.py"):
-            if path.name == "ui_shortcuts.py" or any(part in EXCLUDED_PARTS for part in path.parts):
+            if path.name == "ui_shortcuts.py" or EXCLUDED_PARTS.intersection(path.relative_to(ROOT).parts):
                 continue
             violations.extend(_raw_accelerator_bindings(path))
         self.assertEqual(violations, [], "快捷键须经 ShortcutRegistry：" + "; ".join(violations))

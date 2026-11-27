@@ -5,10 +5,9 @@ import unittest
 from pathlib import Path
 
 
-from tests.architecture._scan import entity_file
+from tests.architecture._scan import EXCLUDED_PARTS as _BASE_EXCLUDED_PARTS, ROOT, entity_file
 
-ROOT = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
+EXCLUDED_PARTS = _BASE_EXCLUDED_PARTS | {"skills"}
 
 
 class CopyEntryBoundaryTests(unittest.TestCase):
@@ -19,7 +18,7 @@ class CopyEntryBoundaryTests(unittest.TestCase):
         offenders = []
         for path in ROOT.rglob('*.py'):
             if (path.name == 'prompt_window.py'
-                    or any(part in EXCLUDED_PARTS for part in path.parts)):
+                    or EXCLUDED_PARTS.intersection(path.relative_to(ROOT).parts)):
                 continue
             if 'clipboard_append' in path.read_text(encoding='utf-8'):
                 offenders.append(path.relative_to(ROOT).as_posix())
@@ -48,7 +47,7 @@ class CopyEntryBoundaryTests(unittest.TestCase):
         """复制反馈固定术语：成功「已复制…」、失败「复制失败：…」；页面不得自创不可检索的文案。"""
         offenders = []
         for path in ROOT.rglob('*.py'):
-            if any(part in EXCLUDED_PARTS for part in path.parts):
+            if EXCLUDED_PARTS.intersection(path.relative_to(ROOT).parts):
                 continue
             tree = ast.parse(path.read_text(encoding='utf-8'), filename=str(path))
             docstrings = self._docstring_nodes(tree)

@@ -4,10 +4,10 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, entity_file, parse, parse_desktop
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT, entity_file, parse, parse_desktop
 
 
-PRODUCTION_SKIP = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
+PRODUCTION_SKIP = EXCLUDED_PARTS | {"skills"}
 
 
 def _production_files():

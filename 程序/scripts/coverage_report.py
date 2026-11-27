@@ -26,29 +26,20 @@ import unittest
 from pathlib import Path
 
 PROGRAM = Path(__file__).resolve().parents[1]
-# 与 tests/architecture/_scan.py 同口径：测试、轮次记录、维护记录与字节码缓存不参与；
-# `.wt` 是仓库的干净检出区（后台全量在 `.wt/ci` 上跑），副本不能算第二批生产模块；
-# `.selftmp` 是自检临时区，探针脚本不是产品模块。
-EXCLUDED_PARTS = frozenset({'tests', 'tasks_round', '维护记录', '.git', '.wt', '.selftmp', '__pycache__',
-                            'voice_asr_venv'})
-# 非产品目录：技能随附脚本、开发维护脚本、参考资料、构建产物、外部附加工具。
-NON_PRODUCT_PARTS = frozenset({'skills', 'scripts', 'reference', 'outputs', '附加工具', 'governance'})
-SKIP_STEMS = frozenset({'smoke_test', 'run_selftests', 'selftest_sandbox',
-                        'selftest_env', 'selftest_discovery', 'selftest_receipts',
-                        'selftest_scheduling', 'selftest_reporting'})
+if str(PROGRAM) not in sys.path:
+    sys.path.insert(0, str(PROGRAM))
+# 单一来源：与 tests/architecture/_scan.py 共享排除目录与生产运行时扫描口径。
+from tests.architecture._scan import (  # noqa: E402
+    EXCLUDED_PARTS,
+    NON_PRODUCT_PARTS,
+    _EXCLUDED_STEMS as SKIP_STEMS,
+    production_runtime_files,
+)
 
 
 def production_modules():
     """产品运行时生产模块（递归口径，排除非产品目录与自检器）。"""
-    out = []
-    for path in PROGRAM.rglob('*.py'):
-        parts = path.relative_to(PROGRAM).parts
-        if EXCLUDED_PARTS.intersection(parts) or NON_PRODUCT_PARTS.intersection(parts):
-            continue
-        if path.stem in SKIP_STEMS or path.stem.startswith('test'):
-            continue
-        out.append(path)
-    return tuple(sorted(out))
+    return production_runtime_files()
 
 
 def executable_lines(path):

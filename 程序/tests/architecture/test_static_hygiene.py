@@ -12,15 +12,16 @@ jieba/_yaml/cffi 等，约 7700 个 .py），都不属本仓维护；其它嵌�
 from __future__ import annotations
 
 import ast
+import importlib.util
 import unittest
 import warnings
 from pathlib import Path
 
-from tests.architecture._scan import ROOT, production_runtime_files
+from tests.architecture import _scan
+from tests.architecture._scan import NON_CODE_EXCLUDED_PARTS, ROOT, production_runtime_files
 
-# 非本仓维护目录：字节码缓存、Git 元数据、历史记录、外包技能包、离线 ASR 运行时 venv。
-_EXCLUDED_PARTS = frozenset({"__pycache__", ".git", "维护记录", "tasks_round", "skills",
-                             "voice_asr_venv"})
+# 非本仓维护目录：复用 _scan.NON_CODE_EXCLUDED_PARTS（保留 tests/ 扫描），另排除外包技能包。
+_EXCLUDED_PARTS = NON_CODE_EXCLUDED_PARTS | frozenset({"skills"})
 
 
 def _nested_repo_dirs() -> frozenset[Path]:
@@ -172,6 +173,81 @@ class StaticHygieneTests(unittest.TestCase):
         leaked = [path.relative_to(ROOT).as_posix() for path in _all_sources()
                   if "voice_asr_venv" in path.relative_to(ROOT).parts]
         self.assertEqual(leaked, [], "离线 ASR venv 不得计入本仓静态卫生扫描范围")
+
+
+_ALLOWED_VOICE_LITERAL_FUNCS = frozenset({
+    ("tests/architecture/test_static_hygiene.py", "test_scan_scope_excludes_runtime_asr_venv"),
+    ("tests/architecture/test_static_hygiene.py", "test_scan_defines_composable_single_source_exclude_sets"),
+    ("tests/architecture/test_static_hygiene.py", "_duplicate_exclude_violations"),
+})
+
+
+def _enclosing_func_name(tree: ast.AST, target: ast.AST) -> str | None:
+    parents = {child: node for node in ast.walk(tree) for child in ast.iter_child_nodes(node)}
+    current = parents.get(target)
+    while current is not None:
+        if isinstance(current, (ast.FunctionDef, ast.AsyncFunctionDef)):
+            return current.name
+        current = parents.get(current)
+    return None
+
+
+def _duplicate_exclude_violations(path: Path) -> list[str]:
+    tree = _scan.parse(path)
+    rel = path.relative_to(ROOT).as_posix()
+    shared_markers = NON_CODE_EXCLUDED_PARTS - {"logs", "data", "outputs"}
+    violations: list[str] = []
+    for node in ast.walk(tree):
+        if isinstance(node, ast.Constant) and node.value == "voice_asr_venv":
+            if (rel, _enclosing_func_name(tree, node)) not in _ALLOWED_VOICE_LITERAL_FUNCS:
+                violations.append(f"{rel}:{node.lineno}: 硬编码 'voice_asr_venv'，应引用 _scan 排除集合")
+        elif isinstance(node, (ast.Set, ast.List, ast.Tuple)):
+            strings = {
+                elt.value for elt in node.elts
+                if isinstance(elt, ast.Constant) and isinstance(elt.value, str)
+            }
+            overlap = strings & shared_markers
+            if len(overlap) >= 3:
+                violations.append(
+                    f"{rel}:{node.lineno}: 重复定义排除目录字面量 {sorted(overlap)}，应引用 _scan 排除集合"
+                )
+    return violations
+
+
+class ScanExcludesSingleSourceTests(unittest.TestCase):
+    """C17：扫描排除集合单一来源门禁，禁止各架构门禁与覆盖率脚本重复手写排除目录。"""
+
+    def test_scan_defines_composable_single_source_exclude_sets(self) -> None:
+        self.assertIn("voice_asr_venv", _scan.NON_CODE_EXCLUDED_PARTS)
+        self.assertNotIn("tests", _scan.NON_CODE_EXCLUDED_PARTS)
+        self.assertEqual(_scan.EXCLUDED_PARTS, _scan.NON_CODE_EXCLUDED_PARTS | frozenset({"tests"}))
+
+    def test_architecture_tests_and_coverage_script_do_not_duplicate_exclude_sets(self) -> None:
+        files = [
+            path for path in sorted((ROOT / "tests" / "architecture").glob("*.py"))
+            if path.name != "_scan.py"
+        ]
+        files.append(ROOT / "scripts" / "coverage_report.py")
+        violations: list[str] = []
+        for path in files:
+            violations.extend(_duplicate_exclude_violations(path))
+        self.assertEqual(
+            violations,
+            [],
+            "扫描排除集合必须统一引用 tests/architecture/_scan.py，发现重复定义：\n"
+            + "\n".join(violations),
+        )
+
+    def test_coverage_report_reuses_scan_exclude_sets_and_runtime_scope(self) -> None:
+        coverage_script = ROOT / "scripts" / "coverage_report.py"
+        spec = importlib.util.spec_from_file_location("coverage_report_single_source", coverage_script)
+        module = importlib.util.module_from_spec(spec)
+        spec.loader.exec_module(module)
+        self.assertIs(module.EXCLUDED_PARTS, _scan.EXCLUDED_PARTS)
+        self.assertIs(module.NON_PRODUCT_PARTS, _scan.NON_PRODUCT_PARTS)
+        self.assertIs(module.SKIP_STEMS, _scan._EXCLUDED_STEMS)
+        self.assertEqual(module.production_modules(), _scan.production_runtime_files())
+
 
 if __name__ == "__main__":
     unittest.main()

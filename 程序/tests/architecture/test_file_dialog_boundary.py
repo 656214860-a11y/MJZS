@@ -5,9 +5,7 @@ import ast
 from pathlib import Path
 import unittest
 
-from tests.architecture._scan import entity_file, parse_desktop
-
-ROOT = Path(__file__).resolve().parents[2]
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT, entity_file, parse_desktop
 
 
 class FileDialogBoundaryTests(unittest.TestCase):
@@ -48,8 +46,7 @@ class FileDialogBoundaryTests(unittest.TestCase):
         for path in ROOT.rglob('*.py'):
             relative = path.relative_to(ROOT)
             if (path.name == 'ui_dialogs.py' or path.name.startswith('test')
-                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
-                    or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
+                    or EXCLUDED_PARTS.intersection(relative.parts)):
                 continue
             calls = _direct_file_dialog_calls(ast.parse(path.read_text(encoding='utf-8')))
             if calls:

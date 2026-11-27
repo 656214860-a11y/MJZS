@@ -13,11 +13,11 @@ import ast
 import re
 import unittest
 
-from tests.architecture._scan import ROOT, parse, registry_key
+from tests.architecture._scan import EXCLUDED_PARTS as _BASE_EXCLUDED_PARTS, ROOT, parse, registry_key
 
 
-# 与 test_dialog_boundary / test_button_boundary 一致：测试、轮次记录与维护记录不参与生产门禁。
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "skills", "voice_asr_venv"}
+# 复用 _scan.EXCLUDED_PARTS，另排除外部技能包 skills。
+EXCLUDED_PARTS = _BASE_EXCLUDED_PARTS | {"skills"}
 # 权威与豁免：token／主题／组件基类／图标调色自身即定义视觉常量的地方。
 AUTHORITY_FILES = {"ui_tokens.py", "ui_theme.py", "ui_widgets.py", "ui_tooltip.py", "ui_icons.py"}  # 后二者自 ui_widgets 拆出
 
