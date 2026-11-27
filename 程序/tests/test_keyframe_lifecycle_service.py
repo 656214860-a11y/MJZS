@@ -47,10 +47,38 @@ class KeyframeLifecycleServiceTests(unittest.TestCase):
 
     def test_restores_recycled_frame_then_clears_deleted_state(self):
         shot = self.episode['shots'][0]
-        self.assertTrue(delete_stage_keyframe(self.base, self.source, self.episode, shot).ok)
-        self.assertTrue(restore_stage_keyframe(self.base, self.source, self.episode, shot).ok)
+        deleted = delete_stage_keyframe(self.base, self.source, self.episode, shot)
+        self.assertTrue(deleted.ok, (deleted.reason, deleted.data))
+        restored = restore_stage_keyframe(self.base, self.source, self.episode, shot)
+        self.assertTrue(restored.ok, (restored.reason, restored.data))
         self.assertTrue(self.image.is_file())
         self.assertNotIn('frame_deleted', read(self.source)['shots'][0])
+
+    def test_restore_while_committed_backup_is_open(self):
+        from contextlib import ExitStack
+        from agent import publication
+
+        with patch.object(publication, 'ROOT', self.base / 'transactions'):
+            shot = self.episode['shots'][0]
+            deleted = delete_stage_keyframe(self.base, self.source, self.episode, shot)
+            self.assertTrue(deleted.ok, (deleted.reason, deleted.data))
+            unrelated = self.base / 'other.json'
+            save(unrelated, {'version': 1})
+            with ExitStack() as reader:
+                with publication.transaction():
+                    save(unrelated, {'version': 2})
+                    journal, = publication.ROOT.glob('*/journal.json')
+                    backup = journal.parent / '0'
+                    reader.enter_context(backup.open('rb'))
+                self.assertFalse(journal.exists())
+                self.assertTrue(backup.exists())
+                restored = restore_stage_keyframe(self.base, self.source, self.episode, shot)
+                self.assertTrue(restored.ok, (restored.reason, restored.data))
+                self.assertEqual(self.image.read_bytes(), b'png')
+                self.assertNotIn('frame_deleted', read(self.source)['shots'][0])
+            publication.recover_pending()
+            self.assertFalse(backup.parent.exists())
+            self.assertEqual(read(unrelated), {'version': 2})
 
     def test_restore_uses_exact_deleted_version_and_nested_original_name(self):
         from infra.storage_maintenance import recycle_paths

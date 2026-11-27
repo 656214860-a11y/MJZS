@@ -1,0 +1,15 @@
+{
+  "round": 4653,
+  "commit_base": "e3898a897",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_keyframe_lifecycle_service test_publication_fsync_budget test_publication_recovery test_keyframe_restore_boundary",
+    "exit": 0,
+    "passed": 32,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T15:38:13"
+}

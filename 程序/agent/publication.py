@@ -92,11 +92,20 @@ def _discard(folder):
         raise StorageError('发布事务临时目录清理未完成：' + str(folder), detail=str(folder))
 
 
+def _discard_committed(folder):
+    try:
+        _discard(folder)
+    except OSError:
+        _LOG.warning('发布事务临时目录清理未完成，下次访问时重试：%s', folder)
+
+
 def _recover(folder):
     journal = folder / 'journal.json'
-    if not journal.exists():
-        # 还没登记（日志落盘前不替换任何目标），或已提交（日志已删）：都没有旧版要恢复。
-        _discard(folder)
+    try:
+        journal.lstat()
+    except FileNotFoundError:
+        # 日志尚未创建或提交后已删除；占用中的旧备份可留到下一次访问再清理。
+        _discard_committed(folder)
         return
     try:
         record = json.loads(journal.read_text(encoding='utf-8'))
@@ -308,10 +317,7 @@ def transaction():
             _LOCAL.active = None
         # 成果已提交：清理事务目录失败不能让调用方误判为发布失败。
         # 残留目录已没有日志，下一次 access() 里会按已提交再清一遍。
-        try:
-            _discard(folder)
-        except OSError:
-            _LOG.warning('发布事务临时目录清理未完成，下次访问时重试：%s', folder)
+        _discard_committed(folder)
 
 
 def recover_pending():
