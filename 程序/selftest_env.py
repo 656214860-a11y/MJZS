@@ -145,8 +145,12 @@ DATA_GLOBS = ('skills/*.skill.md', 'skills/*/*.md', 'skills/*/*/*.md')
 TEST_LAYERS = ('architecture', 'service', 'gui', 'gui-short', 'gui-e2e')
 
 
-GUI_E2E_MODULES = frozenset({'test_pet_ui', 'test_ui_edges_autopilot', 'test_ui_edges_pages',
-                             'test_ui_edges_tables', 'test_ui_edges_controls'})
+GUI_E2E_MODULES = frozenset({
+    'test_pet_ui', 'test_pet_ui_view', 'test_pet_ui_popup',
+    'test_pet_ui_voice', 'test_pet_ui_stages', 'test_pet_ui_settings',
+    'test_ui_edges_autopilot', 'test_ui_edges_pages',
+    'test_ui_edges_tables', 'test_ui_edges_controls',
+})
 
 
 PERFORMANCE_MODULES = frozenset({'test_desktop_startup_perf', 'test_soak_light'})

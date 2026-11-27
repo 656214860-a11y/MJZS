@@ -2,6 +2,15 @@
  "schema_version": 1,
  "entries": [
   {
+   "file": "tests/pet_ui_test_support.py",
+   "test": "PetTestCase.setUp",
+   "ordinal": 1,
+   "kind": "平台限制",
+   "reason_constant": "PLATFORM_TKINTER",
+   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
+   "reference": ""
+  },
+  {
    "file": "tests/test_app_icon.py",
    "test": "WindowTests.test_apply_hands_the_icon_to_a_real_window",
    "ordinal": 1,
@@ -1084,15 +1093,6 @@
   {
    "file": "tests/test_pet_ui.py",
    "test": "FrameBatchSeamTests.setUp",
-   "ordinal": 1,
-   "kind": "平台限制",
-   "reason_constant": "PLATFORM_TKINTER",
-   "reason": "当前环境没有可用 tkinter；安装可用 Tk 后应恢复执行",
-   "reference": ""
-  },
-  {
-   "file": "tests/test_pet_ui.py",
-   "test": "PetTestCase.setUp",
    "ordinal": 1,
    "kind": "平台限制",
    "reason_constant": "PLATFORM_TKINTER",
