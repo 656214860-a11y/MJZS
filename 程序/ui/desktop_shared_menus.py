@@ -34,8 +34,8 @@ CANDIDATE_MAX_ROWS = 12
 SKILL_DESC_PREVIEW_CHARS = 24
 KIND_BADGES = {'skill': '技能', 'stage': '阶段', 'engine': '子引擎', 'attachment': '附件',
                'report_outline': '大纲', 'report_setting': '设定', 'report_character': '角色卡', 'report': '报告'}
-KIND_ICONS = {'attachment': ICON_DOCUMENT, 'report_outline': ICON_DOCUMENT,
-              'report_setting': ICON_DOCUMENT, 'report_character': ICON_DOCUMENT, 'report': ICON_DOCUMENT}
+KIND_ICONS = {kind: ICON_DOCUMENT for kind in (
+    'attachment', 'report_outline', 'report_setting', 'report_character', 'report')}
 
 
 def _short_desc(text, limit=SKILL_DESC_PREVIEW_CHARS):

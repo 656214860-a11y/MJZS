@@ -29,9 +29,7 @@ LEGACY_STATUS_MAP = {'已发布': STATUS_FINAL, '已归档': STATUS_ARCHIVED}
 
 def normalize_status(value):
     """兼容旧索引的「已发布／已归档」写法，统一收口到「定稿／归档」。"""
-    if isinstance(value, str):
-        return LEGACY_STATUS_MAP.get(value, value)
-    return value
+    return LEGACY_STATUS_MAP.get(value, value) if isinstance(value, str) else value
 
 # origin 三档。
 ORIGIN_SYSTEM = '系统生成'
@@ -64,9 +62,8 @@ class FileRow:
         """宽容读取：缺字段取默认值，多字段忽略（旧索引可直接读）。"""
         row = data if isinstance(data, dict) else {}
         known = {field.name for field in fields(cls)}
-        cleaned = {key: value for key, value in row.items() if key in known}
-        if 'status' in cleaned:
-            cleaned['status'] = normalize_status(cleaned['status'])
+        cleaned = {key: normalize_status(value) if key == 'status' else value
+                   for key, value in row.items() if key in known}
         return cls(**cleaned)
 
     def sort_key(self):

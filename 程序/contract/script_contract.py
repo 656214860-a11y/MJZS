@@ -307,25 +307,22 @@ def script_baseline_path(project):
     不得改用另一份更新的草稿。没有采用记录时，才回退到唯一自然剧本或内部工作稿。
     """
     try:
-        has_selection = natural_script_selection_path(project).is_file()
-    except OSError:
-        has_selection = False
-    try:
         source = resolve_script_source(project)
     except (OSError, ValueError):
         source = None
-    if has_selection:
-        return source if source is not None and source.is_file() else None
+    locked = bool(getattr(resolve_script_source, 'selection_present', False))
     candidates = [source] if source is not None else []
     try:
-        candidates.extend(natural_script_paths(project))
+        found = list(natural_script_paths(project))
     except (OSError, ValueError):
-        pass
+        found = []
+    candidates.extend([] if locked else found)
     from contract.stage_path_service import write_dir
-    candidates.append(write_dir(project, 'script') / RAW_SCRIPT_NAME)
+    raw = write_dir(project, 'script') / RAW_SCRIPT_NAME
+    candidates.extend([] if locked else [raw])
     for path in candidates:
         try:
-            if path.is_file() and path.stat().st_size:
+            if path.is_file() and (locked or path.stat().st_size):
                 return path
         except OSError:
             continue
@@ -371,9 +368,12 @@ def record_episode_ledger(project, text, previous_text=''):
 
 def resolve_script_source(project):
     """优先采用用户确认的内容版本；多份候选不得按修改时间自动替换。"""
+    resolve_script_source.selection_present = False
     paths = natural_script_paths(project)
     selection_path = natural_script_selection_path(project)
-    if selection_path.exists():
+    present = selection_path.exists()
+    resolve_script_source.selection_present = present
+    if present:
         selection = read(selection_path)
         if not isinstance(selection, dict):
             return None

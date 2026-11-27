@@ -211,7 +211,7 @@ class WritingApiTests(unittest.TestCase):
             self.assertFalse((project_stages.writing(project) / 'script_raw.md').exists())
 
     def test_preparation_requires_each_confirmation_and_hands_all_documents_to_script_request(self):
-        """未点名阶段时，「确认」沿最早未确认草稿推进；三份都确认后才进入自然剧本。点名某一份不要求更早阶段已确认。"""
+        """REQ-S01-10/13：阶段名册仍是设定、大纲、角色卡、自然剧本，但先后确认链已取消。未点名时「确认」沿最早未确认草稿推进；点名某一份不要求更早阶段已确认。"""
         import json
         from agent.core import save
         with tempfile.TemporaryDirectory() as td:
