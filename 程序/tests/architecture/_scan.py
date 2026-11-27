@@ -24,8 +24,10 @@ _EXCLUDED_STEMS = frozenset({"smoke_test", "run_selftests", "selftest_sandbox",
 # 都不该把它当模块扫（R2990 合并阻断修复）。
 # `logs`／`data`／`outputs` 是 .gitignore 忽略的运行目录（日志、运行数据、可共享输出），
 # 运行期落进去的 .py（调试脚本、探针等）不是产品模块，不计入生产门禁计数（R2-G4）。
-EXCLUDED_PARTS = frozenset({"tests", "tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__",
-                            "voice_asr_venv", "logs", "data", "outputs"})
+# 通用非代码／运行期排除集合（不含 `tests`，供全仓静态卫生扫描与生产扫描共用，单一来源）：
+NON_CODE_EXCLUDED_PARTS = frozenset({"tasks_round", "维护记录", ".git", ".wt", ".selftmp", "__pycache__",
+                                     "voice_asr_venv", "logs", "data", "outputs"})
+EXCLUDED_PARTS = NON_CODE_EXCLUDED_PARTS | frozenset({"tests"})
 
 
 def production_files_recursive() -> tuple[Path, ...]:

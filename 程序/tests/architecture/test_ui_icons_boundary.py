@@ -1,13 +1,11 @@
 """首迁页面不得退回手写 PhotoImage。"""
 import ast
 import unittest
-from pathlib import Path
 
-from tests.architecture._scan import entity_file
+from tests.architecture._scan import EXCLUDED_PARTS as _BASE_EXCLUDED_PARTS, ROOT as PROGRAM, entity_file
 
 
-PROGRAM = Path(__file__).resolve().parents[2]
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", "skills", ".git", "__pycache__", "voice_asr_venv"}
+EXCLUDED_PARTS = _BASE_EXCLUDED_PARTS | {"skills"}
 # UI 图标经 IconLoader、缩略图经 asset_thumbs；圆角按钮/卡片底图由 ui_widgets 用标准库生成（2026-10-21 起）。
 PHOTOIMAGE_OWNERS = {"ui_icons.py", "asset_thumbs.py", "ui_rounded.py"}
 
@@ -18,7 +16,7 @@ class UiIconsBoundaryTests(unittest.TestCase):
         offenders = []
         for path in PROGRAM.rglob("*.py"):
             if (path.name in PHOTOIMAGE_OWNERS
-                    or any(part in EXCLUDED_PARTS for part in path.parts)):
+                    or EXCLUDED_PARTS.intersection(path.relative_to(PROGRAM).parts)):
                 continue
             tree = ast.parse(path.read_text(encoding="utf-8"))
             for node in ast.walk(tree):

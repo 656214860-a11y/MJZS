@@ -4,7 +4,7 @@ from __future__ import annotations
 import ast
 import unittest
 
-from tests.architecture._scan import ROOT, parse
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT, parse
 
 
 class ComboboxBoundaryTests(unittest.TestCase):
@@ -19,8 +19,7 @@ class ComboboxBoundaryTests(unittest.TestCase):
         for path in ROOT.rglob('*.py'):
             relative = path.relative_to(ROOT)
             if (path.name in {'ui_widgets.py', 'ui_theme.py'} or path.name.startswith('test')
-                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
-                    or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
+                    or EXCLUDED_PARTS.intersection(relative.parts)):
                 continue
             for node in ast.walk(parse(path)):
                 if not (isinstance(node, ast.Call) and isinstance(node.func, ast.Attribute)
@@ -36,8 +35,7 @@ class ComboboxBoundaryTests(unittest.TestCase):
 
     def test_business_pages_create_comboboxes_through_select_box(self):
         violations = []
-        excluded = {'tests', '维护记录', '附加工具', 'batch_frames_tool',
-                    'tasks_round', '__pycache__', '.git', 'voice_asr_venv'}
+        excluded = EXCLUDED_PARTS | {'附加工具', 'batch_frames_tool'}
         for path in ROOT.rglob('*.py'):
             relative = path.relative_to(ROOT)
             if path.name == 'ui_widgets.py' or excluded.intersection(relative.parts):

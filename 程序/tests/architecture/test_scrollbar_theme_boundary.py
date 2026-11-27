@@ -1,10 +1,8 @@
 """全局滚动条样式必须经 token 入口统一。"""
 import ast
 import unittest
-from pathlib import Path
 
-
-PROGRAM = Path(__file__).resolve().parents[2]
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT as PROGRAM
 
 
 class ScrollbarThemeBoundaryTests(unittest.TestCase):
@@ -28,8 +26,7 @@ class ScrollbarThemeBoundaryTests(unittest.TestCase):
         for path in PROGRAM.rglob('*.py'):
             relative = path.relative_to(PROGRAM)
             if (path.name in {'ui_theme.py', 'ui_widgets.py'} or path.name.startswith('test')
-                    or 'tests' in relative.parts or 'tasks_round' in relative.parts
-                    or '维护记录' in relative.parts or 'voice_asr_venv' in relative.parts):
+                    or EXCLUDED_PARTS.intersection(relative.parts)):
                 continue
             tree = ast.parse(path.read_text(encoding='utf-8'))
             for node in ast.walk(tree):

@@ -3,10 +3,7 @@ from __future__ import annotations
 
 import ast
 import unittest
-from tests.architecture._scan import ROOT, parse
-
-
-EXCLUDED_PARTS = {"tests", "tasks_round", "维护记录", ".git", "__pycache__", "voice_asr_venv"}
+from tests.architecture._scan import EXCLUDED_PARTS, ROOT, parse
 
 
 class InputBoundaryTests(unittest.TestCase):
@@ -24,7 +21,7 @@ class InputBoundaryTests(unittest.TestCase):
         actual = {}
         for path in ROOT.rglob('*.py'):
             if (path.name == 'ui_widgets.py'
-                    or any(part in EXCLUDED_PARTS for part in path.parts)):
+                    or EXCLUDED_PARTS.intersection(path.relative_to(ROOT).parts)):
                 continue
             count = len(_direct_inputs(parse(path)))
             if count:
