@@ -1,23 +1,29 @@
-"""无 Tk 的首帧管理页行归属、路径和批次选择状态。"""
+"""无 Tk 的首帧管理页行归属、分页、跨页选中、路径和批次选择状态。"""
 from __future__ import annotations
 
 from pathlib import Path
 
+DEFAULT_PAGE_SIZE = 100
+MAX_PAGE_SIZE = 100
+
 
 class KeyframePageController:
-    """让首帧页的 Tk 表格只消费已经归属明确的行状态。"""
+    """让首帧页的 Tk 表格只消费已经归属明确且分页后的行状态。"""
 
-    def __init__(self, source, episode, base, rows=()):
+    def __init__(self, source, episode, base, rows=(), *, page_size=DEFAULT_PAGE_SIZE):
         self.source = Path(source).resolve()
         self.episode = episode
         self.base = Path(base).resolve()
+        self.page_size = max(1, min(MAX_PAGE_SIZE, int(page_size)))
+        self.page_index = 0
         self.rows = []
         self.row_context = {}
         self.owners = {}
+        self.selected_shot_ids = set()
         self.replace_rows(rows)
 
     def replace_rows(self, rows):
-        """原地更新行索引，供页面重建后继续复用同一状态容器。"""
+        """原地更新行索引并按当前行集裁掉失效的跨页选中与页码。"""
         self.rows[:] = list(rows)
         self.row_context.clear()
         self.owners.clear()
@@ -26,7 +32,85 @@ class KeyframePageController:
             base = Path(base).resolve()
             self.row_context[iid] = (shot, item, base, episode)
             self.owners[id(shot)] = (item, base, episode)
+        self.selected_shot_ids &= set(self.row_context)
+        self.page_index = max(0, min(self.page_index, self.total_pages - 1))
         return self.rows
+
+    @property
+    def total_rows(self):
+        return len(self.rows)
+
+    @property
+    def total_pages(self):
+        return max(1, (len(self.rows) + self.page_size - 1) // self.page_size)
+
+    @property
+    def current_page(self):
+        return self.page_index + 1
+
+    def page_rows(self):
+        start = self.page_index * self.page_size
+        return self.rows[start:start + self.page_size]
+
+    def page_ids(self):
+        return [iid for iid, _shot, _item, _base, _episode in self.page_rows()]
+
+    def set_page(self, page_number):
+        target = max(1, min(self.total_pages, int(page_number)))
+        self.page_index = target - 1
+        return self.current_page
+
+    def first_page(self):
+        return self.set_page(1)
+
+    def prev_page(self):
+        return self.set_page(self.current_page - 1)
+
+    def next_page(self):
+        return self.set_page(self.current_page + 1)
+
+    def last_page(self):
+        return self.set_page(self.total_pages)
+
+    def sync_page_selection(self, visible_selected):
+        """按当前页可见选中回写跨页 shot_id 集合，其它页的选中保持不变。"""
+        current_ids = set(self.page_ids())
+        visible = {str(iid) for iid in (visible_selected or ()) if str(iid) in self.row_context}
+        self.selected_shot_ids -= (current_ids - visible)
+        self.selected_shot_ids |= visible
+        return self.selected_on_page()
+
+    def selected_on_page(self):
+        return [iid for iid in self.page_ids() if iid in self.selected_shot_ids]
+
+    def select_current_page(self):
+        """Ctrl+A 语义：只选当前页，不跨页全选。"""
+        ids = self.page_ids()
+        self.selected_shot_ids = set(ids)
+        return ids
+
+    def locate_shot(self, target):
+        key = str(target or '').strip()
+        if not key:
+            return None
+        for index, (iid, shot, _item, _base, _episode) in enumerate(self.rows):
+            if iid == key or str(shot.get('id') or '') == key:
+                return (index // self.page_size) + 1, iid
+        return None
+
+    def jump_to_shot(self, target):
+        located = self.locate_shot(target)
+        if located is None:
+            return None
+        page_number, iid = located
+        self.set_page(page_number)
+        return iid
+
+    def page_summary(self):
+        summary = f'第 {self.current_page} / {self.total_pages} 页（共 {self.total_rows} 镜）'
+        if self.selected_shot_ids:
+            summary += f' · 已选 {len(self.selected_shot_ids)} 镜'
+        return summary
 
     @property
     def owned_sources(self):
