@@ -33,7 +33,6 @@ STYLED_LABEL_CAPS = {
     'desktop_page_nav.py': 3,
     'ui_status_bar.py': 2,
     'desktop_file_card.py': 2,
-    'desktop_idea_bubbles.py': 1,
     'desktop_project_pages.py': 2,
     'pet_settings_ui.py': 2,
     'speech_settings_ui.py': 2,

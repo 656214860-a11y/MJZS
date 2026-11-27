@@ -14,14 +14,63 @@ from pathlib import Path
 from infra.file_cache import read_json
 from contract.stage_layout import SKILL_CONFIG_NAME
 
-# 阶段文件夹是 SKILL 的物理归档口径。前置零的编号必须与 12 阶段顺序保持一致；
-# 新放入 01—12 文件夹但尚未补 frontmatter 的 SKILL 可据此立即出现在正确阶段。
+# 阶段文件夹是 SKILL 的物理归档口径。00 为跨阶段全流程总包，01—13 与 13 阶段顺序一致；
+# 新放入 00—13 文件夹但尚未补 frontmatter 的 SKILL 可据此立即出现在正确目录。
+SUITE_STAGE = 'suite'
+SUITE_LABEL = '总包'
+SUITE_DIR_NAME = '00 总包SKILL'
 STAGE_DIRECTORY_IDS = {
+    '00': SUITE_STAGE,
     '01': 'script', '02': 'script_structure', '03': 'storyboard',
     '04': 'animatic', '05': 'assets', '06': 'continuity', '07': 'final',
     '08': 'keyframe', '09': 'previs', '10': 'video',
     '11': 'audio', '12': 'edit', '13': 'delivery',
 }
+STAGE_DIRECTORY_NAMES = {
+    SUITE_STAGE: SUITE_DIR_NAME,
+    'script': '01 剧本准备SKILL',
+    'script_structure': '02 剧本整理SKILL',
+    'storyboard': '03初步分镜SKILL',
+    'animatic': '04 分镜预演SKILL',
+    'assets': '05资产管理SKILL',
+    'continuity': '06连贯性SKILL',
+    'final': '07分镜定稿SKILL',
+    'keyframe': '08首帧管理SKILL',
+    'previs': '09白模预演SKILL',
+    'video': '10视频生成SKILL',
+    'audio': '11配音字幕SKILL',
+    'edit': '12后期剪辑SKILL',
+    'delivery': '13质检交付SKILL',
+}
+# 已退役的原内置 67 个阶段 .skill.md ID（13 pipeline-* ＋ 54 内置阶段小技能）。
+# 老项目 skill_config.json 与旧预设命中这些 ID 时自动静默滤除，不阻断发送；
+# 用户自装后缺失或禁用的 SKILL 仍受发送门禁保护。
+RETIRED_BUILTIN_SKILL_IDS = frozenset({
+    'pipeline-script-preparation',
+    'pipeline-script-structure', 'script-character-extraction', 'script-dialogue-polish',
+    'script-structured-generation', 'script-worldbuilding',
+    'pipeline-storyboard-draft', 'storyboard-camera-language', 'storyboard-duration-estimate',
+    'storyboard-pacing-check', 'storyboard-scene-breakdown', 'storyboard-shot-generation',
+    'pipeline-animatic',
+    'pipeline-assets', 'asset-auto-fill', 'asset-candidate-wall',
+    'asset-copyright-filter', 'asset-dedupe', 'asset-visual-rank',
+    'pipeline-continuity', 'continuity-anchor-freeze', 'continuity-conflict-adjudicate',
+    'continuity-cross-batch-guard', 'continuity-drift-audit', 'continuity-triplet-check',
+    'pipeline-storyboard-final', 'storyboard-asset-sync', 'storyboard-consistency-lock',
+    'storyboard-final-validate', 'storyboard-prompt-render', 'storyboard-version-snapshot',
+    'pipeline-keyframe', 'firstframe-auto-fill', 'firstframe-batch',
+    'firstframe-quality', 'firstframe-retry', 'firstframe-thumbnail',
+    'pipeline-previs', 'whitemodel-actor-place', 'whitemodel-camera-record',
+    'whitemodel-motion-preview', 'whitemodel-rhythm-check', 'whitemodel-scene-build',
+    'pipeline-video-generation', 'video-batch-submit', 'video-multi-model-route',
+    'video-quality-check', 'video-retry',
+    'pipeline-audio-subtitle', 'subtitle-auto-align', 'subtitle-format-export',
+    'voice-emotion-check', 'voice-multi-character', 'voice-tts-synthesis',
+    'pipeline-editing', 'edit-auto-compose', 'edit-bgm-sfx', 'edit-multi-format-export',
+    'edit-preview-generate', 'edit-transition-library', 'video-audio-sync-precheck',
+    'pipeline-delivery', 'delivery-archive', 'delivery-report-generate',
+    'qa-compliance-check', 'qa-overall-check', 'qa-style-consistency',
+})
 
 # ``skills/`` 根下由程序自己按路径读取的目录：阶段流程模板（``skill_templates.template_root``）和
 # 节奏模板（``contract.script_brief.RHYTHM_TEMPLATE_PATH``）都在这里。它们不是残留包：
@@ -245,12 +294,15 @@ class ProjectLayerMixin:
 
     def _layer_stage_directory_for(self, sid, layer):
         builtin = self._stage_directory_for(sid)
+        fallback_name = builtin.name if builtin is not None else STAGE_DIRECTORY_NAMES.get(sid)
         root = {'user': self.user_root, 'project': self.project_skills}.get(layer)
-        if builtin is None or root is None:
+        if not fallback_name:
+            return None
+        if root is None:
             return builtin if layer == 'user' else None
         existing = next((path for path in self._stage_directories(root)
                          if stage_from_path(path / '__stage_probe__') == sid), None)
-        return existing or root / builtin.name
+        return existing or root / fallback_name
 
 
 def _kept_out_of_residue(probe):

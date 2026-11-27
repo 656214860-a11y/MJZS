@@ -205,6 +205,59 @@ class RepoImportTests(unittest.TestCase):
         self.assertFalse(ok)
         self.assertTrue(message)
 
+    def test_composite_suite_imports_to_00_suite_inherits_updates_and_uninstalls(self):
+        """无根 SKILL.md、无 stage 字段的多子技能总控套件应整包入 00 总包SKILL，全阶段继承并可整包更新/卸载。"""
+        suite_repo = self.root / 'manju-laoli-skill'
+        (suite_repo / 'short-drama-director').mkdir(parents=True)
+        (suite_repo / 'short-drama-director' / 'SKILL.md').write_text(
+            '---\nname: short-drama-director\ndescription: L0 总控导演，调度 sd-script-engine 与 sd-storyboard-engine\n---\n'
+            '# 短剧总控\n调度 sd-script-engine 与 sd-storyboard-engine 完成全流程。\n',
+            encoding='utf-8',
+        )
+        for sub in ('sd-script-engine', 'sd-storyboard-engine'):
+            (suite_repo / sub).mkdir(parents=True)
+            (suite_repo / sub / 'SKILL.md').write_text(
+                f'---\nname: {sub}\ndescription: 子引擎 {sub}\n---\n# {sub}\n',
+                encoding='utf-8',
+            )
+        report = skill_import_service.import_from_repo(
+            str(suite_repo), self.program, self.registry, stage_hint='', confirm=lambda m: True
+        )
+        self.assertEqual(len(report['installed']), 1)
+        installed_path = Path(report['installed'][0]['target'])
+        self.assertIn('00 总包SKILL', installed_path.parts)
+        self.assertTrue((self.program / 'data' / 'skills' / '00 总包SKILL' / 'manju-laoli-skill' / 'short-drama-director' / 'SKILL.md').is_file())
+        self.assertTrue((self.program / 'data' / 'skills' / '00 总包SKILL' / 'manju-laoli-skill' / 'sd-script-engine' / 'SKILL.md').is_file())
+        self.assertEqual(len(skill_import_service.ledger_items(self.program)), 1)
+
+        self.registry.scan(force=True)
+        suites = self.registry.suites()
+        self.assertEqual(len(suites), 1)
+        suite = suites[0]
+        self.assertEqual(suite.stage, 'suite')
+        self.assertEqual(suite.meta.get(skill_registry.PRIMARY_SUBSKILL_KEY), 'short-drama-director')
+        self.assertIn(suite.name, [item.name for item in self.registry.getForStage('script')])
+        self.assertIn(suite.name, [item.name for item in self.registry.getForStage('assets')])
+
+        # 二次更新覆盖整个套件且台账仍保持 1 条
+        (suite_repo / 'short-drama-director' / 'SKILL.md').write_text(
+            '---\nname: short-drama-director\ndescription: L0 总控导演 V2，调度 sd-script-engine 与 sd-storyboard-engine\n---\n'
+            '# 短剧总控 V2\n',
+            encoding='utf-8',
+        )
+        updated = skill_import_service.update_from_repo(
+            str(suite_repo), self.program, self.registry, confirm=lambda m: True
+        )
+        self.assertEqual(len(updated['installed']), 1)
+        self.assertIn('V2', (self.program / 'data' / 'skills' / '00 总包SKILL' / 'manju-laoli-skill' / 'short-drama-director' / 'SKILL.md').read_text(encoding='utf-8'))
+        self.assertEqual(len(skill_import_service.ledger_items(self.program)), 1)
+
+        # 卸载移除整包目录与台账
+        self.registry.scan(force=True)
+        skill_import_service.uninstall_skill(self.program, self.registry, suite.name)
+        self.assertFalse((self.program / 'data' / 'skills' / '00 总包SKILL' / 'manju-laoli-skill').exists())
+        self.assertEqual(skill_import_service.ledger_items(self.program), {})
+
 
 if __name__ == '__main__':
     unittest.main()

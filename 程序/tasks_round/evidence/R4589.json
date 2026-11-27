@@ -1,0 +1,15 @@
+{
+  "round": 4589,
+  "commit_base": "7d3ee614e",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_skill_repo_import test_skill_archive_import test_skill_remote_import test_skill_user_layer test_skill_security test_skill_lifecycle test_round_gate test_script_contract test_stage_flow_summary test_workflow_writing_stages",
+    "exit": 0,
+    "passed": 289,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T10:17:46"
+}

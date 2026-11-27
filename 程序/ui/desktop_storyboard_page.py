@@ -146,6 +146,10 @@ class _FirstFramePage:
                 self.table.focus(row)
                 self.selection_changed()
             menu=ContextMenu(self.page.win)
+            has_row=bool(row and self.table.exists(row))
+            if has_row and column in ('#5','#6'):
+                menu.command('查看',lambda sid=row,col=column:self.page.safe(lambda:self.open_cell(sid,col)))
+                menu.separator()
             menu.command('手动制作首帧',make_action)
             menu.command('刷新首帧列表',self.refresh)
             menu.separator()
@@ -154,14 +158,12 @@ class _FirstFramePage:
             menu.separator()
             if self.replace_button.state=='normal':menu.command('导入 / 替换选中首帧…',self.replace)
             else:menu.disabled('导入 / 替换选中首帧…')
+            menu.command('恢复删除的首帧',lambda:self.restore_selected())
+            menu.separator()
+            if has_row:
+                menu.command('删除这一镜首帧',lambda sid=row:self.page.safe(lambda:self.delete_one(sid)))
             if self.delete.state=='normal':menu.command('批量删除首帧',lambda:self.delete_checked_frames())
             else:menu.disabled('批量删除首帧')
-            menu.command('恢复删除的首帧',lambda:self.restore_selected())
-            if row and self.table.exists(row):
-                menu.separator()
-                if column in ('#5','#6'):
-                    menu.command('查看',lambda sid=row,col=column:self.page.safe(lambda:self.open_cell(sid,col)))
-                menu.command('删除这一镜首帧',lambda sid=row:self.page.safe(lambda:self.delete_one(sid)))
             return menu
 
         menu_mouse=stage_page_simplify.bind_context_menu(self.page,[self.table,table_box,self.target_row],keyframe_menu)

@@ -92,12 +92,11 @@ class AnimaticScopeTests(unittest.TestCase):
         self.assertFalse(ok)
 
     def test_req_s04_50_51_single_free_skill_with_local_only_constraints(self):
-        text = SKILL.read_text(encoding='utf-8')
-        self.assertIn('paid: false', text)
-        self.assertIn('dependsOn: [pipeline-storyboard-draft]', text)
-        self.assertIn('tools: [animatic.generate, animatic.validate]', text)
-        self.assertIn('不替代正式资产或首帧或正式视频', text)
-        self.assertEqual(len(list(SKILL.parent.glob('*.skill.md'))), 1)
+        import skill_tools
+        self.assertTrue(SKILL.parent.is_dir())
+        self.assertEqual(list(SKILL.parent.glob('*.skill.md')), [])
+        for tool in ('animatic.generate', 'animatic.validate'):
+            self.assertIn(tool, skill_tools.PAGES)
 
     def test_req_s04_60_sga_reads_storyboard_draft_index_for_readiness(self):
         """REQ-S04-60：采用分镜时写下的 storyboard_draft.json 是预演输入就绪判定的落盘索引。"""

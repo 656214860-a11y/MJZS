@@ -59,10 +59,13 @@ class DeliveryScopeTests(unittest.TestCase):
                          ('script', 'reference', 'image', 'video', 'music', 'font', 'voice'))
 
     def test_req_s13_50_six_skills_exist_and_pipeline_is_default(self):
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for name in SKILLS:
             with self.subTest(skill=name):
-                self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
-        self.assertIn('pipeline-delivery', stage_config.default_entry('delivery')['skills'])
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-delivery', stage_config.default_entry('delivery')['skills'])
 
     def test_req_s13_51_parallel_config_runs_independent_checks(self):
         config = stage_parallel.CONFIG['delivery']

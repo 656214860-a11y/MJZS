@@ -199,14 +199,12 @@ class ScriptPageServices:
 class ScriptPagesMixin:
     """Desktop 的剧本页方法集（见模块说明）。"""
     def refresh_script_chat_for_selected_model(self):
-        """阶段配置确认后，立刻切换到已选模型的独立聊天页。"""
+        """REQ-S01-120：切换模型仅更新缓存模型名与状态，绝不清空重绘聊天页（对齐 DSH 单对话流）。"""
         box = getattr(self, 'idea_log', None)
         if box is None or not box.winfo_exists():
             return False
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,self.idea_chat_model())
-        self.set_idea_model_filter(self.idea_chat_model())
-        self.show_conversation()
         self.update_recon_button()
         return True
     def start_script_workflow(self, creative, *, config=None):
@@ -346,7 +344,9 @@ class ScriptPagesMixin:
         import domain.idea_chat as idea_chat
         import writing_api
         repaired = idea_chat.repair_internal_replies(self.idea_chat_context(), model=self.idea_chat_model(), gateway=self.idea_chat_gateway())
-        getattr(self,'_idea_hidden_messages',{}).pop(self.bubble_view_key(self.idea_chat_model()),None)
+        hidden = getattr(self,'_idea_hidden_messages',{})
+        hidden.pop(self.bubble_view_key(''),None)
+        hidden.pop(self.bubble_view_key(self.idea_chat_model()),None)
         from orchestrator.stage_download_inbox_service import overwrite_backup_notice
         backups = []
         imported = self.import_script_downloads(backups)
@@ -409,7 +409,7 @@ class ScriptPagesMixin:
         """刷新时收回 Claude Desktop 等窗口已下载到「下载」文件夹的同项目设定／大纲／角色卡／剧本：同类覆盖原文件。"""
         import domain.idea_chat as idea_chat
         from stage_execution_service import import_downloaded_creatives
-        selected = self.displayed_chat_model()
+        selected = self.displayed_chat_model() or self.idea_chat_model()
         provider, model = idea_chat.storage_identity(selected)
         try:
             from stage_execution_service import collect_download_inbox

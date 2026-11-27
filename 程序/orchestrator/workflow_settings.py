@@ -628,11 +628,14 @@ def validate_selected_skills(project, stage):
         raise ValueError('阶段 SKILL 配置格式无效，已阻止发送，请重新确认阶段配置。')
     registry = skill_registry.default_registry(project=project)
     disabled = registry.disabled_names()
+    retired = getattr(skill_registry, 'RETIRED_BUILTIN_SKILL_IDS', ())
     for name in entry.get('skills') or ():
         if registry.getById(name) is not None:
             continue
         if name in disabled:
             raise ValueError(f'已勾选的 SKILL 已禁用：{name}；已阻止发送，请在「设置 → SKILL 管理」启用后重试。')
+        if name in retired:
+            continue
         raise ValueError(f'已勾选的 SKILL 未加载：{name}；已阻止发送，请重新确认阶段配置。')
 def _closure_blocked(message, closure):
     """发送阻断异常附带已走到的引用闭包，供 SKILL 体检展示「断在哪、之前加载了什么」。"""
@@ -970,14 +973,7 @@ def _health_row(skill, problems, warnings, *, locks=None):
 
 def skill_health_report(registry=None, *, program=None, project=None, stage=None, locks=None,
                         local_modified=None):
-    """SKILL 体检报告：注册表 problems/warnings 按名归位＋每个 SKILL 的发送前引用闭包干跑。
-
-    只读不发送、不落盘；``stage`` 给阶段 id 或中文名时只出该阶段的行，全局问题照常列出。
-    闭包行沿用 ``reference_row`` 字段（kind/status/target/depth/path）；干跑失败的行带
-    ``error`` 与异常附带的部分闭包（``skill_closure``）。``local_modified`` 给
-    ``skill_import_service.local_modifications`` 的名字集：命中行追加
-    ``local-modified`` 警告（T9 安装完整性校验，与更新检测同一判定）。
-    """
+    """SKILL 体检报告：注册表问题归位＋发送前引用闭包干跑（只读，不发送、不落盘）。"""
     registry = registry or skill_registry.default_registry(program, project=project)
     registry.scan(force=True)
     sid = skill_registry.stage_id(stage) if stage else ''
@@ -989,11 +985,9 @@ def skill_health_report(registry=None, *, program=None, project=None, stage=None
                         warnings_per.get(skill.name, ()), locks=locks)
             for skill in all_skills if not sid or skill.stage == sid]
     modified = set(local_modified or ())
-    if modified:
-        for row in rows:
-            if row['name'] in modified and not any('local-modified' in w for w in row['warnings']):
-                row['warnings'].append('本地已修改：已安装内容与导入台账摘要不一致'
-                                       '（local-modified），更新检测不会覆盖')
-                if row['status'] == 'ok':
-                    row['status'] = 'warning'
+    for row in rows:
+        if row['name'] in modified and not any('local-modified' in w for w in row['warnings']):
+            row['warnings'].append('本地已修改：已安装内容与导入台账摘要不一致（local-modified），更新检测不会覆盖')
+            if row['status'] == 'ok':
+                row['status'] = 'warning'
     return {'skills': rows, 'problems': global_problems, 'warnings': global_warnings}

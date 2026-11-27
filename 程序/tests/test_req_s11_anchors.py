@@ -39,9 +39,11 @@ class _MediaProject:
 
 class ReqS11AnchorTests(unittest.TestCase):
     def test_req_s11_32_legacy_audio_default_is_empty_and_stage_preset_is_authoritative(self):
-        """REQ-S11-32：旧 FLOWS 的 audio 默认保持空串，阶段预设默认 pipeline-audio-subtitle。"""
+        """REQ-S11-32：旧 FLOWS 的 audio 默认保持空串，内置 pipeline-audio-subtitle 已退役。"""
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
         self.assertEqual(workflow_settings.DEFAULT_SKILLS['audio'], '')
-        self.assertIn('pipeline-audio-subtitle', stage_config.default_entry('audio')['skills'])
+        self.assertIn('pipeline-audio-subtitle', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-audio-subtitle', stage_config.default_entry('audio')['skills'])
 
 
 class ReqS11MediaCompletionAnchorTests(unittest.TestCase):

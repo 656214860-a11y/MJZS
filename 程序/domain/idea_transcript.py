@@ -571,8 +571,11 @@ def restore_latest_removed(root, model=None, *, gateway=None):
         records = []
     identity = chat_model(model)
     choices = [i for i, record in enumerate(records)
-               if isinstance(record, dict) and ((record.get('model_id') == identity.model_id)
-                   if record.get('model_id') and identity.model_id else str(record.get('model') or '') == key)
+               if isinstance(record, dict) and (
+                   not key or (
+                       (record.get('model_id') == identity.model_id)
+                       if record.get('model_id') and identity.model_id
+                       else str(record.get('model') or '') == key))
                and isinstance(record.get('row'), dict)]
     if not choices:
         raise ValueError('没有可恢复的对话删除记录')

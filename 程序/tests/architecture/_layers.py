@@ -66,7 +66,7 @@ _register(3, "exit_maintenance", "pet_chat_coordinator", "project_context_factor
           "agent_dispatch", "engine", "stage_execution_service", "stage_asset_gateways", "stage_animatic_gateways", "stage_previs_gateways", "stage_gate_gateways", "stage_handoff_gateways", "stage_publication", "stage_write_preparation_service", "stage_download_inbox_service", "desktop_startup_service", "desktop_automation_service", "desktop_auto_state", "pet_broadcast_state", "idea_chat_controller", "idea_semantic_brief_service",
           "writing_api", "writing_unconfirm", "writing_preparation_ledger", "script_skill_report", "storyboard_plan_service", "storyboard_final", "storyboard_final_controller", "storyboard_page_controller", "keyframe_page_controller", "storyboard_selection", "storyboard_direct_api", "audio_direct_api", "video_prompt_direct_api", "image_direct", "asset_batch_controller", "asset_page_controller", "editing_page_controller", "page_navigation_controller", "media_page_controller",
           "previs_automation", "previs_batch_service", "previs_monitor", "asset_auto_batch_service", "asset_batch_execution", "stage_completion_service", "white_model_persistence_controller")
-_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "pet_cloud_place", "pet_cloud_move_guard", "responsive_ui", "ui_theme", "ui_popup", "ui_widgets", "ui_close_button", "ui_composer_style", "ui_tooltip", "ui_stage_popups", "ui_rounded", "ui_motion", "ui_scroll", "ui_hover_fade", "ui_dialogs", "ui_usage_indicator", "ui_usage_detail", "ui_shortcuts", "ui_icons", "ui_status_bus", "ui_status_bar", "desktop_status_bridge", "cell_hover", "cell_menu", "prompt_window", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "stage_model_picker", "skill_panel_workflow", "skill_panel_import", "skill_note_render", "script_view_style", "desktop_shared_input", "desktop_shared_send", "desktop_shared_menus", "desktop_shared_input_extras", "pet_skills_manage", "pet_skill_tree", "app")
+_register(4, "desktop", "pet_ui", "pet_cloud", "pet_cloud_text", "pet_cloud_geometry", "pet_cloud_shape", "pet_cloud_tail", "pet_cloud_timing", "pet_cloud_hint", "pet_cloud_place", "pet_cloud_move_guard", "responsive_ui", "ui_theme", "ui_popup", "ui_widgets", "ui_close_button", "ui_composer_style", "ui_tooltip", "ui_stage_popups", "ui_rounded", "ui_motion", "ui_scroll", "ui_hover_fade", "ui_dialogs", "ui_usage_indicator", "ui_usage_detail", "ui_shortcuts", "ui_icons", "ui_status_bus", "ui_status_bar", "desktop_status_bridge", "cell_hover", "cell_menu", "prompt_window", "asset_detail", "asset_batch", "native_assets", "storyboard_files", "storyboard_table_ui", "cloud_video", "local_video", "local_previs", "previs_progress", "white_model", "production_lock_fields", "skill_panel", "skill_panel_support", "stage_model_picker", "skill_panel_workflow", "skill_panel_import", "skill_note_render", "script_view_style", "desktop_shared_input", "desktop_shared_send", "desktop_shared_menus", "desktop_shared_input_extras", "pet_skills_manage", "pet_skill_tree", "pet_skills_views", "app")
 _register(5, "app_shortcut")
 
 # R741：顶层运行期模块必须逐一入表。层级按实际静态依赖和职责判断，不能以名称后缀代替。
@@ -698,8 +698,21 @@ SAME_LAYER_EDGES: frozenset[tuple[str, str]] = frozenset({
     ('pet_settings_ui', 'ui_dialogs'),
     ('pet_settings_ui', 'ui_icons'),
     ('pet_settings_ui', 'ui_widgets'),
+    ('pet_skills_manage', 'pet_models_tabs'),
     ('pet_skills_manage', 'pet_skill_tree'),
+    ('pet_skills_manage', 'pet_skills_views'),
     ('pet_skills_manage', 'ui_shortcuts'),
+    ('pet_skills_views', 'pet_models_tabs'),
+    ('pet_skills_views', 'pet_skill_tree'),
+    ('pet_skills_views', 'responsive_ui'),
+    ('pet_skills_views', 'skill_archive'),
+    ('pet_skills_views', 'skill_import_service'),
+    ('pet_skills_views', 'skill_note_render'),
+    ('pet_skills_views', 'skill_panel'),
+    ('pet_skills_views', 'skill_panel_support'),
+    ('pet_skills_views', 'skill_remote_service'),
+    ('pet_skills_views', 'ui_theme'),
+    ('pet_skills_views', 'ui_widgets'),
     ('pet_skills_manage', 'skill_archive'),
     ('pet_skills_manage', 'skill_import_service'),
     ('pet_skills_manage', 'skill_lifecycle_service'),

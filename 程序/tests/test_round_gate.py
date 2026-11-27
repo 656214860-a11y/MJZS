@@ -36,7 +36,8 @@ class RoundGateFloorTests(unittest.TestCase):
 
     def test_registry_baseline_matches_the_live_registry(self):
         import skill_registry
-        self.assertEqual(skill_registry.default_registry().count(), gate.load_floors()['skill_registry_count'])
+        self.assertEqual(skill_registry.Registry(PROGRAM / 'skills').count(),
+                         gate.load_floors()['skill_registry_count'])
 
     def test_evidence_directory_is_allowed_in_staging_but_results_are_not(self):
         staged = ['程序/tasks_round/evidence/R1.json', '程序/tasks_round/tasks_round_1_result.md', '程序/a.py']

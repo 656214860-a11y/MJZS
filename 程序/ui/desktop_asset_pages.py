@@ -798,14 +798,13 @@ class _AssetPage:
         except Exception:
             row='';column=''
         link_cols=('#0','#1','#2','#3','#4','#5','#6')
-        if row and self.table.exists(row):
+        has_row=bool(row and self.table.exists(row))
+        if has_row:
             self.table.selection_set(row)
             self.table.focus(row)
             if column in link_cols:
                 menu.command('查看这一格',lambda aid=row,col=column:self.page.safe(lambda:self.open_cell(aid,col)))
-            menu.command('删除这一格 / 该行资产图片',lambda aid=row,col=column:
-                         self.page.safe(lambda:self.page.delete_asset_cell(aid,col)))
-            menu.separator()
+                menu.separator()
         filters=menu.submenu()
         for label,kind in [('全部','all'),('角色','characters'),('场景','scenes'),('道具','props')]:
             text='● '+label if getattr(self.page,'asset_kind','all')==kind else label
@@ -827,13 +826,17 @@ class _AssetPage:
         menu.command('打开参考图目录',actions.get('reference_folder'))
         menu.separator()
         menu.command('导入资产图片…',actions.get('import_asset_image'))
-        selectable('批量删除资产','delete_assets',checked or selected)
         menu.command('恢复删除资产',actions.get('restore_asset'))
         menu.command('打开资产目录',actions.get('open_library'))
         menu.separator()
         menu.command('制作记录',actions.get('records'))
         menu.command('桌面打开 ComfyUI',actions.get('open_comfy'))
         menu.command('浏览器打开 ComfyUI',actions.get('open_comfy_browser'))
+        menu.separator()
+        if has_row:
+            menu.command('删除这一格 / 该行资产图片',lambda aid=row,col=column:
+                         self.page.safe(lambda:self.page.delete_asset_cell(aid,col)))
+        selectable('批量删除资产','delete_assets',checked or selected)
         menu.command('强制关闭 ComfyUI',actions.get('kill_comfy'))
         return menu
 

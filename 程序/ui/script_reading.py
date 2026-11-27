@@ -245,6 +245,7 @@ class ReadingAids:
             else:
                 menu.disabled(labels[2])
             menu.command(labels[3], lambda: page.safe(session.save_now))
+            menu.separator()
             menu.command('剪切', lambda: page.safe(
                 lambda: preview.event_generate('<<Cut>>')))
             menu.command('复制', lambda: page.safe(
@@ -252,6 +253,7 @@ class ReadingAids:
             menu.command('粘贴', lambda: page.safe(
                 lambda: preview.event_generate('<<Paste>>')))
             menu.command('全选', lambda: page.safe(self.select_all))
+            menu.separator()
             menu.command('查找…', lambda: page.safe(self.show_find_bar))
             menu.command('大纲', lambda: page.safe(self.toggle_outline))
             menu.command('全部折叠', lambda: page.safe(self.fold_all))
@@ -264,11 +266,13 @@ class ReadingAids:
             for label in labels:
                 menu.disabled(label)
             if session.active['path'] is not None:
+                menu.separator()
                 menu.disabled('剪切')
                 menu.command('复制', lambda: page.safe(
                     lambda: preview.event_generate('<<Copy>>')))
                 menu.disabled('粘贴')
                 menu.command('全选', lambda: page.safe(self.select_all))
+                menu.separator()
                 menu.command('查找…', lambda: page.safe(self.show_find_bar))
                 menu.command('大纲', lambda: page.safe(self.toggle_outline))
                 menu.command('全部折叠', lambda: page.safe(self.fold_all))

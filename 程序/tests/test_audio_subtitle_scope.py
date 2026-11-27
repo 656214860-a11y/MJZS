@@ -107,16 +107,30 @@ class AudioSubtitleScopeTests(unittest.TestCase):
         self.assertTrue(callable(subtitle_timing.ass_text))
 
     def test_req_s11_30_six_skills_exist_and_entry_is_paid(self):
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for name in SKILLS:
             with self.subTest(name=name):
-                self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
-        entry = (SKILL_DIR / 'pipeline-audio-subtitle.skill.md').read_text(encoding='utf-8')
-        self.assertIn('paid: true', entry)
-        self.assertIn('dependsOn: [pipeline-storyboard-final]', entry)
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
+        self.assertIn('audio', stage_flow.PAID_STAGES)
+        self.assertEqual(stage_flow.DEPENDS['audio'], ('final',))
 
     def test_req_s11_31_multi_character_skill_is_merged_into_tts(self):
-        text = (SKILL_DIR / 'voice-multi-character.skill.md').read_text(encoding='utf-8')
-        self.assertIn('已合并到「TTS 配音合成」', text)
+        import tempfile
+        import skill_registry
+        with tempfile.TemporaryDirectory() as td:
+            stage_dir = Path(td) / 'skills' / '11配音字幕SKILL'
+            stage_dir.mkdir(parents=True)
+            (stage_dir / 'voice-tts-synthesis.skill.md').write_text(
+                '---\nname: voice-tts-synthesis\ndisplayName: TTS 配音合成\ndescription: tts\nstage: 配音与字幕\n---\n# TTS\n',
+                encoding='utf-8')
+            (stage_dir / 'voice-multi-character.skill.md').write_text(
+                '---\nname: voice-multi-character\ndisplayName: 多角色配音\ndescription: 已合并到「TTS 配音合成」\n'
+                'stage: 配音与字幕\ndeprecated: true\nreplacedBy: voice-tts-synthesis\n---\n# 已合并\n',
+                encoding='utf-8')
+            reg = skill_registry.Registry(root=Path(td) / 'skills')
+            self.assertEqual(reg.canonical_id('voice-multi-character'), 'voice-tts-synthesis')
 
     def test_req_s11_40_declared_outputs_have_a_code_producer(self):
         from domain import audio_import_service

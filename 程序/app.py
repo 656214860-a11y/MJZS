@@ -775,7 +775,7 @@ class App:
         # 保持该页可替换的菜单工厂，供无窗口的动作逻辑测试注入替身。
         menu=ContextMenu(self.window, menu_factory=tk.Menu)
         if view is not None:menu.command(view_label,lambda:self.safe(view))
-        if delete is not None:menu.command(delete_label,lambda:self.safe(delete))
+        if delete is not None: (menu.separator() if view is not None else None); menu.command(delete_label,lambda:self.safe(delete))
         return menu.popup(event)
     def delete_video_shot(self,sid=None,ask=True,rebuild=True):
         """逐个删除：目标就是传进来的那一镜（右键那一行）；ask／rebuild 给批量删除复用。"""

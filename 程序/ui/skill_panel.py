@@ -161,7 +161,7 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         self.registry.scan(force=True)
         # 第 59 期第 6 条：勾选框按功能分组／流程先后排（原来按名字的字母序，几组混着跳）。
         # 兼容别名仍留在注册表供旧项目读取；配置面板只展示仍可单独执行的主 SKILL。
-        self.skills = [item for item in self.registry.getByStage(self.stage) if not item.deprecated]
+        self.skills = [item for item in self.registry.getForStage(self.stage) if not item.deprecated]
         self.vars = {}
         # 模型选择已移到共享输入框（轮 3）；这里只留存档模型的只读查询。
         self.choices = model_choices(self.desktop, self.stage)
@@ -264,8 +264,6 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
         self.skill_controls = []
         self._skill_layout_job = None
         self._flow = STAGE_FLOW.get(self.stage)
-        if not self._flow and not self.skills:
-            return None
         self.skill_action_row = FlowFields(parent, fill_last=False)
         self.skill_action_row.pack(fill='x', pady=(SPACING['none'], SPACING['xs']))
         self.flow_skill_label = CompactLabel(self.skill_action_row, text='SKILL', style='Muted.TLabel',
@@ -676,7 +674,8 @@ class Panel(PanelWorkflowMixin, PanelImportMixin, FormScrollMixin, ttk.Frame):
     def refresh_external_package_hint(self):
         """把外部包/API 的兼容性提示同步到 SKILL 区状态行。"""
         hint = external_package_api_hint(self.selected_skill_items(), self.model_id())
-        self.external_package_hint.configure(text=hint)
+        if getattr(self, 'external_package_hint', None) is not None:
+            self.external_package_hint.configure(text=hint)
         return hint
 
     def save(self, quiet=True, save_model=True):
@@ -935,8 +934,9 @@ def show_skill_health_report(parent, report, lead='本阶段', refresh=None):
     actions.pack(fill='x', pady=(SPACING['sm'], SPACING['none']))
     SecondaryButton(actions, text='关闭', width=CHAR_WIDTH['xl'],
                     command=window.destroy).pack(side='right')
-    PrimaryButton(actions, text='刷新', width=CHAR_WIDTH['xl'],
-                  command=lambda: (window.destroy(), refresh() if refresh else None)).pack(side='left')
+    SecondaryButton(actions, text='刷新', width=CHAR_WIDTH['xl'],
+                    command=lambda: (window.destroy(), refresh() if refresh else None)).pack(
+        side='right', padx=(SPACING['none'], SPACING['sm']))
     return window
 
 

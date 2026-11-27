@@ -108,9 +108,9 @@ def show(desktop):
     dialog.add_action('查询尝试', filter_attempts)
     dialog.add_action('打开配音页定位', open_audio_focus)
     query.bind('<Return>', lambda event: filter_attempts())
-    dialog.add_action('关闭', dialog.close, primary=True)
     if data.get('queued'):
         dialog.add_action('取消全部待执行任务', lambda: (desktop.task_queue.clear(), dialog.close()))
     if data.get('retry_ticket') is not None:
         dialog.add_action('重试最近失败的任务', lambda: (desktop.retry_failed_task(), dialog.close()))
+    dialog.add_action('关闭', dialog.close)
     return dialog

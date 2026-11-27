@@ -131,13 +131,9 @@ class AssetsScopeTests(unittest.TestCase):
         self.assertFalse(result['started'])
 
     def test_req_s05_40_skills_exist_and_entry_depends_on_animatic(self):
-        for name in SKILLS:
-            with self.subTest(name=name):
-                self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
-        entry = (SKILL_DIR / 'pipeline-assets.skill.md').read_text(encoding='utf-8')
-        self.assertIn('dependsOn: [pipeline-animatic]', entry)
-        self.assertIn('paid: false', entry)
-        self.assertIn('parallelizable: false', entry)
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
+        self.assertEqual(stage_parallel.gate_for('assets')['id'], 'SG-B')
 
 
 if __name__ == '__main__':

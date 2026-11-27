@@ -118,7 +118,7 @@ def _show_stage_execution(desktop, stage, *, parent, title, names, runner, faile
     open_page.pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
     open_page.configure(state='disabled')
     SecondaryButton(row, text='返回阶段页面', command=go_back).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
-    SecondaryButton(row, text='关闭', command=window.destroy).pack(side='left', padx=(BUTTON_GAP, SPACING['none']))
+    SecondaryButton(row, text='关闭', command=window.destroy).pack(side='right')
     handle['retry'] = lambda: start(only=handle['failures'])
     handle['start'] = start
     handle['back'] = go_back

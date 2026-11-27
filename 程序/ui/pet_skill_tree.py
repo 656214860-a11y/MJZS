@@ -1,5 +1,5 @@
 # -*- coding: utf-8 -*-
-"""设置页技能包的发现、筛选与树形展示。"""
+"""设置页技能包的发现、阶段目录计数、筛选与两级树形展示（REQ-UI-SKILL-PAGE-1）。"""
 import os
 from pathlib import Path
 
@@ -8,14 +8,48 @@ import orchestrator.skill_project_layer as skill_project_layer
 import skill_registry
 from ui_tokens import COLORS
 
+SUITE_STAGE = skill_project_layer.SUITE_STAGE
+SUITE_LABEL = '00 总包'
+STAGE_NAV_ITEMS = (
+    ('', '全部阶段'),
+    (SUITE_STAGE, SUITE_LABEL),
+) + tuple(
+    (sid, '%02d %s' % (index + 1, pet_bus.stage_label(sid)))
+    for index, sid in enumerate(pet_bus.STAGES)
+)
+
 STATUS_LABELS = {'ok': '正常', 'warning': '警告', 'problem': '问题', 'error': '预演失败'}
 _KIND_LABELS = {'package': '技能包', 'skill': '独立 SKILL', 'child': '包内子技能',
                 'legacy': '旧包', 'stage-entry': '阶段入口'}
-_SOURCE_FILTER_LABELS = {'全部来源': '', '项目': 'project', '用户': 'user',
-                         '内置': 'builtin', '旧包': 'legacy'}
+_SOURCE_FILTER_LABELS = {
+    '全部': '', '全部来源': '',
+    '项目版': 'project', '项目': 'project',
+    '全局版': 'user', '用户': 'user',
+    '内置': 'builtin', '旧包': 'legacy',
+}
 _SOURCE_LABELS = {'project': '项目版', 'user': '用户版', 'builtin': '内置版',
                   'legacy': '旧包（未挂载）'}
 _CHILD_SCAN_SKIP_DIRS = {'.git', '.hg', '.svn', '__pycache__', 'node_modules', '.venv', 'venv'}
+
+
+def stage_display_label(sid):
+    """阶段 ID → 界面展示名；00 总包显式标出，01–13 沿用总线阶段名。"""
+    key = str(sid or '').strip()
+    if key == SUITE_STAGE:
+        return SUITE_LABEL
+    if not key:
+        return '—'
+    return pet_bus.stage_label(key) or key
+
+
+def stage_ids_map():
+    """阶段筛选名 → 阶段 ID 映射；兼容短阶段名（旧测试）与左侧目录编号名。"""
+    mapping = {'全部阶段': '', SUITE_LABEL: SUITE_STAGE, skill_project_layer.SUITE_LABEL: SUITE_STAGE}
+    for sid in pet_bus.STAGES:
+        mapping[pet_bus.stage_label(sid)] = sid
+    for sid, nav_label in STAGE_NAV_ITEMS:
+        mapping[nav_label] = sid
+    return mapping
 
 
 class ManageItem:
@@ -47,15 +81,17 @@ def _is_stage_root_directory(path):
 
 
 def _real_package_root(skill):
-    """注册入口背后的真实包目录；阶段目录本身的总入口绝不是包。"""
+    """注册入口背后的真实包目录；复合总包取 ``_package_root``，阶段目录本身绝不是包。"""
+    explicit = skill.get(skill_registry.PACKAGE_ROOT_KEY) if hasattr(skill, 'get') else None
+    if explicit:
+        root = Path(str(explicit))
+        return None if _is_stage_root_directory(root) else root
     if not bool(skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False)):
         return None
     path = getattr(skill, 'path', None)
     if path is None:
         return None
     root = Path(path).parent
-    # Registry 也允许阶段目录根部直接放 SKILL.md。那只是阶段总入口；
-    # 不能把阶段目录或它的阶段名冒充成「技能包」父节点。
     if _is_stage_root_directory(root):
         return None
     return root
@@ -85,8 +121,8 @@ def _child_skill_from_file(path, layer=''):
     return skill_registry.Skill(meta, body, path, layer=layer)
 
 
-def _scan_package_children(package, entry=None, layer='', parent='', stage=''):
-    """真实包目录里的子 SKILL 清单；只读、后台调用，不注册、不改变执行语义。"""
+def _scan_package_children(package, entry=None, layer='', parent='', stage='', is_composite=False):
+    """真实包目录里的子 SKILL 清单；复合总包将 L0 主入口排在首位并标注 ``L0 主入口``。"""
     package = Path(package)
     if not package.is_dir() or _linked(package):
         return []
@@ -109,9 +145,10 @@ def _scan_package_children(package, entry=None, layer='', parent='', stage=''):
             if _linked(path):
                 continue
             try:
-                if entry_resolved is not None and path.resolve() == entry_resolved:
-                    continue
+                same_entry = entry_resolved is not None and path.resolve() == entry_resolved
             except OSError:
+                continue
+            if same_entry and not is_composite:
                 continue
             skill = _child_skill_from_file(path, layer=layer)
             if stage:
@@ -122,21 +159,29 @@ def _scan_package_children(package, entry=None, layer='', parent='', stage=''):
                 relative = path.relative_to(package).as_posix()
             except ValueError:
                 relative = str(path)
+            is_primary = bool(is_composite and same_entry)
             rows.append(ManageItem(skill, {
                 'kind': 'child', 'parent': parent, 'package_root': str(package),
                 'relative': relative, 'disabled': False, 'source': layer,
-                'scope': '随父包 · 不单独执行',
-                'action_note': '子技能是包内资料；安装、启停与删除都作用于父包。'}))
-    return sorted(rows, key=lambda item: (str(item.row.get('relative') or '').casefold()))
+                'is_primary': is_primary,
+                'kind_label': 'L0 主入口' if is_primary else '包内子技能',
+                'scope': ('总包主入口 · 随父包执行' if is_primary else '随父包 · 不单独执行'),
+                'action_note': ('总包 L0 主控入口；安装、启停、更新与删除都作用于父包。'
+                                if is_primary else '子技能是包内资料；安装、启停与删除都作用于父包。')}))
+    return sorted(rows, key=lambda item: (0 if item.row.get('is_primary') else 1,
+                                          str(item.row.get('relative') or '').casefold()))
 
 
-def _scope_text(kind, layer):
+def _scope_text(kind, layer, stage=''):
     if kind == 'child':
         return '随父包 · 不单独执行'
     if kind == 'legacy':
         return '未挂载 · 不参与执行'
     if kind == 'stage-entry':
         return '所在阶段 · 阶段总入口'
+    if stage == SUITE_STAGE:
+        prefix = '当前项目 · ' if layer == 'project' else '全部项目 · '
+        return prefix + '全阶段继承总包'
     if layer == 'project':
         return '当前项目 · 注册入口'
     if layer == 'user':
@@ -149,17 +194,20 @@ def _scope_text(kind, layer):
 def _active_manage_item(skill, disabled=False):
     """注册表条目 → 管理行；只有真实包目录才生成可展开的子技能节点。"""
     package = _real_package_root(skill)
+    is_composite = bool(skill.get(skill_registry.COMPOSITE_SUITE_FLAG, False))
     if package is not None:
         kind = 'package'
     elif bool(skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False)):
         kind = 'stage-entry'
     else:
         kind = 'skill'
-    row = {'kind': kind, 'disabled': bool(disabled),
+    stage = getattr(skill, 'stage', '') or ''
+    row = {'kind': kind, 'disabled': bool(disabled), 'composite': is_composite,
+           'primary_subskill': str(skill.get(skill_registry.PRIMARY_SUBSKILL_KEY) or ''),
            'package_root': str(package) if package is not None else '',
            'source': getattr(skill, 'layer', ''),
-           'scope': _scope_text(kind, getattr(skill, 'layer', '')),
-           'action_note': ('安装、启停、删除与重命名都作用于整包。' if kind == 'package'
+           'scope': _scope_text(kind, getattr(skill, 'layer', ''), stage=stage),
+           'action_note': ('安装、启停、更新、删除与重命名都作用于整包。' if kind == 'package'
                            else '阶段目录总入口；不能按包删除或改名。' if kind == 'stage-entry'
                            else '')}
     item = ManageItem(skill, row)
@@ -167,7 +215,7 @@ def _active_manage_item(skill, disabled=False):
         children = _scan_package_children(package, entry=getattr(skill, 'path', None),
                                           layer=getattr(skill, 'layer', ''),
                                           parent=getattr(skill, 'name', ''),
-                                          stage=getattr(skill, 'stage', ''))
+                                          stage=stage, is_composite=is_composite)
         row['children'] = children
         row['child_count'] = len(children)
     else:
@@ -198,7 +246,7 @@ def _legacy_manage_items(program):
             meta, body = {'name': package.name, 'displayName': package.name,
                           'description': '旧包目录，没有可读取的包说明。'}, ''
         skill = skill_registry.Skill(meta, body, source or package, layer='builtin')
-        row = {'kind': 'legacy', 'disabled': False, 'package_root': str(package),
+        row = {'kind': 'legacy', 'disabled': False, 'composite': False, 'package_root': str(package),
                'relative_path': str(entry.get('relative_path') or package.name),
                'source': 'legacy', 'scope': _scope_text('legacy', 'builtin'),
                'action_note': '旧包没有挂载到阶段；不参与执行，可经残留包回收。'}
@@ -212,11 +260,12 @@ def _legacy_manage_items(program):
 
 
 def _build_manage_rows(skills, disabled, program):
-    """管理页根行：真实技能包/旧包在前，独立 SKILL 在后；不造阶段或来源分组节点。"""
+    """管理页根行：真实技能包/旧包在前，00 总包排在 01–13 前，独立 SKILL 在后。"""
     rows = [_active_manage_item(skill, disabled=False) for skill in skills]
     rows.extend(_active_manage_item(skill, disabled=True) for skill in disabled)
     rows.extend(_legacy_manage_items(program))
-    stage_order = {sid: index for index, sid in enumerate(pet_bus.STAGES)}
+    stage_order = {SUITE_STAGE: -1,
+                   **{sid: index for index, sid in enumerate(pet_bus.STAGES)}}
 
     def key(item):
         row = item.row
@@ -234,7 +283,7 @@ def _status_of(item, health):
     if row.get('kind') == 'legacy':
         return '未挂载'
     if row.get('kind') == 'child':
-        return '随父包'
+        return 'L0 入口' if row.get('is_primary') else '随父包'
     if row.get('disabled'):
         return '已禁用'
     status = health.get(getattr(item, 'name', ''), '')
@@ -249,8 +298,7 @@ def _filter_values(state):
             state.get('stage_ids', {}).get(stage_label, ''))
 
 
-def _passes_filters(item, state):
-    query, source, stage = _filter_values(state)
+def _matches_item(item, query, source, stage=''):
     if source and str(item.row.get('source') or getattr(item, 'layer', '')) != source:
         return False
     if stage and getattr(item, 'stage', '') != stage:
@@ -261,13 +309,37 @@ def _passes_filters(item, state):
     haystack = ' '.join(str(value or '') for value in (
         getattr(item, 'name', ''), getattr(item, 'displayName', ''),
         getattr(item, 'description', ''), row.get('relative', ''),
-        row.get('package_root', ''), _KIND_LABELS.get(row.get('kind'), ''))).casefold()
+        row.get('package_root', ''), row.get('kind_label', ''),
+        _KIND_LABELS.get(row.get('kind'), ''))).casefold()
     return query in haystack
+
+
+def _passes_filters(item, state):
+    query, source, stage = _filter_values(state)
+    return _matches_item(item, query, source, stage)
 
 
 def _filters_active(state):
     query, source, stage = _filter_values(state)
     return bool(query or source or stage)
+
+
+def stage_counts(rows, source_label='全部', query=''):
+    """计算左侧阶段目录徽章数：按当前作用域＋搜索词统计各阶段可见一级包/技能数量。"""
+    source = _SOURCE_FILTER_LABELS.get(str(source_label or '全部'), '')
+    needle = str(query or '').strip().casefold()
+    counts = {'': 0, SUITE_STAGE: 0, **{sid: 0 for sid in pet_bus.STAGES}}
+    for item in rows or ():
+        children = list(item.row.get('children') or [])
+        hit = (_matches_item(item, needle, source, '')
+               or any(_matches_item(child, needle, source, '') for child in children))
+        if not hit:
+            continue
+        counts[''] += 1
+        sid = str(getattr(item, 'stage', '') or '')
+        if sid in counts:
+            counts[sid] += 1
+    return counts
 
 
 def _visible_manage_rows(state):
@@ -278,7 +350,6 @@ def _visible_manage_rows(state):
         own = _passes_filters(item, state)
         matched_children = [child for child in children if _passes_filters(child, state)]
         if own:
-            # 父包本身命中时保留整棵子树；子行仍只是包内容，不提升为独立安装项。
             out.append((item, children, True))
         elif matched_children:
             out.append((item, matched_children, False))
@@ -302,12 +373,13 @@ def _child_iid(child, parent_iid):
 def _row_values(item, health):
     name = str(getattr(item, 'name', '') or '')
     row = item.row
-    stage = pet_bus.stage_label(getattr(item, 'stage', '') or '') or '—'
+    stage = stage_display_label(getattr(item, 'stage', '') or '')
     source = str(row.get('source') or getattr(item, 'layer', ''))
+    kind_text = str(row.get('kind_label') or _KIND_LABELS.get(row.get('kind'), '—'))
     return (name, getattr(item, 'displayName', '') or '—', stage,
             _SOURCE_LABELS.get(source, skill_project_layer.LAYER_LABELS.get(
                 getattr(item, 'layer', ''), '—')),
-            _status_of(item, health), _KIND_LABELS.get(row.get('kind'), '—'),
+            _status_of(item, health), kind_text,
             str(row.get('scope') or '—'))
 
 
@@ -325,15 +397,16 @@ def _insert_manage_item(tree, state, item, children, own_hit):
     state['rowmap'][iid] = item
     for child in children:
         child_iid = _child_iid(child, iid)
+        child_tags = ('primary_child',) if child.row.get('is_primary') else ('child',)
         tree.insert(iid, 'end', iid=child_iid,
                     text=child.name or child.displayName,
-                    values=_row_values(child, state['health']), tags=('child',))
+                    values=_row_values(child, state['health']), tags=child_tags)
         state['rowmap'][child_iid] = child
     return iid
 
 
 def render_manage_rows(tree, state):
-    """按当前过滤条件重画树；只有真实包行有子节点，阶段与来源永远只是列/筛选器。"""
+    """按当前过滤条件重画两级树：一级技能包/独立技能，二级子技能（总包 L0 主入口置顶）。"""
     existing = tree.get_children()
     if existing:
         tree.delete(*existing)
@@ -345,10 +418,11 @@ def render_manage_rows(tree, state):
     tree.tag_configure('disabled', foreground=COLORS['text_muted'])
     tree.tag_configure('legacy', foreground=COLORS['warning'])
     tree.tag_configure('child', foreground=COLORS['text_muted'])
+    tree.tag_configure('primary_child', foreground=COLORS['primary'])
     table = getattr(tree, '_data_table', None)
     if table is not None:
         empty = ('没有符合当前筛选的 SKILL；点「清空」恢复。' if _filters_active(state)
-                 else '暂无 SKILL，点「导入 SKILL…」添加。')
+                 else '当前阶段暂无 SKILL，点右上角「+ 导入 SKILL」添加。')
         table.empty_label.configure(text=empty)
         table.refresh_empty_state()
     return count
@@ -356,16 +430,17 @@ def render_manage_rows(tree, state):
 
 def _detail_text(item, state):
     if item is None:
-        return '选中一行后，在这里看类型、来源、作用范围、位置与说明。'
+        return '在上方列表中选中技能包或子技能，可在此查看完整说明或点击「原地编辑」直接修改。'
     row = item.row
     kind = row.get('kind')
     source = str(row.get('source') or getattr(item, 'layer', ''))
+    kind_text = str(row.get('kind_label') or _KIND_LABELS.get(kind, '—'))
     lines = ['名称：%s' % (getattr(item, 'name', '') or '—'),
              '显示名：%s' % (getattr(item, 'displayName', '') or '—'),
-             '类型：%s' % _KIND_LABELS.get(kind, '—'),
+             '类型：%s' % kind_text,
              '来源：%s' % _SOURCE_LABELS.get(source, skill_project_layer.LAYER_LABELS.get(
                  getattr(item, 'layer', ''), '—')),
-             '阶段：%s' % (pet_bus.stage_label(getattr(item, 'stage', '') or '') or '未挂载'),
+             '阶段：%s' % (stage_display_label(getattr(item, 'stage', '') or '') if getattr(item, 'stage', '') else '未挂载'),
              '状态：%s' % _status_of(item, state.get('health', {})),
              '作用域：%s' % (row.get('scope') or '—')]
     if kind == 'child':
@@ -373,6 +448,8 @@ def _detail_text(item, state):
         lines.append('包内位置：%s' % (row.get('relative') or '—'))
     elif row.get('package_root'):
         lines.append('包目录：%s' % row.get('package_root'))
+        if row.get('primary_subskill'):
+            lines.append('L0 主入口：%s' % row.get('primary_subskill'))
         lines.append('子技能：%d 个（展开列表查看；随包启停）' % int(row.get('child_count') or 0))
     path = getattr(item, 'path', None)
     if path:
@@ -385,14 +462,52 @@ def _detail_text(item, state):
     return '\n'.join(lines)
 
 
-def update_detail(tree, state):
+def detail_markdown_body(item):
+    """返回选中 SKILL 的 Markdown 正文；仅只读预览使用。"""
+    if item is None:
+        return ''
+    body = str(getattr(item, 'body', '') or '').strip()
+    if body:
+        return body
+    path = getattr(item, 'path', None)
+    if path is not None:
+        try:
+            text = Path(path).read_text(encoding='utf-8-sig')
+            _meta, parsed = skill_registry.parse(text, source=str(path))
+            return str(parsed or '').strip()
+        except (OSError, UnicodeError, ValueError):
+            return ''
+    return ''
+
+
+def update_detail(tree, state, *, render_markdown=None):
+    """刷新下方详情预览区（编辑模式下跳过，避免冲掉未保存修改）。"""
     detail = state.get('detail')
-    if detail is None:
+    if detail is None or state.get('editing'):
         return
-    text = _detail_text(_selected(tree, state), state)
+    item = _selected(tree, state)
+    title_var = state.get('detail_title_var')
+    if title_var is not None:
+        if item is None:
+            title_var.set('未选择 SKILL')
+        else:
+            shown = getattr(item, 'displayName', '') or getattr(item, 'name', '')
+            title_var.set('%s · %s' % (shown, stage_display_label(getattr(item, 'stage', '') or '')))
+    header = _detail_text(item, state)
+    body = detail_markdown_body(item) if item is not None else ''
     detail.configure(state='normal')
     detail.delete('1.0', 'end')
-    detail.insert('1.0', text)
+    detail.insert('1.0', header)
+    if body:
+        detail.insert('end', '\n\n────────────────────────\n\n')
+        rendered = False
+        if callable(render_markdown):
+            try:
+                rendered = bool(render_markdown(detail, body))
+            except Exception:
+                rendered = False
+        if not rendered:
+            detail.insert('end', body)
     detail.configure(state='disabled')
 
 
@@ -416,7 +531,6 @@ def _selected(tree, state):
     rowmap = state.get('rowmap') or {}
     if iid in rowmap:
         return rowmap[iid]
-    # 兼容自检或旧调用方直接塞进来的平铺 iid：注册行仍可按名字找回。
     disabled = iid.startswith('disabled|')
     name = iid.split('|', 1)[-1] if disabled else iid
     pool = state.get('disabled', []) if disabled else state['skills']

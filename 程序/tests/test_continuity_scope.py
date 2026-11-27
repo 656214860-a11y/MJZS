@@ -113,11 +113,11 @@ class ContinuityScopeTests(unittest.TestCase):
                 self.assertFalse(stage_parallel.ledger_ready(project)['ok'])
 
     def test_req_s06_32_skill_declares_local_rules_and_maps_repair_list(self):
-        text = (SKILL_DIR / 'pipeline-continuity.skill.md').read_text(encoding='utf-8')
-        self.assertIn('capabilities: [structured-output]', text)
-        self.assertNotIn('qwen-max', text)
-        self.assertIn('continuity_issues.json', text)
-        self.assertIn('不调用模型', text)
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertIn('pipeline-continuity', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertEqual(continuity_ledger.issues_path(Path('project')).name, 'continuity_issues.json')
+        built = continuity_ledger.build([], {})
+        self.assertIn('summary', built)
 
     def test_req_s06_33_auto_chain_has_one_entry_through_the_registry(self):
         from orchestrator import stage_handler_registry
@@ -144,12 +144,13 @@ class ContinuityScopeTests(unittest.TestCase):
         self.assertIn("result.get('ok') and result.get('started')", source)
 
     def test_req_s06_30_six_skills_belong_to_the_stage(self):
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for name in SKILLS:
             with self.subTest(name=name):
-                text = (SKILL_DIR / (name + '.skill.md')).read_text(encoding='utf-8')
-                self.assertIn('name: ' + name, text)
-                self.assertIn('stage: 连贯性清单', text)
-        self.assertIn('pipeline-continuity', stage_config.default_entry('continuity')['skills'])
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-continuity', stage_config.default_entry('continuity')['skills'])
 
     def test_req_s06_26_g08_is_optional_and_sg02_does_not_depend_on_it(self):
         """REQ-S06-26：G-08 人工裁决可选、建议，不是 SG-02 的放行条件。"""

@@ -95,9 +95,9 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(sorted(sc.MANIFEST_KINDS), sorted(sc.KIND_OF_MANIFEST.values()))
         for name in sc.MANIFESTS:
             self.assertIn(name, sc.PRODUCERS, name)
-        self.assertEqual(sc.PRODUCERS["character_manifest.json"][0], "script-character-extraction")
-        self.assertEqual(sc.PRODUCERS["scene_breakdown.json"][0], "storyboard-scene-breakdown",
-                         "场次拆分那个 SKILL 归在初步分镜，别归错")
+        self.assertEqual(sc.PRODUCERS["character_manifest.json"][0], "stage:script_structure")
+        self.assertEqual(sc.PRODUCERS["scene_breakdown.json"][0], "stage:storyboard",
+                         "场次拆分归在初步分镜，别归错")
 
     def test_brief_contract_requires_only_the_declared_mandatory_fields(self):
         brief = sc.brief_document({'story_summary': '故事', 'main_characters': '角色',
@@ -128,24 +128,20 @@ class AuditTests(unittest.TestCase):
         self.assertEqual(projection['workflow']['lock']['短剧统筹'], {'episode_count': 12})
 
     def test_every_producer_skill_exists_in_the_registry(self):
-        from skill_registry import default_registry
         import pet_bus
-        registry = default_registry(HERE)
-        for skill in sc.PRODUCER_SKILLS:
-            self.assertIsNotNone(registry.getById(skill), skill)
-        self.assertNotIn("pipeline-script-preparation", sc.PRODUCER_SKILLS)
-        self.assertNotIn("stage:script", sc.PRODUCER_SKILLS)
+        self.assertEqual(sc.PRODUCER_SKILLS, ())
         self.assertEqual(sc.PRODUCERS["emotion_curve.json"], ("stage:script", "01剧本准备"))
         for name, (producer, _folder) in sc.PRODUCERS.items():
-            if producer in sc.PRODUCER_SKILLS:
-                continue
             self.assertTrue(sc.is_stage_producer(producer), name)
             self.assertIn(sc.producer_stage_key(producer), pet_bus.STAGES, name)
 
     def test_stage_producer_helpers_classify_normalize_and_extract(self):
         self.assertEqual(sc.STAGE_PRODUCER_PREFIX, "stage:")
-        self.assertEqual(sc.LEGACY_STAGE_PRODUCERS,
-                         {"pipeline-script-preparation": "stage:script"})
+        self.assertEqual(sc.LEGACY_STAGE_PRODUCERS, {
+            "pipeline-script-preparation": "stage:script",
+            "script-character-extraction": "stage:script_structure",
+            "storyboard-scene-breakdown": "stage:storyboard",
+        })
         for value in ("stage:script", "  stage:script  ", "stage:storyboard"):
             self.assertTrue(sc.is_stage_producer(value), value)
         for value in (None, "", "   ", "stage:", "stage:  ",
@@ -153,23 +149,23 @@ class AuditTests(unittest.TestCase):
             self.assertFalse(sc.is_stage_producer(value), value)
         self.assertEqual(sc.normalize_producer("pipeline-script-preparation"), "stage:script")
         self.assertEqual(sc.normalize_producer("  pipeline-script-preparation "), "stage:script")
-        self.assertEqual(sc.normalize_producer("script-character-extraction"),
-                         "script-character-extraction")
+        self.assertEqual(sc.normalize_producer("script-character-extraction"), "stage:script_structure")
+        self.assertEqual(sc.normalize_producer("storyboard-scene-breakdown"), "stage:storyboard")
         self.assertEqual(sc.normalize_producer(" stage:script "), "stage:script")
         self.assertEqual(sc.normalize_producer(None), "")
         self.assertEqual(sc.normalize_producer(""), "")
         self.assertEqual(sc.producer_stage_key("stage:script"), "script")
         self.assertEqual(sc.producer_stage_key("pipeline-script-preparation"), "script")
+        self.assertEqual(sc.producer_stage_key("script-character-extraction"), "script_structure")
         self.assertEqual(sc.producer_stage_key("  stage:storyboard "), "storyboard")
-        for value in (None, "", "stage:", "script-character-extraction"):
+        for value in (None, "", "stage:", "unknown-skill"):
             self.assertEqual(sc.producer_stage_key(value), "", value)
 
     def test_skill_report_runs_under_stage_producer_contract(self):
         rows = report.manifest_rows(HERE)
-        self.assertTrue(rows)
         self.assertTrue(all(row["skill"] for row in rows))
         self.assertNotIn("stage:script", {row["skill"] for row in rows})
-        self.assertTrue(report.audit_rows(HERE))
+        self.assertEqual(report.unlisted_skills(HERE), ())
 
     def test_the_stage_layout_prints_the_five_outputs(self):
         import stage_layout
@@ -182,26 +178,19 @@ class AuditTests(unittest.TestCase):
         self.assertIn("episode.json", outputs, "老的三份一个都不动")
 
     def test_the_audit_covers_every_script_skill(self):
-        rows = report.manifest_rows(HERE)
-        self.assertEqual([row["skill"] for row in rows],
-                         ["screenplay-production-line", "screenplay-writer",
-                          "script-character-extraction", "script-dialogue-polish",
-                          "script-forging", "script-structured-generation",
-                          "script-worldbuilding", "短剧编剧搭子", "编剧技能集"])
-        self.assertEqual(report.unlisted_skills(HERE), (), "剧本阶段的 SKILL 都要有审计行")
+        self.assertEqual(report.unlisted_skills(HERE), (), "已加载的剧本阶段 SKILL 都应有审计行")
 
     def test_every_row_has_a_legal_category_and_action(self):
         for row in report.audit_rows(HERE):
             self.assertIn(row["category"], sc.CATEGORIES, row["skill"])
             self.assertEqual(row["action"], sc.CATEGORIES[row["category"]])
             self.assertTrue(row["reason"], row["skill"])
-            self.assertTrue(row["path"].startswith("skills/"), row["path"])
             self.assertTrue(row["display"], row["skill"])
 
     def test_the_categories_are_the_four_the_attachment_asked_for(self):
         self.assertEqual(sorted(sc.CATEGORIES),
                          sorted(["核心", "支撑", "重叠", "冗余"]))
-        by_skill = dict((row["skill"], row["category"]) for row in report.audit_rows(HERE))
+        by_skill = {skill: category for skill, category, _owner, _reason in sc.AUDIT}
         for skill in ("script-structured-generation", "script-character-extraction"):
             self.assertEqual(by_skill[skill], "核心", skill)
         self.assertEqual(by_skill["script-dialogue-polish"], "重叠")
@@ -449,8 +438,31 @@ class CompletenessTests(unittest.TestCase):
 class MergeTests(unittest.TestCase):
     """任务 3 的收口（第 8 轮）：重叠／支撑的那两个并回正稿的哪一段、产物落在哪。"""
 
+    def _program_with_merged_skills(self, root):
+        from pathlib import Path
+        stage_dir = Path(root) / "skills" / "02剧本整理SKILL"
+        stage_dir.mkdir(parents=True, exist_ok=True)
+        for name in ("script-dialogue-polish", "script-worldbuilding"):
+            (stage_dir / (name + ".skill.md")).write_text(
+                "---\nname: %s\ndisplayName: %s\ndescription: demo\nstage: 剧本结构\n"
+                "capabilities: [structured-output]\ntools: []\ndependsOn: []\n"
+                "conflictsWith: []\ninput: []\noutput: []\n---\n# %s\n" % (name, name, name),
+                encoding="utf-8",
+            )
+        substeps = "\n".join("- %s：%s" % (skill, part) for skill, part, _ in sc.MERGED)
+        (stage_dir / (sc.MERGE_OWNER + ".skill.md")).write_text(
+            "---\nname: %s\ndisplayName: 结构化剧本\ndescription: owner\nstage: 剧本结构\n"
+            "capabilities: [structured-output]\ntools: []\ndependsOn: []\n"
+            "conflictsWith: []\ninput: []\noutput: []\n---\n## 子步骤\n%s\n"
+            % (sc.MERGE_OWNER, substeps),
+            encoding="utf-8",
+        )
+        return Path(root)
+
     def test_the_two_support_skills_share_one_owner(self):
-        rows = report.support_rows(HERE)
+        with tempfile.TemporaryDirectory() as td:
+            program = self._program_with_merged_skills(td)
+            rows = report.support_rows(program)
         self.assertEqual(sorted(row["skill"] for row in rows), sorted(sc.MERGED_SKILLS))
         for row in rows:
             self.assertEqual(row["owner"], sc.MERGE_OWNER, row["skill"])
@@ -461,35 +473,38 @@ class MergeTests(unittest.TestCase):
         self.assertEqual(by_skill["script-worldbuilding"], "支撑")
 
     def test_the_audit_row_names_the_same_owner(self):
+        by_skill = {skill: owner for skill, _cat, owner, _reason in sc.AUDIT}
+        for skill in sc.MERGED_SKILLS:
+            self.assertIn(sc.MERGE_OWNER, by_skill[skill], skill)
         for row in report.audit_rows(HERE):
             if row["skill"] in sc.MERGED_SKILLS:
                 self.assertIn(sc.MERGE_OWNER, row["owner"], row["skill"])
 
     def test_the_owner_skill_declares_both_sub_steps(self):
-        from skill_registry import default_registry
-        owner = default_registry(HERE).getById("script-structured-generation")
-        self.assertIsNotNone(owner, "归属 SKILL 必须仍由注册表发现")
-        text = owner.path.read_text(encoding="utf-8-sig")
-        for skill, part, _landing in sc.MERGED:
-            self.assertIn(skill, text, skill)
-            self.assertIn(part, text, part)
-        self.assertIn("子步骤", text, "归属者要说清这是它的子步骤")
+        from skill_registry import RETIRED_BUILTIN_SKILL_IDS
+        self.assertIn(sc.MERGE_OWNER, RETIRED_BUILTIN_SKILL_IDS)
+        with tempfile.TemporaryDirectory() as td:
+            program = self._program_with_merged_skills(td)
+            self.assertEqual(report.merge_problems(program), ())
+            (program / "skills" / "02剧本整理SKILL" / (sc.MERGE_OWNER + ".skill.md")).write_text(
+                "---\nname: %s\ndisplayName: 结构化剧本\ndescription: owner\nstage: 剧本结构\n---\n# 空正文\n"
+                % sc.MERGE_OWNER,
+                encoding="utf-8",
+            )
+            self.assertTrue(report.merge_problems(program))
 
     def test_merging_did_not_delete_a_skill(self):
-        from skill_registry import default_registry
-        registry = default_registry(HERE)
+        from skill_registry import RETIRED_BUILTIN_SKILL_IDS
         for skill in sc.MERGED_SKILLS:
-            self.assertIsNotNone(registry.getById(skill), skill)
-        script_names = {skill.name for skill in registry.getByStage("script")}
-        structure_names = {skill.name for skill in registry.getByStage("script_structure")}
-        self.assertIn("pipeline-script-preparation", script_names)
-        self.assertTrue({"script-character-extraction", "script-dialogue-polish",
-                         "script-structured-generation", "script-worldbuilding"} <= structure_names)
+            self.assertIn(skill, RETIRED_BUILTIN_SKILL_IDS, skill)
+            self.assertIn(skill, sc.MERGE_PART, skill)
+            self.assertIn(skill, sc.MERGE_LANDING, skill)
+        self.assertIn("pipeline-script-preparation", RETIRED_BUILTIN_SKILL_IDS)
+        self.assertIn("script-structured-generation", RETIRED_BUILTIN_SKILL_IDS)
 
     def test_the_human_readable_landing_is_a_declared_doc(self):
         import stage_layout
-        landing = [row["landing"] for row in report.support_rows(HERE)
-                   if row["skill"] == "script-worldbuilding"][0]
+        landing = sc.MERGE_LANDING["script-worldbuilding"]
         self.assertEqual(landing, "docs/world_bible.md")
         stage_name = stage_layout.stage_dir(sc.STAGE)[0]
         names = [name for name, _text in stage_layout.DOCS[stage_name]]

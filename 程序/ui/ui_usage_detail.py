@@ -234,7 +234,7 @@ class UsageDetailDialog(BaseDialog):
                 row=row, column=1, sticky='w')
         self.add_action('查看今日明细',
                         lambda: TodayDetailsDialog(self, self.desktop))
-        self.add_action('关闭', self.close, primary=True)
+        self.add_action('关闭', self.close)
 
     def _data(self):
         root = getattr(self.desktop, 'root', None)
@@ -263,7 +263,7 @@ class TodayDetailsDialog(BaseDialog):
                                                       row.get('model', ''),
                                                       format(int(row.get('tokens') or 0), ',')))
         self.add_action('导出 CSV', self._export_csv)
-        self.add_action('关闭', self.close, primary=True)
+        self.add_action('关闭', self.close)
 
     def _details(self):
         root = getattr(self.desktop, 'root', None)

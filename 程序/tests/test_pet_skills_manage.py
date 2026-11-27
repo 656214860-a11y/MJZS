@@ -509,15 +509,21 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertIn('disabled', seams['delete'].state())
         self.assertIn('制作锁', seams['delete_tip'].text)
 
-    def test_import_dialog_offers_five_sources(self):
+    def test_import_dialog_offers_unified_source_and_local_pickers(self):
+        """REQ-UI-SKILL-PAGE-1：单层导入窗提供统一仓库/链接/路径输入框＋主导入键＋本地快捷选择。"""
+        from ui_widgets import PrimaryButton
         win = self.hub()
         state = win._pet_seams['skills']['state']
         dialog = pet_skills_manage.import_dialog(self.pet, state, lambda: None)
         self.assertIsNotNone(dialog)
         self.addCleanup(dialog.destroy)
         buttons = self._dialog_buttons(dialog)
-        for label in ('文件', '文件夹', 'ZIP', '仓库', '链接', '关闭'):
+        for label in ('文件', '文件夹', 'ZIP', '关闭'):
             self.assertIn(label, buttons)
+        primaries = [str(b.cget('text')) for b in self.walk(dialog, PrimaryButton)]
+        self.assertIn('导入', primaries)
+        self.assertTrue(hasattr(dialog, '_pet_import_entry'))
+        self.assertTrue(hasattr(dialog, '_pet_import_flow'))
 
     def test_file_import_lands_in_user_stage_dir(self):
         self.add_skills()
@@ -655,6 +661,67 @@ class SkillsManagePageTests(SkillsManageCase):
         self.assertTrue(result)
         self.assertFalse((self.program / 'data' / 'skills' / STAGE_DIR
                           / 'user-layer-skill.skill.md').exists())
+
+    def test_dsh_stage_directory_composite_suite_and_inline_editor(self):
+        """REQ-UI-SKILL-PAGE-1 / REQ-UI-UNIFY-1：左侧阶段目录、00 总包两级展开、原地编辑与右键菜单。"""
+        (self.program / 'skills' / '00 总包SKILL').mkdir(parents=True, exist_ok=True)
+        suite = self.program / 'data' / 'skills' / '00 总包SKILL' / 'manju-laoli-skill'
+        (suite / 'short-drama-director').mkdir(parents=True)
+        (suite / 'sd-script-engine').mkdir(parents=True)
+        (suite / 'short-drama-director' / 'SKILL.md').write_text(
+            '---\nname: short-drama-director\ndisplayName: L0 短剧总导演\ndescription: 总控调度\n---\n\n# L0 总控\n',
+            encoding='utf-8')
+        (suite / 'sd-script-engine' / 'SKILL.md').write_text(
+            '---\nname: sd-script-engine\ndisplayName: 剧本引擎\ndescription: 子技能\n---\n\n# 剧本引擎\n',
+            encoding='utf-8')
+        self.add_skills()
+        win = self.hub()
+        self.assertTrue(self.wait_rows(win, 4))
+        seams = win._pet_seams['skills']
+        tree = self.tree(win)
+        # 左侧阶段目录包含「全部阶段」与「00 总包」并显示计数徽章。
+        self.assertIn('', seams['stage_nav'])
+        self.assertIn('suite', seams['stage_nav'])
+        self.assertIn('(1)', str(seams['stage_nav']['suite'].cget('text')))
+        # 切到 00 总包，仅显示总包，且二级子技能首位为 L0 主入口。
+        seams['stage_nav']['suite'].invoke()
+        win.update()
+        self.assertEqual(('manju-laoli-skill',), tree.get_children())
+        children = tree.get_children('manju-laoli-skill')
+        self.assertEqual(2, len(children))
+        self.assertEqual('L0 主入口', tree.item(children[0], 'values')[5])
+        self.assertEqual('包内子技能', tree.item(children[1], 'values')[5])
+        # 原地编辑并原子保存子技能文档。
+        tree.selection_set(children[1])
+        tree.event_generate('<<TreeviewSelect>>')
+        win.update()
+        editor = seams['editor']
+        self.assertTrue(editor.begin_edit())
+        editor.detail.insert('end', '\n新增一行说明\n')
+        editor.dirty = True
+        self.assertTrue(editor.save_edit())
+        self.assertIn('新增一行说明', (suite / 'sd-script-engine' / 'SKILL.md').read_text(encoding='utf-8'))
+        # 独立窗口入口与右键菜单（删除置底且前有分隔线）。
+        standalone = pet_skills_manage.open_manager(self.pet)
+        self.addCleanup(standalone.destroy)
+        self.assertIn('skills', standalone._pet_seams)
+        from types import SimpleNamespace
+        with mock.patch('ui_widgets.ContextMenu.popup', return_value='break'):
+            from ui.pet_skills_views import open_tree_menu
+            event = SimpleNamespace(y=0)
+            with mock.patch.object(tree, 'identify_row', return_value='manju-laoli-skill'):
+                open_tree_menu(tree, seams['state'], editor, {
+                    'show_note': lambda: None, 'edit_external': lambda: None,
+                    'rename': lambda: None, 'toggle_disabled': lambda: None,
+                    'check_updates': lambda: None, 'open_folder': lambda: None,
+                    'remove': lambda: None, 'is_disabled': lambda t, s: False,
+                    'kind_of': lambda it: 'package',
+                    'delete_block_reason': lambda it, s: '',
+                }, event)
+        menu = seams['state']['last_menu'].menu
+        end = menu.index('end')
+        self.assertEqual('删除', menu.entrycget(end, 'label'))
+        self.assertEqual('separator', menu.type(end - 1))
 
 
 if __name__ == '__main__':

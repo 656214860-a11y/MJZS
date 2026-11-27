@@ -238,7 +238,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
             resolving_model=True
         model=cached[1] if root and isinstance(cached,tuple) else ''
         rows=self.idea_view_rows(root,model,resolving_model)
-        hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(model))
+        hidden=getattr(self,'_idea_hidden_messages',{}).get(self.bubble_view_key(''))
         visible=_visible_rows(rows, hidden)
         self._clear_bubble_view(box)
         def finish():
@@ -249,7 +249,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
                                         tooltip=idea_chat.usage_summary(rows))
             self.drop_thinking_spinner()
             thinking=getattr(self,'_thinking_model','')
-            if thinking and self.bubble_view_key(thinking) == self.bubble_view_key(self.displayed_chat_model()):
+            if thinking:
                 self.add_thinking_line(box,thinking)
             if rows:
                 try:box.see('end')
@@ -517,7 +517,7 @@ class IdeaChatMixin(IdeaDeferredMixin, IdeaBubblesMixin, IdeaAttachmentsMixin, I
                          skill_injection=request_model['settings']['skill_injection'])
         self._idea_view_model_request=getattr(self,'_idea_view_model_request',0)+1
         self._idea_view_model_cache=(self.root,model)
-        self.set_idea_model_filter(model)
+        self.set_idea_model_filter('')
         box.delete('1.0','end')
         self.discard_idea_draft()
         self.idea_attachment_paths=()

@@ -348,10 +348,13 @@ def skill_checkbox_label(path):
 
 
 def registered_skill_checkbox_label(skill):
-    """注册 SKILL 的勾选项优先显示注册表名称，而不是通用的 SKILL.md 文件名。"""
+    """注册 SKILL 的勾选项优先显示注册表名称，而不是通用的 SKILL.md 文件名；总包标注「总包」。"""
     label = (getattr(skill, 'displayName', '') or getattr(skill, 'name', '') or
              getattr(skill, 'path', ''))
-    return chinese_skill_display(label)
+    shown = chinese_skill_display(label)
+    if getattr(skill, 'stage', '') == 'suite':
+        return shown + '（总包）'
+    return shown
 
 
 def flow_skill_match(text, flow, current=()):

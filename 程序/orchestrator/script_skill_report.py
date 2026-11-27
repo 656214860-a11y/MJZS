@@ -71,23 +71,26 @@ def audit_rows(program=None):
 
 
 def merge_problems(program=None):
-    """验证合并后的 SKILL 归属；这是报告层，不让 L0 契约层依赖注册表。"""
+    """验证合并后的 SKILL 归属；内置归属者已退役未安装时只核对文档落点契约。"""
     root = program_root(program)
-    from orchestrator.skill_registry import default_registry
+    from orchestrator.skill_registry import default_registry, RETIRED_BUILTIN_SKILL_IDS
     owner_skill = default_registry(root).getById(MERGE_OWNER)
+    text = None
     if owner_skill is None:
-        return ('归属者的 SKILL 文件读不到：%s' % MERGE_OWNER,)
-    owner = owner_skill.path
-    try:
-        text = owner.read_text(encoding='utf-8-sig')
-    except OSError:
-        return ('归属者的 SKILL 文件读不到：%s' % MERGE_OWNER,)
+        if MERGE_OWNER not in RETIRED_BUILTIN_SKILL_IDS:
+            return ('归属者的 SKILL 文件读不到：%s' % MERGE_OWNER,)
+    else:
+        try:
+            text = owner_skill.path.read_text(encoding='utf-8-sig')
+        except OSError:
+            return ('归属者的 SKILL 文件读不到：%s' % MERGE_OWNER,)
     out = []
     for skill, part, landing in MERGED:
-        if skill not in text:
-            out.append('%s 没在归属者 %s 的说明里写出子步骤' % (skill, MERGE_OWNER))
-        if part not in text:
-            out.append('%s 没写清并回的是哪一段（%s）' % (skill, part))
+        if text is not None:
+            if skill not in text:
+                out.append('%s 没在归属者 %s 的说明里写出子步骤' % (skill, MERGE_OWNER))
+            if part not in text:
+                out.append('%s 没写清并回的是哪一段（%s）' % (skill, part))
         if landing.startswith('docs/'):
             import contract.stage_layout as stage_layout
             row = stage_layout.stage_dir(STAGE)

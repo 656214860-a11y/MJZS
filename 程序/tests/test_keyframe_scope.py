@@ -49,16 +49,19 @@ class KeyframeScopeTests(unittest.TestCase):
                     keyframe_evidence.image_facts(data)
 
     def test_req_s08_50_six_skills_with_expected_cost_flags(self):
-        self.assertTrue((SKILL_DIR / 'pipeline-keyframe.skill.md').is_file())
-        for name, paid in PAID.items():
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
+        self.assertIn('pipeline-keyframe', RETIRED_BUILTIN_SKILL_IDS)
+        for name in PAID:
             with self.subTest(skill=name):
-                text = (SKILL_DIR / (name + '.skill.md')).read_text(encoding='utf-8')
-                self.assertIn('paid: ' + str(paid).lower(), text)
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
+        template = (ROOT / 'skills' / 'templates' / 'keyframe_process_template.yaml').read_text(encoding='utf-8')
+        self.assertIn('needs_confirmation', template)
 
     def test_req_s08_51_pipeline_skill_depends_on_final_storyboard(self):
-        text = (SKILL_DIR / 'pipeline-keyframe.skill.md').read_text(encoding='utf-8')
-        self.assertIn('dependsOn: [pipeline-storyboard-final]', text)
-        self.assertIn('每个首帧文件非空', text)
+        self.assertEqual(stage_flow.DEPENDS['keyframe'], ('final',))
+        self.assertTrue(callable(stage_parallel.frames_ready))
 
     def test_req_s08_40_completion_publishes_frames_json_receipt_per_adopted_shot(self):
         import json
@@ -89,8 +92,10 @@ class KeyframeScopeTests(unittest.TestCase):
         self.assertNotIn('keyframe_manifest.json', (ROOT / 'architecture.md').read_text(encoding='utf-8'))
 
     def test_req_s08_41_skill_logical_name_maps_to_frames_json(self):
-        text = (SKILL_DIR / 'pipeline-keyframe.skill.md').read_text(encoding='utf-8')
-        self.assertIn('`keyframeManifest`（文件即 `08首帧管理/output/frames.json`', text)
+        row = next(item for item in stage_layout.STAGES if item[1] == 'keyframe')
+        self.assertIn('frames.json', row[5])
+        template = (ROOT / 'skills' / 'templates' / 'keyframe_process_template.yaml').read_text(encoding='utf-8')
+        self.assertIn('frames.json', template)
 
 
 if __name__ == '__main__':

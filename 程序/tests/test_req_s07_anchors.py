@@ -652,14 +652,13 @@ class S07AnchorTests(unittest.TestCase):
                        '批次是机器切的，说明给人看'), stage_layout.json_md_rows())
 
     def test_req_s07_53_skill_describes_registration_not_unimplemented_snapshots(self):
-        """REQ-S07-53：版本 SKILL 如实描述登记与日期后缀，不再承诺快照、对比或回滚。"""
+        """REQ-S07-53：内置版本 SKILL 已清理，工具登记文案如实描述登记而非未实现快照。"""
         import skill_tools
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
 
-        text = (Path(__file__).resolve().parents[1] / 'skills' /
-                '07分镜定稿SKILL' / 'storyboard-version-snapshot.skill.md').read_text(encoding='utf-8')
-        for false_promise in ('回滚', '快照', '可对比'):
-            self.assertNotIn(false_promise, text)
-        self.assertIn('日期后缀', text)
+        self.assertFalse((Path(__file__).resolve().parents[1] / 'skills' /
+                          '07分镜定稿SKILL' / 'storyboard-version-snapshot.skill.md').exists())
+        self.assertIn('storyboard-version-snapshot', RETIRED_BUILTIN_SKILL_IDS)
         self.assertIn('登记这份分镜', skill_tools.READY['storyboard.save'][1])
 
 

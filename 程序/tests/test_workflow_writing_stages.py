@@ -44,35 +44,19 @@ class WritingStageInstructionsTests(unittest.TestCase):
 
     def test_skill_scopes_template_to_first_four_stages(self):
         program = Path(__file__).resolve().parents[1]
-        skill = program / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md'
-        text = skill.read_text(encoding='utf-8')
+        self.assertFalse((program / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md').exists())
+        text = stage_output_contract('writing')
         self.assertNotIn('jingju-skills', text)
-        for heading in ('### 1. 项目设定', '### 2. 剧本大纲',
-                        '### 3. 角色卡', '### 4. 自然剧本'):
+        for heading in ('①项目设定', '②剧本大纲', '③角色卡', '④自然剧本'):
             self.assertIn(heading, text)
-        self.assertNotIn('### 5.', text)
-        self.assertNotIn('角色参考图 image2 提示词', text)
-        self.assertIn('output: [scriptRaw, creativeBrief, emotionCurve]', text)
         self.assertIn('先问清楚，再创作', text)
         self.assertIn('每个关键阶段都必须用户确认，不能自动跳到下一阶段', text)
-        self.assertIn('内置阶段输出模板', text)
         self.assertIn('不进入 02', text)
         self.assertIn('character_manifest', text)
         self.assertNotIn('docs/', text)
 
     def test_req_s01_16_17_natural_script_carries_beat_table_without_shot_layer(self):
         """REQ-S01-16/17：④自然剧本每集带节拍表；镜头层（情境 ID／80-15-5／雷区）不进本阶段。"""
-        program = Path(__file__).resolve().parents[1]
-        text = (program / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md').read_text(encoding='utf-8')
-        template = text.split('### 4. 自然剧本', 1)[1].split('### 节拍表', 1)[0]
-        self.assertIn('## 本集节拍表', template)
-        self.assertIn('| 场次 | 节拍＃ | 情绪关键词 | 服务的剧本动作 | 权重 | 强度 |', template)
-        rules = text.split('### 节拍表', 1)[1].split('## 定向注入', 1)[0]
-        for phrase in ('每场 3–5 个节拍', '禁止“复杂”“微妙”', '每场至多 1 个', '4 个同类节拍等于戏没推进',
-                       '不写情境 ID、镜头组合、机位、构图雷区', '留给 03／07'):
-            self.assertIn(phrase, rules + text)
-        # 同一份自然剧本文件内交付，不另立文件。
-        self.assertNotIn('beat_sheet.json', text)
         clause = '每集在正文前附本集节拍表'
         with tempfile.TemporaryDirectory() as directory:
             with patch('orchestrator.workflow_tasks._agent_delivery_contract', return_value='规范路径清单'):
@@ -82,14 +66,29 @@ class WritingStageInstructionsTests(unittest.TestCase):
         for prompt in prompts:
             self.assertIn(clause, prompt)
             self.assertIn('不含机位、情境 ID 等镜头层内容', prompt)
+            self.assertNotIn('beat_sheet.json', prompt)
 
     def _installed_skill(self, directory):
-        source = Path(__file__).resolve().parents[1] / 'skills'
         root = Path(directory) / 'program' / 'skills'
-        relative = Path('01 剧本准备SKILL/pipeline-script-preparation.skill.md')
+        relative = Path('01 剧本准备SKILL/user-writing-skill.skill.md')
         skill = root / relative
         skill.parent.mkdir(parents=True)
-        shutil.copyfile(source / relative, skill)
+        skill.write_text(
+            '---\nname: user-writing-skill\ndisplayName: 用户剧本技能\n'
+            'description: 剧本准备自定义技能\nstage: 剧本准备\n'
+            'capabilities: [creative-writing]\npreferredModels: [deepseek-v4-pro]\n'
+            'fallbackModels: [deepseek-v4-flash]\ntools: []\ndependsOn: []\n'
+            'conflictsWith: []\nparallelizable: false\npaid: false\n'
+            'input: [creative]\noutput: [scriptRaw]\nconstraints: []\n'
+            'feedback:\n  - onProgress: 生成中\n  - onError: 失败\n  - onComplete: 完成\n'
+            'examples:\n  - 用户："写剧本" → 输出自然剧本\n---\n'
+            '### 4. 自然剧本\n'
+            'Premise：明确主角与目标。\n'
+            '标准三分钟短剧结构。\n'
+            '台词七维：角色辨识度与潜台词。\n'
+            '语速五步：拆句控节奏。\n',
+            encoding='utf-8',
+        )
         return root, skill
 
     def test_installed_api_skill_loads_without_builtin_control(self):
@@ -107,8 +106,8 @@ class WritingStageInstructionsTests(unittest.TestCase):
             self.assertIn('语速五步：拆句', prompt)
             home = Path(directory) / 'codex-skills'
             result = codex_skill_sync.sync_codex_skills(root.parent, home)
-            self.assertEqual(result['written'], ['pipeline-script-preparation'])
-            body = (home / 'pipeline-script-preparation/SKILL.md').read_text(encoding='utf-8')
+            self.assertEqual(result['written'], ['user-writing-skill'])
+            body = (home / 'user-writing-skill/SKILL.md').read_text(encoding='utf-8')
             self.assertIn('### 4. 自然剧本', body)
             self.assertNotIn('jingju-skills', body)
 
@@ -126,8 +125,8 @@ class WritingStageInstructionsTests(unittest.TestCase):
                 self.assertEqual(_inline_skill(skill), before)
             home = Path(directory) / 'codex-skills'
             result = codex_skill_sync.sync_codex_skills(root.parent, home)
-            self.assertEqual(result['written'], ['pipeline-script-preparation'])
-            body = (home / 'pipeline-script-preparation/SKILL.md').read_text(encoding='utf-8')
+            self.assertEqual(result['written'], ['user-writing-skill'])
+            body = (home / 'user-writing-skill/SKILL.md').read_text(encoding='utf-8')
             self.assertNotIn('jingju-skills', body)
             self.assertIn('### 4. 自然剧本', body)
     def test_installed_codex_skill_rewrites_generic_references(self):
@@ -142,7 +141,7 @@ class WritingStageInstructionsTests(unittest.TestCase):
             home = Path(directory) / 'codex-skills'
             report = codex_skill_sync.sync_codex_skills(root.parent, home)
             self.assertEqual(report['errors'], [])
-            body = (home / 'pipeline-script-preparation/SKILL.md').read_text(encoding='utf-8')
+            body = (home / 'user-writing-skill/SKILL.md').read_text(encoding='utf-8')
             links = re.findall(r'\[[^\]]*\]\(([^)]+)\)', body)
             self.assertEqual(links, [reference.resolve().as_posix() + '#rules'])
             self.assertTrue(Path(links[0].split('#')[0]).is_file())

@@ -70,11 +70,25 @@ def preset_path(program=None):
     return Path(program or PROGRAM).joinpath(*PRESET_PATH)
 
 
+def _stage_skills(reg, stage):
+    """某阶段可选的全部 SKILL（00 总包 ＋ 本阶段专属），兼容轻量注册表替身。"""
+    fn = getattr(reg, 'getForStage', None)
+    if callable(fn):
+        return fn(stage)
+    return reg.getByStage(stage)
+
+
+def _is_retired_builtin(name, reg):
+    """已退役的原内置 67 个 .skill.md 且未被用户自装覆盖时返回 True。"""
+    retired = getattr(skill_registry, 'RETIRED_BUILTIN_SKILL_IDS', ())
+    return name in retired and reg.getById(name) is None
+
+
 def default_entry(stage, registry=None):
-    """默认配置：模型「自动」，推理等级「自动」，勾上这个阶段仍在维护的全部 SKILL。"""
+    """默认配置：模型「自动」，推理等级「自动」，勾上启用的 00 总包与本阶段仍在维护的 SKILL。"""
     reg = registry or skill_registry.default_registry()
     entry = {'model': model_router.AUTO, REASONING: 'auto',
-             'skills': [skill.name for skill in reg.getByStage(stage) if not skill.deprecated]}
+             'skills': [skill.name for skill in _stage_skills(reg, stage) if not skill.deprecated]}
     if stage in WRITER_STYLE_STAGES:
         entry.update(_writer_style_fields({}))
     return entry
@@ -114,7 +128,7 @@ def clean_model(value):
 def clean_skills(values, stage=None, registry=None):
     """去掉不存在项并归一旧别名（顺序稳定，已有项目无需手工迁移）。"""
     reg = registry or skill_registry.default_registry()
-    known = {skill.name for skill in (reg.getByStage(stage) if stage else reg.getAll())}
+    known = {skill.name for skill in (_stage_skills(reg, stage) if stage else reg.getAll())}
     out = []
     for value in values or ():
         name = str(value or '').strip()
@@ -126,19 +140,18 @@ def clean_skills(values, stage=None, registry=None):
 
 
 def _clean_skills_for_save(values, stage, registry):
-    """落盘前的 SKILL 归一：有效项照旧去重并归一别名；注册表查不到的
-    （失效或已禁用）原样保留——发送门禁 ``validate_selected_skills`` 靠
-    ``skill_config.json`` 的原始 ``skills`` 列表报「未加载／已禁用」，保存时
-    静默丢弃会让任何一次无关写入绕过门禁。失效项由用户重新保存该阶段的
-    勾选列表时移除（显式 ``skills`` 不含它即视为取消）。"""
+    """落盘前的 SKILL 归一：有效项（含 00 总包）照旧去重并归一别名；
+    已退役内置 ID 静默滤除；用户自装但未加载／已禁用项原样保留供发送门禁拦截。"""
     reg = registry
-    known = {skill.name for skill in reg.getByStage(stage)}
+    known = {skill.name for skill in _stage_skills(reg, stage)}
     out = []
     for value in values or ():
         name = str(value or '').strip()
         if not name:
             continue
         if reg.getById(name) is None:
+            if _is_retired_builtin(name, reg):
+                continue
             if name not in out:
                 out.append(name)
             continue
@@ -172,10 +185,14 @@ def synchronize(project, registry=None):
         if not isinstance(entry, dict):
             continue
         kept = []
+        suite_stage = getattr(skill_registry, 'SUITE_STAGE', 'suite')
         for raw_name in entry.get('skills') or ():
             item = reg.getById(raw_name)
             if item is None:
-                # 保留失效选择作为发送门禁依据；用户确认取消后才可移除。
+                if _is_retired_builtin(str(raw_name), reg):
+                    changed = True
+                    continue
+                # 保留用户自装的失效选择作为发送门禁依据；用户确认取消后才可移除。
                 kept.append(raw_name)
                 continue
             name = reg.canonical_id(raw_name)
@@ -183,7 +200,7 @@ def synchronize(project, registry=None):
             if item is None or item.deprecated:
                 changed = True
                 continue
-            if item.stage != stage:
+            if item.stage != stage and item.stage != suite_stage:
                 moved.setdefault(item.stage, []).append(name)
                 changed = True
                 continue

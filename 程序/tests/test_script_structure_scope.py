@@ -26,21 +26,19 @@ class ScriptStructureScopeTests(unittest.TestCase):
                 self.assertIn(term, contract)
 
     def test_req_s02_23_three_manifests_belong_to_character_extraction(self):
+        from contract.script_manifest_schema import normalize_producer
         for name in ('character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'):
             with self.subTest(name=name):
-                self.assertEqual(PRODUCERS[name][0], 'script-character-extraction')
-        skill = (SKILL_DIR / 'script-character-extraction.skill.md').read_text(encoding='utf-8')
-        for name in ('character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'):
-            self.assertIn(name, skill)
+                self.assertEqual(PRODUCERS[name][0], 'stage:script_structure')
+        self.assertEqual(normalize_producer('script-character-extraction'), 'stage:script_structure')
 
     def test_req_s02_23_structure_stage_does_not_own_other_manifests(self):
-        mine = {name for name, (skill, _stage) in PRODUCERS.items() if skill.startswith('script-')}
+        mine = {name for name, (producer, _stage) in PRODUCERS.items() if producer == 'stage:script_structure'}
         self.assertEqual(mine, {'character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'})
 
     def test_req_s02_30_five_skills_exist_for_the_stage(self):
-        for name in SKILLS:
-            with self.subTest(name=name):
-                self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
 
     def test_req_s02_31_dialogue_and_worldbuilding_are_merged_not_standalone(self):
         landing = {skill: place for skill, _part, place in MERGED}

@@ -1422,8 +1422,10 @@ class FileActionsTests(StageRailTests):
 
         def capture(menu, _event):
             last = menu.menu.index('end')
-            labels.extend(menu.menu.entrycget(i, 'label')
-                          for i in range(last + 1) if last is not None)
+            if last is not None:
+                labels.extend(menu.menu.entrycget(i, 'label')
+                              for i in range(last + 1)
+                              if menu.menu.type(i) != 'separator')
             return 'break'
 
         import ui_widgets
@@ -1448,8 +1450,10 @@ class FileActionsTests(StageRailTests):
 
         def capture(menu, _event):
             last = menu.menu.index('end')
-            labels.extend(menu.menu.entrycget(i, 'label')
-                          for i in range(last + 1) if last is not None)
+            if last is not None:
+                labels.extend(menu.menu.entrycget(i, 'label')
+                              for i in range(last + 1)
+                              if menu.menu.type(i) != 'separator')
             return 'break'
 
         import ui_widgets
@@ -1457,6 +1461,7 @@ class FileActionsTests(StageRailTests):
             panel.script_menu(tree, event)
         for label in ('打开', '重命名', '添加到全局素材库', '删除', '在文件夹中显示', '另存为…'):
             self.assertIn(label, labels)
+        self.assertEqual(labels[-1], '删除', 'REQ-UI-UNIFY-1：危险操作删除应置底')
         self.assertNotIn('执行', labels)
         self.assertNotIn('自动执行', labels)
 

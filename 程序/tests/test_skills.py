@@ -130,55 +130,96 @@ class FakeAdapter(model_router.ModelAdapter):
 
 class RegistryTests(unittest.TestCase):
     def test_skill_distribution_matches_the_split_script_flow(self):
-        """验收：既有 SKILL 保留，并为 13 个阶段各登记一个全流程编排 SKILL。"""
-        reg = skill_registry.default_registry()
-        reg.scan(force=True)
-        self.assertEqual(reg.count(), 73)
-        self.assertEqual(len(reg.stages()), 13)
-        expected_by_stage = {
-            'script': 6, 'script_structure': 5, 'storyboard': 6, 'animatic': 1, 'assets': 6,
-            'continuity': 6, 'final': 6, 'keyframe': 6, 'previs': 7,
-            'video': 5, 'audio': 6, 'edit': 7, 'delivery': 6,
-        }
-        self.assertEqual(set(expected_by_stage), set(pet_bus.STAGES))
-        for stage in pet_bus.STAGES:
-            self.assertEqual(len(reg.getByStage(stage)), expected_by_stage[stage], stage)
+        """内置 skills/ 已清空残余 .skill.md，保留 00 总包SKILL 与 01–13 干净目录；用户安装后按阶段与总包正确分布。"""
+        builtin = skill_registry.Registry(root=Path(HERE).parent / 'skills')
+        builtin.scan(force=True)
+        self.assertEqual(builtin.count(), 0)
+        self.assertTrue((Path(HERE).parent / 'skills' / '00 总包SKILL').is_dir())
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            write_skill(root / '01 剧本准备SKILL', 'user-script', stage='剧本准备')
+            write_skill(root / '05资产管理SKILL', 'user-asset', stage='资产管理')
+            suite_dir = root / '00 总包SKILL' / 'demo-suite'
+            (suite_dir / 'short-drama-director').mkdir(parents=True)
+            (suite_dir / 'short-drama-director' / 'SKILL.md').write_text(
+                '---\nname: short-drama-director\ndescription: 总控\n---\n# 总控\n', encoding='utf-8')
+            (suite_dir / 'sd-script-engine').mkdir(parents=True)
+            (suite_dir / 'sd-script-engine' / 'SKILL.md').write_text(
+                '---\nname: sd-script-engine\ndescription: 剧本引擎\n---\n# 剧本\n', encoding='utf-8')
+            reg = skill_registry.Registry(root=root)
+            self.assertEqual(reg.count(), 3)
+            self.assertEqual([item.name for item in reg.suites()], ['demo-suite'])
+            self.assertEqual([item.name for item in reg.getByStage('script')], ['user-script'])
+            self.assertEqual([item.name for item in reg.getForStage('script')], ['demo-suite', 'user-script'])
+            self.assertEqual([item.name for item in reg.getForStage('video')], ['demo-suite'])
+            # 阶段目录内安装 ≥2 个包时，阶段目录自身绝不被误判为复合套装
+            for pkg in ('pkg-alpha', 'pkg-beta'):
+                pdir = root / '01 剧本准备SKILL' / pkg
+                pdir.mkdir(parents=True)
+                (pdir / 'SKILL.md').write_text('---\nname: %s\ndescription: %s\n---\n# %s\n' % (pkg, pkg, pkg), encoding='utf-8')
+            reg.scan(force=True)
+            names = [item.name for item in reg.getByStage('script')]
+            self.assertNotIn('01 剧本准备SKILL', names)
+            self.assertTrue({'pkg-alpha', 'pkg-beta', 'user-script'} <= set(names))
 
     def test_pipeline_stage_skills_are_recursively_discovered_with_strong_dependencies(self):
-        """阶段专属文件在子目录中发现，依赖只能指向已登记的上游管线 SKILL。"""
-        from architecture.test_pipeline_stage_io_contract import PIPELINE_DEPENDENCIES
-        reg = skill_registry.default_registry()
-        self.assertEqual({name: reg.getById(name).dependsOn for name in PIPELINE_DEPENDENCIES},
-                         PIPELINE_DEPENDENCIES)
-        self.assertTrue(all(len(reg.getByStage(stage)) >= 1 for stage in pet_bus.STAGES))
+        """阶段专属文件在子目录中发现，依赖按声明保留。"""
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            write_skill(root / '01 剧本准备SKILL', 'stage-one', stage='剧本准备')
+            write_skill(root / '02剧本整理SKILL', 'stage-two', stage='剧本结构', depends='stage-one')
+            write_skill(root / '03初步分镜SKILL', 'stage-three', stage='初步分镜', depends='stage-two')
+            reg = skill_registry.Registry(root=root)
+            self.assertEqual(reg.getById('stage-two').dependsOn, ['stage-one'])
+            self.assertEqual(reg.getById('stage-three').dependsOn, ['stage-two'])
+            self.assertEqual(reg.problems(), [])
 
     def test_registry_is_clean(self):
-        reg = skill_registry.default_registry()
+        reg = skill_registry.Registry(root=Path(HERE).parent / 'skills')
         reg.scan(force=True)
         self.assertEqual(reg.problems(), [])
         for note in reg.warnings():
             self.assertIn('子模块', note)
 
     def test_frontmatter_round_trips(self):
-        item = skill_registry.default_registry().getById('firstframe-batch')
-        self.assertEqual(item.displayName, '首帧批量生成')
-        self.assertEqual(item.stage, 'keyframe')
-        self.assertTrue(item.paid)
-        self.assertEqual([key for row in item.feedback for key in row],
-                         ['onProgress', 'onError', 'onComplete'])
-        self.assertEqual(len(item.examples), 3)
-        self.assertTrue(all('→' in row for row in item.examples))
-        self.assertEqual(item.tools, ['firstframe.batchGenerate'])
-        self.assertEqual(item.dependsOn, ['storyboard-prompt-render'])
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            stage_dir = root / '08首帧管理SKILL'
+            stage_dir.mkdir(parents=True)
+            (stage_dir / 'firstframe-batch.skill.md').write_text(
+                '---\nname: firstframe-batch\ndisplayName: 首帧批量生成\ndescription: 批量生成首帧\n'
+                'stage: 首帧管理\ncapabilities: [image-generation]\npreferredModels: [qwen-max]\n'
+                'fallbackModels: [deepseek-v4-flash]\ntools: [firstframe.batchGenerate]\n'
+                'dependsOn: [storyboard-prompt-render]\nconflictsWith: []\ninput: [scope]\noutput: [frames]\n'
+                'constraints: [付费前确认]\nparallelizable: true\npaid: true\n'
+                'feedback:\n  - onProgress: 生成中\n  - onError: 失败\n  - onComplete: 完成\n'
+                'examples:\n  - 用户："补首帧" → batch()\n  - 用户："重跑" → retry()\n  - 用户："全部" → all()\n'
+                '---\n# 首帧批量生成\n\n## 说明\n支持全部/指定帧生成。\n',
+                encoding='utf-8')
+            item = skill_registry.Registry(root=root).getById('firstframe-batch')
+            self.assertEqual(item.displayName, '首帧批量生成')
+            self.assertEqual(item.stage, 'keyframe')
+            self.assertTrue(item.paid)
+            self.assertEqual([key for row in item.feedback for key in row],
+                             ['onProgress', 'onError', 'onComplete'])
+            self.assertEqual(len(item.examples), 3)
+            self.assertTrue(all('→' in row for row in item.examples))
+            self.assertEqual(item.tools, ['firstframe.batchGenerate'])
+            self.assertEqual(item.dependsOn, ['storyboard-prompt-render'])
 
     def test_lookup_by_id_and_stage(self):
-        reg = skill_registry.default_registry()
-        self.assertIsNone(reg.getById('没有这个'))
-        names = [item.name for item in reg.getByStage('assets')]
-        self.assertEqual(sorted(names), ['asset-auto-fill', 'asset-candidate-wall', 'asset-copyright-filter',
-                                         'asset-dedupe', 'asset-visual-rank', 'pipeline-assets'])
-        order = [item.name for item in reg.getAll()]
-        self.assertEqual(order, sorted(order, key=lambda name: pet_bus.STAGES.index(reg.getById(name).stage)))
+        with tempfile.TemporaryDirectory() as td:
+            root = Path(td) / 'skills'
+            write_skill(root / '01 剧本准备SKILL', 's-script', stage='剧本准备')
+            write_skill(root / '05资产管理SKILL', 'a-one', stage='资产管理')
+            write_skill(root / '05资产管理SKILL', 'a-two', stage='资产管理')
+            write_skill(root / '08首帧管理SKILL', 'k-one', stage='首帧管理')
+            reg = skill_registry.Registry(root=root)
+            self.assertIsNone(reg.getById('没有这个'))
+            names = [item.name for item in reg.getByStage('assets')]
+            self.assertEqual(sorted(names), ['a-one', 'a-two'])
+            order = [item.name for item in reg.getAll()]
+            self.assertEqual(order, sorted(order, key=lambda name: pet_bus.STAGES.index(reg.getById(name).stage)))
 
     def test_hot_reload_picks_up_a_new_file_without_restart(self):
         """阶段目录中新增文件免重启：再查一次就该进表。"""
@@ -319,26 +360,19 @@ class RegistryTests(unittest.TestCase):
             self.assertEqual(reg.problems(), [])
 
     def test_a_temp_program_does_not_blank_out_the_default_registry(self):
-        """第 44 期：注册表按目录分开缓存。
-
-        原先只留「最后用到的那一份」：谁先拿一个临时 program 调一次 default_registry()，
-        之后不带参数的那一版（＝程序目录）就跟着变成临时的那一份空的——界面勾选框、阶段
-        默认值、编排器找 SKILL 会整片空掉。自检里就是这么串起来的：一个进程跑好几路工作单元，
-        临时目录先出现，后面几路就红了。
-        """
+        """第 44 期：注册表按目录分开缓存。"""
         real = skill_registry.default_registry()
         real.scan(force=True)
-        self.assertEqual(real.count(), 73)
+        real_count = real.count()
+        real_names = [item.name for item in real.getAll()]
         with tempfile.TemporaryDirectory() as td:
             program = Path(td) / '程序'
             write_skill(program / 'skills' / '05资产管理SKILL', 'probe-one', stage='资产管理')
             other = skill_registry.default_registry(program)
             self.assertEqual([item.name for item in other.getAll()], ['probe-one'])
             self.assertIs(skill_registry.default_registry(), real, '不带参数仍是程序目录那一份')
-            self.assertEqual(skill_registry.default_registry().count(), 73)
-        self.assertEqual([item.name for item in skill_registry.default_registry().getByStage('keyframe')],
-                         ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
-                          'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe'])
+            self.assertEqual(skill_registry.default_registry().count(), real_count)
+        self.assertEqual([item.name for item in skill_registry.default_registry().getAll()], real_names)
 
 
     def test_broken_skill_is_reported_not_swallowed(self):
@@ -444,28 +478,55 @@ class StageConfigTests(unittest.TestCase):
                 self.assertLessEqual(read.call_count, 2)
             stage_config.put(td, 'video', model='gpt-4o', skills=[])
             self.assertEqual(stage_config.get(td, 'video')['model'], 'gpt-4o')
+    def _fixture_registry(self, include_suite=False):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        root = Path(holder.name) / 'skills'
+        write_skill(root / '01 剧本准备SKILL', 'user-script-a', stage='剧本准备')
+        write_skill(root / '07分镜定稿SKILL', 'storyboard-prompt-render', stage='分镜定稿')
+        for name in ('firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
+                     'firstframe-retry', 'firstframe-thumbnail'):
+            write_skill(root / '08首帧管理SKILL', name, stage='首帧管理')
+        write_skill(root / '10视频生成SKILL', 'video-quality-check', stage='视频生成')
+        for name in ('subtitle-auto-align', 'subtitle-format-export',
+                     'voice-emotion-check', 'voice-tts-synthesis'):
+            write_skill(root / '11配音字幕SKILL', name, stage='配音与字幕')
+        if include_suite:
+            suite_dir = root / '00 总包SKILL' / 'global-suite'
+            (suite_dir / 'director').mkdir(parents=True)
+            (suite_dir / 'director' / 'SKILL.md').write_text(
+                '---\nname: director\ndescription: 总控\n---\n# 总控\n', encoding='utf-8')
+            (suite_dir / 'worker').mkdir(parents=True)
+            (suite_dir / 'worker' / 'SKILL.md').write_text(
+                '---\nname: worker\ndescription: 子引擎\n---\n# 子引擎\n', encoding='utf-8')
+        reg = skill_registry.Registry(root=root)
+        reg.scan(force=True)
+        return reg
+
     def test_script_stage_defaults_include_the_imported_script_skills(self):
-        """01 阶段总入口与常规 SKILL 都会自动成为剧本准备阶段的默认可选项。"""
-        with tempfile.TemporaryDirectory() as td:
+        """01 阶段用户安装的常规 SKILL 与 00 总包都会自动成为剧本准备阶段的默认可选项。"""
+        reg = self._fixture_registry(include_suite=True)
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
             entry = stage_config.get(td, 'script')
-            expected = [item.name for item in skill_registry.default_registry().getByStage('script')
-                        if not item.deprecated]
+            expected = [item.name for item in reg.getForStage('script') if not item.deprecated]
             self.assertEqual(entry['skills'], expected)
+            self.assertIn('global-suite', entry['skills'])
 
     def test_default_entry_is_auto_plus_every_active_stage_skill(self):
-        with tempfile.TemporaryDirectory() as td:
+        reg = self._fixture_registry()
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
             entry = stage_config.get(td, 'keyframe')
             self.assertEqual(entry['model'], 'auto')
             self.assertEqual(entry['skills'], ['firstframe-auto-fill', 'firstframe-batch', 'firstframe-quality',
-                          'firstframe-retry', 'firstframe-thumbnail', 'pipeline-keyframe'])
+                                               'firstframe-retry', 'firstframe-thumbnail'])
 
     def test_put_get_round_trip_cleans_junk(self):
-        """第 43 期：模型那一栏不再照写死的清单过滤——池子是权威，存进来的 id 原样留着。
-
-        抹成「自动」等于把用户的选择吃掉（模型管理里新加的模型就是这么丢的）；真发不出去时由
-        路由说清「指定的模型 X 现在用不了」，而不是在这儿悄悄改掉。SKILL 那一栏照旧去重去假。
-        """
-        with tempfile.TemporaryDirectory() as td:
+        """第 43 期：模型那一栏不再照写死的清单过滤——池子是权威，存进来的 id 原样留着。"""
+        reg = self._fixture_registry()
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
             stage_config.put(td, 'video', model='我的本地模型',
                              skills=['video-quality-check', 'video-quality-check', '不存在'])
             entry = stage_config.get(td, 'video')
@@ -474,33 +535,63 @@ class StageConfigTests(unittest.TestCase):
             self.assertEqual(stage_config.load(td)['video']['skills'], ['video-quality-check'])
 
     def test_get_syncs_missing_and_misfiled_skills_to_their_directory_stage(self):
-        """失效选择保留供发送阻断；重分类的有效 SKILL 仍归入正确阶段。"""
-        with tempfile.TemporaryDirectory() as td:
+        """失效用户选择保留供发送阻断；重分类的有效 SKILL 归入正确阶段；退役内置 ID 静默过滤不阻断。"""
+        reg = self._fixture_registry()
+        import workflow_settings
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg), \
+                mock.patch.object(workflow_settings.skill_registry, 'default_registry', return_value=reg):
             stage_config.path(td).write_text(json.dumps({
-                'storyboard': {'model': 'auto', 'skills': ['storyboard-prompt-render', 'gone-skill']}
+                'storyboard': {'model': 'auto', 'skills': ['storyboard-prompt-render', 'gone-skill']},
+                'script': {'model': 'auto', 'skills': ['pipeline-script-preparation', 'user-script-a']},
             }, ensure_ascii=False), encoding='utf-8')
             self.assertEqual(stage_config.get(td, 'storyboard')['skills'], [])
             self.assertEqual(stage_config.get(td, 'final')['skills'], ['storyboard-prompt-render'])
+            self.assertEqual(stage_config.get(td, 'script')['skills'], ['user-script-a'])
             saved = json.loads(stage_config.path(td).read_text(encoding='utf-8'))
             self.assertEqual(saved['storyboard']['skills'], ['gone-skill'])
-            import workflow_settings
+            self.assertEqual(saved['final']['skills'], ['storyboard-prompt-render'])
             with self.assertRaisesRegex(ValueError, '已勾选的 SKILL 未加载'):
                 workflow_settings.validate_selected_skills(td, 'storyboard')
-            self.assertEqual(saved['final']['skills'], ['storyboard-prompt-render'])
+            # 退役内置 ID 静默跳过不报错
+            stage_config.path(td).write_text(json.dumps({
+                'script': {'model': 'auto', 'skills': ['pipeline-script-preparation']},
+            }, ensure_ascii=False), encoding='utf-8')
+            workflow_settings.validate_selected_skills(td, 'script')
+
+    def test_suite_skills_are_inherited_by_default_and_toggleable_per_stage(self):
+        """00 总包 SKILL 默认跨阶段继承，单阶段取消勾选不影响其他阶段。"""
+        reg = self._fixture_registry(include_suite=True)
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
+            self.assertIn('global-suite', stage_config.get(td, 'script')['skills'])
+            self.assertIn('global-suite', stage_config.get(td, 'storyboard')['skills'])
+            stage_config.put(td, 'storyboard', skills=[])
+            self.assertEqual(stage_config.get(td, 'storyboard')['skills'], [])
+            self.assertIn('global-suite', stage_config.get(td, 'script')['skills'])
 
     def test_reset_restores_the_default(self):
-        with tempfile.TemporaryDirectory() as td:
+        reg = self._fixture_registry()
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
             stage_config.put(td, 'audio', model='qwen-max', skills=[])
             self.assertEqual(stage_config.get(td, 'audio')['skills'], [])
             stage_config.reset(td, 'audio')
             entry = stage_config.get(td, 'audio')
             self.assertEqual(entry['model'], 'auto')
-            self.assertEqual(entry['skills'], ['pipeline-audio-subtitle', 'subtitle-auto-align',
-                          'subtitle-format-export', 'voice-emotion-check', 'voice-tts-synthesis'])
+            self.assertEqual(entry['skills'], ['subtitle-auto-align', 'subtitle-format-export',
+                                               'voice-emotion-check', 'voice-tts-synthesis'])
 
     def test_legacy_skill_id_is_migrated_to_its_active_replacement(self):
         """合并只收敛执行入口；旧项目写过的 id 仍能无感读回。"""
-        with tempfile.TemporaryDirectory() as td:
+        reg = self._fixture_registry()
+        (reg.root / '11配音字幕SKILL' / 'voice-multi-character.skill.md').write_text(
+            '---\nname: voice-multi-character\ndisplayName: 多角色\ndescription: merged\n'
+            'stage: 配音与字幕\ndeprecated: true\nreplacedBy: voice-tts-synthesis\n---\n# merged\n',
+            encoding='utf-8')
+        reg.scan(force=True)
+        with tempfile.TemporaryDirectory() as td, \
+                mock.patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
             stage_config.put(td, 'audio', skills=['voice-multi-character', 'voice-tts-synthesis'])
             self.assertEqual(stage_config.get(td, 'audio')['skills'], ['voice-tts-synthesis'])
 
@@ -530,11 +621,23 @@ class StageConfigTests(unittest.TestCase):
 
 
 class RouterTests(unittest.TestCase):
+    _SAMPLES = {
+        'firstframe-batch': {'displayName': '首帧批量生成', 'stage': 'keyframe',
+                             'capabilities': ['image-generation'], 'tools': ['firstframe.batchGenerate'],
+                             'paid': True},
+        'video-batch-submit': {'displayName': '视频批量提交', 'stage': 'video',
+                               'capabilities': ['video-generation'], 'tools': ['video.batchSubmit'],
+                               'paid': True},
+        'script-structured-generation': {'displayName': '结构化剧本生成', 'stage': 'script_structure',
+                                         'capabilities': ['structured-output'], 'tools': ['script.generate'],
+                                         'paid': False},
+    }
+
     def skill(self, name='firstframe-batch', **overrides):
-        real = skill_registry.default_registry().getById(name)
-        fields = {key: getattr(real, key) for key in (
-            'name', 'displayName', 'stage', 'capabilities', 'preferredModels', 'fallbackModels',
-            'tools', 'dependsOn', 'conflictsWith', 'parallelizable', 'paid')}
+        fields = {'name': name, 'displayName': name, 'stage': 'keyframe',
+                  'capabilities': [], 'preferredModels': [], 'fallbackModels': [],
+                  'tools': [], 'dependsOn': [], 'conflictsWith': [], 'parallelizable': True, 'paid': False}
+        fields.update(self._SAMPLES.get(name, {}))
         fields.update(overrides)
         return FakeSkill(**fields)
 
@@ -654,11 +757,33 @@ def complete_prerequisites(case, orch, target):
 
 
 class OrchestratorTests(unittest.TestCase):
+    def _fixture_registry(self):
+        holder = tempfile.TemporaryDirectory()
+        self.addCleanup(holder.cleanup)
+        root = Path(holder.name) / 'skills'
+        write_skill(root / '02剧本整理SKILL', 'script-structured-generation',
+                    stage='剧本结构', tool='script.generate')
+        write_skill(root / '03初步分镜SKILL', 'storyboard-shot-generation',
+                    stage='初步分镜', tool='storyboard.generate', depends='script-structured-generation')
+        write_skill(root / '03初步分镜SKILL', 'storyboard-pacing-check',
+                    stage='初步分镜', tool='storyboard.checkPacing', depends='storyboard-shot-generation')
+        for name in ('asset-auto-fill', 'asset-dedupe', 'asset-visual-rank'):
+            write_skill(root / '05资产管理SKILL', name, stage='资产管理', tool='asset.rank')
+        write_skill(root / '08首帧管理SKILL', 'firstframe-batch',
+                    stage='首帧管理', tool='firstframe.batchGenerate', paid=True)
+        write_skill(root / '12后期剪辑SKILL', 'edit-multi-format-export',
+                    stage='后期剪辑', tool='edit.exportDouyin', depends='storyboard-pacing-check')
+        reg = skill_registry.Registry(root=root)
+        reg.scan(force=True)
+        return reg
+
     def orchestrator(self, **kwargs):
         holder = tempfile.TemporaryDirectory()
         self.addCleanup(holder.cleanup)
         kwargs.setdefault('tool_executor', skill_tools.execute_tool)
-        return skill_orchestrator.default_orchestrator(project=holder.name, **kwargs)
+        reg = kwargs.pop('registry', None) or self._fixture_registry()
+        with mock.patch.object(skill_registry, 'default_registry', return_value=reg):
+            return skill_orchestrator.default_orchestrator(project=holder.name, **kwargs)
 
     def test_expand_pulls_dependencies_in_stage_order(self):
         orch = self.orchestrator()
@@ -712,7 +837,7 @@ class OrchestratorTests(unittest.TestCase):
         bus.subscribe('budget.exceeded', seen.append)
         budget = skill_budget.Budget(config={'images_per_project': 1})
         budget.spend('images', 1)
-        orch = skill_orchestrator.Orchestrator(budget=budget, bus=bus)
+        orch = skill_orchestrator.Orchestrator(registry=self._fixture_registry(), budget=budget, bus=bus)
         check = orch.validate(['firstframe-batch'], {})
         self.assertFalse(check['ok'])
         bus.pump()
@@ -968,6 +1093,31 @@ class PanelTests(unittest.TestCase):
         self.desktop.app = Path(self.tmp.name) / '程序'
         self.desktop.app.mkdir(parents=True, exist_ok=True)
         self.desktop.status = self.tk.StringVar(master=self.win, value='')
+        skills_root = Path(self.tmp.name) / 'fixture_skills'
+        write_skill(skills_root / '01 剧本准备SKILL', 'demo-script', stage='剧本准备')
+        for name, display in (
+            ('firstframe-auto-fill', '首帧自动补齐'),
+            ('firstframe-batch', '首帧批量生成'),
+            ('firstframe-quality', '首帧质检'),
+            ('firstframe-retry', '首帧重试'),
+            ('firstframe-thumbnail', '首帧缩略图'),
+            ('pipeline-keyframe', '首帧流程'),
+        ):
+            p = write_skill(skills_root / '08首帧管理SKILL', name, stage='首帧管理',
+                            tool='firstframe.batchGenerate', paid=(name == 'firstframe-batch'))
+            p.write_text(
+                p.read_text(encoding='utf-8').replace('displayName: ' + name, 'displayName: ' + display)
+                + '\n## 说明\n%s 详细说明。\n' % display,
+                encoding='utf-8',
+            )
+        write_skill(skills_root / '11配音字幕SKILL', 'voice-tts-synthesis', stage='配音与字幕')
+        write_skill(skills_root / '13质检交付SKILL', 'qa-overall-check', stage='质检与交付')
+        self.fixture_registry = skill_registry.Registry(root=skills_root)
+        self.fixture_registry.scan(force=True)
+        for target_mod in (skill_registry, skill_panel.skill_registry, stage_config.skill_registry):
+            p = mock.patch.object(target_mod, 'default_registry', return_value=self.fixture_registry)
+            p.start()
+            self.addCleanup(p.stop)
 
     def test_imported_package_hint_only_appears_for_api_models(self):
         """外部包总入口在 API 模型下必须明确提示，桌面与普通 SKILL 均不提示。"""
@@ -1360,21 +1510,45 @@ class PanelTests(unittest.TestCase):
             self.assertEqual(panel.choose_skill_action(), '')
         check_all.assert_not_called()
         self.assertEqual([label for label, _path in skill_panel.flow_skill_choices('frames')],
-                         ['图像生成'])
+                         [])
         self.assertFalse(hasattr(panel, 'flow_vars'))
         self.assertEqual(len(panel.registered_boxes), len(panel.skills))
         panel.destroy()
 
+    def test_panel_shows_suite_skills_with_suite_tag_and_allows_per_stage_toggle(self):
+        """00 总包 SKILL 在各阶段配置面板可见、带「（总包）」标识且允许单阶段取消勾选。"""
+        suite_dir = self.fixture_registry.root / '00 总包SKILL' / 'my-suite'
+        (suite_dir / 'director').mkdir(parents=True)
+        (suite_dir / 'director' / 'SKILL.md').write_text(
+            '---\nname: director\ndescription: 总控\n---\n# 总控\n', encoding='utf-8')
+        (suite_dir / 'worker').mkdir(parents=True)
+        (suite_dir / 'worker' / 'SKILL.md').write_text(
+            '---\nname: worker\ndescription: 子技能\n---\n# 子技能\n', encoding='utf-8')
+        self.fixture_registry.scan(force=True)
+        panel = skill_panel.Panel(self.win, self.desktop, 'keyframe')
+        self.addCleanup(panel.destroy)
+        self.assertIn('my-suite', panel.vars)
+        self.assertIn('（总包）', panel.registered_boxes['my-suite'].cget('text'))
+        panel.vars['my-suite'].set(False)
+        panel.save()
+        self.assertNotIn('my-suite', stage_config.get(self.desktop.root, 'keyframe')['skills'])
+        self.assertIn('my-suite', stage_config.get(self.desktop.root, 'script')['skills'])
+
     def test_flow_skill_choices_ignore_codex_home(self):
         """固定预设候选只能来自程序内置 skills，不能随 CODEX_HOME 覆盖。"""
+        import workflow_settings
         with tempfile.TemporaryDirectory() as td:
-            home = Path(td)
-            with mock.patch.dict(os.environ, {'CODEX_HOME': str(home)}):
+            home = Path(td) / 'codex_home'
+            bundled = Path(td) / 'bundled_skills'
+            (bundled / 'imagegen').mkdir(parents=True)
+            (bundled / 'imagegen' / 'SKILL.md').write_text('# imagegen\n', encoding='utf-8')
+            with mock.patch.dict(os.environ, {'CODEX_HOME': str(home)}), \
+                    mock.patch.object(workflow_settings, 'BUNDLED_SKILLS', bundled), \
+                    mock.patch.dict(workflow_settings._PRESET_PATHS, {}, clear=True):
                 choices = skill_panel.flow_skill_choices('frames')
-        self.assertTrue(choices)
+        self.assertEqual([label for label, _path in choices], ['图像生成'])
         self.assertTrue(all(not Path(path).is_relative_to(home) for _label, path in choices))
-        self.assertTrue(all(Path(path).is_relative_to(skill_panel.skill_registry.default_root())
-                            for _label, path in choices))
+        self.assertTrue(all(Path(path).is_relative_to(bundled) for _label, path in choices))
 
     def test_the_skill_boxes_and_notes_follow_registry_order(self):
         """注册 SKILL 勾选沿用注册表返回顺序；R2916：说明区已删除（悬停卡片替代）。"""
@@ -1770,6 +1944,19 @@ class PetIntegrationTests(unittest.TestCase):
         # run_skill 的手动模板门禁会打开真实对话框；单元测试须明确提供用户选择，
         # 否则隐藏的 Tk 根窗口会让 ask_string 永久等待。
         self.pet.template_choice = lambda text: '确认'
+        skills_root = Path(self.tmp.name) / 'pet_skills'
+        p = write_skill(skills_root / '08首帧管理SKILL', 'firstframe-batch',
+                        stage='首帧管理', tool='firstframe.batchGenerate', paid=True)
+        p.write_text(p.read_text(encoding='utf-8').replace(
+            'displayName: firstframe-batch', 'displayName: 首帧批量生成'), encoding='utf-8')
+        write_skill(skills_root / '03初步分镜SKILL', 'storyboard-shot-generation',
+                    stage='初步分镜', tool='storyboard.generate')
+        reg = skill_registry.Registry(root=skills_root)
+        reg.scan(force=True)
+        for mod in (skill_registry, skill_panel.skill_registry, stage_config.skill_registry):
+            patcher = mock.patch.object(mod, 'default_registry', return_value=reg)
+            patcher.start()
+            self.addCleanup(patcher.stop)
 
     def test_natural_language_can_name_a_skill(self):
         plan = pet_agent.route('把首帧批量生成跑一下')

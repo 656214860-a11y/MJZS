@@ -60,8 +60,8 @@ def main(argv=None):
     all_ok &= check('architecture', len(architecture) >= floors['architecture_gate_files_min'] > 0,
                     '%d files (下界 %d)' % (len(architecture), floors['architecture_gate_files_min']))
     import skill_registry
-    count = skill_registry.default_registry().count()
-    all_ok &= check('registry', count == floors['skill_registry_count'] > 0,
+    count = skill_registry.Registry(PROGRAM / 'skills').count()
+    all_ok &= check('registry', count == floors['skill_registry_count'] >= 0,
                     '%d (基线 %d)' % (count, floors['skill_registry_count']))
     status = (PROGRAM / 'project_status.md').read_text(encoding='utf-8')
     match = re.search(r'当前轮次：(\d+)', status)
