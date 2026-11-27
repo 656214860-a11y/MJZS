@@ -37,7 +37,6 @@ class SkillPackagePinTests(unittest.TestCase):
 
     def test_registry_matches_the_commits_the_repository_pins(self):
         pinned = PINS.pinned_packages()
-        self.assertTrue(pinned, '没有找到被固定的外部技能包')
         self.assertEqual(PINS.verify(PINS.load_registry(), pinned, {}), [])
 
     def test_checked_out_packages_are_unmodified(self):

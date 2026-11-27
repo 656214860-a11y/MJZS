@@ -320,23 +320,21 @@ class IdeaBubblesMixin:
         self.show_conversation();self.status.set('已删除整条信息；可在右键菜单恢复最近删除')
         return index
     def restore_latest_bubble_message(self):
-        """恢复当前模型聊天页最近删除的一条完整消息。"""
+        """恢复统一对话流最近删除的一条完整消息。"""
         import domain.idea_chat as idea_chat
         last=getattr(self,'_idea_last_deleted',None)
         model=last[1] if isinstance(last,tuple) and last[0]==self.root and last[1] else self.displayed_chat_model()
         row=idea_chat.restore_latest_removed(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway())
         self._idea_last_deleted=None
-        if model:self.set_idea_model_filter(model)
         self.show_conversation();self.status.set('已恢复最近删除的整条信息')
         return row
     def clear_bubble_view(self):
-        """压缩当前聊天的模型上下文并隐藏旧消息；刷新仅恢复原文显示。"""
+        """压缩当前项目统一对话流的上下文并隐藏旧消息；刷新仅恢复原文显示。"""
         import domain.idea_chat as idea_chat
         from collections import Counter
-        model=self.displayed_chat_model()
-        rows=idea_chat.compact_context(self.idea_chat_context(),model=model,gateway=self.idea_chat_gateway()) if self.root else []
+        rows=idea_chat.compact_context(self.idea_chat_context(),model='',gateway=self.idea_chat_gateway()) if self.root else []
         hidden=getattr(self,'_idea_hidden_messages',{})
-        hidden[self.bubble_view_key(model)]=Counter(json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False) for row in rows)
+        hidden[self.bubble_view_key('')]=Counter(json.dumps({k:v for k,v in row.items() if k!='context_compacted'},sort_keys=True,ensure_ascii=False) for row in rows)
         self._idea_hidden_messages=hidden
         box=self.idea_log
         self._idea_view_generation=getattr(self,'_idea_view_generation',0)+1
@@ -608,89 +606,53 @@ class IdeaBubblesMixin:
             if not scroll.winfo_manager():scroll.grid(row=1,column=0,sticky='ew')
         elif scroll.winfo_manager():scroll.grid_remove()
     def render_idea_model_bar(self, items, selected):
-        """重建模型目录条：每个已调用模型一个标签（右上角 × 关闭＝清空该模型历史）；选中高亮；无记录时隐藏。"""
+        """REQ-S01-120：对齐 DSH 单对话流，顶部模型分标签条常驻隐藏，不再按模型拆页。"""
         bar=getattr(self,'idea_model_bar',None)
         if bar is None or not bar.winfo_exists():return
         inner=self.idea_model_bar_inner
         for child in inner.winfo_children():child.destroy()
-        if not items:
-            if bar.winfo_manager():bar.pack_forget()
-            return
-        scroll=getattr(self,'idea_scroll',None)
-        if not bar.winfo_manager():
-            bar.pack(side='top',fill='x',before=scroll) if scroll is not None else bar.pack(side='top',fill='x')
-        for name in items:
-            active=name==selected
-            bg=COLORS['primary_subtle'] if active else COLORS['background_card']
-            tab=tk.Frame(inner,bg=bg,cursor='hand2')
-            tab.pack(side='left',padx=(SPACING['none'],SPACING['xs']))
-            tag=tk.Label(tab,text=name,font=MODEL_BAR_FONT,bg=bg,cursor='hand2',
-                         fg=COLORS['primary'] if active else COLORS['text_secondary'],
-                         padx=SPACING['sm'],pady=SPACING['xs'])
-            tag.pack(side='left')
-            # 右上角关闭：确认后清空该模型全部历史，标签随记录消失。
-            action=lambda key=name:self.safe(lambda:self.delete_all_bubble_messages(key))
-            close=CloseButton(tab,compact=True,active_surface=active,tooltip='清空该模型聊天记录',command=action)
-            close.pack(side='left',anchor='center',padx=(SPACING['none'],SPACING['xs']))
-            tab.model_tag,tab.close_tag=tag,close
-            for widget in (tab,tag):
-                widget.bind('<Button-1>',lambda event,key=name:(self.safe(lambda:self.select_idea_model(key)),'break')[1])
-            close.bind('<Button-1>',lambda _event,run=action:(run(),'break')[1])
-        self._fit_idea_model_bar(self.idea_model_bar_canvas,inner,self.idea_model_bar_scroll)
+        if bar.winfo_manager():bar.pack_forget()
     def set_idea_model_filter(self, model, root=None):
-        """目录条选中态的唯一写入口：点击、发送与配置确认都走它，避免多个 Mixin 写同一 self 属性。"""
+        """目录条选中态的唯一写入口：统一对话流下保持全量视图（保留兼容接口）。"""
         self._idea_model_filter=model
         self._idea_model_filter_root=self.root if root is None else root
     def select_idea_model(self, model):
-        """点击目录条标签：把气泡框切到该模型（或「全部」）的对话视图。"""
+        """兼容入口：同步模型选择器显示名，不拆分或重建统一对话流。"""
         if not self.root:return
-        self.set_idea_model_filter(model)
-        self.show_conversation()
         self._sync_stage_model_picker(model)
 
     def _sync_stage_model_picker(self, model):
-        """目录条切到某模型时，让共享输入框的模型下拉跟着显示该模型。"""
+        """同步共享输入框模型下拉显示名。"""
         shared = getattr(self, 'shared_input', None)
         picker = getattr(shared, 'model_picker', None)
         if picker is not None and callable(getattr(picker, 'set_model_label', None)):
             picker.set_model_label(model)
 
     def _model_tab_rows(self, root, selected, all_rows):
-        """某模型标签下显示的行：本模型会话＋旧版目录里署名为它、会话里没有的记录。
-
-        目录条标签取自合并后的全部记录；只读本模型文件会出现“有标签、点开却没记录”。
-        """
+        """某模型标签下显示的行：本模型会话＋旧版目录里署名为它、会话里没有的记录。"""
         from stage_execution_service import project_context
         import domain.idea_chat as idea_chat
         own=idea_chat.load(project_context(root),model=selected,gateway=self.idea_chat_gateway())
         def labelled(rows):
             return [row for row in rows if isinstance(row,dict) and str(row.get('model') or '').strip()==selected]
         candidates=labelled(all_rows)
-        # 合并记录已去重：署名为它的条数不多于会话里的，就没有残留可补（最常见的情况，免得逐条比对）。
         if len(candidates)<=len(labelled(own)):return own
         extra=[row for row in candidates if not any(idea_chat.same_message(row,mine) for mine in own)]
         if not extra:return own
         return sorted(own+extra,key=lambda row:str(row.get('at') or ''))
     def idea_view_rows(self, root, model, resolving_model):
-        """按当前选中键解析要显示的行，并同步目录条；返回显示行列表。
-
-        项目切换时回落到默认选中（当前模型），选中模型无记录回落「全部」；具体模型走
-        L2 按模型读取（保留旧版迁移与重复消息语义），「全部」直接展示合并行。
-        """
+        """REQ-S01-120：始终返回当前项目按时间顺序合并的完整对话流，每条保留来源模型署名。"""
         if root!=getattr(self,'_idea_model_filter_root',None):
-            self.set_idea_model_filter(None,root)
+            self.set_idea_model_filter(ALL_MODELS,root)
         from stage_execution_service import project_context
         import domain.idea_chat as idea_chat
         all_rows=idea_chat.load(project_context(root),model='',gateway=self.idea_chat_gateway()) if root and not resolving_model else []
-        items=model_bar_items(all_rows)
         if not resolving_model:
-            selected=model_bar_selection(self._idea_model_filter,items,model)
-            self.set_idea_model_filter(selected,root)
-            rows=all_rows if selected==ALL_MODELS else self._model_tab_rows(root,selected,all_rows)
+            self.set_idea_model_filter(ALL_MODELS,root)
+            rows=all_rows
         else:
-            selected=''
             rows=[]
-        self.render_idea_model_bar(items,selected)
+        self.render_idea_model_bar([],ALL_MODELS)
         self._idea_view_rows=list(rows)
         if root and not resolving_model:self.__dict__.setdefault('_idea_history_known',{})[root]=bool(all_rows)
         return rows

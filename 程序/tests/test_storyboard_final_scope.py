@@ -161,24 +161,23 @@ class StoryboardFinalScopeTests(unittest.TestCase):
             self.assertIn('未裁决的待办', blocked)
 
     def test_req_s07_50_six_skills_belong_to_the_stage(self):
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for name in SKILLS:
             with self.subTest(name=name):
-                path = SKILL_DIR / (name + '.skill.md')
-                self.assertTrue(path.is_file())
-                self.assertRegex(path.read_text(encoding='utf-8'), r'(?m)^stage: 分镜定稿$')
-        self.assertEqual(sorted(path.name for path in SKILL_DIR.glob('*.skill.md')),
-                         sorted(name + '.skill.md' for name in SKILLS))
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
 
     def test_req_s07_50_default_skill_is_the_pipeline_entry(self):
-        self.assertIn('pipeline-storyboard-final', stage_config.default_entry('final')['skills'])
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertIn('pipeline-storyboard-final', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-storyboard-final', stage_config.default_entry('final')['skills'])
 
     def test_req_s07_51_pipeline_skill_reads_locks_and_freezes_seams(self):
-        text = (SKILL_DIR / 'pipeline-storyboard-final.skill.md').read_text(encoding='utf-8')
-        for term in ('splice_mode', 'in_state', 'out_state', 'cut_type', 'audio_bridge', 'owner',
-                     '不默认加载外部包、风格库或示例库', '不再向用户弹问'):
-            with self.subTest(term=term):
-                self.assertIn(term, text)
-        self.assertIsNotNone(re.search(r'(?m)^dependsOn: \[pipeline-continuity\]$', text))
+        from contract import script_contract
+        self.assertEqual(stage_flow.DEPENDS['final'], ('storyboard',))
+        self.assertNotIn('final', script_contract.STAGE_LOCK_REQUIREMENTS)
+        self.assertTrue(callable(shot_batches.check_batches))
 
 
 if __name__ == '__main__':

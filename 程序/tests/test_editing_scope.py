@@ -158,10 +158,11 @@ class EditingScopeTests(unittest.TestCase):
         self.assertEqual(config['retry']['on_exhaust'], stage_parallel.ON_BLOCK)
 
     def test_req_s12_30_default_skill_and_seven_skill_files(self):
-        self.assertIn('pipeline-editing', stage_config.default_entry('edit')['skills'])
-        files = sorted(path.name for path in SKILL_DIR.glob('*.skill.md'))
-        self.assertEqual(len(files), 7)
-        self.assertIn('pipeline-editing.skill.md', files)
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
+        self.assertIn('pipeline-editing', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-editing', stage_config.default_entry('edit')['skills'])
 
     def test_req_s12_31_only_compose_is_executable_other_edit_tools_are_page_steps(self):
         self.assertEqual(skill_tools.status_of('edit.compose'), 'ready')

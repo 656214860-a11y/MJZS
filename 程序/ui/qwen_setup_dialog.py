@@ -65,9 +65,10 @@ def show(parent,on_saved=None):
         except ValueError as exc:status.set(str(exc));return
         status.set('正在验证连接…')
         tk_timers.run_in_background(win,lambda:probe(cfg),status.set,lambda exc:status.set('连接失败，请检查网络、根地址和 API Key。'))
-    row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=2,sticky='w',pady=SPACING['sm'])
-    PrimaryButton(row,text='保存设置',command=commit).pack(side='left')
-    SecondaryButton(row,text='删除模型',command=delete_model).pack(side='left',padx=SPACING['sm'])
-    SecondaryButton(row,text='测试连接',command=check).pack(side='left',padx=SPACING['sm'])
-    SecondaryButton(row,text='打开阿里云百炼',command=lambda:__import__('webbrowser').open('https://bailian.console.aliyun.com/')).pack(side='left')
+    row=ttk.Frame(body);row.grid(row=7,column=0,columnspan=2,sticky='ew',pady=SPACING['sm'])
+    SecondaryButton(row,text='测试连接',command=check).pack(side='left')
+    SecondaryButton(row,text='打开阿里云百炼',command=lambda:__import__('webbrowser').open('https://bailian.console.aliyun.com/')).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+    SecondaryButton(row,text='删除模型',command=delete_model).pack(side='left',padx=(SPACING['sm'],SPACING['none']))
+    PrimaryButton(row,text='保存设置',command=commit).pack(side='right')
+    SecondaryButton(row,text='关闭',command=win.destroy).pack(side='right',padx=(SPACING['none'],SPACING['sm']))
     return win

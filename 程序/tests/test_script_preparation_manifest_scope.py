@@ -19,13 +19,17 @@ class ScriptPreparationManifestScopeTests(unittest.TestCase):
     def test_other_manifests_owned_by_later_skills(self):
         for name in ('character_manifest.json', 'scene_manifest.json', 'prop_manifest.json'):
             with self.subTest(name=name):
-                self.assertEqual(PRODUCERS[name][0], 'script-character-extraction')
-        self.assertEqual(PRODUCERS['scene_breakdown.json'][0], 'storyboard-scene-breakdown')
+                self.assertEqual(PRODUCERS[name][0], 'stage:script_structure')
+        self.assertEqual(PRODUCERS['scene_breakdown.json'][0], 'stage:storyboard')
+        self.assertEqual(normalize_producer('script-character-extraction'), 'stage:script_structure')
+        self.assertEqual(normalize_producer('storyboard-scene-breakdown'), 'stage:storyboard')
 
     def test_skill_declares_emotion_curve_as_auxiliary(self):
-        text = (ROOT / 'skills' / '01 剧本准备SKILL' / 'pipeline-script-preparation.skill.md').read_text(encoding='utf-8')
-        self.assertIn('emotion_curve.json', text)
-        self.assertIn('辅助质检数据', text)
+        import workflow_settings
+        self.assertEqual(PRODUCERS['emotion_curve.json'], ('stage:script', '01剧本准备'))
+        contract = workflow_settings.stage_output_contract('writing')
+        self.assertIn('节拍表', contract)
+        self.assertIn('唯一正式交付物是完整自然语言剧本正文', contract)
 
     def test_writing_api_does_not_write_manifests(self):
         text = (ROOT / 'writing_api.py').read_text(encoding='utf-8')

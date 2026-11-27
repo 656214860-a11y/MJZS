@@ -56,17 +56,24 @@ class SkillNotesTests(unittest.TestCase):
             self.assertTrue(skill_notes.preview(source + 'New content', folder)[1])
 
     def test_selected_pipeline_note_hides_execution_metadata(self):
-        source = (skill_notes.PROGRAM / 'skills' / '01 剧本准备SKILL' /
-                  'pipeline-script-preparation.skill.md')
-        original = source.read_bytes()
-        skill = SimpleNamespace(path=source, displayName='全流程AIGC·剧本',
-                                name='pipeline-script-preparation')
-        panel = SimpleNamespace(note_text=Mock(), desktop=SimpleNamespace(app=None),
-                                current_note=lambda: ('registered', skill),
-                                render_note=Mock(), translate_note=Mock(), registered_boxes={})
-        with tempfile.TemporaryDirectory() as folder, \
-                patch.object(skill_panel, 'program_of', return_value=Path(folder)):
-            shown = skill_panel.Panel.show_note(panel)
+        with tempfile.TemporaryDirectory() as folder:
+            source = Path(folder) / 'demo-script.skill.md'
+            source.write_text(
+                '---\nname: pipeline-script-preparation\ndisplayName: 全流程AIGC·剧本\n'
+                'description: 锁定创作前提并产出自然剧本\ncapabilities: [creative-writing]\n'
+                'preferredModels: [qwen-max]\nfallbackModels: [deepseek-v4-pro]\n'
+                'tools: [script.generate]\n---\n## 阶段职责\n编写自然剧本。\n',
+                encoding='utf-8',
+            )
+            original = source.read_bytes()
+            skill = SimpleNamespace(path=source, displayName='全流程AIGC·剧本',
+                                    name='pipeline-script-preparation')
+            panel = SimpleNamespace(note_text=Mock(), desktop=SimpleNamespace(app=None),
+                                    current_note=lambda: ('registered', skill),
+                                    render_note=Mock(), translate_note=Mock(), registered_boxes={})
+            with patch.object(skill_panel, 'program_of', return_value=Path(folder)):
+                shown = skill_panel.Panel.show_note(panel)
+            self.assertEqual(source.read_bytes(), original)
         panel.render_note.assert_called_once_with(shown)
         panel.translate_note.assert_not_called()
         self.assertIn('名称：全流程AIGC·剧本', shown)
@@ -76,7 +83,6 @@ class SkillNotesTests(unittest.TestCase):
                         'preferredModels:', 'fallbackModels:', 'tools:', 'creative-writing',
                         'qwen-max', 'script.generate'):
             self.assertNotIn(literal, shown)
-        self.assertEqual(source.read_bytes(), original)
 
     def test_old_cached_frontmatter_is_projected_without_retranslation(self):
         source = '---\nname: external\ndescription: Write a story\n---\nCreate scenes.'

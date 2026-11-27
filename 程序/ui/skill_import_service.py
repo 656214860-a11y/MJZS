@@ -1,28 +1,8 @@
 # -*- coding: utf-8 -*-
-"""阶段配置「新增 SKILL」的稳定导入（L3，无 Tk）。
+"""SKILL 稳定导入与仓库生命周期（L4 服务，无 Tk）：预检 → 暂存 → 换入 → 试冻结 → 登记。
 
-旧做法只把选中的那一个文件 ``copy2`` 进阶段目录：外部包的 references／assets／scripts
-全部丢失，同名清单在扫描时被静默丢弃，覆盖不留旧版，引用断链要等到发送时才报。
-
-本模块把一次导入拆成「预检 → 暂存 → 换入 → 试冻结 → 登记」：
-
-- 选中 ``SKILL.md`` 视为外部包，整个包目录一并导入（跳过 ``.git``／``__pycache__``）；
-  选中 ``*.skill.md`` 视为单文件清单。
-- 硬性拦截（不给"仍要导入"）：读不出、重名、换入后按真实发送流程冻结失败
-  （正文为空、引用缺失、引用越界、超过内联上限）。
-- 软性问题（字段缺失、声明阶段不一致、目标已存在）仍交给界面二次确认。
-- 目标已存在时旧版先经 ``storage_maintenance.recycle_paths`` 移入程序回收站，可恢复；
-  试冻结失败则把新版撤回暂存区并恢复旧版，阶段目录回到导入前的样子。
-- 暂存目录以 ``.`` 开头，注册表不会在换入前把它当成 SKILL 扫进来；用完同样经回收服务收走。
-- 每次成功导入写一行导入台账（来源、内容摘要、时间），供以后检测来源是否更新。
-- R2073：用户导入落在 ``程序/data/skills/<阶段>/``（升级保留），台账也在那里；与内置
-  SKILL 同名不再硬拦，改为软提示「将覆盖内置版」，删除用户版后内置版恢复。
-  ``migrate_legacy_imports`` 把旧版导进 ``程序/skills/`` 并记在旧台账里的条目迁过去。
-- R2881：仓库导入 ``import_from_repo`` 对齐 skill-mgr 生命周期——``install``／
-  ``update`` 同为「克隆（或本地目录直读）→ 扫描 → 逐候选走上面的预检→暂存→换入→
-  试冻结→登记管线」；``uninstall`` 经回收站移除，``validate`` 即试冻结，``list``
-  就是 ``skill_registry.getAll()``。薄 git 层只用 ``git clone --depth 1``，
-  不引第三方；仓库地址支持 ``owner/repo`` 简写、完整 URL（可带 ``@分支``）与本地目录。
+支持单文件（``*.skill.md``）、单根外部包（``SKILL.md``）、复合总包（``00 总包SKILL``）与仓库导入；
+覆盖前旧版经 ``storage_maintenance.recycle_paths`` 进回收站，试冻结失败自动回滚。
 """
 from __future__ import annotations
 
@@ -107,8 +87,8 @@ def _tree_digest(path):
     return digest.hexdigest()
 
 
-def plan_import(source, target_dir, stage, registry):
-    """只读预检：返回导入计划；读不出或重名直接抛 ImportBlocked。"""
+def plan_import(source, target_dir, stage, registry, *, package_root=None, package_name=None):
+    """只读预检：返回导入计划（支持复合套装 package_root）；读不出或重名直接抛 ImportBlocked。"""
     source = Path(source)
     if target_dir is None:
         raise ImportBlocked('未找到本阶段注册目录')
@@ -121,8 +101,18 @@ def plan_import(source, target_dir, stage, registry):
     if kind == 'manifest' and not source.name.endswith(skill_registry.SKILL_SUFFIX):
         raise ImportBlocked('「%s」不是 SKILL 清单：单文件只接受 *.skill.md（整包入口是 SKILL.md）'
                             % source.name)
-    target = (target_dir / source.parent.name / source.name
-              if kind == 'package' else target_dir / source.name)
+    pkg_root = (Path(package_root) if package_root is not None else source.parent) if kind == 'package' else None
+    if kind == 'package':
+        pkg_name = str(package_name or pkg_root.name)
+        target_package = target_dir / pkg_name
+        try:
+            rel_entry = source.resolve().relative_to(pkg_root.resolve())
+        except ValueError:
+            rel_entry = Path(source.name)
+        target = target_package / rel_entry
+    else:
+        target_package = None
+        target = target_dir / source.name
     if kind == 'manifest' and source.is_file() and source.stat().st_size > SINGLE_MAX_BYTES:
         raise ImportBlocked('源文件超过 %d MB 上限' % (SINGLE_MAX_BYTES // 1024 // 1024))
     try:
@@ -135,7 +125,7 @@ def plan_import(source, target_dir, stage, registry):
         # 外部包由注册表补默认元数据，只检查可显示名称。
         if not (str(meta.get('displayName') or '').strip() or skill_registry.markdown_heading(body)):
             problems.append('未找到可显示的技能名称')
-        name = skill_registry.imported_package_meta(meta, body, target.parent, target)['name']
+        name = skill_registry.imported_package_meta(meta, body, target_package, target)['name']
     else:
         skill = skill_registry.Skill(meta, body, path=source)
         known = {item.name for item in registry.getAll()}
@@ -166,9 +156,11 @@ def plan_import(source, target_dir, stage, registry):
             continue
         raise ImportBlocked('与已有 SKILL「%s」重名（%s）；同名 SKILL 扫描时会被丢弃。'
                             '请先改名或删除旧的那份再导入。' % (name, other))
-    if target.exists():
-        problems.append('目标 %s 已存在，继续将覆盖（旧版移入程序回收站，可恢复）' % target.name)
+    if (target_package if kind == 'package' else target).exists():
+        problems.append('目标 %s 已存在，继续将覆盖（旧版移入程序回收站，可恢复）'
+                        % (target_package.name if kind == 'package' else target.name))
     return {'source': source, 'kind': kind, 'target': target, 'target_dir': target_dir,
+            'package_root': pkg_root, 'target_package': target_package, 'stage': stage,
             'name': name, 'problems': problems, 'scope': scope,
             'project': (str(getattr(registry, 'project_root', '') or '')
                         if scope == 'project' and
@@ -226,14 +218,15 @@ def record(program, plan, digest, now=None):
     """
     path = ledger_path(program)
     items = _read_items(path)
-    target = (plan['target'].parent if plan['kind'] == 'package' else plan['target']).resolve()
+    pkg_target = plan.get('target_package') or (plan['target'].parent if plan['kind'] == 'package' else plan['target'])
+    target = Path(pkg_target).resolve()
     key = str(target)
     for root in (skill_registry.default_user_root(program), skill_registry.default_root(program)):
         if target.is_relative_to(root.resolve()):
             key = target.relative_to(root.resolve()).as_posix()
             break
-    items[key] = {'source': str(plan.get('ledger_source')
-                              or (plan['source'].parent if plan['kind'] == 'package' else plan['source'])),
+    pkg_source = plan.get('package_root') or (plan['source'].parent if plan['kind'] == 'package' else plan['source'])
+    items[key] = {'source': str(plan.get('ledger_source') or pkg_source),
                   'kind': plan['kind'], 'name': plan['name'], 'sha256': digest,
                   'source_kind': plan.get('source_kind')
                                  or ('dir' if plan['kind'] == 'package' else 'file'),
@@ -259,14 +252,15 @@ def _perform_import(plan, program, now):
     staging = target_dir / (STAGING_PREFIX + uuid.uuid4().hex[:8])
     staging.mkdir()
     package = plan['kind'] == 'package'
-    final = plan['target'].parent if package else plan['target']
+    final = Path(plan.get('target_package') or plan['target'].parent) if package else plan['target']
+    src_pkg = Path(plan.get('package_root') or plan['source'].parent) if package else None
     staged = staging / final.name
     batch = None
     version = None
     try:
         if package:
-            _check_package_bounds(plan['source'].parent)
-            shutil.copytree(plan['source'].parent, staged, ignore=shutil.ignore_patterns(*IGNORED_PARTS))
+            _check_package_bounds(src_pkg)
+            shutil.copytree(src_pkg, staged, ignore=shutil.ignore_patterns(*IGNORED_PARTS))
         else:
             shutil.copy2(plan['source'], staged)
         digest = _tree_digest(staged)
@@ -440,18 +434,21 @@ def _git_clone(url, ref, dest):
 
 
 def _repo_candidates(root):
-    """扫描仓库内容：含 ``SKILL.md`` 的目录＝外部包（不再向内递归），
-    其余位置的 ``*.skill.md``＝单文件清单。点开头目录与 ``.git`` 一律跳过。"""
-    root = Path(root)
+    """扫描仓库内容：若为无阶段多子技能复合套装则按单总包返回，否则逐包／逐清单扫描。"""
+    from orchestrator.skill_package_meta import detect_stage_free_suite
+    effective = skill_registry.unwrap_package_container(Path(root))
+    suite = detect_stage_free_suite(effective, parse_fn=skill_registry.parse,
+                                    stage_id_fn=skill_registry.stage_id,
+                                    valid_stages=skill_registry.STAGES)
+    if suite is not None:
+        return [{'source': suite[1], 'kind': 'package', 'package_root': suite[0], 'suite': True}]
     candidates = []
-    for dirpath, dirnames, filenames in os.walk(root):
-        dirnames[:] = sorted(d for d in dirnames
-                             if not d.startswith('.') and d != '__pycache__')
+    for dirpath, dirnames, filenames in os.walk(effective):
+        dirnames[:] = sorted(d for d in dirnames if not d.startswith('.') and d != '__pycache__')
         current = Path(dirpath)
         if skill_registry.PACKAGE_SKILL_FILENAME in filenames:
-            candidates.append({'source': current / skill_registry.PACKAGE_SKILL_FILENAME,
-                               'kind': 'package'})
-            dirnames[:] = []          # 包是整体，一包内不再找第二个包或清单
+            candidates.append({'source': current / skill_registry.PACKAGE_SKILL_FILENAME, 'kind': 'package'})
+            dirnames[:] = []
             continue
         for name in sorted(filenames):
             if name.endswith(skill_registry.SKILL_SUFFIX):
@@ -461,8 +458,11 @@ def _repo_candidates(root):
     return candidates
 
 
-def _candidate_stage(source, clone_root, stage_hint):
-    """阶段判定顺序：frontmatter ``stage`` → 仓库内 ``NN`` 目录 → 面板当前阶段提示。"""
+def _candidate_stage(source, clone_root, stage_hint, *, is_suite=False):
+    """阶段判定顺序：复合套装优先阶段提示否则归 ``00 总包``；
+    常规候选按 frontmatter ``stage`` → 仓库内 ``NN`` 目录 → 阶段提示 → 默认归 ``00 总包``。"""
+    if is_suite:
+        return str(stage_hint or '') or skill_registry.SUITE_STAGE
     try:
         meta, _body = skill_registry.parse(
             Path(source).read_text(encoding='utf-8-sig'), source=str(source))
@@ -475,7 +475,7 @@ def _candidate_stage(source, clone_root, stage_hint):
         except ValueError:
             relative = Path(source)
         sid = skill_registry.stage_from_path(relative)
-    return sid or str(stage_hint or '')
+    return sid or str(stage_hint or '') or skill_registry.SUITE_STAGE
 
 
 def _stage_dir_for(registry, stage, layer='user'):
@@ -486,28 +486,25 @@ def _stage_dir_for(registry, stage, layer='user'):
     return registry.user_stage_directory_for(stage) if layer == 'user' else None
 
 
-def _candidate_plans(candidates, root, registry, stage_hint, layer='user'):
-    """候选 → ``(plans, problems, errors)``：阶段判定与 ``plan_import`` 只读预检；同目标去重。
-
-    仓库导入与压缩包导入共用：``root`` 是候选所在的本地树（克隆目录或解压目录）；
-    ``layer`` 是导入目标层（``'user'`` 全局／``'project'`` 项目级）。
-    """
+def _candidate_plans(candidates, root, registry, stage_hint, layer='user', *, suite_name=''):
+    """候选 → ``(plans, problems, errors)``：阶段判定与 ``plan_import`` 只读预检；同目标去重。"""
     plans, problems, errors = [], [], []
     seen_targets = set()
     for candidate in candidates:
         source = candidate['source']
-        stage = _candidate_stage(source, root, stage_hint)
-        if not stage:
-            errors.append('%s：无法识别阶段（frontmatter stage、NN 目录与阶段提示都没有）'
-                          % source.name)
-            continue
+        is_suite = bool(candidate.get('suite'))
+        pkg_root = candidate.get('package_root')
+        stage = _candidate_stage(source, root, stage_hint, is_suite=is_suite)
+        pkg_name = (skill_registry.clean_suite_name(pkg_root or root, suite_name)
+                    if is_suite else None)
         try:
             plan = plan_import(source, _stage_dir_for(registry, stage, layer),
-                               stage, registry)
+                               stage, registry, package_root=pkg_root, package_name=pkg_name)
         except ImportBlocked as exc:
             errors.append('%s：%s' % (source.name, exc))
             continue
-        key = (str(plan['target'].parent if plan['kind'] == 'package' else plan['target']).casefold(),)
+        final_target = plan.get('target_package') or (plan['target'].parent if plan['kind'] == 'package' else plan['target'])
+        key = (str(final_target).casefold(),)
         if key in seen_targets:
             errors.append('%s：与另一候选目标重复，跳过' % source.name)
             continue
@@ -602,7 +599,7 @@ def import_from_repo(text, program, registry, stage_hint='', confirm=None, layer
         if not candidates:
             raise ImportBlocked('仓库中没有找到 SKILL.md 或 *.skill.md')
         plans, problems, errors = _candidate_plans(candidates, root, registry, stage_hint,
-                                                 layer=layer)
+                                                 layer=layer, suite_name=label)
         remote = spec['kind'] == 'url'
         return _install_candidate_plans(
             plans, problems, errors, program, confirm,
@@ -638,7 +635,8 @@ def uninstall_skill(program, registry, name):
         roots.append(Path(project_skills).resolve())
     if not path.is_file() or not any(path.resolve().is_relative_to(root) for root in roots):
         raise ImportBlocked('SKILL「%s」不在可卸载目录' % name)
-    target = path.parent if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path
+    target = (skill_registry.package_root_of(skill)
+              if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else path)
     recycle_installed_skill(program, target, skill.name, '卸载')
     return {'name': skill.name, 'target': str(target)}
 
@@ -738,20 +736,22 @@ def _row_layer(row):
     return 'project' if isinstance(row, dict) and str(row.get('scope') or '') == 'project' else 'user'
 
 
-def _candidate_ledger_key(candidate, root, registry, layer='user'):
-    """候选 → 台账键：用户层 ``<阶段目录名>/<条目名>``；项目层为安装目标绝对路径。
-    阶段判不出返回 None（不猜）。"""
-    stage = _candidate_stage(candidate['source'], root, '')
+def _candidate_ledger_key(candidate, root, registry, layer='user', suite_name=''):
+    """候选 → 台账键：用户层 ``<阶段目录名>/<条目名>``；项目层为安装目标绝对路径。"""
+    is_suite = bool(candidate.get('suite'))
+    stage = _candidate_stage(candidate['source'], root, '', is_suite=is_suite)
     if not stage:
         return None
-    entry = (candidate['source'].parent.name if candidate['kind'] == 'package'
-             else candidate['source'].name)
+    if is_suite:
+        entry = skill_registry.clean_suite_name(candidate.get('package_root') or root, suite_name)
+    else:
+        entry = (candidate['source'].parent.name if candidate['kind'] == 'package'
+                 else candidate['source'].name)
     if layer == 'project':
         stage_dir = getattr(registry, 'project_stage_directory_for', lambda sid: None)(stage)
         if stage_dir is None:
             return None
-        target = (stage_dir / candidate['source'].parent.name / entry
-                  if candidate['kind'] == 'package' else stage_dir / entry)
+        target = stage_dir / entry
         return str(target.resolve())
     stage_dir = getattr(registry, 'user_stage_directory_for', lambda sid: None)(stage)
     if stage_dir is None:
@@ -759,15 +759,15 @@ def _candidate_ledger_key(candidate, root, registry, layer='user'):
     return Path(stage_dir).name + '/' + entry
 
 
-def _entry_signatures(root, registry, layer='user'):
+def _entry_signatures(root, registry, layer='user', suite_name=''):
     """候选树 → ``({台账键: 内容摘要}, {台账键: frontmatter version})``；与安装同口径。"""
     digests, versions = {}, {}
     for candidate in _repo_candidates(Path(root)):
-        key = _candidate_ledger_key(candidate, root, registry, layer)
+        key = _candidate_ledger_key(candidate, root, registry, layer, suite_name=suite_name)
         if not key:
             continue
-        content = (candidate['source'].parent if candidate['kind'] == 'package'
-                   else candidate['source'])
+        content = (candidate.get('package_root') or candidate['source'].parent
+                   if candidate['kind'] == 'package' else candidate['source'])
         try:
             digests[key] = _tree_digest(content)
             versions[key] = _frontmatter_version(candidate['source'])
@@ -776,9 +776,9 @@ def _entry_signatures(root, registry, layer='user'):
     return digests, versions
 
 
-def _entry_digests(root, registry, layer='user'):
+def _entry_digests(root, registry, layer='user', suite_name=''):
     """兼容包装：``skill_archive``／``skill_remote_service`` 探针只取摘要半边。"""
-    return _entry_signatures(root, registry, layer)[0]
+    return _entry_signatures(root, registry, layer, suite_name=suite_name)[0]
 
 
 def _version_key(text):

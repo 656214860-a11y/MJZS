@@ -81,10 +81,12 @@ class _Host:
 
 class ReqS03DocAnchorTests(unittest.TestCase):
     def test_req_s03_51_legacy_flow_coexists_but_stage_preset_is_authoritative(self):
-        """REQ-S03-51：旧单独流程默认技能是兼容层，AIGC 全流程阶段预设才是权威。"""
+        """REQ-S03-51：旧单独流程默认技能是兼容层，内置 pipeline-* 退役后阶段配置不强注内置项。"""
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
         legacy = workflow_settings.DEFAULT_SKILLS['storyboard']
         self.assertEqual(legacy, 'short-drama-storyboard')
-        self.assertIn('pipeline-storyboard-draft', stage_config.default_entry('storyboard')['skills'])
+        self.assertIn('pipeline-storyboard-draft', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertNotIn('pipeline-storyboard-draft', stage_config.default_entry('storyboard')['skills'])
         self.assertNotEqual(legacy, 'pipeline-storyboard-draft', '兼容层与阶段默认必须保留为两条不同入口')
 
 

@@ -446,21 +446,6 @@
       "reason": "标准入口/兼容名/负向测试样本精确保留",
       "review_when": "该路径契约改变时"
     },
-    "程序/skills/video-storyboard-gen/CHANGELOG.md": {
-      "owner": "项目维护者",
-      "reason": "标准入口/兼容名/负向测试样本精确保留",
-      "review_when": "该路径契约改变时"
-    },
-    "程序/skills/video-storyboard-gen/README.md": {
-      "owner": "项目维护者",
-      "reason": "标准入口/兼容名/负向测试样本精确保留",
-      "review_when": "该路径契约改变时"
-    },
-    "程序/skills/video-storyboard-gen/SECURITY.md": {
-      "owner": "项目维护者",
-      "reason": "标准入口/兼容名/负向测试样本精确保留",
-      "review_when": "该路径契约改变时"
-    },
     "程序/tasks_round/任务完成/README.md": {
       "owner": "项目维护者",
       "reason": "标准入口/兼容名/负向测试样本精确保留",

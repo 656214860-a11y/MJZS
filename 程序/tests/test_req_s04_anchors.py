@@ -347,12 +347,11 @@ class ReqS04AnchorTests(unittest.TestCase):
             self.assertTrue(shared.call_count >= 2)
 
     def test_req_s04_52_skill_only_promises_the_locks_the_stage_reads(self):
-        """REQ-S04-52：SKILL 只声明本阶段实际读取的画幅／预览规格，不再承诺配置缺口门禁。"""
-        text = (Path(__file__).resolve().parents[1] / 'skills' /
-                '04 分镜预演SKILL' / 'pipeline-animatic.skill.md').read_text(encoding='utf-8')
-        self.assertNotIn('配置缺口', text)
-        self.assertNotIn('返回准备阶段', text)
-        self.assertIn('画幅', text)
+        """REQ-S04-52：内置 pipeline-animatic 已清理，阶段代码契约仍只读取项目画幅且不设必填锁。"""
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertFalse((Path(__file__).resolve().parents[1] / 'skills' /
+                          '04 分镜预演SKILL' / 'pipeline-animatic.skill.md').exists())
+        self.assertIn('pipeline-animatic', RETIRED_BUILTIN_SKILL_IDS)
         self.assertNotIn('animatic', script_contract.STAGE_LOCK_REQUIREMENTS,
                          '代码事实：本阶段没有必填制作锁')
         self.assertEqual(script_output_spec.preview_spec({'aspect_ratio': '9:16'})['aspect_ratio'],

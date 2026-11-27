@@ -134,14 +134,18 @@ class VideoGenerationScopeTests(unittest.TestCase):
             self.assertIn('验收', detail)
 
     def test_req_s10_30_five_skills_exist_for_the_stage(self):
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for name in SKILLS:
             with self.subTest(name=name):
-                self.assertTrue((SKILL_DIR / (name + '.skill.md')).is_file())
+                self.assertIn(name, RETIRED_BUILTIN_SKILL_IDS)
 
     def test_req_s10_32_pipeline_skill_is_serial_paid_and_depends_on_previs(self):
-        text = (SKILL_DIR / 'pipeline-video-generation.skill.md').read_text(encoding='utf-8')
-        for line in ('dependsOn: [pipeline-previs]', 'parallelizable: false', 'paid: true'):
-            self.assertIn(line, text)
+        self.assertTrue(stage_parallel.CONFIG['video']['serial'])
+        self.assertIn('video', stage_flow.PAID_STAGES)
+        gates = {row['id']: row for row in stage_parallel.GATES}
+        self.assertEqual((gates['SG-05']['from'], gates['SG-05']['to']), ('previs', 'video'))
 
     def test_req_s10_40_cloud_and_local_video_pages_are_ui_layer_engine_is_orchestration(self):
         layers = _layers()

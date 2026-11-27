@@ -328,7 +328,7 @@ def open_hub(pet, tab=None):
     nav.pack_propagate(False)
     pages = {}
     for key, title in TABS:
-        pages[key] = ttk.Frame(stack, padding=SPACING['sm'] if key == 'model_config' else SPACING['md'])
+        pages[key] = ttk.Frame(stack, padding=SPACING['sm'] if key in ('model_config', 'skills') else SPACING['md'])
     width = label_width()
     # 首次打开只构建落到的那一格。页面一旦建过就留在页面栈里复用，切回去不重复读盘、不重复启动后台任务。
     builders = {'basic': lambda frame: basic_page(frame, pet, width),

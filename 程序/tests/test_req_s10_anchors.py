@@ -182,17 +182,11 @@ class ReqS10AnchorTests(unittest.TestCase):
                          ('previs', 'video', 'previs_ready'))
 
     def test_req_s10_32_skill_page_locations_use_current_stage_label(self):
-        """REQ-S10-32：视频 SKILL 不再写旧阶段号，页面动作仍只登记在页面上执行。"""
+        """REQ-S10-32：内置视频 SKILL 已清理，现行阶段标签与页面动作边界仍保持一致。"""
         expected = pet_bus.stage_label('video')
-        texts = {path.name: path.read_text(encoding='utf-8') for path in SKILL_DIR.glob('*.skill.md')}
-        self.assertEqual(len(texts), 5)
-        for name, text in texts.items():
-            self.assertNotIn('08 视频生成', text, name)
-        page_lines = [line for text in texts.values() for line in text.splitlines()
-                      if 'video.' in line and '→' in line and '视频生成' in line]
-        self.assertTrue(page_lines)
-        for line in page_lines:
-            self.assertIn(expected, line)
+        self.assertEqual(expected, '10 视频生成')
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
         for tool in ('video.batchSubmit', 'video.retry', 'video.pause', 'video.resume'):
             self.assertIn(tool, skill_tools.PAGES)
             self.assertNotIn(tool, skill_tools.READY)

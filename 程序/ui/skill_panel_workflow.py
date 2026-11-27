@@ -129,7 +129,8 @@ class PanelWorkflowMixin:
             window.destroy()
 
         PrimaryButton(actions, text='保存', width=CHAR_WIDTH['xl'],
-                      command=save).pack(side='left')
+                      command=save).pack(side='right')
         SecondaryButton(actions, text='取消', width=CHAR_WIDTH['xl'],
-                        command=window.destroy).pack(side='right')
+                        command=window.destroy).pack(
+            side='right', padx=(SPACING['none'], SPACING['sm']))
         return window

@@ -1,0 +1,15 @@
+{
+  "round": 4647,
+  "commit_base": "efa1a87eb",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k skill_panel_dropdown_layout skill_note_render skill_orchestrator_completion",
+    "exit": 0,
+    "passed": 45,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T14:57:23"
+}

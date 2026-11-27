@@ -966,14 +966,29 @@ class SendMessageTests(_Harness):
                 '视频模型：MiniMax H3\n交付形态：只要 markdown 文档')
 
     def test_sending_starts_the_selected_workflow_without_creating_a_script_file(self):
+        import skill_registry
+        import stage_config
+        import workflow_settings
         with tempfile.TemporaryDirectory() as td:
+            skills_root = Path(td) / 'skills'
+            sdir = skills_root / '01 剧本准备SKILL'
+            sdir.mkdir(parents=True)
+            (sdir / 'user-script-skill.skill.md').write_text(
+                '---\nname: user-script-skill\ndisplayName: 剧本示例\ndescription: demo\n'
+                'stage: 剧本准备\ncapabilities: [creative-writing]\n---\n# 剧本示例\n编写自然剧本。\n',
+                encoding='utf-8')
+            reg = skill_registry.Registry(root=skills_root)
             proj = make_minimal_project(td)
-            d, win = self.desktop(proj)
-            d.show(0); self.settle_script_page(win)
-            seen = []
-            d.open_flow_agent = lambda *args, **kwargs: seen.append((args, kwargs))
-            self.say(d, self.complete_draft())
-            d.send_message(); win.update()
+            stage_config.put(proj, 'script', skills=['user-script-skill'], registry=reg)
+            with patch.object(skill_registry, 'default_registry', return_value=reg), \
+                    patch.object(stage_config.skill_registry, 'default_registry', return_value=reg), \
+                    patch.object(workflow_settings.skill_registry, 'default_registry', return_value=reg):
+                d, win = self.desktop(proj)
+                d.show(0); self.settle_script_page(win)
+                seen = []
+                d.open_flow_agent = lambda *args, **kwargs: seen.append((args, kwargs))
+                self.say(d, self.complete_draft())
+                d.send_message(); win.update()
             self.assertEqual(len(seen), 1)
             args, _ = seen[0]
             self.assertEqual(args[:2], ('writing', '剧本准备'))
@@ -1377,19 +1392,35 @@ class SendMessageTests(_Harness):
             self.assertFalse(idea_chat.brief_raw_path(proj).exists(), '示例被门禁拦截后不应落盘')
 
     def test_followup_can_complete_required_fields_below_unchanged_example(self):
+        import skill_registry
+        import stage_config
+        import workflow_settings
         with tempfile.TemporaryDirectory() as td:
-            d, win = self.desktop(make_minimal_project(td))
-            d.show(0); self.settle_script_page(win)
-            d.idea_input.insert('1.0', self.complete_draft())
-            with patch.object(d.notifier, 'info') as notice, patch.object(
-                    d, 'start_script_workflow', return_value=('Codex', False)) as launch:
-                d.send_message()
+            skills_root = Path(td) / 'skills'
+            sdir = skills_root / '01 剧本准备SKILL'
+            sdir.mkdir(parents=True)
+            (sdir / 'user-script-skill.skill.md').write_text(
+                '---\nname: user-script-skill\ndisplayName: 剧本示例\ndescription: demo\n'
+                'stage: 剧本准备\ncapabilities: [creative-writing]\n---\n# 剧本示例\n编写自然剧本。\n',
+                encoding='utf-8')
+            reg = skill_registry.Registry(root=skills_root)
+            proj = make_minimal_project(td)
+            stage_config.put(proj, 'script', skills=['user-script-skill'], registry=reg)
+            with patch.object(skill_registry, 'default_registry', return_value=reg), \
+                    patch.object(stage_config.skill_registry, 'default_registry', return_value=reg), \
+                    patch.object(workflow_settings.skill_registry, 'default_registry', return_value=reg):
+                d, win = self.desktop(proj)
+                d.show(0); self.settle_script_page(win)
+                d.idea_input.insert('1.0', self.complete_draft())
+                with patch.object(d.notifier, 'info') as notice, patch.object(
+                        d, 'start_script_workflow', return_value=('Codex', False)) as launch:
+                    d.send_message()
             notice.assert_not_called()
             launch.assert_called_once()
             self.assertEqual(launch.call_args.args, (self.complete_draft(),))
             config = launch.call_args.kwargs['config']
             self.assertEqual(config['engine'], 'codex')
-            self.assertIn('pipeline-script-preparation', config['frozen_skill_prompt'])
+            self.assertIn('user-script-skill', config['frozen_skill_prompt'])
             self.assertEqual(len(config['skill_injection']['loaded']), 1)
 
     @patch('stage_execution_service.idea_attachment_local_mode', return_value=True)
@@ -1801,7 +1832,7 @@ class SendMessageTests(_Harness):
             self.assertEqual(d.draft_text(), '')
             self.assertIn('切换模型后的新输入', idea_chat.load(proj, model=new_model)[-1]['text'])
             self.assertIn('切换模型后的新输入', self.log_text(d))
-            self.assertNotIn('旧模型历史', self.log_text(d))
+            self.assertIn('旧模型历史', self.log_text(d))
             pending[0][1]({'ok':True, 'text':'新模型回复'})
             self.settle_script_page(win)
             self.assertIn('新模型回复', self.log_text(d))
@@ -2198,7 +2229,7 @@ class BubbleLayoutTests(_Harness):
             self.assertEqual(idea_chat.load(proj), [])
 
     def test_delete_all_only_on_model_tab_and_clears_legacy_copies(self):
-        """右键「删除全部信息」清空目录条选中模型的全部历史（含旧版目录残留），标签随之消失，其他模型保留。"""
+        """REQ-S01-120：右键「删除全部信息」可清空指定模型或统一对话流全部历史（含旧版目录残留），回复进行中拦截。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -2217,13 +2248,11 @@ class BubbleLayoutTests(_Harness):
                     d.open_bubble_menu(event)
                 return [d._bubble_menu.entrycget(i, 'label') for i in range(d._bubble_menu.index('end') + 1)
                         if d._bubble_menu.type(i) != 'separator']
-            d.select_idea_model('模型甲')
-            self.settle_script_page(win)
             self.assertIn('删除全部信息', labels())
             with patch('desktop.confirm', return_value=False):
-                self.assertIsNone(d.delete_all_bubble_messages())
+                self.assertIsNone(d.delete_all_bubble_messages('模型甲'))
             with patch('desktop.confirm', return_value=True) as asked:
-                self.assertEqual(d.delete_all_bubble_messages(), 2)
+                self.assertEqual(d.delete_all_bubble_messages('模型甲'), 2)
                 self.assertIn('模型甲', asked.call_args.args[2])
             self.settle_script_page(win)
             _idea_chat._history_cache.clear()
@@ -2231,10 +2260,7 @@ class BubbleLayoutTests(_Harness):
             self.assertNotIn('甲的新记录', texts)
             self.assertNotIn('甲的旧残留', texts)
             self.assertIn('配置模型的话', texts)
-            bar = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
-            self.assertNotIn('模型甲', bar)
             d._idea_requesting = True
-            d.select_idea_model(configured)
             with patch('desktop.confirm') as confirmation:
                 with self.assertRaisesRegex(ValueError, '模型正在回复'):
                     d.delete_all_bubble_messages()
@@ -2242,7 +2268,7 @@ class BubbleLayoutTests(_Harness):
             d._idea_requesting = False
 
     def test_delete_in_all_view_removes_duplicate_copies_from_legacy_folders(self):
-        """旧版目录残留同一条消息的多份副本时，「全部」视图删除后不得从别的副本里重新冒出来。"""
+        """旧版目录残留同一条消息的多份副本时，统一对话流删除后不得从别的副本里重新冒出来。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -2255,8 +2281,6 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '保留的其他消息', model='模型乙')
             d.show(0)
             self.settle_script_page(win)
-            d.select_idea_model('')
-            self.settle_script_page(win)
             index = next(i for i, r in enumerate(d._idea_display_rows()) if r.get('text') == '重复副本消息')
             self.assertEqual(d.delete_bubble_message(index), index)
             _idea_chat._history_cache.clear()
@@ -2265,7 +2289,7 @@ class BubbleLayoutTests(_Harness):
             self.assertIn('保留的其他消息', texts)
 
     def test_model_tab_shows_rows_from_legacy_folders_and_disappears_after_delete(self):
-        """目录条标签与点击后的内容同源：旧版目录里的记录点标签可见；删光后标签消失。"""
+        """REQ-S01-120：旧版目录里的记录直接合入统一对话流；删除单条后保留其他模型消息。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -2276,18 +2300,16 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'user', '其他模型', model='模型乙')
             d.show(0)
             self.settle_script_page(win)
-            d.select_idea_model('旧模型')
-            self.settle_script_page(win)
             self.assertIn('旧目录里的记录', self.log_text(d))
-            self.assertEqual(d.delete_bubble_message(0), 0)
+            self.assertIn('其他模型', self.log_text(d))
+            idx = next(i for i, r in enumerate(d._idea_display_rows()) if r.get('text') == '旧目录里的记录')
+            self.assertEqual(d.delete_bubble_message(idx), idx)
             self.settle_script_page(win)
-            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
-            self.assertNotIn('旧模型', labels)
             _idea_chat._history_cache.clear()
             self.assertEqual([r['text'] for r in idea_chat.load(proj, model='')], ['其他模型'])
 
     def test_delete_message_targets_selected_model_tab_not_configured_model(self):
-        """目录条选中 A 模型时，删除只动 A 的记录；目录条随记录清空去掉该模型标签。"""
+        """REQ-S01-120：统一对话流中删除另一模型的气泡只删该条，不影响当前配置模型的历史。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -2296,21 +2318,16 @@ class BubbleLayoutTests(_Harness):
             idea_chat.append(proj, 'assistant', '另一模型的回复', model='另一模型')
             d.show(0)
             self.settle_script_page(win)
-            d.select_idea_model('另一模型')
-            self.settle_script_page(win)
-            self.assertEqual(d.displayed_chat_model(), '另一模型')
-            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
-            self.assertIn('另一模型', labels)
-            self.assertEqual(d.delete_bubble_message(0), 0)
+            self.assertIn('当前配置模型的话', self.log_text(d))
+            self.assertIn('另一模型的回复', self.log_text(d))
+            idx = next(i for i, r in enumerate(d._idea_display_rows()) if r.get('text') == '另一模型的回复')
+            self.assertEqual(d.delete_bubble_message(idx), idx)
             _idea_chat._history_cache.clear()
             self.assertEqual(idea_chat.load(proj, model='另一模型'), [])
             self.assertEqual(idea_chat.load(proj, model=configured)[0]['text'], '当前配置模型的话')
-            self.settle_script_page(win)
-            self.assertNotEqual(d.displayed_chat_model(), '另一模型')
-            labels = [c.model_tag.cget('text') for c in d.idea_model_bar_inner.winfo_children() if hasattr(c, 'model_tag')]
-            self.assertNotIn('另一模型', labels)
 
     def test_message_actions_target_displayed_model_after_configuration_changed(self):
+        """REQ-S01-120：切换模型后不清空重绘聊天区，所有模型气泡保留在统一对话流中。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
@@ -2329,13 +2346,14 @@ class BubbleLayoutTests(_Harness):
                 d.delete_bubble_message(0)
                 self.assertEqual(idea_chat.load(proj, model=displayed), [])
                 d.restore_latest_bubble_message()
+                self.settle_script_page(win)
                 self.assertEqual(idea_chat.load(proj, model=displayed)[0]['text'], '当前气泡正文')
                 self.assertEqual(idea_chat.load(proj, model='另一模型')[0]['text'], '另一模型正文')
-                d.refresh_script_chat_for_selected_model()
-                self.settle_script_page(win)
+                with patch.object(d, 'show_conversation') as redraw:
+                    d.refresh_script_chat_for_selected_model()
+                    redraw.assert_not_called()
+                self.assertIn('当前气泡正文', self.log_text(d))
                 self.assertIn('另一模型正文', self.log_text(d))
-                self.assertNotIn('当前气泡正文', self.log_text(d))
-                self.assertEqual(d.status_bar._segments['usage'][1].full_text, '本模型暂无用量记录')
 
     def test_delete_all_removes_legacy_duplicates_and_protects_other_files(self):
         with tempfile.TemporaryDirectory() as td:
@@ -2474,18 +2492,16 @@ class BubbleLayoutTests(_Harness):
                 d.show_conversation()
                 self.settle_script_page(win)
                 self.assertEqual(self.log_text(d).count('相同正文'), 1)
-                self.assertTrue(d.idea_log.tag_ranges('bubble_1'))
+                self.assertTrue(d.idea_log.tag_ranges('bubble_2'))
                 d.clear_bubble_view()
                 d.show_conversation()
                 self.settle_script_page(win)
                 self.assertEqual(self.log_text(d), '')
                 with patch.object(d, 'idea_chat_model', return_value='模型乙'):
-                    d.refresh_script_chat_for_selected_model()
-                    self.settle_script_page(win)
-                    self.assertIn('相同正文', self.log_text(d))
-                d.refresh_script_chat_for_selected_model()
-                self.settle_script_page(win)
-                self.assertEqual(self.log_text(d), '')
+                    with patch.object(d, 'show_conversation') as redraw:
+                        d.refresh_script_chat_for_selected_model()
+                        redraw.assert_not_called()
+                    self.assertEqual(self.log_text(d), '')
                 d.root = other_proj
                 d.show_conversation()
                 self.settle_script_page(win)
@@ -2592,7 +2608,7 @@ class BubbleLayoutTests(_Harness):
             self.assertIn(model + ' 模型正在思考…', self.log_text(d))
             d._idea_view_model_cache = (d.root, '另一个模型')
             d.show_conversation(); win.update()
-            self.assertNotIn('模型正在思考…', self.log_text(d))
+            self.assertIn(model + ' 模型正在思考…', self.log_text(d))
             d.clear_thinking(); win.update()
             self.assertNotIn('模型正在思考…', self.log_text(d))
 
@@ -2677,7 +2693,7 @@ class ComposerLayoutTests(_Harness):
 
 
 class ModelBarUITests(_Harness):
-    """REQ-S01-77：聊天气泡框左上角的模型目录条。"""
+    """REQ-S01-77 / REQ-S01-120：DSH 单对话流下隐藏顶部模型目录条，切模型零刷新。"""
 
     def _bar_children(self, d):
         inner = getattr(d, 'idea_model_bar_inner', None)
@@ -2685,10 +2701,8 @@ class ModelBarUITests(_Harness):
             return []
         return list(inner.winfo_children())
 
-    def _bar_labels(self, d):
-        return [str(widget.model_tag.cget('text')) for widget in self._bar_children(d)]
-
-    def test_bar_lists_models_filters_and_highlights(self):
+    def test_bar_hidden_and_unified_stream_shows_all_models_without_refresh(self):
+        """REQ-S01-120：多模型消息同屏按时间展示，顶部目录条隐藏，切换模型不触发重绘。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '甲的第一条', model='模型甲')
@@ -2697,43 +2711,34 @@ class ModelBarUITests(_Harness):
             d, win = self.desktop(proj)
             d.show(0)
             self.settle_script_page(win)
-            self.assertEqual(self._bar_labels(d), ['模型甲', '模型乙'])  # R2350 无「全部」标签
-            # 点「模型乙」：只显示乙，标签高亮
-            self._bar_children(d)[1].model_tag.event_generate('<Button-1>')
-            self.settle_script_page(win)
-            self.assertIn('乙的第一条', self.log_text(d))
-            self.assertNotIn('甲的第一条', self.log_text(d))
-            self.assertEqual(self._bar_children(d)[1].cget('bg'), COLORS['primary_subtle'])
-            # 点「模型甲」：切回甲
-            self._bar_children(d)[0].model_tag.event_generate('<Button-1>')
-            self.settle_script_page(win)
-            self.assertIn('甲的第一条', self.log_text(d))
-            self.assertNotIn('乙的第一条', self.log_text(d))
-            # 甲标签右上角 ×：确认后清空甲的全部历史，标签消失，乙保留
-            with patch('desktop.confirm', return_value=True):
-                self._bar_children(d)[0].close_tag.event_generate('<Button-1>')
-            self.settle_script_page(win)
-            self.assertEqual(self._bar_labels(d), ['模型乙'])
-            self.assertIn('乙的第一条', self.log_text(d))
+            self.assertFalse(d.idea_model_bar.winfo_manager())
+            self.assertEqual(self._bar_children(d), [])
+            text = self.log_text(d)
+            self.assertIn('甲的第一条', text)
+            self.assertIn('乙的第一条', text)
+            self.assertIn('甲的第二条', text)
+            with patch.object(d, 'show_conversation') as redraw:
+                d.refresh_script_chat_for_selected_model()
+                redraw.assert_not_called()
 
-    def test_bar_shown_for_single_model_hidden_for_empty_project(self):
-        """R2350：只有 1 个模型也显示标签（便于 × 关闭）；无聊天记录时不显示。"""
+    def test_bar_hidden_for_single_model_and_empty_project(self):
+        """REQ-S01-77 / REQ-S01-120：单模型与空项目顶部目录条均保持隐藏。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '唯一模型的消息', model='模型甲')
             d, win = self.desktop(proj)
             d.show(0)
             self.settle_script_page(win)
-            self.assertTrue(d.idea_model_bar.winfo_manager(), '只有 1 个模型时也显示目录条')
+            self.assertFalse(d.idea_model_bar.winfo_manager())
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             d, win = self.desktop(proj)
             d.show(0)
             self.settle_script_page(win)
-            self.assertFalse(d.idea_model_bar.winfo_manager(), '无聊天记录（示例气泡）时不显示目录条')
+            self.assertFalse(d.idea_model_bar.winfo_manager())
 
     def test_select_idea_model_syncs_stage_model_picker(self):
-        """REQ-S01-80：点目录条模型标签后，把该模型显示名传给共享输入框的模型下拉；无下拉时安全跳过。"""
+        """REQ-S01-80：编程调用 select_idea_model 仍同步共享输入框模型下拉，且不刷聊天区。"""
         with tempfile.TemporaryDirectory() as td:
             proj = make_minimal_project(td)
             idea_chat.append(proj, 'user', '甲', model='模型甲')
@@ -2743,9 +2748,10 @@ class ModelBarUITests(_Harness):
             picker = Mock()
             picker.set_model_label = Mock()
             d.shared_input.model_picker = Mock(set_model_label=picker.set_model_label)
-            d.select_idea_model('模型甲')
+            with patch.object(d, 'show_conversation') as redraw:
+                d.select_idea_model('模型甲')
+                redraw.assert_not_called()
             picker.set_model_label.assert_called_once_with('模型甲')
-            # 无 model_picker 时不抛错、不调用
             d.shared_input.model_picker = None
             d.select_idea_model('全部')
 

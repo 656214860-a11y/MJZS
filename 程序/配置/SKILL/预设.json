@@ -4,17 +4,13 @@
     "assets": {
       "资产本地模型": {
         "model": "本地 FLUX.2 Klein / 自定义工作流",
-        "skills": [
-          "asset-auto-fill"
-        ]
+        "skills": []
       }
     },
     "script": {
       "最强编剧模型": {
         "model": "claude code cli",
-        "skills": [
-          "pipeline-script-preparation"
-        ]
+        "skills": []
       },
       "测试模型": {
         "model": "deepseek-v4-pro-0813",
@@ -24,21 +20,15 @@
       },
       "Gemini 4": {
         "model": "Google Gemini 4 Argon",
-        "skills": [
-          "pipeline-script-preparation"
-        ]
+        "skills": []
       },
       "CCC": {
         "model": "claude code cli",
-        "skills": [
-          "pipeline-script-preparation"
-        ]
+        "skills": []
       },
       "Qwen": {
         "model": "qwen3.8-max",
-        "skills": [
-          "pipeline-script-preparation"
-        ]
+        "skills": []
       }
     }
   }

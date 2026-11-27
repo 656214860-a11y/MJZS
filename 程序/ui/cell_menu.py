@@ -43,9 +43,12 @@ def popup_row_menu(tree, row, column, view=None, delete=None, x=None, y=None):
     """
     # 保留本模块的可替换菜单工厂，供无 Tk 根窗口的逻辑测试使用。
     context_menu = ContextMenu(tree, menu_factory=tk.Menu)
-    if view is not None and column is not None:
+    has_view = view is not None and column is not None
+    if has_view:
         context_menu.command(ROW_MENU_VIEW, lambda: view(row, column))
     if delete is not None:
+        if has_view:
+            context_menu.separator()
         context_menu.command(ROW_MENU_DELETE, lambda: call_delete(delete, row, column))
     menu = context_menu.menu
     if menu.index('end') is None:

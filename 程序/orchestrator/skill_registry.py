@@ -30,11 +30,14 @@ from urllib.parse import unquote, urlsplit
 
 from contract.pet_bus import STAGES, STAGE_NAMES
 from orchestrator.skill_package_meta import (  # re-export：调用方经 skill_registry.<名>
-    IMPORTED_PACKAGE_FLAG, imported_package_meta, markdown_heading, markdown_summary)
-from orchestrator.skill_project_layer import (LAYER_LABELS, LAYER_ORDER, STAGE_DIRECTORY_IDS,
-                                 ProjectLayerMixin, disabled_pairs, disabled_stamp,
-                                 disabled_view_entries, project_skill_root,
-                                 project_skill_root_for, stage_from_path)
+    COMPOSITE_SUITE_FLAG, IMPORTED_PACKAGE_FLAG, PACKAGE_ROOT_KEY, PRIMARY_SUBSKILL_KEY,
+    clean_suite_name, detect_composite_suite_entry, imported_package_meta, markdown_heading,
+    markdown_summary, package_root_of, unwrap_package_container)
+from orchestrator.skill_project_layer import (
+    LAYER_LABELS, LAYER_ORDER, RETIRED_BUILTIN_SKILL_IDS, STAGE_DIRECTORY_IDS,
+    STAGE_DIRECTORY_NAMES, SUITE_DIR_NAME, SUITE_LABEL, SUITE_STAGE,
+    ProjectLayerMixin, disabled_pairs, disabled_stamp, disabled_view_entries,
+    project_skill_root, project_skill_root_for, stage_from_path)
 
 SKILL_SUFFIX = '.skill.md'
 PACKAGE_SKILL_FILENAME = 'SKILL.md'
@@ -102,8 +105,10 @@ def resolve_reference(source, relative, program=None):
 
 
 def stage_id(value):
-    """阶段名 → 阶段 id：中英文都收（frontmatter 可写中文名，程序使用阶段 id）。"""
+    """阶段名 → 阶段 id：中英文与 00 总包都收（frontmatter 可写中文名，程序使用阶段 id）。"""
     text = str(value or '').strip()
+    if text in (SUITE_STAGE, '00', SUITE_LABEL, '00 总包', SUITE_DIR_NAME, '全流程', '全流程总包'):
+        return SUITE_STAGE
     if text in STAGES:
         return text
     for sid in STAGES:
@@ -564,24 +569,33 @@ class Registry(ProjectLayerMixin):
         self._root_migration_problems = tuple(problems)
 
     @staticmethod
-    def _package_source(package, include_readme=True):
-        """一个外部包只认其根部 SKILL.md；集合包可退回根部 README 总说明。"""
-        candidates = [package / PACKAGE_SKILL_FILENAME]
+    def _package_source(package, include_readme=True, allow_composite=True):
+        """外部包入口：优先根部 SKILL.md → 复合套装主入口（如 L0 director）→ 根部 README。"""
+        direct = package / PACKAGE_SKILL_FILENAME
+        try:
+            if direct.is_file():
+                return direct
+        except OSError:
+            pass
+        if allow_composite:
+            composite = detect_composite_suite_entry(package)
+            if composite is not None:
+                return composite[0]
         if include_readme:
-            candidates.extend(package / name for name in PACKAGE_README_FILENAMES)
-        for path in candidates:
-            try:
-                if path.is_file():
-                    return path
-            except OSError:
-                continue
+            for name in PACKAGE_README_FILENAMES:
+                path = package / name
+                try:
+                    if path.is_file():
+                        return path
+                except OSError:
+                    continue
         return None
 
     def _package_sources(self, root=None):
         """发现阶段目录的一层外部包，永远不递归枚举包内子 SKILL。"""
         sources = []
         for stage_dir in self._stage_directories(root):
-            direct_source = self._package_source(stage_dir, include_readme=False)
+            direct_source = self._package_source(stage_dir, include_readme=False, allow_composite=False)
             if direct_source is not None:
                 sources.append((direct_source, stage_dir))
             try:
@@ -808,11 +822,30 @@ class Registry(ProjectLayerMixin):
 
     # ── 查询 ────────────────────────────────────────────────────────────────
     def getAll(self):
-        """全部 SKILL：先按阶段顺序，同阶段按文件名（发现顺序稳定，界面勾选框不跳）。"""
+        """全部 SKILL：00 总包在前，其余按阶段顺序，同阶段按名称。"""
         self._fresh()
-        order = {sid: index for index, sid in enumerate(STAGES)}
+        order = {SUITE_STAGE: -1}
+        order.update({sid: index for index, sid in enumerate(STAGES)})
         return sorted(self._skills.values(),
                       key=lambda skill: (order.get(skill.stage, len(STAGES)), skill.name))
+
+    def suites(self):
+        """全部已启用的 00 总包 SKILL。"""
+        return [skill for skill in self.getAll() if skill.stage == SUITE_STAGE]
+
+    def getForStage(self, stage, include_suites=True):
+        """某阶段可选的全部 SKILL：00 总包（前置继承）＋ 本阶段专属 SKILL。"""
+        sid = stage_id(stage)
+        own = [skill for skill in self.getAll() if skill.stage == sid]
+        if not include_suites or sid == SUITE_STAGE:
+            return own
+        seen = set()
+        out = []
+        for skill in (*self.suites(), *own):
+            if skill.name not in seen:
+                seen.add(skill.name)
+                out.append(skill)
+        return out
 
     def getById(self, sid):
         self._fresh()

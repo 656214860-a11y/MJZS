@@ -302,6 +302,23 @@ class DraftKeepTests(unittest.TestCase):
         self.assertEqual(box.input.get('1.0', 'end-1c'), '组词中的一句草稿')
         self.assertIs(self.win.focus_get(), box.input)
 
+    def test_switch_model_does_not_trigger_show_conversation(self):
+        """REQ-S01-120：通过真实 ScriptPagesMixin.refresh_script_chat_for_selected_model 切模型时不调用 show_conversation。"""
+        from ui.desktop_script_pages import ScriptPagesMixin
+        box = self._make()
+        picker = box.model_picker
+        self._inject_models(picker)
+        self.desktop.idea_log = box.input
+        self.desktop.idea_chat_model = lambda: '模型乙'
+        self.desktop.update_recon_button = mock.Mock()
+        self.desktop.show_conversation = mock.Mock()
+        self.desktop.refresh_script_chat_for_selected_model = (
+            lambda: ScriptPagesMixin.refresh_script_chat_for_selected_model(self.desktop))
+        picker._choose_model('m2')
+        self.desktop.show_conversation.assert_not_called()
+        self.desktop.update_recon_button.assert_called_once_with()
+        self.assertEqual(self.desktop._idea_view_model_cache, (self.desktop.root, '模型乙'))
+
 
 class FlyoutNoactivateTests(unittest.TestCase):
     """REQ-S01-117：noactivate 浮层不抢系统焦点；默认调用方行为不变。"""

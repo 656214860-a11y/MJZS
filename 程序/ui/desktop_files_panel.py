@@ -315,6 +315,12 @@ class FilesPanelImportMixin:
         self.page.status.set(_import_status_text(result))
 
 
+def _append_delete_command(menu, safe, action):
+    """REQ-UI-UNIFY-1：右键菜单底部危险操作统一前置分隔线。"""
+    menu.separator()
+    menu.command('删除', lambda: safe(action))
+
+
 class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPanelImportMixin, FilesPanelFilterMixin, WritingSnapshotsMixin):
     """内容区右缘图标列「项目文件」入口＋右侧停靠文件列表；``page`` 是 ``Desktop`` 实例。"""
 
@@ -870,32 +876,33 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
             tree.selection_set(row)
         self.keep_one_selection(tree)
         menu = self.page.writing_page_services.context_menu(self.page.win)
-        # 普通索引行与剧本四类动作分开；项目文件删除统一走回收服务。
+        # REQ-UI-UNIFY-1：右键菜单统一按「打开→改名→流转/入库→路径/另存→挂钩→分隔线→删除」排列。
         if self.script_row_category.get(row) == STAGE_FILTER_ROW_CATEGORY:
             menu.command('打开', lambda: self.page.safe(self.open_script_file))
             # R3165（任务书 P3）：全局素材库视图的行可「引用到当前项目」。
-            if str(row).startswith('library:'):
-                menu.command('引用到当前项目',
-                             lambda: self.page.safe(lambda: self.reference_from_library(row)))
+            is_library = str(row).startswith('library:')
+            if is_library:
+                menu.command('引用到当前项目', lambda: self.page.safe(lambda: self.reference_from_library(row)))
             else:
                 if len(tree.selection()) == 1:
                     menu.command('重命名', lambda: self.page.safe(lambda: self.rename_index_file(row)))
                 menu.command('添加到全局素材库', lambda: self.page.safe(lambda: self.add_to_library(row)))
-                menu.command('删除', lambda: self.page.safe(self.delete_index_files))
             menu.command('在文件夹中显示', lambda: self.page.safe(self.show_in_folder))
             menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
             # DES-S04-25：阶段页登记的文件右键挂钩（如 S04 参考图改分类），仅单选放行。
             if len(tree.selection()) == 1:
                 self._offer_menu_hooks(menu, self._row_abs_path(row))
+            if not is_library:
+                _append_delete_command(menu, self.page.safe, self.delete_index_files)
             return menu.popup(event)
         if len(tree.selection()) > 1:
             # 多选时只给「删除」：查看、改名、定稿都只针对一份文件。
             menu.command('删除', lambda: self.page.safe(self.delete_script))
             return menu.popup(event)
-        # 第 46 期第 1 条：内容框的右键一律是「查看／…／删除」这一套，剧本表原来只有改名与删除。
+        # 第 46 期第 1 条 ＋ REQ-UI-UNIFY-1：查看→重命名→流转→路径→分隔线→删除。
         menu.command('查看', lambda: self.page.safe(self.open_script_file))
-        menu.command('添加到全局素材库', lambda: self.page.safe(lambda: self.add_to_library(row)))
         menu.command('重命名', lambda: self.page.safe(self.rename_script))
+        menu.command('添加到全局素材库', lambda: self.page.safe(lambda: self.add_to_library(row)))
         category = self.script_row_category.get(row, 'script')
         if category == 'script':
             menu.command('采用此剧本', lambda: self.page.safe(self.adopt_script))
@@ -911,5 +918,5 @@ class ProjectFilesPanel(FilesPanelResizeMixin, FilesPanelStageViewMixin, FilesPa
         # 任务书 M5（REQ-S01-96）：剧本四类行也提供文件级「在文件夹中显示／另存为…」。
         menu.command('在文件夹中显示', lambda: self.page.safe(self.show_in_folder))
         menu.command('另存为…', lambda: self.page.safe(self.save_as_file))
-        menu.command('删除', lambda: self.page.safe(self.delete_script))
+        _append_delete_command(menu, self.page.safe, self.delete_script)
         return menu.popup(event)

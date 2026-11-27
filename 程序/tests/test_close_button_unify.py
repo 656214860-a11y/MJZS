@@ -255,28 +255,10 @@ class FiveSitesCloseButtonUnifyTests(unittest.TestCase):
             self.assertIsNone(page.active_path)
             self.assertFalse(s03_btn.winfo_ismapped())
 
-            # 3) S01 模型目录条关闭按钮（兼容 <Button-1> 与 invoke() 且不双触发）
+            # 3) REQ-S01-120：S01 统一单对话流下顶部模型目录条保持隐藏，不再生成按模型拆页关闭钮
             desktop.show(0)
             _settle(self.win)
-            tabs = list(desktop.idea_model_bar_inner.winfo_children())
-            self.assertEqual(len(tabs), 2)
-            close_a = tabs[0].close_tag
-            self._assert_close_geometry(close_a, min_pt=12)
-            calls = []
-            with patch('desktop.confirm', side_effect=lambda *a, **kw: (calls.append(a), False)[1]):
-                close_a.event_generate('<Button-1>')
-                close_a.event_generate('<ButtonRelease-1>')
-            _settle(self.win, iterations=3)
-            self.assertEqual(len(calls), 1, '点击 S01 模型关闭 × 不得双触发')
-            with patch('desktop.confirm', return_value=True):
-                close_a.event_generate('<Button-1>')
-            _settle(self.win)
-            tabs_after = list(desktop.idea_model_bar_inner.winfo_children())
-            self.assertEqual(len(tabs_after), 1)
-            # 剩余模型标签通过 invoke() 同样可关闭
-            with patch('desktop.confirm', return_value=True):
-                tabs_after[0].close_tag.invoke()
-            _settle(self.win)
+            self.assertFalse(desktop.idea_model_bar.winfo_manager())
             self.assertEqual(list(desktop.idea_model_bar_inner.winfo_children()), [])
 
     def test_status_bar_history_popup_uses_unified_close_button_and_closes(self):

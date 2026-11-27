@@ -121,14 +121,10 @@ class ReqS05AnchorTests(unittest.TestCase):
             self.assertFalse((write_dir(root, 'assets') / 'assets.json').exists())
 
     def test_req_s05_05_skill_inputs_do_not_require_manifests(self):
-        """REQ-S05-05：SKILL 输入只列分镜与资产需求，清单导出不依赖任何 manifest。"""
-        line = re.search(r'^input:.*$', _skill_text(), re.MULTILINE)
-        self.assertIsNotNone(line)
-        for unexpected in ('characterManifest', 'sceneManifest', 'propManifest',
-                           'sceneBreakdown', 'emotionCurve'):
-            self.assertNotIn(unexpected, line.group(0))
-        self.assertIn('storyboardDraft', line.group(0))
-        self.assertIn('assetRequirements', line.group(0))
+        """REQ-S05-05：内置 pipeline-assets 已退役，清单导出不依赖任何 manifest。"""
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertIn('pipeline-assets', RETIRED_BUILTIN_SKILL_IDS)
+        self.assertFalse((ROOT / 'skills' / '05资产管理SKILL' / 'pipeline-assets.skill.md').exists())
 
         with tempfile.TemporaryDirectory() as temporary:
             root = Path(temporary)
@@ -248,17 +244,7 @@ class ReqS05AnchorTests(unittest.TestCase):
 
     # --- SKILL 正典准入 ---------------------------------------------------
     def test_req_s05_41_canon_admission_and_conflicts_do_not_overwrite_assets(self):
-        """REQ-S05-41：缺来源/锚点/版本不得进正典；冲突只生成待修复项，不覆盖已确认资产；
-        SKILL 直接保留阶段正典核验职责，不默认加载外部包。"""
-        text = _skill_text()
-        for fragment in (
-                '资产缺少可追溯来源、身份锚点或版本时不得进入正典',
-                '发现冲突只生成待修复项，不覆盖已确认资产',
-                '稳定身份串的资产正典',
-                '根据已选工具的控制面决定参考图、种子或编辑约束',
-                '不默认加载外部包、风格库或示例库'):
-            self.assertIn(fragment, text)
-
+        """REQ-S05-41：缺来源/锚点/版本不得进正典；冲突只生成待修复项，不覆盖已确认资产。"""
         assets = {'CHAR_001': {
             'name': '甲', 'canonical_board': 'board.png', 'character_anchor': '银发'}}
         before = json.loads(json.dumps(assets, ensure_ascii=False))

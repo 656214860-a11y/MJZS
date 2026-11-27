@@ -34,7 +34,8 @@ class SkillDependencyDagTests(unittest.TestCase):
         self.registry = skill_registry.default_registry()
         self.registry.scan(force=True)
         self.skills = {skill.name: skill for skill in self.registry.getAll()}
-        self.index = {stage: position for position, stage in enumerate(pet_bus.STAGES)}
+        self.index = {skill_registry.SUITE_STAGE: -1,
+                      **{stage: position for position, stage in enumerate(pet_bus.STAGES)}}
 
     def test_dependencies_are_registered_and_never_point_downstream(self):
         self.assertEqual(dependency_problems(self.skills,self.index),[])

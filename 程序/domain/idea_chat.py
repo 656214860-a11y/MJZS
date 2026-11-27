@@ -76,8 +76,10 @@ def skill_injection_summary(row):
 
 
 def usage_summary(rows):
-    """仅概述当前模型最近一次已保存回复；缺报不能伪装成零消耗。"""
-    row = next((row for row in reversed(rows) if row.get('role') == 'assistant'), {})
+    """仅概述最近一次含用量凭据的已保存回复；缺报不能伪装成零消耗。"""
+    row = next((row for row in reversed(rows)
+                if row.get('role') == 'assistant'
+                and (row.get('context_budget') or row.get('request_usage'))), {})
     budget, usage = row.get('context_budget') or {}, row.get('request_usage') or {}
     if not budget and not usage:
         return '本模型暂无用量记录'
@@ -91,7 +93,9 @@ def usage_summary(rows):
 
 def usage_compact(rows):
     """状态栏可见的一行用量：没有记录照旧说没有；有记录只留输入/输出。"""
-    row = next((row for row in reversed(rows) if row.get('role') == 'assistant'), {})
+    row = next((row for row in reversed(rows)
+                if row.get('role') == 'assistant'
+                and (row.get('context_budget') or row.get('request_usage'))), {})
     budget, usage = row.get('context_budget') or {}, row.get('request_usage') or {}
     if not budget and not usage:
         return '本模型暂无用量记录'

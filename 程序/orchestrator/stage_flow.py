@@ -240,11 +240,11 @@ def selected_skills(project, stage):
 
 
 def unchecked(project, stage):
-    """自动编排的勾选门禁（R2905）：这一步一个 SKILL 都没勾时返回跳过原因，勾了返回空串。
+    """自动编排的勾选门禁（R2905）：显式清空勾选或本阶段有可用 SKILL 却一个都没勾时返回跳过原因。
 
     只管 ``OWN_ORDER`` 里的制作阶段；pet_performance／pet_test 这类宿主自检阶段
-    不在表里，一律不设闸。没有可解析的项目路径时不设闸——配置无从读起，
-    交给各阶段自己的前置检查说话（与「读不出来就当空」的老口径一致）。
+    不在表里，一律不设闸。没有可解析的项目路径时不设闸；若该阶段尚未安装任何 SKILL
+    且项目配置里未显式写空列表，同样不误判为「取消勾选」。
     """
     if stage not in OWN_ORDER:
         return ''
@@ -254,7 +254,18 @@ def unchecked(project, stage):
         project = None
     if project is None:
         return ''
-    return '' if selected_skills(project, stage) else '未勾选 SKILL'
+    if selected_skills(project, stage):
+        return ''
+    try:
+        import orchestrator.stage_config as stage_config
+        saved = stage_config.read_json(stage_config.path(project))
+        if isinstance(saved, dict) and isinstance(saved.get(stage), dict):
+            return '未勾选 SKILL'
+        if stage_config.default_entry(stage).get('skills'):
+            return '未勾选 SKILL'
+    except Exception:
+        return '未勾选 SKILL'
+    return ''
 
 
 def model_label(desktop, project, stage):

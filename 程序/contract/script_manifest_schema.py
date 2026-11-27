@@ -28,10 +28,10 @@ STORYBOARD_STAGE = '03初步分镜'
 
 # manifest 文件名 → (产出者, 这份产物落在哪个阶段目录 output/)
 PRODUCERS = {
-    'character_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
-    'scene_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
-    'prop_manifest.json': ('script-character-extraction', STRUCTURE_STAGE),
-    'scene_breakdown.json': ('storyboard-scene-breakdown', STORYBOARD_STAGE),
+    'character_manifest.json': ('stage:script_structure', STRUCTURE_STAGE),
+    'scene_manifest.json': ('stage:script_structure', STRUCTURE_STAGE),
+    'prop_manifest.json': ('stage:script_structure', STRUCTURE_STAGE),
+    'scene_breakdown.json': ('stage:storyboard', STORYBOARD_STAGE),
     'emotion_curve.json': ('stage:script', STAGE)}
 # 'stage:<阶段键>' 显式阶段产出者的常量、辅助函数与 PRODUCER_SKILLS 定义在文件底部。
 
@@ -402,7 +402,11 @@ def completeness(folder):
 # 旧产出者 ID pipeline-script-preparation 经 LEGACY_STAGE_PRODUCERS 只读映射，
 # 不改写用户已有 manifest 文件。
 STAGE_PRODUCER_PREFIX = 'stage:'
-LEGACY_STAGE_PRODUCERS = {'pipeline-script-preparation': 'stage:script'}
+LEGACY_STAGE_PRODUCERS = {
+    'pipeline-script-preparation': 'stage:script',
+    'script-character-extraction': 'stage:script_structure',
+    'storyboard-scene-breakdown': 'stage:storyboard',
+}
 
 
 def is_stage_producer(producer):

@@ -310,9 +310,16 @@ class KeyframeRequirementAnchorTests(unittest.TestCase):
         self.assertEqual(template.steps[2].action, 'generate_keyframes')
         self.assertTrue(template.steps[2].needs_confirmation)
         self.assertTrue(template.steps[2].question)
-        registry = skill_registry.default_registry()
-        paid = {skill.name for skill in registry.getByStage('keyframe') if skill.paid}
-        self.assertTrue({'firstframe-batch', 'firstframe-auto-fill', 'firstframe-retry'} <= paid)
+        with tempfile.TemporaryDirectory() as td:
+            stage_dir = Path(td) / 'skills' / '08首帧管理SKILL'
+            stage_dir.mkdir(parents=True)
+            (stage_dir / 'user-paid-frame.skill.md').write_text(
+                '---\nname: user-paid-frame\ndisplayName: 付费首帧\ndescription: demo\n'
+                'stage: 首帧管理\npaid: true\ncapabilities: [image-generation]\n---\n# 付费首帧\n',
+                encoding='utf-8')
+            registry = skill_registry.Registry(root=Path(td) / 'skills')
+            paid = {skill.name for skill in registry.getByStage('keyframe') if skill.paid}
+            self.assertIn('user-paid-frame', paid)
         self.assertEqual(stage_parallel.unit('keyframe'), stage_parallel.SHOT)
         self.assertFalse(stage_parallel.serial_within('keyframe'))
         governor = stage_parallel.Governor(clock=lambda: 0.0)

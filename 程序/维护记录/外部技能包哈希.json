@@ -1,15 +1,4 @@
 {
  "说明": "外部技能包的来源、固定提交与内容树哈希；升级外部包时运行 scripts/skill_package_pins.py --update",
- "packages": {
-  "skills/01 剧本准备SKILL/剧本锻造": {
-   "source": "https://github.com/zhlmi/script-forging.git",
-   "commit": "6c3d73994f456b696de536c86602b4022824a535",
-   "tree": "decee3dcb24b73da6108c5738ca9785fccd98232"
-  },
-  "skills/01 剧本准备SKILL/编剧技能集": {
-   "source": "https://github.com/jtydhr88/screenwriting-skills.git",
-   "commit": "357d1348ccaa1ab75f2f51ef7c90a7f00a686c76",
-   "tree": "c33fa01be5bb2165580b75e8fb3820b2626a8911"
-  }
- }
+ "packages": {}
 }

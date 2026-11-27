@@ -297,7 +297,8 @@ def _remote_entry_digests(spec, program, registry, *, opener=None, cache=None,
     zip_path = download(spec['url'], cache_dir(program) / spec['cache_name'],
                         opener=opener, recycle_root=program)
     digests = skill_archive.archive_entry_digests(
-        zip_path, program, registry, scope=spec.get('scope', ''), layer=layer)
+        zip_path, program, registry, scope=spec.get('scope', ''), layer=layer,
+        suite_name=spec.get('label', ''))
     cache[signature] = digests
     return digests
 

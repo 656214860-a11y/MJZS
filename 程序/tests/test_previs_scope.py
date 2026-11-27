@@ -66,11 +66,10 @@ class PrevisContractTests(unittest.TestCase):
                 previs_routing.overrides_file(tmp)
 
     def test_req_s09_40_skill_depends_on_keyframe_and_is_not_parallel(self):
-        text = SKILL.read_text(encoding='utf-8')
-        self.assertIn('dependsOn: [pipeline-keyframe]', text)
-        self.assertIn('parallelizable: false', text)
+        self.assertEqual(stage_flow.DEPENDS['previs'], ('keyframe',))
+        self.assertTrue(stage_parallel.CONFIG['previs']['serial'])
         for lock in ('aspect_ratio', 'video_model_version', 'delivery_format'):
-            self.assertIn(lock, text)
+            self.assertIn(lock, script_contract.STAGE_LOCK_REQUIREMENTS['previs'])
 
     def test_req_s09_stage_directory_is_09_and_legacy_08_is_read_only(self):
         # R3131（Q15）：重复登记的阶段映射已删除，本条改读唯一权威 stage_layout。
@@ -185,13 +184,13 @@ class PrevisProjectIndexTests(unittest.TestCase):
             self.assertNotIn('previs_manifest.json', (ROOT / relative).read_text(encoding='utf-8'))
 
     def test_req_s09_41_skill_states_both_entry_channels(self):
-        text = SKILL.read_text(encoding='utf-8')
-        self.assertIn('全流程预设里的本阶段入口是 `pipeline-previs`', text)
-        self.assertIn('桌面白模页的默认技能是 `create-blender-story-video`', text)
         import stage_config
         import workflow_settings
+        from orchestrator.skill_project_layer import RETIRED_BUILTIN_SKILL_IDS
+        self.assertFalse(SKILL.exists())
+        self.assertIn('pipeline-previs', RETIRED_BUILTIN_SKILL_IDS)
         self.assertEqual(workflow_settings.DEFAULT_SKILLS['previs'], 'create-blender-story-video')
-        self.assertIn('pipeline-previs', stage_config.default_entry('previs')['skills'])
+        self.assertNotIn('pipeline-previs', stage_config.default_entry('previs')['skills'])
 
 
 class PrevisEvidenceTests(unittest.TestCase):

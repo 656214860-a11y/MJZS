@@ -1193,60 +1193,6 @@
     "reason": "R1691 登记：读取 OpenCode CLI 自己写出的 .response.json 临时响应文件，外部进程产物不是正式项目数据，不走 file_cache。（R1706 行号平移 196→241）"
    },
    {
-    "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-    "point": "read_json:json.loads:78de6374442893c8:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/09白模预演SKILL/create-blender-story-video/assets/render-monitor-dashboard/server.py",
-    "point": "Monitor._probe_media:json.loads:531ee141eef64f92:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/imagegen/scripts/image_gen.py",
-    "point": "_read_jobs_jsonl:json.loads:cb57ae7929daaf0d:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-    "point": "_load_json:json.loads:78de6374442893c8:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/short-drama-storyboard/scripts/storyboard_check.py",
-    "point": "_load_jsonl:json.loads:cb57ae7929daaf0d:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:78de6374442893c8:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:e9e4fd7867cccce9:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:34fb0474a2163765:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
-    "file": "skills/video-storyboard-gen/scripts/validate_repo.py",
-    "point": "validate_repository:json.loads:ce06739a12169662:1",
-    "disposition": "exempt",
-    "reason": "SKILL 自带脚本"
-   },
-   {
     "file": "orchestrator/skill_notes.py",
     "point": "_api_translator.translate:json.loads:c9ed4ae3e9ae937e:1",
     "disposition": "exempt",

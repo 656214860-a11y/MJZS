@@ -94,10 +94,11 @@ class RowMenuTests(unittest.TestCase):
         menu = self.module.popup_row_menu(None, "SH002", "#3",
                                           view=lambda row, column: calls.append(("view", row, column)),
                                           delete=lambda row: calls.append(("delete", row)), x=10, y=20)
-        self.assertEqual([label for label, _ in menu.items], ["查看", "删除"])
+        self.assertEqual([label for label, _ in menu.items], ["查看", "---", "删除"])
         self.assertEqual(menu.popped, (10, 20))
         for _label, command in menu.items:
-            command()
+            if command is not None:
+                command()
         self.assertEqual(calls, [("view", "SH002", "#3"), ("delete", "SH002")])
 
     def test_a_cell_without_view_still_offers_delete(self):
@@ -134,9 +135,10 @@ class BindRowMenuTests(unittest.TestCase):
         tree = _FakeTree(regions={(5, 5): "cell"}, rows={5: "A"}, columns={5: "#2"})
         handler, calls = self.hook(tree)
         self.assertEqual(handler(_Event(5, 5)), "break")
-        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "删除"])
+        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "---", "删除"])
         for _label, command in self.made[-1].items:
-            command()
+            if callable(command):
+                command()
         self.assertEqual(calls, [("view", "A", "#2"), ("delete", "A")])
 
     def test_the_header_and_the_empty_space_stay_silent(self):
@@ -210,9 +212,10 @@ class CellHoverRightClickTests(unittest.TestCase):
         self.assertEqual(tree.cell_hover.active, ("A", "#2"))
         x, y = self.cell(tree, "B", "#2")
         tree.event_generate("<Button-3>", x=x, y=y); win.update()
-        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "删除"])
+        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "---", "删除"])
         for _label, command in self.made[-1].items:
-            command()
+            if callable(command):
+                command()
         self.assertEqual(seen, [("view", "B", "#2"), ("delete", "B")])
 
     def test_the_checkbox_column_opens_no_menu(self):
@@ -226,9 +229,10 @@ class CellHoverRightClickTests(unittest.TestCase):
         self.assertEqual(seen, [])
         x, y = self.cell(tree, "A", "#2")
         tree.event_generate("<Button-3>", x=x, y=y); win.update()
-        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "删除"])
+        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "---", "删除"])
         for _label, command in self.made[-1].items:
-            command()
+            if callable(command):
+                command()
         self.assertEqual(seen, [("view", "A", "#2"), ("delete", "A")])
 
     def test_a_right_click_on_a_plain_cell_opens_nothing(self):
@@ -580,10 +584,10 @@ class ReferenceRowMenuTests(unittest.TestCase):
         self.assertEqual(len(rows), 2)
         dropped = table.set(rows[0], "file"); kept = table.set(rows[1], "file")
         self.right_click(win, table, rows[0], "#1")
-        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "删除"])
+        self.assertEqual([label for label, _ in self.made[-1].items], ["查看", "---", "删除"])
         self.made[-1].items[0][1]()                      # 查看
         self.assertEqual(opener, [str((base / dropped).resolve())])
-        self.made[-1].items[1][1]()                      # 删除
+        self.made[-1].items[-1][1]()                     # 删除
         win.update()
         plan = json.loads((base / "assets" / "资产清单" / "assets.json").read_text(encoding="utf-8"))
         self.assertEqual(plan["CHAR_001"]["reference_images"], [kept])   # 只解除右键那一行

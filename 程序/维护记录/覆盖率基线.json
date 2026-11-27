@@ -1543,7 +1543,7 @@
   {
    "module": "orchestrator/script_skill_report.py",
    "covered": 0,
-   "total": 75,
+   "total": 77,
    "percent": 0.0
   },
   {
@@ -2161,7 +2161,7 @@
   {
    "module": "ui/animatic_page.py",
    "covered": 0,
-   "total": 683,
+   "total": 646,
    "percent": 0.0
   },
   {
@@ -2185,7 +2185,7 @@
   {
    "module": "ui/animatic_view_state.py",
    "covered": 0,
-   "total": 409,
+   "total": 651,
    "percent": 0.0
   },
   {
@@ -2233,7 +2233,7 @@
   {
    "module": "ui/asset_thumbs.py",
    "covered": 0,
-   "total": 745,
+   "total": 740,
    "percent": 0.0
   },
   {
@@ -2245,7 +2245,7 @@
   {
    "module": "ui/cell_menu.py",
    "covered": 0,
-   "total": 48,
+   "total": 51,
    "percent": 0.0
   },
   {
@@ -2269,7 +2269,7 @@
   {
    "module": "ui/desktop_asset_pages.py",
    "covered": 0,
-   "total": 686,
+   "total": 689,
    "percent": 0.0
   },
   {
@@ -2317,7 +2317,7 @@
   {
    "module": "ui/desktop_files_panel.py",
    "covered": 0,
-   "total": 659,
+   "total": 678,
    "percent": 0.0
   },
   {
@@ -2329,7 +2329,7 @@
   {
    "module": "ui/desktop_files_panel_index.py",
    "covered": 0,
-   "total": 476,
+   "total": 470,
    "percent": 0.0
   },
   {
@@ -2341,7 +2341,7 @@
   {
    "module": "ui/desktop_idea_bubbles.py",
    "covered": 0,
-   "total": 584,
+   "total": 557,
    "percent": 0.0
   },
   {
@@ -2359,7 +2359,7 @@
   {
    "module": "ui/desktop_idea_menus.py",
    "covered": 0,
-   "total": 87,
+   "total": 108,
    "percent": 0.0
   },
   {
@@ -2467,7 +2467,7 @@
   {
    "module": "ui/desktop_storyboard_page.py",
    "covered": 0,
-   "total": 340,
+   "total": 342,
    "percent": 0.0
   },
   {
@@ -2605,7 +2605,7 @@
   {
    "module": "ui/qwen_setup_dialog.py",
    "covered": 0,
-   "total": 66,
+   "total": 67,
    "percent": 0.0
   },
   {
@@ -2635,7 +2635,7 @@
   {
    "module": "ui/script_reading.py",
    "covered": 0,
-   "total": 308,
+   "total": 312,
    "percent": 0.0
   },
   {
@@ -2669,15 +2669,9 @@
    "percent": 0.0
   },
   {
-   "module": "ui/skill_note_render.py",
-   "covered": 0,
-   "total": 256,
-   "percent": 0.0
-  },
-  {
    "module": "ui/skill_panel.py",
    "covered": 0,
-   "total": 702,
+   "total": 701,
    "percent": 0.0
   },
   {
@@ -2689,7 +2683,7 @@
   {
    "module": "ui/skill_panel_support.py",
    "covered": 0,
-   "total": 462,
+   "total": 465,
    "percent": 0.0
   },
   {
@@ -2855,12 +2849,6 @@
    "percent": 0.0
   },
   {
-   "module": "ui/ui_theme.py",
-   "covered": 0,
-   "total": 341,
-   "percent": 0.0
-  },
-  {
    "module": "ui/ui_usage_detail.py",
    "covered": 0,
    "total": 226,
@@ -2976,12 +2964,6 @@
   },
   {
    "module": "ui_status_bus.py",
-   "covered": 0,
-   "total": 4,
-   "percent": 0.0
-  },
-  {
-   "module": "ui_theme.py",
    "covered": 0,
    "total": 4,
    "percent": 0.0
@@ -3151,7 +3133,7 @@
   {
    "module": "orchestrator/workflow_settings.py",
    "covered": 72,
-   "total": 819,
+   "total": 821,
    "percent": 8.8
   },
   {
@@ -3161,22 +3143,34 @@
    "percent": 9.0
   },
   {
+   "module": "ui/skill_lifecycle_service.py",
+   "covered": 30,
+   "total": 331,
+   "percent": 9.1
+  },
+  {
    "module": "ui/ui_composer_style.py",
    "covered": 4,
    "total": 44,
    "percent": 9.1
   },
   {
-   "module": "ui/skill_lifecycle_service.py",
-   "covered": 30,
-   "total": 323,
-   "percent": 9.3
+   "module": "ui/ui_theme.py",
+   "covered": 33,
+   "total": 341,
+   "percent": 9.7
+  },
+  {
+   "module": "ui/pet_skills_views.py",
+   "covered": 43,
+   "total": 404,
+   "percent": 10.6
   },
   {
    "module": "pet_skills_manage.py",
-   "covered": 61,
-   "total": 642,
-   "percent": 9.5
+   "covered": 71,
+   "total": 659,
+   "percent": 10.8
   },
   {
    "module": "infra/tk_timers.py",
@@ -3227,28 +3221,28 @@
    "percent": 12.0
   },
   {
+   "module": "ui/pet_skill_tree.py",
+   "covered": 47,
+   "total": 385,
+   "percent": 12.2
+  },
+  {
    "module": "infra/workflow_process_registry.py",
    "covered": 61,
    "total": 489,
    "percent": 12.5
   },
   {
+   "module": "ui/skill_import_service.py",
+   "covered": 91,
+   "total": 713,
+   "percent": 12.8
+  },
+  {
    "module": "ui/ui_rounded.py",
    "covered": 15,
    "total": 117,
    "percent": 12.8
-  },
-  {
-   "module": "ui/pet_skill_tree.py",
-   "covered": 39,
-   "total": 299,
-   "percent": 13.0
-  },
-  {
-   "module": "ui/skill_import_service.py",
-   "covered": 91,
-   "total": 691,
-   "percent": 13.2
   },
   {
    "module": "infra/file_index.py",
@@ -3263,6 +3257,12 @@
    "percent": 13.7
   },
   {
+   "module": "ui/ui_icons.py",
+   "covered": 27,
+   "total": 196,
+   "percent": 13.8
+  },
+  {
    "module": "domain/white_model_service.py",
    "covered": 77,
    "total": 546,
@@ -3275,27 +3275,21 @@
    "percent": 14.1
   },
   {
+   "module": "orchestrator/stage_config.py",
+   "covered": 57,
+   "total": 395,
+   "percent": 14.4
+  },
+  {
    "module": "ui/pet_models_tabs.py",
    "covered": 103,
    "total": 713,
    "percent": 14.4
   },
   {
-   "module": "ui/ui_icons.py",
-   "covered": 24,
-   "total": 167,
-   "percent": 14.4
-  },
-  {
    "module": "contract/asset_contract.py",
    "covered": 40,
    "total": 275,
-   "percent": 14.5
-  },
-  {
-   "module": "orchestrator/stage_config.py",
-   "covered": 55,
-   "total": 379,
    "percent": 14.5
   },
   {
@@ -3437,6 +3431,12 @@
    "percent": 17.9
   },
   {
+   "module": "ui/skill_note_render.py",
+   "covered": 46,
+   "total": 256,
+   "percent": 18.0
+  },
+  {
    "module": "ui/ui_scroll.py",
    "covered": 18,
    "total": 98,
@@ -3569,6 +3569,12 @@
    "percent": 22.9
   },
   {
+   "module": "orchestrator/stage_flow.py",
+   "covered": 72,
+   "total": 313,
+   "percent": 23.0
+  },
+  {
    "module": "orchestrator/edit_habits.py",
    "covered": 54,
    "total": 232,
@@ -3591,12 +3597,6 @@
    "covered": 27,
    "total": 115,
    "percent": 23.5
-  },
-  {
-   "module": "orchestrator/stage_flow.py",
-   "covered": 72,
-   "total": 303,
-   "percent": 23.8
   },
   {
    "module": "contract/script_manifest_schema.py",
@@ -3725,12 +3725,6 @@
    "percent": 32.1
   },
   {
-   "module": "orchestrator/skill_project_layer.py",
-   "covered": 56,
-   "total": 170,
-   "percent": 32.9
-  },
-  {
    "module": "infra/business_log.py",
    "covered": 23,
    "total": 69,
@@ -3747,6 +3741,12 @@
    "covered": 16,
    "total": 47,
    "percent": 34.0
+  },
+  {
+   "module": "orchestrator/skill_project_layer.py",
+   "covered": 61,
+   "total": 178,
+   "percent": 34.3
   },
   {
    "module": "ui/pet_ui_support.py",
@@ -3840,8 +3840,14 @@
   },
   {
    "module": "orchestrator/skill_registry.py",
-   "covered": 311,
-   "total": 679,
+   "covered": 322,
+   "total": 706,
+   "percent": 45.6
+  },
+  {
+   "module": "orchestrator/skill_package_meta.py",
+   "covered": 65,
+   "total": 142,
    "percent": 45.8
   },
   {
@@ -3965,12 +3971,6 @@
    "percent": 74.1
   },
   {
-   "module": "orchestrator/skill_package_meta.py",
-   "covered": 33,
-   "total": 43,
-   "percent": 76.7
-  },
-  {
    "module": "contract/file_index_contract.py",
    "covered": 28,
    "total": 36,
@@ -4068,9 +4068,9 @@
   },
   {
    "module": "agent/publication.py",
-   "covered": 219,
+   "covered": 217,
    "total": 246,
-   "percent": 89.0
+   "percent": 88.2
   },
   {
    "module": "domain/skill_residue_service.py",
@@ -4253,6 +4253,12 @@
    "percent": 100.0
   },
   {
+   "module": "ui_theme.py",
+   "covered": 4,
+   "total": 4,
+   "percent": 100.0
+  },
+  {
    "module": "usage_overview.py",
    "covered": 4,
    "total": 4,
@@ -4265,6 +4271,6 @@
    "percent": 100.0
   }
  ],
- "modules_covered": 187,
- "modules_total": 707
+ "modules_covered": 191,
+ "modules_total": 708
 }

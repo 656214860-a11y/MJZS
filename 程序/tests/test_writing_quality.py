@@ -171,15 +171,22 @@ class QualityTests(unittest.TestCase):
 
     def test_all_engines_freeze_the_same_quality_contract(self):
         import workflow_settings
-        skill = Path(__file__).resolve().parents[1] / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md'
-        for engine in ('api', 'claude', 'codex', 'claude-desktop'):
-            with self.subTest(engine=engine):
-                frozen = workflow_settings.freeze_skills(
-                    {'engine': engine, 'model': 'synthetic-quality', 'skills': [str(skill)]},
-                    model_snapshot={'context_length': 1_000_000})
-                instructions = workflow_settings.skill_prompt(frozen, inline=True)
-                self.assertTrue(quality.enabled(instructions))
-                self.assertEqual(instructions.count('【四项辅助质检交付】'), 1)
+        with tempfile.TemporaryDirectory() as td:
+            skill = Path(td) / 'user-quality-skill.skill.md'
+            skill.write_text(
+                '---\nname: user-quality-skill\ndisplayName: 质检测试\n'
+                'description: 质检声明\nstage: 剧本准备\n---\n' +
+                '\n'.join(quality.REFERENCES) + '\n',
+                encoding='utf-8',
+            )
+            for engine in ('api', 'claude', 'codex', 'claude-desktop'):
+                with self.subTest(engine=engine):
+                    frozen = workflow_settings.freeze_skills(
+                        {'engine': engine, 'model': 'synthetic-quality', 'skills': [str(skill)]},
+                        model_snapshot={'context_length': 1_000_000})
+                    instructions = workflow_settings.skill_prompt(frozen, inline=True)
+                    self.assertTrue(quality.enabled(instructions))
+                    self.assertEqual(instructions.count('【四项辅助质检交付】'), 1)
 
     def test_quality_prompt_assigns_each_report_to_one_review_role(self):
         text = quality.prompt()
@@ -189,12 +196,11 @@ class QualityTests(unittest.TestCase):
             self.assertNotIn(obsolete, text)
 
     def test_skill_defines_roles_and_editable_writer_style(self):
-        skill = Path(__file__).resolve().parents[1] / 'skills/01 剧本准备SKILL/pipeline-script-preparation.skill.md'
-        body = skill.read_text(encoding='utf-8')
-        for duty in ('编剧风格', '编剧角色 · 剧本五阶门控', '编辑角色 · 情绪节拍曲线',
-                     '演员角色 · 台词七维诊断', '演员角色 · 台词语速自检'):
-            self.assertIn(duty, body)
-        self.assertNotIn('HOLLMWOOD', body)
+        self.assertEqual(quality.REFERENCES, (
+            '编剧角色 · 剧本五阶门控', '编辑角色 · 情绪节拍曲线',
+            '演员角色 · 台词七维诊断', '演员角色 · 台词语速自检'))
+        self.assertTrue(quality.enabled('\n'.join(quality.REFERENCES)))
+        self.assertNotIn('HOLLMWOOD', quality.prompt())
 
     def test_desktop_new_file_receipt_notifies_once_without_scanning(self):
         from desktop import Desktop

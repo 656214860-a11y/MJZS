@@ -228,10 +228,21 @@ class SummaryTests(unittest.TestCase):
             self.assertTrue(lines[1].startswith('SKILL：'))
 
     def test_the_estimate_counts_the_chosen_skills(self):
+        from unittest.mock import patch
+        import skill_registry
+        import stage_config
         with tempfile.TemporaryDirectory() as td:
+            skills_root = Path(td) / 'skills'
+            stage_dir = skills_root / '03初步分镜SKILL'
+            stage_dir.mkdir(parents=True)
+            (stage_dir / 'sb-demo.skill.md').write_text(
+                '---\nname: sb-demo\ndisplayName: 分镜示例\ndescription: demo\nstage: 初步分镜\n---\n# demo\n',
+                encoding='utf-8')
+            reg = skill_registry.Registry(root=skills_root)
             proj = self.project(td)
-            names = self.module.selected_skills(proj, 'storyboard')
-            data = self.module.step_summary(self.desktop(proj), 'storyboard', proj)
+            with patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
+                names = self.module.selected_skills(proj, 'storyboard')
+                data = self.module.step_summary(self.desktop(proj), 'storyboard', proj)
             self.assertEqual(data['skills'], len(names))
             self.assertGreater(len(names), 0, '这一阶段默认勾着 SKILL')
 
@@ -286,10 +297,21 @@ class UncheckedTests(unittest.TestCase):
         return proj
 
     def test_default_config_counts_as_checked(self):
+        from unittest.mock import patch
+        import skill_registry
+        import stage_config
         with tempfile.TemporaryDirectory() as td:
+            skills_root = Path(td) / 'skills'
+            stage_dir = skills_root / '05资产管理SKILL'
+            stage_dir.mkdir(parents=True)
+            (stage_dir / 'asset-demo.skill.md').write_text(
+                '---\nname: asset-demo\ndisplayName: 资产示例\ndescription: demo\nstage: 资产管理\n---\n# demo\n',
+                encoding='utf-8')
+            reg = skill_registry.Registry(root=skills_root)
             proj = self.project(td, None)
-            self.assertTrue(stage_flow.selected_skills(proj, 'assets'))
-            self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
+            with patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
+                self.assertEqual(stage_flow.selected_skills(proj, 'assets'), ['asset-demo'])
+                self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
 
     def test_an_empty_selection_is_unchecked(self):
         with tempfile.TemporaryDirectory() as td:
@@ -298,12 +320,22 @@ class UncheckedTests(unittest.TestCase):
             self.assertEqual(stage_flow.unchecked(proj, 'assets'), '未勾选 SKILL')
 
     def test_a_partial_selection_is_still_checked(self):
+        from unittest.mock import patch
         import skill_registry
-        name = skill_registry.default_registry().getByStage('assets')[0].name
+        import stage_config
         with tempfile.TemporaryDirectory() as td:
-            proj = self.project(td, [name])
-            self.assertEqual(stage_flow.selected_skills(proj, 'assets'), [name])
-            self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
+            skills_root = Path(td) / 'skills'
+            stage_dir = skills_root / '05资产管理SKILL'
+            stage_dir.mkdir(parents=True)
+            for name in ('asset-one', 'asset-two'):
+                (stage_dir / (name + '.skill.md')).write_text(
+                    '---\nname: %s\ndisplayName: %s\ndescription: demo\nstage: 资产管理\n---\n# demo\n'
+                    % (name, name), encoding='utf-8')
+            reg = skill_registry.Registry(root=skills_root)
+            proj = self.project(td, ['asset-one'])
+            with patch.object(stage_config.skill_registry, 'default_registry', return_value=reg):
+                self.assertEqual(stage_flow.selected_skills(proj, 'assets'), ['asset-one'])
+                self.assertEqual(stage_flow.unchecked(proj, 'assets'), '')
 
     def test_non_stage_entries_are_never_gated(self):
         self.assertEqual(stage_flow.unchecked(None, 'pet_test'), '')

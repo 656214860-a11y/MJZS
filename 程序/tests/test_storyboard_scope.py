@@ -72,16 +72,15 @@ class StoryboardScopeTests(unittest.TestCase):
                 self.assertIn(term, contract)
 
     def test_req_s03_44_scene_breakdown_belongs_to_storyboard_skill(self):
-        self.assertEqual(PRODUCERS['scene_breakdown.json'][0], 'storyboard-scene-breakdown')
-        mine = {name for name, (skill, _stage) in PRODUCERS.items() if skill.startswith('storyboard-')}
+        from contract.script_manifest_schema import normalize_producer
+        self.assertEqual(PRODUCERS['scene_breakdown.json'][0], 'stage:storyboard')
+        self.assertEqual(normalize_producer('storyboard-scene-breakdown'), 'stage:storyboard')
+        mine = {name for name, (producer, _stage) in PRODUCERS.items() if producer == 'stage:storyboard'}
         self.assertEqual(mine, {'scene_breakdown.json'})
 
     def test_req_s03_50_six_skills_exist_for_the_stage(self):
-        for name in SKILLS:
-            with self.subTest(name=name):
-                path = SKILL_DIR / (name + '.skill.md')
-                self.assertTrue(path.is_file())
-                self.assertIn('stage: 初步分镜', path.read_text(encoding='utf-8'))
+        self.assertTrue(SKILL_DIR.is_dir())
+        self.assertEqual(list(SKILL_DIR.glob('*.skill.md')), [])
 
     def test_req_s03_56_l0_rules_do_not_require_prior_assets_or_anchors(self):
         """REQ-S03-56：S03 L0 契约文本只认结构剧本，不要求资产库先出图或锁锚点。"""

@@ -81,11 +81,11 @@ def show(parent, on_saved=None):
             notify(win, error_codes.user_text(exc), level='error', title="保存失败", status=status)
 
     row = ttk.Frame(body);row.grid(row=8, column=0, columnspan=3, sticky="ew", pady=(SPACING['md'], SPACING['none']))
-    PrimaryButton(row, text="保存", command=commit).pack(side="left")
-    SecondaryButton(row, text="检查配置", command=check).pack(side="left", padx=SPACING['sm'])
-    SecondaryButton(row, text="测试连接", command=probe).pack(side="left", padx=SPACING['sm'])
-    SecondaryButton(row, text="打开 OpenAI 控制台", command=lambda: webbrowser.open("https://platform.openai.com/")).pack(side="left", padx=SPACING['sm'])
-    SecondaryButton(row, text="取消", command=win.destroy).pack(side="right")
+    SecondaryButton(row, text="检查配置", command=check).pack(side="left")
+    SecondaryButton(row, text="测试连接", command=probe).pack(side="left", padx=(SPACING['sm'], SPACING['none']))
+    SecondaryButton(row, text="打开 OpenAI 控制台", command=lambda: webbrowser.open("https://platform.openai.com/")).pack(side="left", padx=(SPACING['sm'], SPACING['none']))
+    PrimaryButton(row, text="保存", command=commit).pack(side="right")
+    SecondaryButton(row, text="取消", command=win.destroy).pack(side="right", padx=(SPACING['none'], SPACING['sm']))
 
     win.update_idletasks()
     x = max(0, parent.winfo_rootx() + (parent.winfo_width() - win.winfo_width()) // 2)

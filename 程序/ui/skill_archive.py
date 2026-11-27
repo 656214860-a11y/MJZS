@@ -167,11 +167,12 @@ def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
         if not candidates:
             raise skill_import_service.ImportBlocked(
                 '压缩包中没有找到 SKILL.md 或 *.skill.md')
-        plans, problems, errors = skill_import_service._candidate_plans(
-            candidates, root, registry, stage_hint, layer=options.layer)
         source = options.install_source or skill_import_service._InstallSource(
             ledger_source=str(zip_path.resolve()), label=zip_path.name,
             source_kind='archive', origin='压缩包')
+        plans, problems, errors = skill_import_service._candidate_plans(
+            candidates, root, registry, stage_hint, layer=options.layer,
+            suite_name=source.label)
         return skill_import_service._install_candidate_plans(
             plans, problems, errors, program, confirm, source)
     finally:
@@ -179,7 +180,7 @@ def import_archive(zip_path, program, registry, stage_hint='', confirm=None, *,
             recycle_paths(program, [staging], 'SKILL 压缩包解压暂存收尾')
 
 
-def archive_entry_digests(zip_path, program, registry, scope='', layer='user'):
+def archive_entry_digests(zip_path, program, registry, scope='', layer='user', suite_name=''):
     """ZIP → ``{台账键: 内容摘要}``：安全解包到暂存（用后回收）→ 候选扫描 → 逐候选摘要。
 
     更新检测专用：只读不安装；``scope`` 与 ``import_archive`` 同义（包内子目录），
@@ -194,7 +195,8 @@ def archive_entry_digests(zip_path, program, registry, scope='', layer='user'):
         _extract(zip_path, root)
         if scope:
             root = _scope_root(root, scope)
-        return skill_import_service._entry_digests(root, registry, layer)
+        return skill_import_service._entry_digests(
+            root, registry, layer, suite_name=suite_name or zip_path.name)
     finally:
         if staging.exists():
             recycle_paths(program, [staging], 'SKILL 更新检测解包暂存收尾')

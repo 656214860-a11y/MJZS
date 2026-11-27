@@ -63,7 +63,10 @@ def find_skill_entry(program, registry, name):
     skill = registry.getById(name)
     if skill is not None and getattr(skill, 'path', None) is not None:
         layer = str(getattr(skill, 'layer', '') or '')
+        pkg_root = (skill_registry.package_root_of(skill)
+                    if skill.get(skill_registry.IMPORTED_PACKAGE_FLAG, False) else None)
         return {'name': skill.name, 'path': Path(skill.path), 'kind': _entry_kind(skill.path),
+                'package_root': pkg_root,
                 'layer': layer,
                 'project': (str(getattr(registry, 'project_root', '') or '')
                             if layer == 'project' else ''),
@@ -77,7 +80,15 @@ def find_skill_entry(program, registry, name):
             path = _find_disabled_file(registry, name)
         if path is None:
             continue
+        pkg_root = None
+        if _entry_kind(path) == 'package':
+            stage_root = path.parent.parent
+            if skill_project_layer.stage_from_path(stage_root / '__probe__'):
+                pkg_root = path.parent
+            elif skill_project_layer.stage_from_path(stage_root.parent / '__probe__'):
+                pkg_root = stage_root
         return {'name': name, 'path': path, 'kind': _entry_kind(path),
+                'package_root': pkg_root,
                 'layer': str(entry.get('layer') or ''),
                 'project': str(entry.get('project') or ''), 'disabled': True}
     return None
@@ -244,7 +255,7 @@ def rename_plan(program, registry, name, new_name, project=None):
         target_old = entry['path']
         target_new = entry['path'].with_name(new + skill_registry.SKILL_SUFFIX)
     else:
-        target_old = entry['path'].parent
+        target_old = Path(entry.get('package_root') or entry['path'].parent)
         target_new = target_old.with_name(new)
     if target_new.exists():
         raise skill_import_service.ImportBlocked('目标位置已存在：%s' % target_new.name)
@@ -419,7 +430,8 @@ def uninstall_skill_entry(program, registry, name, *, project=None):
     project_skills = getattr(registry, 'project_skills', None)
     if isinstance(project_skills, (str, Path)):
         roots.append(Path(project_skills).resolve())
-    target = path.parent if entry['kind'] == 'package' else path
+    target = (Path(entry.get('package_root') or path.parent)
+              if entry['kind'] == 'package' else path)
     if (not target.exists()
             or not any(target.resolve().is_relative_to(root) for root in roots)):
         raise skill_import_service.ImportBlocked('SKILL「%s」不在可卸载目录' % name)
