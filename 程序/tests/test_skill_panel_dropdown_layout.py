@@ -24,6 +24,35 @@ from ui_tokens import SPACING, STAGE_PANEL_LAYOUT
 
 ARROW_WIDTH = 32
 SIZES = (('wide', 1280, 800), ('mid', 920, 615), ('min', 560, 430))
+# R4589 清空内置 SKILL 后，布局用例用这份临时清单注册一个脚本阶段勾选框；断言不变。
+_FIXTURE_SKILL = """---
+name: fixture-layout-skill
+displayName: 夹具技能
+description: 布局自检用的临时 SKILL
+stage: 剧本准备
+capabilities: [structured-output]
+preferredModels: []
+fallbackModels: []
+tools: []
+dependsOn: []
+conflictsWith: []
+parallelizable: true
+paid: false
+input: [projectId]
+output: [ok]
+constraints: [自检]
+feedback:
+  - onProgress: 更新进度
+  - onError: 异常处理
+  - onComplete: 通知
+examples:
+  - 用户："跑一下" → run()
+---
+
+## 说明
+
+布局自检用的最小 SKILL。
+"""
 
 
 def _descendants(widget):
@@ -74,8 +103,17 @@ class DropdownLayoutTests(unittest.TestCase):
         self.win.deiconify()
         self.win.geometry('%dx%d' % (width, height))
         # R2862：总控预设与内联制作锁已删；expand 参数保留仅为兼容旧调用点。
-        self.panel = skill_panel.Panel(self.win, self.desktop, 'script',
-                                       compact=False, scroll=True)
+        # R4589 内置 SKILL 清零后，脚本阶段用临时夹具注册一个 SKILL（随 tmp 清理）。
+        import skill_registry
+        stage_dir = self.desktop.app / 'skills' / '01剧本准备SKILL'
+        skill_path = stage_dir / 'fixture-layout-skill.skill.md'
+        if not skill_path.is_file():
+            stage_dir.mkdir(parents=True, exist_ok=True)
+            skill_path.write_text(_FIXTURE_SKILL, encoding='utf-8')
+        registry = skill_registry.Registry(root=self.desktop.app / 'skills')
+        with patch.object(skill_registry, 'default_registry', return_value=registry):
+            self.panel = skill_panel.Panel(self.win, self.desktop, 'script',
+                                           compact=False, scroll=True)
         self.panel.pack(fill='both', expand=True)
         self._settle()
         return self.panel

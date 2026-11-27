@@ -9,6 +9,7 @@
 import tempfile
 import unittest
 from pathlib import Path
+from unittest import mock
 
 import pet_bus
 import stage_flow
@@ -17,6 +18,36 @@ import stage_exec
 from agent.core import save
 from contract.stage_path_service import write_dir
 from orchestrator import skill_orchestrator
+
+
+_PACING_SKILL = """---
+name: storyboard-pacing-check
+displayName: 节奏与连续性检查
+description: 检查分镜节奏
+stage: 初步分镜
+capabilities: [reasoning]
+preferredModels: []
+fallbackModels: []
+tools: [storyboard.pacingCheck, storyboard.continuityCheck]
+dependsOn: []
+conflictsWith: []
+parallelizable: true
+paid: false
+input: [shotChain]
+output: [pacingReport]
+constraints: [自检]
+feedback:
+  - onProgress: 更新进度
+  - onError: 异常处理
+  - onComplete: 通知
+examples:
+  - 用户："检查分镜节奏" → storyboard.pacingCheck()
+---
+
+## 说明
+
+布局与完成出口自检用的临时 SKILL。
+"""
 
 
 def adopted_storyboard(root):
@@ -45,6 +76,18 @@ class SkillCompletionExitTests(unittest.TestCase):
         self.temp = tempfile.TemporaryDirectory()
         self.addCleanup(self.temp.cleanup)
         self.root = Path(self.temp.name).resolve()
+        # R4589 清空内置清单后，完成出口仍要能解析 storyboard-pacing-check；夹具不进项目目录。
+        self.skills_tmp = tempfile.TemporaryDirectory()
+        self.addCleanup(self.skills_tmp.cleanup)
+        stage_dir = Path(self.skills_tmp.name) / '03初步分镜SKILL'
+        stage_dir.mkdir()
+        (stage_dir / 'storyboard-pacing-check.skill.md').write_text(
+            _PACING_SKILL, encoding='utf-8')
+        registry = skill_orchestrator.skill_registry.Registry(root=Path(self.skills_tmp.name))
+        patcher = mock.patch.object(
+            skill_orchestrator.skill_registry, 'default_registry', return_value=registry)
+        patcher.start()
+        self.addCleanup(patcher.stop)
 
     def _run(self, project, context=None):
         bus = pet_bus.Bus()
