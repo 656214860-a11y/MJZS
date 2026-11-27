@@ -22,5 +22,5 @@ def skip_summary(results):
 
 
 def print_unit_result(item):
-    print('  %-26s %5d 条  %6.1f 秒%s' % (item[0], item[2], item[5],
-                                          '  ✗ ' + str(len(item[3])) if item[3] else ''))
+    env.safe_print('  %-26s %5d 条  %6.1f 秒%s' % (item[0], item[2], item[5],
+                                                   '  ✗ ' + str(len(item[3])) if item[3] else ''))

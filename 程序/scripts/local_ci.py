@@ -58,7 +58,32 @@ EXIT_STEPS = (
 RELEASE_STEPS = (*EXIT_STEPS, ("分发自检", ["scripts/distribution_selfcheck.py"]))
 
 
+def _configure_stdio_utf8() -> None:
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        try:
+            stream.reconfigure(encoding="utf-8", errors="replace")
+        except (AttributeError, OSError, ValueError, TypeError):
+            pass
+
+
+def _safe_print(text: str = "", *, flush: bool = False) -> None:
+    target = sys.stdout
+    if target is None:
+        return
+    content = str(text) + "\n"
+    try:
+        target.write(content)
+    except UnicodeEncodeError:
+        encoding = getattr(target, "encoding", None) or "utf-8"
+        target.write(content.encode(encoding, errors="replace").decode(encoding, errors="replace"))
+    if flush:
+        target.flush()
+
+
 def main(argv=None) -> int:
+    _configure_stdio_utf8()
     args = list(sys.argv[1:] if argv is None else argv)
     if "release" in args:
         steps = RELEASE_STEPS
@@ -73,7 +98,8 @@ def main(argv=None) -> int:
         # 定向复跑：ci_targets.txt 每行一个 unittest 目标（如 tests.test_idea_chat），逐个详细输出。
         names = [line.strip() for line in targets.read_text(encoding="utf-8").splitlines() if line.strip()]
         steps = tuple(("定向 " + name, ["-m", "unittest", "-v", name]) for name in names)
-    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1", PYTHONIOENCODING="utf-8",
+    env = dict(os.environ, DRAMA_SUPPRESS_MODAL="1", DRAMA_SUPPRESS_NETWORK="1",
+               PYTHONIOENCODING="utf-8", PYTHONUTF8="1",
                PYTHONPATH=os.pathsep.join(filter(None, (str(PROGRAM / "tests"), str(PROGRAM),
                                                         os.environ.get("PYTHONPATH", "")))))
     LOG.parent.mkdir(parents=True, exist_ok=True)
@@ -81,7 +107,7 @@ def main(argv=None) -> int:
     with LOG.open("w", encoding="utf-8") as log:
         log.write("[CI] 开始 %s\n" % time.strftime("%Y-%m-%d %H:%M:%S"))
         for index, (label, command) in enumerate(steps, 1):
-            print("[CI] %d/%d %s..." % (index, len(steps), label), flush=True)
+            _safe_print("[CI] %d/%d %s..." % (index, len(steps), label), flush=True)
             log.write("\n[CI] === %s ===\n" % label)
             log.flush()
             started = time.perf_counter()
@@ -94,7 +120,7 @@ def main(argv=None) -> int:
                 continue
             if result.returncode != 0:
                 log.write("[CI] 失败\n")
-                print("[CI] 失败：%s，日志 %s" % (label, LOG), flush=True)
+                _safe_print("[CI] 失败：%s，日志 %s" % (label, LOG), flush=True)
                 return result.returncode or 1
         if failed:
             log.write("[CI] 失败\n")
@@ -105,9 +131,9 @@ def main(argv=None) -> int:
                                capture_output=True, text=True, check=False,
                                encoding="utf-8", errors="replace")
         for line in (trend.stdout or "").splitlines():
-            print(line, flush=True)
+            _safe_print(line, flush=True)
             log.write("%s\n" % line)
-    print("[CI] 通过，日志 %s" % LOG, flush=True)
+    _safe_print("[CI] 通过，日志 %s" % LOG, flush=True)
     return 0
 
 

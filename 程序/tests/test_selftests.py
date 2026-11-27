@@ -557,5 +557,157 @@ class SelftestModuleSplitTests(unittest.TestCase):
         self.assertIn('skip_summary(got)', source)
         self.assertIn("arg == '--incremental'", source)
 
+
+class _StrictGbkStream:
+    """模拟不支持 reconfigure 的严格 GBK 输出流（如旧式包装流或管道）。"""
+
+    encoding = 'gbk'
+    errors = 'strict'
+
+    def __init__(self):
+        self.chunks = []
+
+    def write(self, text):
+        text.encode('gbk', 'strict')
+        self.chunks.append(text)
+        return len(text)
+
+    def flush(self):
+        pass
+
+    def getvalue(self):
+        return ''.join(self.chunks)
+
+
+class Utf8ConsoleOutputTests(unittest.TestCase):
+    """C23：自检外层包装器在 Windows GBK 终端下输出 ✗/✅/❌ 等符号不得抛 UnicodeEncodeError。"""
+
+    def test_print_unit_result_handles_strict_gbk_stream_and_gbk_subprocess(self):
+        stream = _StrictGbkStream()
+        item = ('test_demo_fail', 'test_demo_fail', 3, ['case1'], 'trace', 0.4, '')
+        with mock.patch.object(sys, 'stdout', stream):
+            selftest_reporting.print_unit_result(item)
+        output = stream.getvalue()
+        self.assertIn('test_demo_fail', output)
+        self.assertIn('1', output)
+
+        gbk_env = dict(os.environ, PYTHONIOENCODING='gbk', PYTHONUTF8='0')
+        script = (
+            "import selftest_reporting; "
+            "selftest_reporting.print_unit_result(('unit_x', 'unit_x', 2, ['bad'], 'tb', 0.2, ''))"
+        )
+        result = subprocess.run(
+            [sys.executable, '-B', '-c', script],
+            cwd=selftest_env.HERE, env=gbk_env, capture_output=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+
+    def test_run_selftests_configures_utf8_under_gbk_subprocess(self):
+        gbk_env = dict(os.environ, PYTHONIOENCODING='gbk', PYTHONUTF8='0')
+        script = (
+            "import sys, run_selftests; "
+            "run_selftests.print_unit_result(('unit_gbk', 'unit_gbk', 1, ['err'], 'tb', 0.1, '')); "
+            "print('detail: ✗ ✅ ❌', flush=True); "
+            "assert sys.stdout.encoding.lower().replace('_', '-') == 'utf-8', sys.stdout.encoding"
+        )
+        result = subprocess.run(
+            [sys.executable, '-B', '-c', script],
+            cwd=selftest_env.HERE, env=gbk_env, capture_output=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+        self.assertIn('✗', result.stdout.decode('utf-8', errors='replace'))
+
+    def test_run_hidden_replays_utf8_log_to_gbk_stdout_and_sets_utf8_child_env(self):
+        captured_env = {}
+
+        def fake_run(cmd, env=None, **kwargs):
+            captured_env.update(env or {})
+            log_path = cmd[3]
+            with open(log_path, 'w', encoding='utf-8') as handle:
+                handle.write('  demo_unit     1 条     0.1 秒  ✗ 1\n✅ done\n')
+            return mock.Mock(returncode=1)
+
+        stream = _StrictGbkStream()
+        with tempfile.TemporaryDirectory() as folder:
+            helper = os.path.join(folder, 'scripts', 'gui_hidden.py')
+            os.makedirs(os.path.dirname(helper), exist_ok=True)
+            with open(helper, 'w', encoding='utf-8') as fh:
+                fh.write('# stub\n')
+            with mock.patch.object(run_selftests, 'HERE', folder), \
+                 mock.patch.dict(os.environ, {'PYTHONIOENCODING': 'gbk', 'PYTHONUTF8': '0'}), \
+                 mock.patch.object(run_selftests.subprocess, 'run', side_effect=fake_run), \
+                 mock.patch.object(sys, 'stdout', stream):
+                code = run_selftests._run_hidden(['-k', 'demo'])
+        self.assertEqual(code, 1)
+        self.assertEqual(captured_env.get('PYTHONIOENCODING'), 'utf-8')
+        self.assertEqual(captured_env.get('PYTHONUTF8'), '1')
+        self.assertIn('demo_unit', stream.getvalue())
+
+    def test_smoke_test_handles_strict_gbk_stream_and_utf8_child_env(self):
+        stream = _StrictGbkStream()
+        saved_pass, saved_fail, saved_items = smoke_test.PASS, smoke_test.FAIL, list(smoke_test.FAILED_ITEMS)
+        try:
+            with mock.patch.object(sys, 'stdout', stream):
+                smoke_test.check(True, '符号通过')
+                smoke_test.check(False, '符号失败')
+        finally:
+            smoke_test.PASS, smoke_test.FAIL, smoke_test.FAILED_ITEMS = saved_pass, saved_fail, saved_items
+        self.assertIn('符号通过', stream.getvalue())
+        self.assertIn('符号失败', stream.getvalue())
+
+        captured_env = {}
+
+        def fake_hidden_run(cmd, env=None, **kwargs):
+            captured_env.update(env or {})
+            log_path = cmd[3]
+            with open(log_path, 'w', encoding='utf-8') as handle:
+                handle.write('✅ 冒烟通过\n❌ 冒烟失败 ✗ 1\n')
+            return mock.Mock(returncode=0)
+
+        replay_stream = _StrictGbkStream()
+        with tempfile.TemporaryDirectory() as folder:
+            fake_here = smoke_test.Path(folder)
+            helper = fake_here / 'scripts' / 'gui_hidden.py'
+            helper.parent.mkdir(parents=True, exist_ok=True)
+            helper.write_text('# stub\n', encoding='utf-8')
+            with mock.patch.object(smoke_test, 'HERE', fake_here), \
+                 mock.patch.dict(os.environ, {'PYTHONIOENCODING': 'gbk', 'PYTHONUTF8': '0'}), \
+                 mock.patch.object(smoke_test.subprocess, 'run', side_effect=fake_hidden_run), \
+                 mock.patch.object(sys, 'stdout', replay_stream):
+                code = smoke_test._smoke_hidden(['--checks'])
+        self.assertEqual(code, 0)
+        self.assertEqual(captured_env.get('PYTHONIOENCODING'), 'utf-8')
+        self.assertEqual(captured_env.get('PYTHONUTF8'), '1')
+        self.assertIn('冒烟通过', replay_stream.getvalue())
+
+    def test_local_ci_echoes_non_gbk_output_on_strict_gbk_stream(self):
+        from scripts import local_ci
+        stream = _StrictGbkStream()
+        ok_step = mock.Mock(returncode=0, stdout='')
+        trend_step = mock.Mock(returncode=0, stdout='趋势 ✗ ✅ ≥ 1.0\n')
+        with tempfile.TemporaryDirectory() as folder, \
+             mock.patch.object(local_ci, 'LOG', local_ci.Path(folder) / 'ci.log'), \
+             mock.patch.object(local_ci, 'STEPS', (('模拟', ['smoke_test.py']), ('模拟2', ['smoke_test.py']))), \
+             mock.patch.object(local_ci.subprocess, 'run', side_effect=[ok_step, ok_step, trend_step]), \
+             mock.patch.object(sys, 'stdout', stream):
+            code = local_ci.main(['quick'])
+        self.assertEqual(code, 0)
+        self.assertIn('趋势', stream.getvalue())
+
+    def test_gui_hidden_configures_utf8_stdio_under_gbk_subprocess(self):
+        gbk_env = dict(os.environ, PYTHONIOENCODING='gbk', PYTHONUTF8='0')
+        script = (
+            "import sys; from scripts import gui_hidden; "
+            "rc = gui_hidden.main(['gui_hidden.py']); "
+            "assert rc == 2; "
+            "assert sys.stdout.encoding.lower().replace('_', '-') == 'utf-8', sys.stdout.encoding"
+        )
+        result = subprocess.run(
+            [sys.executable, '-B', '-c', script],
+            cwd=selftest_env.HERE, env=gbk_env, capture_output=True, timeout=15,
+        )
+        self.assertEqual(result.returncode, 0, result.stderr.decode('utf-8', errors='replace'))
+
+
 if __name__ == '__main__':
     unittest.main()

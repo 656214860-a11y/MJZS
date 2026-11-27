@@ -34,6 +34,50 @@ os.environ.setdefault("DRAMA_SUPPRESS_DIAGNOSTICS", "1")
 os.environ.setdefault("DRAMA_REDUCE_MOTION", "0")  # 自检固定保留动效，不随本机系统设置漂移
 
 
+def configure_utf8_stdio(line_buffering=None):
+    """将当前进程的 stdout/stderr 切到 UTF-8 + replace，避免 Windows GBK 终端遇 ✗ 等符号抛错。"""
+    kwargs = {'encoding': 'utf-8', 'errors': 'replace'}
+    if line_buffering is not None:
+        kwargs['line_buffering'] = bool(line_buffering)
+    for stream in (sys.stdout, sys.stderr):
+        if stream is None:
+            continue
+        try:
+            stream.reconfigure(**kwargs)
+        except (AttributeError, OSError, ValueError, TypeError):
+            pass
+
+
+def safe_write(text, stream=None, flush=False):
+    """安全写入流：若流未切 UTF-8 且遇非 GBK 字符，按该流编码以 replace 降级而不抛错。"""
+    target = sys.stdout if stream is None else stream
+    if target is None:
+        return
+    content = str(text)
+    try:
+        target.write(content)
+    except UnicodeEncodeError:
+        encoding = getattr(target, 'encoding', None) or 'utf-8'
+        sanitized = content.encode(encoding, errors='replace').decode(encoding, errors='replace')
+        target.write(sanitized)
+    if flush:
+        target.flush()
+
+
+def safe_print(text='', stream=None, flush=False):
+    """按 safe_write 输出一行文本。"""
+    safe_write(str(text) + '\n', stream=stream, flush=flush)
+
+
+def utf8_subprocess_env(base=None, **overrides):
+    """为自检子进程强制注入 UTF-8 标准流环境，覆盖调用端可能遗留的 GBK 配置。"""
+    merged = dict(os.environ if base is None else base)
+    merged['PYTHONIOENCODING'] = 'utf-8'
+    merged['PYTHONUTF8'] = '1'
+    merged.update(overrides)
+    return merged
+
+
 
 HERE = os.path.dirname(os.path.abspath(__file__))
 
