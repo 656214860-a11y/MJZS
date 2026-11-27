@@ -503,3 +503,220 @@ r.release_gui_lock(p)
             with contextlib.redirect_stdout(output):
                 selftest_scheduling._gui_wait_report(common, 30.0, queue, ticket)
             self.assertIn('心跳未知', output.getvalue())
+
+
+def _perf_unit_result(name, red, detail='detail'):
+    return (name, name, 1, ['boom'] if red else [], detail, 0.1, '', [])
+
+
+class PerfRecheckUnitTests(unittest.TestCase):
+    def test_recheck_perf_reds_lives_in_selftest_scheduling_and_is_reexported(self):
+        self.assertTrue(hasattr(selftest_scheduling, 'recheck_perf_reds'))
+        self.assertIs(runner.recheck_perf_reds, selftest_scheduling.recheck_perf_reds)
+
+    def test_green_on_recheck_replaces_red(self):
+        calls = []
+
+        def fake_runner(units):
+            calls.append([u[0] for u in units])
+            return [_perf_unit_result(u[0], False) for u in units]
+
+        got = [_perf_unit_result('test_plain', False), _perf_unit_result('test_perf_baseline', True)]
+        with contextlib.redirect_stdout(io.StringIO()):
+            out = selftest_scheduling.recheck_perf_reds(
+                got, [('test_perf_baseline', 'test_perf_baseline', None)], fake_runner)
+        self.assertEqual(calls, [['test_perf_baseline']])
+        self.assertFalse(any(item[3] for item in out))
+        self.assertEqual(len(out[1]), 8)
+
+    def test_still_red_stays_red(self):
+        got = [_perf_unit_result('test_perf_baseline', True, detail='first')]
+        with contextlib.redirect_stdout(io.StringIO()):
+            out = selftest_scheduling.recheck_perf_reds(
+                got, [('test_perf_baseline', 'test_perf_baseline', None)],
+                lambda units: [_perf_unit_result(u[0], True, detail='second') for u in units])
+        self.assertTrue(out[0][3])
+        self.assertEqual(out[0][4], 'second')
+
+    def test_non_perf_red_not_rechecked(self):
+        def fake_runner(units):
+            raise AssertionError('非性能单元变红不应触发复核')
+
+        got = [_perf_unit_result('test_plain', True), _perf_unit_result('test_perf_baseline', False)]
+        out = selftest_scheduling.recheck_perf_reds(
+            got, [('test_perf_baseline', 'test_perf_baseline', None)], fake_runner)
+        self.assertEqual(out, got)
+
+    def test_no_red_skips_runner(self):
+        def fake_runner(units):
+            raise AssertionError('全绿时不应触发复核')
+
+        got = [_perf_unit_result('test_perf_baseline', False)]
+        out = selftest_scheduling.recheck_perf_reds(
+            got, [('test_perf_baseline', 'test_perf_baseline', None)], fake_runner)
+        self.assertEqual(out, got)
+
+
+class PerfRecheckIntegrationTests(unittest.TestCase):
+    def _run_main_with_perf_gui(self, serial_results, args=('--all',)):
+        events = []
+        serial_iter = iter(serial_results)
+
+        def fake_units(todo, jobs, **kwargs):
+            events.append(('units', tuple(unit[1] for unit in todo)))
+            return [_perf_unit_result(unit[0], False) for unit in todo]
+
+        def fake_serial(todo, timeout=None):
+            events.append(('serial', tuple(unit[1] for unit in todo)))
+            red = next(serial_iter)
+            return [_perf_unit_result(unit[0], red) for unit in todo]
+
+        def fake_acquire(wait=None):
+            events.append('acquire')
+            return 'gui-token'
+
+        def fake_release(path):
+            events.append('release')
+
+        with contextlib.ExitStack() as stack:
+            modules = ['test_plain', 'test_gui', 'test_perf_baseline']
+            patches = {
+                'test_modules': modules, 'modules_for_layer': modules,
+                'protect_tk': None, 'import_all': [], 'load_cache': {},
+                'incremental': (modules, [], {'tests': {}}),
+                'units': [('test_plain', 'test_plain', None),
+                          ('test_gui', 'test_gui', None),
+                          ('test_perf_baseline', 'test_perf_baseline', None)],
+                'content_tree': '', 'load_layer_document': {},
+                'save_cache': '', 'save_full_safe_verification': None,
+                'invalidate_verified_tree': False,
+            }
+            for name, value in patches.items():
+                _patch(stack, name, return_value=value)
+            stack.enter_context(mock.patch.object(runner, '_scope_has_tk', return_value=False))
+            stack.enter_context(mock.patch.object(
+                selftest_discovery, 'gui_test_module',
+                side_effect=lambda name: name in ('test_gui', 'test_perf_baseline')))
+            stack.enter_context(mock.patch.object(runner, 'run_units', side_effect=fake_units))
+            stack.enter_context(mock.patch.object(runner, 'run_serial', side_effect=fake_serial))
+            stack.enter_context(mock.patch.object(runner, 'acquire_gui_lock', side_effect=fake_acquire))
+            stack.enter_context(mock.patch.object(runner, 'release_gui_lock', side_effect=fake_release))
+            output = stack.enter_context(contextlib.redirect_stdout(io.StringIO()))
+            try:
+                rc = runner.main(list(args))
+            except SystemExit as exc:
+                rc = exc.code
+        return rc, events, output.getvalue()
+
+    def test_perf_baseline_recheck_runs_inside_gui_lock_and_turns_green(self):
+        rc, events, _out = self._run_main_with_perf_gui([True, False], args=('--all',))
+        self.assertEqual(rc, 0)
+        self.assertEqual(events, [
+            ('units', ('test_plain',)),
+            'acquire',
+            ('units', ('test_gui',)),
+            ('serial', ('test_perf_baseline',)),
+            ('serial', ('test_perf_baseline',)),
+            'release',
+        ])
+
+    def test_perf_baseline_still_red_after_recheck_inside_gui_lock_exits_one(self):
+        rc, events, _out = self._run_main_with_perf_gui([True, True], args=('--all',))
+        self.assertEqual(rc, 1)
+        self.assertEqual(events, [
+            ('units', ('test_plain',)),
+            'acquire',
+            ('units', ('test_gui',)),
+            ('serial', ('test_perf_baseline',)),
+            ('serial', ('test_perf_baseline',)),
+            'release',
+        ])
+
+    def test_safe_mode_uses_run_safe_serial_inside_gui_lock(self):
+        events = []
+        results = iter([True, False])
+
+        def fake_safe_serial(todo):
+            events.append(('safe_serial', tuple(unit[1] for unit in todo)))
+            red = next(results)
+            return [_perf_unit_result(unit[0], red) for unit in todo]
+
+        def fake_acquire(wait=None):
+            events.append('acquire')
+            return 'gui-token'
+
+        def fake_release(path):
+            events.append('release')
+
+        perf_gui = [('test_perf_baseline', 'test_perf_baseline', None)]
+        with mock.patch.object(runner, 'run_safe_serial', side_effect=fake_safe_serial), \
+             mock.patch.object(runner, 'run_serial', side_effect=AssertionError('--safe 不应调用 run_serial')), \
+             mock.patch.object(runner, 'acquire_gui_lock', side_effect=fake_acquire), \
+             mock.patch.object(runner, 'release_gui_lock', side_effect=fake_release), \
+             contextlib.redirect_stdout(io.StringIO()):
+            got, deferred = runner.run_gui_under_token(
+                [], perf_gui, safe=True, serial=False, jobs=4, gui_jobs=2,
+                gui_wait=1, yield_between=True, got=[])
+        self.assertEqual(deferred, [])
+        self.assertFalse(any(item[3] for item in got))
+        self.assertEqual(events, [
+            'acquire',
+            ('safe_serial', ('test_perf_baseline',)),
+            ('safe_serial', ('test_perf_baseline',)),
+            'release',
+        ])
+
+    def test_perf_non_gui_recheck_runs_without_gui_lock_and_respects_safe(self):
+        for safe_flag, expected_kind in ((False, 'serial'), (True, 'safe_serial')):
+            with self.subTest(safe=safe_flag):
+                events = []
+                results = iter([True, False])
+
+                def make_runner(kind):
+                    def _run(todo, timeout=None):
+                        events.append((kind, tuple(unit[1] for unit in todo)))
+                        red = next(results)
+                        return [_perf_unit_result(unit[0], red) for unit in todo]
+                    return _run
+
+                with contextlib.ExitStack() as stack:
+                    modules = ['test_perf_batch_queue']
+                    patches = {
+                        'test_modules': modules, 'modules_for_layer': modules,
+                        'protect_tk': None, 'import_all': [], 'load_cache': {},
+                        'incremental': (modules, [], {'tests': {}}),
+                        'units': [('test_perf_batch_queue', 'test_perf_batch_queue', None)],
+                        'content_tree': '', 'load_layer_document': {},
+                        'save_cache': '', 'save_full_safe_verification': None,
+                        'invalidate_verified_tree': False,
+                    }
+                    for name, value in patches.items():
+                        _patch(stack, name, return_value=value)
+                    stack.enter_context(mock.patch.object(runner, '_scope_has_tk', return_value=False))
+                    stack.enter_context(mock.patch.object(
+                        selftest_discovery, 'gui_test_module', return_value=False))
+                    acquire = stack.enter_context(mock.patch.object(runner, 'acquire_gui_lock'))
+                    stack.enter_context(mock.patch.object(
+                        runner, 'run_serial', side_effect=make_runner('serial')))
+                    stack.enter_context(mock.patch.object(
+                        runner, 'run_safe_serial', side_effect=make_runner('safe_serial')))
+                    args = ['-k', 'perf_batch', '--safe'] if safe_flag else ['--all']
+                    with contextlib.redirect_stdout(io.StringIO()):
+                        rc = runner.main(args)
+                self.assertEqual(rc, 0)
+                acquire.assert_not_called()
+                self.assertEqual(events, [
+                    (expected_kind, ('test_perf_batch_queue',)),
+                    (expected_kind, ('test_perf_batch_queue',)),
+                ])
+
+    def test_explicit_serial_mode_does_not_recheck_perf_red(self):
+        rc, events, _out = self._run_main_with_perf_gui([False, False, True], args=('--serial',))
+        self.assertEqual(rc, 1)
+        self.assertEqual(events, [
+            ('serial', ('test_plain',)),
+            'acquire',
+            ('serial', ('test_gui',)),
+            ('serial', ('test_perf_baseline',)),
+            'release',
+        ])

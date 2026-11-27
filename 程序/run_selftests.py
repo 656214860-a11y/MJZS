@@ -188,6 +188,7 @@ from selftest_scheduling import (
     run_safe_serial,
     prioritize_gui_units,
     previous_full_unit_seconds,
+    recheck_perf_reds,
 )
 from selftest_reporting import (
     slowest_units,
@@ -275,7 +276,11 @@ def run_gui_under_token(gui, perf_gui, *, safe, serial, jobs, gui_jobs, gui_wait
                 else:
                     got += run_units(gui_batch, jobs, fresh_children=True)
             if perf_batch:
-                got += run_safe_serial(perf_batch) if safe else run_serial(perf_batch)
+                perf_runner = run_safe_serial if safe else run_serial
+                perf_got = perf_runner(perf_batch)
+                if not serial:
+                    perf_got = recheck_perf_reds(perf_got, perf_batch, perf_runner)
+                got += perf_got
         finally:
             atexit.unregister(release_gui_lock)
             release_gui_lock(gui_lock)
@@ -440,7 +445,11 @@ def main(argv=None):
                 gui, perf_gui, safe=safe, serial=serial, jobs=jobs, gui_jobs=gui_jobs,
                 gui_wait=gui_wait, yield_between=full_safe, got=got)
         if perf_non_gui:
-            got += run_safe_serial(perf_non_gui) if safe else run_serial(perf_non_gui)
+            perf_runner = run_safe_serial if safe else run_serial
+            perf_got = perf_runner(perf_non_gui)
+            if not serial:
+                perf_got = recheck_perf_reds(perf_got, perf_non_gui, perf_runner)
+            got += perf_got
         elapsed = time.time() - started
         total = sum(item[2] for item in got)
         reds = [(item[1], item[3], item[4]) for item in got if item[3]]

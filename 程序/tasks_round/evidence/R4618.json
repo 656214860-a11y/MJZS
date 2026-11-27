@@ -1,0 +1,15 @@
+{
+  "round": 4618,
+  "commit_base": "6507c0dbe",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_selftest_perf_recheck test_selftests",
+    "exit": 0,
+    "passed": 75,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T11:57:38"
+}
