@@ -1,0 +1,15 @@
+{
+  "round": 4636,
+  "commit_base": "a95bb7777",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_keyframe_page_controller test_storyboard_page_services",
+    "exit": 0,
+    "passed": 10,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T13:28:25"
+}

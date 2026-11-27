@@ -15,15 +15,34 @@ import tkinter as tk
 import infra.ui_plugin_registry as ui_plugin_registry
 from agent.core import read
 from pathlib import Path
-from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_row_toggle, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width
+from responsive_ui import CheckboxColumn, FlowBar, MIN_COL, bind_space_toggle, configure_check_column, fit_columns_by_content, fit_row_height, refresh_request_width, row_toggle_target
 from contract.storyboard_paths import media_root
 from tkinter import ttk
-from ui_tokens import TEXT_ROWS, COLORS, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT
-from ui_widgets import ContextMenu, DataTable, DescriptionBlock, PrimaryButton, SelectBox
+from ui_tokens import CHAR_WIDTH, COLORS, CONTROL_HEIGHT, SPACING, TABLE_HEADER_FONT, TABLE_ROW_FONT, TEXT_ROWS
+from ui_widgets import ContextMenu, DataTable, DescriptionBlock, PrimaryButton, SecondaryButton, SelectBox
 from ui.desktop_page_support import ASSET_ROW_HEIGHT, THUMB_SIZE
 import ui.stage_page_simplify as stage_page_simplify
 
 PAGE = pet_state.PAGE_OF
+_MULTI_SELECT_MASK = 0x0001 | 0x0004
+_PAGER_HEIGHT_RESERVE = SPACING['2xl'] + SPACING['lg'] + CONTROL_HEIGHT + SPACING['xs']
+
+
+def _bind_storyboard_row_toggle(tree, toggle, link_columns=()):
+    """单击文本格切换勾选；按住 Ctrl/Shift 时交给 Treeview 原生多选。"""
+    def click(event):
+        if getattr(event, 'state', 0) & _MULTI_SELECT_MASK:
+            return None
+        row = row_toggle_target(tree, event.x, event.y, link_columns)
+        if not row:
+            return None
+        tree.focus_set()
+        tree.focus(row)
+        if tree.selection() != (row,):
+            tree.selection_set(row)
+        toggle(row)
+        return 'break'
+    tree.bind('<Button-1>', click, add='+')
 
 
 def _configure_table_style(tree, style, thumb):
@@ -65,6 +84,8 @@ class _FirstFramePage:
     """首帧管理页（从 StoryboardPageMixin.storyboard 的闭包原样改写成类，R1814）：共享的局部变量成了实例属性，嵌套函数成了方法；原来的 self（桌面主窗）改叫 page。"""
     def __init__(self, page):
         self.page = page
+        self._syncing_selection = False
+        self._row_states = {}
 
     def build(self):
         watch_list, table_box = self._build_state_and_table()
@@ -151,13 +172,15 @@ class _FirstFramePage:
         self.page.pet.auto_variable('auto_first_frame_var')
         self.target.bind('<<ComboboxSelected>>',self.choose_target)
         self.table.bind('<<TreeviewSelect>>',self.selection_changed)
+        self.page.shortcuts.bind(self.table,('<Control-a>','<Control-A>'),self.select_current_page,
+                                 scope='首帧镜头表',name='全选本页镜头')
         from cell_hover import CellHover
         link_cols=('#0','#5','#6')
         # 第 46 期第 1 条：右键＝查看（这一格）／删除（这一镜的首帧）。
         # 第 55 期第 2 条：#5（图片文件）那一列盖着缩略图，不再走高亮——打勾选框那一格照旧带图。
         self.table.cell_hover=CellHover(self.table,link_cols,lambda sid,col:self.page.safe(lambda:self.open_cell(sid,col)),cell_image=lambda sid,col:(self.page.win._tick_images[int(self.checked.get(sid,False))] if col=='#0' else None),checked=lambda sid:self.checked.get(sid,False),toggle=self.toggle_frame)
         self.table.cell_hover.menu=menu_mouse
-        bind_row_toggle(self.table,self.toggle_frame,link_cols)
+        _bind_storyboard_row_toggle(self.table,self.toggle_frame,link_cols)
         # 第 53 期第 5 条：「图片文件」那一列盖一层首帧缩略图——已导入、Tk 读得出来的才盖；
         # 还没导入／图不在／格式 Tk 不认（jpg 等）就不盖，那一格退回原来写的文件名。
         # 盖住的那一格鼠标落到这层图上，照旧转给 CellHover（单击仍是打开图片，一条没改）。
@@ -169,8 +192,8 @@ class _FirstFramePage:
         # 第 55 期第 1 条：视图一变就重排已经收进盖图那一层（watch_view），这儿不必再交代一遍。
         self.refresh()
         requested=getattr(self.page,'pending_frame_selection',None)
-        if requested and self.table.exists(requested):
-            self.table.selection_set(requested);self.table.focus(requested);self.table.see(requested);self.selection_changed()
+        if requested:
+            self._focus_shot(requested)
         self.page.pending_frame_selection=None
         # 第 68 期任务 12：一屏里有几份分镜就盯几份（只有一份时与从前一样，就一个）。
         for _watched in sorted({str(item.resolve()) for _i,_s,item,_b,_e in self.rows}):
@@ -219,11 +242,13 @@ class _FirstFramePage:
                        ('status','首帧状态',120),('file','图片文件(点击查看)',180),
                        ('prompt','首帧图片提示词(点击查看)',480)]
         table_shell=DataTable(table_box, columns=[(key,title,MIN_COL) for key,title,width in frame_columns],
-            show='tree headings', height=TEXT_ROWS['xl'], selectmode='browse', style='Frame.Treeview',
+            show='tree headings', height=TEXT_ROWS['xl'], selectmode='extended', style='Frame.Treeview',
             empty_text='暂无镜头', auto_hide_scrollbars=True)
+        self.table_shell=table_shell
         self.table=table_shell.tree
         _configure_table_style(self.table,'Frame.Treeview',THUMB_SIZE);refresh_request_width(self.table)
         table_shell.grid(row=0,column=0,sticky='nsew')
+        self._build_pager(table_box)
         table_box.columnconfigure(0,weight=1);table_box.rowconfigure(0,weight=1)
         configure_check_column(self.table)
         for key,title,width in frame_columns:
@@ -232,9 +257,28 @@ class _FirstFramePage:
             'completed', background=COLORS['row_completed'], foreground=COLORS['success']
         )
         from responsive_ui import auto_height
-        auto_height(self.table, table_box, row_height=ASSET_ROW_HEIGHT)   # 行高了，按 80 算，别再按 34
+        auto_height(self.table, table_box, row_height=ASSET_ROW_HEIGHT, padding=_PAGER_HEIGHT_RESERVE)
         self.box=CheckboxColumn(self.table,self.page.win._tick_images,lambda sid:self.checked.get(sid,False),lambda sid,v:self.checked.__setitem__(sid,v))
         return watch_list, table_box
+
+    def _build_pager(self, table_box):
+        """底部翻页条：首页 / 上页 / 页码 / 下页 / 末页与跨页选中汇总。"""
+        self.pager_bar = ttk.Frame(table_box)
+        self.pager_bar.grid(row=1, column=0, sticky='ew', pady=(SPACING['xs'], SPACING['none']))
+        self.first_page_btn = SecondaryButton(self.pager_bar, text='首页', width=0, command=self.first_page)
+        self.first_page_btn.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.prev_page_btn = SecondaryButton(self.pager_bar, text='上页', width=0, command=self.prev_page)
+        self.prev_page_btn.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.page_var = tk.StringVar(value='1')
+        self.page_picker = SelectBox(self.pager_bar, textvariable=self.page_var, values=('1',), width=CHAR_WIDTH['sm'])
+        self.page_picker.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.page_picker.bind('<<ComboboxSelected>>', self.choose_page)
+        self.next_page_btn = SecondaryButton(self.pager_bar, text='下页', width=0, command=self.next_page)
+        self.next_page_btn.pack(side='left', padx=(SPACING['none'], SPACING['xs']))
+        self.last_page_btn = SecondaryButton(self.pager_bar, text='末页', width=0, command=self.last_page)
+        self.last_page_btn.pack(side='left', padx=(SPACING['none'], SPACING['sm']))
+        self.page_info_var = tk.StringVar(value='')
+        ttk.Label(self.pager_bar, textvariable=self.page_info_var, style='Muted.TLabel').pack(side='left')
 
     # 第 68 期任务 12：用户报「全部分镜显示不全」。这一页原来只读当前那一份分镜；现在「选择分镜」
     # 选到「全部分镜」时，把已采用的每一份的镜头一起列出来，每一镜各自认自己那一份的目录与文件。
@@ -271,7 +315,11 @@ class _FirstFramePage:
     def toggle_all_frames(self):
         self.box.toggle_all();self.selection_changed()
 
-    def selection_changed(self, event=None):
+    def selection_changed(self, event=None, *, sync_controller=True):
+        if self._syncing_selection:
+            return
+        if sync_controller and getattr(self, 'page_controller', None) is not None:
+            self.page_controller.sync_page_selection(self.table.selection())
         valid=bool(self.table.selection())
         available=valid and self.exists(self.selected()) and not self.selected().get('frame_deleted')
         # 第 46 期第 9 条：删除按钮改成批量——它认的是勾选行，所以按勾选数决定能不能按。
@@ -281,43 +329,140 @@ class _FirstFramePage:
         self.replace_button.configure(state='normal' if valid else 'disabled')
         if valid:self.target.set(self.table.selection()[0])
         self.update_header_check()
+        self._update_pager_summary()
+
+    def _update_pager_summary(self):
+        if hasattr(self, 'page_info_var') and getattr(self, 'page_controller', None) is not None:
+            self.page_info_var.set(self.page_controller.page_summary())
+
+    def _update_pager_controls(self):
+        current = self.page_controller.current_page
+        total = self.page_controller.total_pages
+        pages = tuple(str(index) for index in range(1, total + 1))
+        if tuple(self.page_picker['values']) != pages:
+            self.page_picker.set_values(pages)
+        self.page_var.set(str(current))
+        at_first = current <= 1
+        at_last = current >= total
+        self.first_page_btn.configure(state='disabled' if at_first else 'normal')
+        self.prev_page_btn.configure(state='disabled' if at_first else 'normal')
+        self.next_page_btn.configure(state='disabled' if at_last else 'normal')
+        self.last_page_btn.configure(state='disabled' if at_last else 'normal')
+        self._update_pager_summary()
+
+    def _render_page(self, *, focused='', top='', offset=0.0, reset_scroll=False):
+        self._syncing_selection = True
+        try:
+            self.table.delete(*self.table.get_children())
+            for iid, shot, _i, _b, _e in self.page_controller.page_rows():
+                present, deleted = self._row_states.get(iid, (False, False))
+                state = '已导入' if present else ('待重新生成' if deleted else '待生成 / 待导入')
+                file_text = Path(shot['frame']).name if present else '—'
+                self.table.insert(
+                    '', 'end', iid=iid, text='',
+                    image=self.page.win._tick_images[int(self.checked[iid])],
+                    values=(shot['id'], shot['title'], shot['duration'], state, file_text,
+                            self.frame_prompt(shot).replace('\n', ' ') or '待补齐首帧提示词'),
+                    tags=('completed',) if present else (),
+                )
+            self.fit_frame_columns()
+            images = getattr(self.table, 'cell_images', None)
+            if images is not None:
+                images.refresh()
+            self.table_shell.refresh_empty_state()
+            on_page = self.page_controller.selected_on_page()
+            if on_page:
+                self.table.selection_set(*on_page)
+            if focused and self.table.exists(focused):
+                self.table.focus(focused)
+            elif on_page and self.table.exists(on_page[0]):
+                self.table.focus(on_page[0])
+            if reset_scroll:
+                self.table.yview_moveto(0.0)
+            elif top and self.table.exists(top):
+                self.table.yview_moveto(offset)
+                self.table.see(top)
+            elif offset > 0.0:
+                self.table.yview_moveto(offset)
+        finally:
+            self._syncing_selection = False
+        self._update_pager_controls()
+        self.selection_changed(sync_controller=False)
+
+    def show_page(self, page_number):
+        self.page_controller.sync_page_selection(self.table.selection())
+        self.page_controller.set_page(page_number)
+        self._render_page(reset_scroll=True)
+
+    def first_page(self):
+        self.show_page(1)
+
+    def prev_page(self):
+        self.show_page(self.page_controller.current_page - 1)
+
+    def next_page(self):
+        self.show_page(self.page_controller.current_page + 1)
+
+    def last_page(self):
+        self.show_page(self.page_controller.total_pages)
+
+    def choose_page(self, event=None):
+        try:
+            page_number = int(str(self.page_var.get()).strip())
+        except (TypeError, ValueError):
+            return
+        self.show_page(page_number)
+
+    def select_current_page(self, event=None):
+        ids = self.page_controller.select_current_page()
+        self._syncing_selection = True
+        try:
+            if ids:
+                self.table.selection_set(*ids)
+                if self.table.focus() not in ids:
+                    self.table.focus(ids[0])
+            else:
+                self.table.selection_remove(*self.table.selection())
+        finally:
+            self._syncing_selection = False
+        self.selection_changed(sync_controller=False)
+        self.page.status.set(f'已选本页 {len(ids)} 镜')
+        return 'break'
+
+    def _focus_shot(self, target):
+        located = self.page_controller.locate_shot(target)
+        if located is None:
+            return
+        page_number, iid = located
+        if page_number != self.page_controller.current_page:
+            self.show_page(page_number)
+        if self.table.exists(iid):
+            self.table.selection_set(iid)
+            self.table.focus(iid)
+            self.table.see(iid)
+            self.selection_changed()
 
     def refresh(self):
-        self.rows=self.load_rows()
-        self.use_rows()
-        for _i,_s,item,bse,one in self.rows:
-            if item.resolve()==self.source.resolve():self.episode,self.base=one,bse;break
-        previous=self.table.selection()
+        if self.table.get_children():
+            self.page_controller.sync_page_selection(self.table.selection())
         focused=self.table.focus()
         # 重建行以前记住内容框的滚动位置：刷新或无人值守轮询重建后，内容不应跳回顶部。
         offset=0.0;top=''
         try:offset=self.table.yview()[0];top=self.table.identify_row(1)
         except tk.TclError:pass
-        self.table.delete(*self.table.get_children())
+        self.rows=self.load_rows()
+        self.use_rows()
+        for _i,_s,item,bse,one in self.rows:
+            if item.resolve()==self.source.resolve():self.episode,self.base=one,bse;break
         # 建行以前先按最新首帧状态对齐勾选：首帧刚就位的镜头自动取消勾选，缺首帧的新镜头默认勾选，
         # 用户手动改过的待生成镜头保持不动——无人值守轮询刷新因此不会悄悄改掉用户的批次。
         states={iid:(self.exists(shot) and not shot.get('frame_deleted'),bool(shot.get('frame_deleted'))) for iid,shot,_i,_b,_e in self.rows}
+        self._row_states=states
         available=sum(1 for present,_ in states.values() if present)
         self.checked.sync([(iid,*states[iid]) for iid in states])
-        for iid,shot,_i,_b,_e in self.rows:
-            present=states[iid][0]
-            state='已导入' if present else ('待重新生成' if states[iid][1] else '待生成 / 待导入')
-            # 第 54 期第 3 条：这一格盖得上缩略图就只留图——那句「图与字叠着多余」的活
-            # 第 55 期第 3 条起由盖图那一层自己做（盖上收走、撤掉写回），这里照旧写文件名与「—」：
-            # 原来为了判「这一格还写不写字」在这儿逐镜解一遍缩略图（几十上百镜就是几十上百张），白解。
-            file_text=Path(shot['frame']).name if present else '—'
-            self.table.insert('','end',iid=iid,text='',image=self.page.win._tick_images[int(self.checked[iid])],values=(shot['id'],shot['title'],shot['duration'],state,file_text,self.frame_prompt(shot).replace('\n',' ') or '待补齐首帧提示词'),tags=('completed',) if present else ())
         self.available_shots.clear();self.available_shots.update({row[0]:row[1] for row in self.rows})
         self.target.set_values(list(self.available_shots))
-        self.fit_frame_columns()
-        # 第 53 期第 5 条：行重建之后格子全挪了位，缩略图那一层跟着重排一次。
-        images=getattr(self.table,'cell_images',None)
-        if images is not None:images.refresh()
-        if previous and self.table.exists(previous[0]):self.table.selection_set(previous[0])
-        if focused and self.table.exists(focused):self.table.focus(focused)
-        elif previous and self.table.exists(previous[0]):self.table.focus(previous[0])
-        if top and self.table.exists(top):self.table.yview_moveto(offset);self.table.see(top)
-        self.selection_changed()
+        self._render_page(focused=focused,top=top,offset=offset)
         # 这句话按「当下有几镜已就位」说，不按「这一次对齐新取消了几镜」——
         # 原来拿的是 sync 的增量，三虎心跳重拍本页时第二次对齐就没增量了，
         # 状态栏会被改回不带这一句的版本（第 71 期发现的偶发）。
@@ -397,7 +542,7 @@ class _FirstFramePage:
 
     # 第 50 期第 1 条：「选择镜头 JSON」按钮按用户要求删除（上一步已经改掉文案）。
     def choose_target(self, event=None):
-        if self.table.exists(self.target.get()):self.table.selection_set(self.target.get());self.table.see(self.target.get());self.selection_changed()
+        self._focus_shot(self.target.get())
 
     def replace_file(self, path, shot=None):
         """用一份已有图片替换/导入选中镜头首帧；供右键与右侧文件面板共用。"""
@@ -407,7 +552,7 @@ class _FirstFramePage:
         result=replace_stage_keyframe(self.base,self.source,self.episode,shot,raw)
         if not result.ok:raise ValueError(result.reason)
         if self.source.resolve()==(self.page.studio.episode_dir/'episode.json').resolve():self.page.studio.episode=self.episode
-        self.refresh();self.table.selection_set(self.iid_of(shot));self.selection_changed()
+        self.refresh();self._focus_shot(self.iid_of(shot))
         self.page.status.set('首帧已保存为 '+shot['id']+'.png，镜头JSON已同步')
 
     def replace(self, shot=None):

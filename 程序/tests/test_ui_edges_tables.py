@@ -234,6 +234,116 @@ class UiEdgeTablesTests(UiEdgeCase):
                                    msg="刷新重建行后表格滚动位置不应跳走")
             self.assertIs(win.focus_get(), table, "刷新不应把键盘焦点从表格抢走")
 
+    def test_keyframe_table_pagination_selection_and_ctrl_a(self):
+        """04 首帧页分镜表分页：每页≤100行、首/上/页码/下/末、跨页按 shot_id 保选中、Ctrl+A 仅选本页并提示。"""
+        self.assertIsNotNone(self.tk, "Windows 随附 Python 应提供 tkinter")
+        from tkinter import ttk
+        import desktop as desktop_module
+        original = desktop_module.Desktop.choose_project
+        desktop_module.Desktop.choose_project = lambda self: None
+        self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
+        with tempfile.TemporaryDirectory() as td:
+            proj = make_adopted_project(td)
+            frame_json = storyboard_stage(proj) / "分镜文档" / "episode.json"
+            data = json.loads(frame_json.read_text(encoding="utf-8"))
+            base = data["shots"][0]
+            data["shots"] = [
+                dict(base, id="SH%03d" % index, title="镜头%d" % index, frame="frames/SH%03d.png" % index)
+                for index in range(1, 236)
+            ]
+            frame_json.write_text(json.dumps(data, ensure_ascii=False), encoding="utf-8")
+            win = self.tk.Tk(); win.geometry("1180x760+40+40")
+            def quiet_destroy():
+                try:
+                    win.destroy()
+                except Exception:
+                    pass
+            self.addCleanup(quiet_destroy)
+            from desktop import Desktop
+            from local_video import open_studio
+            d = Desktop(win, root=PROGRAM)
+            d.root = proj
+            d.studio = open_studio(proj)
+            d.show(PAGE["keyframe"]); win.update()
+
+            buttons = {}; trees = []; combos = []
+            def walk(widget):
+                if isinstance(widget, ttk.Button):
+                    buttons[str(widget.cget("text"))] = widget
+                elif isinstance(widget, ttk.Treeview):
+                    trees.append(widget)
+                elif isinstance(widget, ttk.Combobox):
+                    combos.append(widget)
+                for child in widget.winfo_children():
+                    walk(child)
+            walk(d.content)
+
+            table = [t for t in trees if "prompt" in t["columns"]][0]
+            self.assertEqual(len(table.get_children()), 100, "每页最多渲染 100 行")
+            self.assertEqual((table.get_children()[0], table.get_children()[-1]), ("SH001", "SH100"))
+            for label in ("首页", "上页", "下页", "末页"):
+                self.assertIn(label, buttons, "底部应提供翻页按钮：" + label)
+            self.assertTrue(buttons["首页"].instate(["disabled"]))
+            self.assertTrue(buttons["上页"].instate(["disabled"]))
+            self.assertFalse(buttons["下页"].instate(["disabled"]))
+            self.assertFalse(buttons["末页"].instate(["disabled"]))
+
+            page_pickers = [c for c in combos if tuple(c["values"]) == ("1", "2", "3")]
+            self.assertEqual(len(page_pickers), 1, "底部应提供页码选择器")
+            page_picker = page_pickers[0]
+            target_pickers = [c for c in combos if "SH220" in tuple(c["values"])]
+            self.assertEqual(len(target_pickers), 1, "「选中镜头」下拉框应包含跨页全部镜头")
+            target_picker = target_pickers[0]
+
+            # 第 1 页选中 SH003、SH007
+            table.selection_set("SH003", "SH007")
+            table.event_generate("<<TreeviewSelect>>")
+            win.update()
+
+            # 翻到第 2 页并再选中 SH105
+            buttons["下页"].invoke(); win.update()
+            self.assertEqual(len(table.get_children()), 100)
+            self.assertEqual((table.get_children()[0], table.get_children()[-1]), ("SH101", "SH200"))
+            self.assertEqual(table.selection(), (), "第 2 页初始无选中行")
+            table.selection_set("SH105")
+            table.event_generate("<<TreeviewSelect>>")
+            win.update()
+
+            # 翻到末页（第 3 页，35 行）
+            buttons["末页"].invoke(); win.update()
+            self.assertEqual(len(table.get_children()), 35)
+            self.assertEqual((table.get_children()[0], table.get_children()[-1]), ("SH201", "SH235"))
+            self.assertTrue(buttons["下页"].instate(["disabled"]))
+            self.assertTrue(buttons["末页"].instate(["disabled"]))
+
+            # 用页码切回第 1 页：跨页保持 SH003、SH007 选中
+            page_picker.set("1")
+            page_picker.event_generate("<<ComboboxSelected>>")
+            win.update()
+            self.assertEqual(table.selection(), ("SH003", "SH007"), "切回第 1 页应按 shot_id 恢复选中")
+
+            # 翻到第 2 页：SH105 仍保持选中
+            buttons["下页"].invoke(); win.update()
+            self.assertEqual(table.selection(), ("SH105",), "切到第 2 页应按 shot_id 恢复选中")
+
+            # Ctrl+A 只选本页并提示「已选本页 N 镜」
+            table.focus_force(); win.update()
+            table.event_generate("<Control-a>"); win.update()
+            self.assertEqual(len(table.selection()), 100, "Ctrl+A 只选本页 100 镜")
+            self.assertEqual((table.selection()[0], table.selection()[-1]), ("SH101", "SH200"))
+            self.assertIn("已选本页 100 镜", d.status.get())
+
+            # 切回第 1 页：Ctrl+A 没有把第 1 页也选上
+            buttons["首页"].invoke(); win.update()
+            self.assertEqual(table.selection(), (), "Ctrl+A 不应选中其他页的镜头")
+
+            # 通过「选中镜头」下拉跳转到第 3 页的 SH220
+            target_picker.set("SH220")
+            target_picker.event_generate("<<ComboboxSelected>>")
+            win.update()
+            self.assertEqual(page_picker.get(), "3")
+            self.assertEqual(table.selection(), ("SH220",))
+
     def test_the_asset_table_shows_thumbnails_only_in_the_import_column(self):
         """第 53 期第 3 条：缩略图只留在「资产图片」那一列，同一行的「名称」列退回纯文字。
 
