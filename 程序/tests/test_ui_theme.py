@@ -829,10 +829,7 @@ class ThemeRefreshTests(unittest.TestCase):
         top.withdraw()
         self.addCleanup(top.destroy)
         top.configure(bg=COLORS['background_primary'])
-        try:
-            top.attributes('-transparentcolor', COLORS['background_primary'])
-        except tk.TclError:
-            self.skipTest('当前平台 Tk 不支持 -transparentcolor')
+        top.attributes('-transparentcolor', COLORS['background_primary'])
         for name in ('night', 'day'):
             ui_tokens.set_theme(name)
             ui_theme.apply(self.win)
