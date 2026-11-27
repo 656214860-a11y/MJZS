@@ -30,7 +30,7 @@ class VideoPageStatusBarTests(UiEdgeCase):
         desktop_module.Desktop.choose_project = lambda self: None
         self.addCleanup(setattr, desktop_module.Desktop, "choose_project", original)
         proj = make_adopted_project(td)
-        win = self.tk.Tk(); win.geometry(size + "+0+0")
+        win = self.tk.Tk()
         def quiet_destroy():
             try:
                 win.destroy()
@@ -42,6 +42,10 @@ class VideoPageStatusBarTests(UiEdgeCase):
         d = Desktop(win, root=PROGRAM)
         d.root = proj
         d.studio = open_studio(proj)
+        self._settle(win)  # 先完成桌面启动时的窗口定位，再设置用例尺寸。
+        win.geometry(size + "+0+0")
+        self._settle(win)
+        self.assertEqual(f"{win.winfo_width()}x{win.winfo_height()}", size)
         return d, win
 
     def _settle(self, win):

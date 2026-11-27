@@ -1563,8 +1563,7 @@ class ComposerExtrasTests(unittest.TestCase):
         button = box.send_button
         style = ttk.Style(box.winfo_toplevel())
         name = str(button.cget('style'))
-        input_extras.sync_send_art(box)
-        self.assertTrue(str(button.cget('image')))
+        self.assertTrue(button.cget('image'), '首次布局前发送键就应有圆形底图')
         self.assertEqual(str(button.cget('compound')), 'center')
         self.assertEqual(style.lookup(name, 'foreground'), COLORS['on_accent'])
         self.assertEqual(style.lookup(name, 'foreground', ('disabled',)),

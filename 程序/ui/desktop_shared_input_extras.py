@@ -334,6 +334,7 @@ def attach(box):
     box.input._on_flow_edit = lambda *args: box._schedule_refresh(*args)
     box._send_art_key = None
     box.extras = manager
+    sync_send_art(box)  # 首次布局就使用完整发送键尺寸，避免首次巡检或切页时工具行跳动。
     tk_timers.repeat(box, 400, manager.tick)
     return manager
 
