@@ -1,0 +1,15 @@
+{
+  "round": 4654,
+  "commit_base": "e3898a897",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k keyframe_page_controller ui_edges_tables",
+    "exit": 0,
+    "passed": 31,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T16:06:02"
+}

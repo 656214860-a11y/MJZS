@@ -1,10 +1,71 @@
-"""无 Tk 的首帧管理页行归属、分页、跨页选中、路径和批次选择状态。"""
+"""无 Tk 的首帧管理页行归属、分页、筛选、跨页选中、路径和批次选择状态。"""
 from __future__ import annotations
 
 from pathlib import Path
 
 DEFAULT_PAGE_SIZE = 100
 MAX_PAGE_SIZE = 100
+_EMPTY_ROWS = '本页无镜头'
+_EMPTY_FILTER = '筛选无结果'
+
+
+def shot_scene(shot):
+    """场次优先认 location，兼容 scene_id / scene。"""
+    for key in ('location', 'scene_id', 'scene'):
+        value = str(shot.get(key) or '').strip()
+        if value:
+            return value
+    return ''
+
+
+def shot_characters(shot):
+    """角色列表；单数字符串 character 也认。"""
+    raw = shot.get('characters')
+    if raw is None:
+        raw = shot.get('character')
+    if raw is None or raw == '':
+        return ()
+    if isinstance(raw, str):
+        text = raw.strip()
+        return (text,) if text else ()
+    return tuple(str(item).strip() for item in raw if str(item).strip())
+
+
+def _duration_bound(value):
+    if value is None or value == '':
+        return None
+    try:
+        return int(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _duration_in_range(shot, low, high):
+    try:
+        duration = int(shot.get('duration'))
+    except (TypeError, ValueError):
+        return False
+    if low is not None and duration < low:
+        return False
+    if high is not None and duration > high:
+        return False
+    return True
+
+
+def frame_status(controller, shot):
+    """与表格列一致：已导入 / 待重新生成 / 待生成 / 待导入。路径越界视为未导入。"""
+    deleted = bool(shot.get('frame_deleted'))
+    present = False
+    if not deleted:
+        try:
+            present = controller.frame_exists(shot)
+        except (ValueError, OSError, KeyError):
+            present = False
+    if present:
+        return '已导入'
+    if deleted:
+        return '待重新生成'
+    return '待生成 / 待导入'
 
 
 class KeyframePageController:
@@ -17,10 +78,37 @@ class KeyframePageController:
         self.page_size = max(1, min(MAX_PAGE_SIZE, int(page_size)))
         self.page_index = 0
         self.rows = []
+        self.visible = []
         self.row_context = {}
         self.owners = {}
         self.selected_shot_ids = set()
+        self.scene_filter = ''
+        self.character_filter = ''
+        self.status_filter = ''
+        self.duration_min = None
+        self.duration_max = None
         self.replace_rows(rows)
+
+    def _filter_key(self):
+        return (
+            self.scene_filter, self.character_filter, self.status_filter,
+            self.duration_min, self.duration_max,
+        )
+
+    def _row_matches(self, shot):
+        if self.scene_filter and shot_scene(shot) != self.scene_filter:
+            return False
+        if self.character_filter and self.character_filter not in shot_characters(shot):
+            return False
+        if (self.duration_min is not None or self.duration_max is not None) and not _duration_in_range(
+                shot, self.duration_min, self.duration_max):
+            return False
+        if self.status_filter and frame_status(self, shot) != self.status_filter:
+            return False
+        return True
+
+    def _refresh_visible(self):
+        self.visible = [row for row in self.rows if self._row_matches(row[1])]
 
     def replace_rows(self, rows):
         """原地更新行索引并按当前行集裁掉失效的跨页选中与页码。"""
@@ -32,17 +120,35 @@ class KeyframePageController:
             base = Path(base).resolve()
             self.row_context[iid] = (shot, item, base, episode)
             self.owners[id(shot)] = (item, base, episode)
+        self._refresh_visible()
         self.selected_shot_ids &= set(self.row_context)
         self.page_index = max(0, min(self.page_index, self.total_pages - 1))
         return self.rows
 
+    def set_filters(self, scene='', character='', status='', duration_min=None, duration_max=None):
+        """按场次、角色、首帧状态与时长闭区间筛选。无参数时清空。筛选变化才回到第 1 页。"""
+        previous = self._filter_key()
+        self.scene_filter = str(scene or '').strip()
+        self.character_filter = str(character or '').strip()
+        self.status_filter = str(status or '').strip()
+        self.duration_min = _duration_bound(duration_min)
+        self.duration_max = _duration_bound(duration_max)
+        self._refresh_visible()
+        if self._filter_key() != previous:
+            self.page_index = 0
+        self.page_index = max(0, min(self.page_index, self.total_pages - 1))
+        return self.visible
+
+    def filtered_rows(self):
+        return list(self.visible)
+
     @property
     def total_rows(self):
-        return len(self.rows)
+        return len(self.visible)
 
     @property
     def total_pages(self):
-        return max(1, (len(self.rows) + self.page_size - 1) // self.page_size)
+        return max(1, (len(self.visible) + self.page_size - 1) // self.page_size)
 
     @property
     def current_page(self):
@@ -50,7 +156,7 @@ class KeyframePageController:
 
     def page_rows(self):
         start = self.page_index * self.page_size
-        return self.rows[start:start + self.page_size]
+        return self.visible[start:start + self.page_size]
 
     def page_ids(self):
         return [iid for iid, _shot, _item, _base, _episode in self.page_rows()]
@@ -93,7 +199,7 @@ class KeyframePageController:
         key = str(target or '').strip()
         if not key:
             return None
-        for index, (iid, shot, _item, _base, _episode) in enumerate(self.rows):
+        for index, (iid, shot, _item, _base, _episode) in enumerate(self.visible):
             if iid == key or str(shot.get('id') or '') == key:
                 return (index // self.page_size) + 1, iid
         return None
@@ -106,7 +212,17 @@ class KeyframePageController:
         self.set_page(page_number)
         return iid
 
+    def empty_message(self):
+        if not self.rows:
+            return _EMPTY_ROWS
+        if not self.visible:
+            return _EMPTY_FILTER
+        return ''
+
     def page_summary(self):
+        message = self.empty_message()
+        if message:
+            return message
         summary = f'第 {self.current_page} / {self.total_pages} 页（共 {self.total_rows} 镜）'
         if self.selected_shot_ids:
             summary += f' · 已选 {len(self.selected_shot_ids)} 镜'

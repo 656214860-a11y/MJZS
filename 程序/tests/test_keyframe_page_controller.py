@@ -113,3 +113,56 @@ class KeyframePageControllerTests(unittest.TestCase):
         self.assertEqual(jumped, 'SH220')
         self.assertEqual(controller.current_page, 3)
         self.assertIsNone(controller.jump_to_shot('SH999'))
+
+    def _filter_rows(self):
+        shots = [
+            {'id': 'SH001', 'title': '甲', 'duration': 3, 'location': 'SC01', 'characters': ['CHAR_A'], 'frame': 'frames/SH001.png'},
+            {'id': 'SH002', 'title': '乙', 'duration': 8, 'location': 'SC02', 'characters': ['CHAR_B', 'CHAR_A'], 'frame': 'frames/SH002.png', 'frame_deleted': True},
+            {'id': 'SH003', 'title': '丙', 'duration': 12, 'location': 'SC01', 'characters': [], 'frame': 'a.png'},
+        ]
+        episode = {'shots': shots}
+        rows = [(shot['id'], shot, self.first, self.base_one, episode) for shot in shots]
+        return episode, rows
+
+    def test_filters_by_scene_character_status_and_duration_range(self):
+        episode, rows = self._filter_rows()
+        controller = KeyframePageController(self.first, episode, self.base_one, rows, page_size=1)
+        controller.set_filters(scene='SC01')
+        self.assertEqual(controller.page_ids(), ['SH001'])
+        self.assertEqual(controller.total_rows, 2)
+        self.assertEqual(controller.total_pages, 2)
+
+        controller.set_filters(scene='SC01', character='CHAR_A')
+        self.assertEqual(controller.total_rows, 1)
+        self.assertEqual(controller.page_ids(), ['SH001'])
+
+        controller.set_filters(status='待重新生成')
+        self.assertEqual(controller.page_ids(), ['SH002'])
+
+        controller.set_filters(status='已导入')
+        self.assertEqual(controller.page_ids(), ['SH003'])
+
+        controller.set_filters(duration_min=8, duration_max=12)
+        self.assertEqual(controller.total_rows, 2)
+        self.assertEqual([row[0] for row in controller.filtered_rows()], ['SH002', 'SH003'])
+
+        controller.set_filters(scene='SC02', character='CHAR_A', status='待重新生成', duration_min=8, duration_max=8)
+        self.assertEqual(controller.page_ids(), ['SH002'])
+
+    def test_empty_states_distinguish_no_shots_from_filter_miss(self):
+        episode, rows = self._filter_rows()
+        controller = KeyframePageController(self.first, episode, self.base_one, rows)
+        self.assertEqual(controller.empty_message(), '')
+
+        controller.set_filters(scene='没有这场')
+        self.assertEqual(controller.total_rows, 0)
+        self.assertEqual(controller.empty_message(), '筛选无结果')
+        self.assertEqual(controller.page_summary(), '筛选无结果')
+
+        controller.set_filters()
+        self.assertEqual(controller.empty_message(), '')
+
+        controller.replace_rows(())
+        self.assertEqual(controller.empty_message(), '本页无镜头')
+        self.assertEqual(controller.page_summary(), '本页无镜头')
+
