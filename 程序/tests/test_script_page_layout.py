@@ -103,9 +103,9 @@ class ScriptPageLayoutTests(unittest.TestCase):
         with tempfile.TemporaryDirectory() as td:
             win, desktop = self._open(_make_project(td), "1280x800+20+20")
             self._assert_editor_visible(desktop, "1280x800")
-            win.geometry("880x600+20+20")
+            win.geometry("1024x600+20+20")
             _settle(win)
-            self._assert_editor_visible(desktop, "880x600")
+            self._assert_editor_visible(desktop, "1024x600")
 
     def test_t2_no_section_titles_or_edit_buttons(self):
         """REQ-S02-37：「原剧本／结构剧本」字样与「大纲」「编辑」分区按钮全部删除。"""

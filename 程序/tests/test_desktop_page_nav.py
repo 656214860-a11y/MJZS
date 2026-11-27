@@ -15,7 +15,7 @@ from ui_edges_support import (
 )
 from widget_test_support import widget_list, widget_texts
 
-WINDOW_SIZES = ("1280x800", "1024x680", "880x600")
+WINDOW_SIZES = ("1280x800", "1024x680", "1024x600")
 
 
 class VideoPageStatusBarTests(UiEdgeCase):

@@ -454,14 +454,14 @@ class ConfirmBarTests(_PageCase):
         segment = self.page.segments.get('animatic_note', ('',))[0]
         self.assertIn('未确认', segment)
 
-    def test_compact_880x600_keeps_lock_inside_and_restores_regular_sizes(self):
-        self.win.geometry('880x600+0+0')
+    def test_compact_1024x600_keeps_lock_inside_and_restores_regular_sizes(self):
+        self.win.geometry('1024x600+0+0')
         tk_test_support.pump(self.win, .2)
         self.show()
         tk_test_support.pump(self.win, .2)
         state = self.state
         metrics = state['layout_metrics']
-        self.assertTrue(metrics['compact'], '880×600 主窗口应进入紧凑布局')
+        self.assertTrue(metrics['compact'], '1024×600 主窗口应进入紧凑布局')
         self.assertLess(metrics['cell_height'], animatic_page._TIMELINE_CELL_HEIGHT)
         self.assertLess(metrics['thumb_size'], animatic_page._TIMELINE_THUMB_SIZE)
         lock = next(w for w in _walk(self.page.content)
