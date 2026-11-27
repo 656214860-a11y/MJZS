@@ -152,6 +152,24 @@ assert len(tk._drama_wanted_topmost) == 0
         self.assertEqual(units[0][0], 'short1')
         self.assertEqual(run_selftests.prioritize_gui_units([]), [])
 
+    def test_gui_wave_order_uses_only_completed_full_log(self):
+        units = [('short', 'test_window', None), ('slow', 'test_window', None),
+                 ('new', 'test_window', None), ('e2e', 'test_pet_ui', None)]
+        with tempfile.TemporaryDirectory() as folder:
+            path = os.path.join(folder, 'previous.log')
+            with mock.patch.dict(os.environ, AUTO_FULL_SAFE_PREVIOUS_LOG=path):
+                self.assertEqual(selftest_scheduling.previous_full_unit_seconds(), {})
+                with open(path, 'w', encoding='utf-8') as log:
+                    log.write('--safe（全量受控分池）：忽略增量台账\n'
+                              '  short     2 条     1.0 秒\n  slow     3 条    15.0 秒\n')
+                self.assertEqual(selftest_scheduling.previous_full_unit_seconds(), {})
+                with open(path, 'a', encoding='utf-8') as log:
+                    log.write('共 5 条用例，16.0 秒；0 个文件有红\n')
+                history = selftest_scheduling.previous_full_unit_seconds()
+                self.assertEqual(history, {'short': 1.0, 'slow': 15.0})
+                self.assertEqual(run_selftests.prioritize_gui_units(units, history),
+                                 [units[3], units[1], units[0], units[2]])
+
     def test_slowest_units_are_descending_and_bounded(self):
         first = ('fast', 'test_fast', 1, [], '', 0.2, '')
         second = ('slow', 'test_slow', 1, [], '', 9.0, '')

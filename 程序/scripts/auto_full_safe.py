@@ -559,7 +559,14 @@ def _run_locked() -> int:
             return 0
         # 全量会建大量 Tk 窗口；放进隐藏桌面跑，不弹到用户屏幕上抢焦点。
         run_log = LOG.with_name("auto_full_safe.run.log")
-        run_log.unlink(missing_ok=True)
+        previous_log = run_log.with_name("auto_full_safe.previous.run.log")
+        if run_log.is_file():
+            try:
+                run_log.replace(previous_log)
+            except OSError:
+                # 上轮日志可能仍在被读取，沿用原有清理方式。
+                run_log.unlink(missing_ok=True)
+        env["AUTO_FULL_SAFE_PREVIOUS_LOG"] = str(previous_log)
         log.write("[自动全量] 在隐藏桌面运行\n")
         log.flush()
         result = subprocess.run([sys.executable, "-B", str(hidden), str(run_log), str(program), "--", *cmd],
