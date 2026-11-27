@@ -48,6 +48,13 @@ class AppendAndTailTests(unittest.TestCase):
         return stage_reply_log.append_record(
             self.root, stage, {'kind': kind, 'text': '记录%d' % i}, publish=save_text)
 
+    def _seed_paging_history(self, total):
+        # 分页读取只需要一份已经落盘的历史，首条走真实发布器以取得正式记录格式。
+        sample = self._append('storyboard', 0)
+        rows = (json.dumps(dict(sample, text='记录%d' % i), ensure_ascii=False)
+                for i in range(total))
+        save_text(stage_reply_log.stage_log_path(self.root, 'storyboard'), '\n'.join(rows) + '\n')
+
     def test_append_stamps_schema_version_and_timestamp(self):
         record = self._append('storyboard', 0)
         self.assertIsInstance(record, dict)
@@ -87,8 +94,7 @@ class AppendAndTailTests(unittest.TestCase):
 
     def test_tail_returns_last_200_in_order_and_cursor(self):
         total = stage_reply_log.TAIL_LIMIT + 50
-        for i in range(total):
-            self._append('storyboard', i)
+        self._seed_paging_history(total)
         records, cursor = stage_reply_log.read_tail(self.root, 'storyboard')
         self.assertEqual(len(records), stage_reply_log.TAIL_LIMIT)
         self.assertEqual(records[0].get('text'), '记录%d' % (total - stage_reply_log.TAIL_LIMIT))
@@ -97,8 +103,7 @@ class AppendAndTailTests(unittest.TestCase):
 
     def test_read_before_pages_back_to_file_head(self):
         total = stage_reply_log.TAIL_LIMIT + 50
-        for i in range(total):
-            self._append('storyboard', i)
+        self._seed_paging_history(total)
         _records, cursor = stage_reply_log.read_tail(self.root, 'storyboard')
         earlier, cursor = stage_reply_log.read_before(self.root, 'storyboard', cursor)
         self.assertEqual(len(earlier), 50)
@@ -109,8 +114,7 @@ class AppendAndTailTests(unittest.TestCase):
         self.assertEqual((earlier, cursor), ([], 0))
 
     def test_read_before_cursor_in_middle_of_page(self):
-        for i in range(90):
-            self._append('storyboard', i)
+        self._seed_paging_history(90)
         records, cursor = stage_reply_log.read_tail(self.root, 'storyboard', limit=40)
         self.assertEqual(len(records), 40)
         self.assertEqual(records[-1].get('text'), '记录89')
