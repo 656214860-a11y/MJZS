@@ -31,6 +31,7 @@ from ui.ui_popup import measure_text_width
 from ui_tokens import SCRIPT_FILE_FONT, SCRIPT_FILE_MAX_ROWS, SPACING
 from ui_widgets import (BaseDialog, DataTable, DescriptionBlock, SecondaryButton,
                         Tooltip, ask_string)
+from ui.desktop_files_entry import pack_entry_buttons as _pack_entry_buttons
 from ui.writing_page_controller import ScriptListLoadController
 
 # R3150：入口钮左右 padding 收 0——右 padding 再收半档图标再右移半步贴边，
@@ -38,19 +39,6 @@ from ui.writing_page_controller import ScriptListLoadController
 
 # R2998：文件名列宽不再写死——面板宽度由 0 高 sizer 驱动，按最长文件名量宽。
 SCRIPT_LIST_MIN_WIDTH = SPACING['sm'] * 23      # 沿用原固定列宽下限（184）
-
-
-def _pack_entry_buttons(panel):
-    """「项目文件」与正下方「导入文件到当前阶段目录」一起挂进最右外轨。"""
-    if not panel.button.winfo_manager():
-        panel.button.pack(side='top', fill='x', padx=SPACING['none'],
-                           pady=(SPACING['sm'], SPACING['xs']))
-    imp = getattr(panel, 'import_button', None)
-    if imp is not None and not imp.winfo_manager():
-        imp.pack(side='top', fill='x', padx=SPACING['none'],
-                 pady=(SPACING['none'], SPACING['xs']))
-
-
 SCRIPT_PANEL_MAX_SHARE = 0.5                     # 面板最多占内容区一半宽
 SCRIPT_PANEL_USER_MAX_SHARE = 0.7                # 手动拖动时面板最多占内容区 70% 宽
 SCRIPT_PANEL_DEFAULT_WIDTH = SPACING['sm'] * 38

@@ -1,0 +1,15 @@
+{
+  "round": 4659,
+  "commit_base": "123a0ba20",
+  "credential_scan": {
+    "ran": true,
+    "hits": []
+  },
+  "targeted": {
+    "cmd": "run_selftests.py -k test_module_size_ratchet",
+    "exit": 0,
+    "passed": 2,
+    "failed": 0
+  },
+  "generated_at": "2026-11-27T16:42:24"
+}
